@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "9").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "10").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's
 dependencies installed (the output is formatted with the repository root's
@@ -7,14 +7,15 @@ dependencies installed (the output is formatted with the repository root's
 
     python3 -I testdata/etna_vectors/generate.py
 
-Every ABI encoding, hash and storage slot below is computed by `cast` (`abi-encode`, `keccak`,
-`index`, `index-erc7201`, `format-bytes32-string`, `sig`, `calldata`, `wallet address`),
-independently of the Solidity contracts and of taiko-client-rs, which both read the output. The
-secp256k1 public keys come from a small pure-Python helper and are cross-checked against
-`cast wallet address`; key decompression follows appendix A and is checked against the curve
-equation. Proof-of-possession signatures come from `cast wallet sign --no-hash`, are checked with
-`cast wallet verify` and a pure-Python ecrecover, and each digest is checked against cast's own
-EIP-712 hashing (`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
+Every ABI encoding, hash and storage slot below is computed by `cast` (`abi-encode`, including
+`--packed` for extraData, `keccak`, `index`, `index-erc7201`, `format-bytes32-string`, `sig`,
+`calldata`, `wallet address`), independently of the Solidity contracts and of taiko-client-rs,
+which both read the output. The secp256k1 public keys come from a small pure-Python helper and
+are cross-checked against `cast wallet address`; key decompression follows appendix A and is
+checked against the curve equation. Proof-of-possession signatures for the L2 staking contract's
+registration digest come from `cast wallet sign --no-hash`, are checked with `cast wallet verify`
+and a pure-Python ecrecover, and each digest is checked against cast's own EIP-712 hashing
+(`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
 from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
 separate Python encoder written from appendix A, and each signature must recover to the key's
 address over keccak256 of the sign bytes and equal cast's signature of that digest. Validator states
@@ -26,10 +27,12 @@ over `cast keccak` signing hashes (EIP-7702 tuples must equal `cast wallet sign-
 classified again from its bytes, an ineligible case must break only the rule it is labelled with,
 and the written file is checked against go-ethereum v1.15.5 (`ficheck/`, run with `go run`).
 Every literal hash and byte string that the spec's appendix A vectors list is recomputed
-(`appendix_a_examples`), and generation stops if one differs. Only the inputs, the packing table
-and the storage slot numbers are written by hand, following the Etna spec's appendix A (encodings)
-and appendix B (storage layout). All integers are decimal strings so that every value survives
-JSON parsing exactly.
+(`appendix_a_examples`), and generation stops if one differs. The staking contract's block-start
+call, the missBitmap a block sets and the candidate decision (spec 3.4, 4.1-4.3) are small Python
+models written from the spec, and `test_vectors.py` decides every case again with models of its
+own. Only the inputs, the packing table and the storage slot numbers are written by hand,
+following the Etna spec's appendix A (encodings) and appendix B (storage layout). All integers
+are decimal strings so that every value survives JSON parsing exactly.
 """
 
 import base64
@@ -54,7 +57,7 @@ PRETTIER = ROOT / "node_modules" / ".bin" / "prettier"
 
 WORD_MOD = 2**256
 U48_MAX = 2**48 - 1
-NO_EXIT = U48_MAX  # exitEffectiveL1 = 2^48 - 1 means no exit is set
+NO_EXIT = U48_MAX  # exitHeight = 2^48 - 1 means no exit is set
 FI_STEP = 6  # the cut model's FI cursor advances once every FI_STEP heights
 
 # secp256k1 curve parameters (SEC 2).
@@ -68,39 +71,70 @@ SECP_G = (
 TAIKO = 10**18  # base units per TAIKO
 TAIKO_SUPPLY = 10**9 * TAIKO  # TAIKO's fixed total supply, 10^27 base units (4.3)
 MAX_TOTAL_VOTING_POWER = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower, appendix A's MAX
-MAX_COMMITTEE_SIZE = 4096  # n_max's upper bound and the number of registry slots (START-10-11)
+MAX_SIGNING_SET = 128  # the most members any set that signs a block has, whatever n_max is (4.3)
 
+
+def constant_address(prefix, suffix):
+    """The genesis predeploy address `getConstantAddress(prefix, suffix)`: the prefix's digits,
+    zeros, then the suffix's digits, forty hex digits in all."""
+    digits = str(prefix) + str(suffix).rjust(40 - len(str(prefix)), "0")
+    assert len(digits) == 40, digits
+    return "0x" + digits
+
+
+L2_CHAIN_ID = 167_001
 DEPLOYMENT = {
     "l1_chain_id": 1,
-    "l2_chain_id": 167001,
+    "l2_chain_id": L2_CHAIN_ID,
     "inbox": "0x1111111111111111111111111111111111111111",
-    "registry": "0x2222222222222222222222222222222222222222",
+    # The EtnaStaking proxy and the bridged TAIKO token: the L2 chain's genesis predeploys.
+    "staking": constant_address(L2_CHAIN_ID, 10_003),
+    "token": constant_address(L2_CHAIN_ID, 7),
     "l2_block_gas_limit": 45_000_000,
-    # The registry's immutable minStake: the registration minimum, the committee eligibility
-    # minimum (COMM-4.3-3) and the fifth word of the committee config hash (ENC-A-36, START-10-14).
-    "min_stake": 250_000 * TAIKO,
+    # The staking contract's immutables at their reference values (spec 11): the registration
+    # minimum, the power unit, the number of seats, the miss limit and the three penalty rates.
+    "min_stake": 7_812_500 * TAIKO,
+    "vp_unit": 10**9,
+    "n_max": 128,
+    "miss_limit": 3_600,
+    "miss_slash_bps": 1_000,
+    "slash_bounty_bps": 1_000,
+    "forfeit_bps": 1_000,
+    # In L2 blocks: U + 2 + the evidence window.
+    "withdrawal_delay": 302_402,
+    # U, the config hash's fourth word and the Inbox's unsettledLimit, and the evidence window.
+    "unsettled_limit": 151_200,
+    "evidence_window_blocks": 151_200,
     # A new network: the Etna start S is block 0 and the switch immutables are zero (spec 10, 11).
     "etna_start": 0,
     "unzen_inbox": "0x" + "00" * 20,
     "etna_fork_time": 0,
 }
-# Committee config hash inputs other than minStake (ENC-A-36, PARAM-11-7, PARAM-11-8).
-VP_UNIT = 10**9
-N_MAX = 128
-UNSETTLED_LIMIT = 3_600
-# START-10-10..12: vp_unit >= ceil(10^27 / MAX), minStake >= vp_unit and 4096 * minStake > 10^27,
-# 1 <= n_max <= 4096 and 1 <= U <= 65,536.
-assert VP_UNIT >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER) == 867_361_738
-assert DEPLOYMENT["min_stake"] >= VP_UNIT
-assert MAX_COMMITTEE_SIZE * DEPLOYMENT["min_stake"] > TAIKO_SUPPLY
-assert 1 <= N_MAX <= MAX_COMMITTEE_SIZE and 1 <= UNSETTLED_LIMIT <= 65_536
+assert DEPLOYMENT["staking"] == "0x1670010000000000000000000000000000010003"
+assert DEPLOYMENT["token"] == "0x1670010000000000000000000000000000000007"
+# The staking contract's bounds (spec 11): vp_unit is at least ceil(10^27 / MaxTotalVotingPower);
+# minStake is at least vp_unit, and n_max seats at minStake hold at least 10^27 base units;
+# 1 <= n_max <= 128 and 1 <= missLimit <= 65,535; missSlashBps and forfeitBps are in (0, 10,000]
+# and slashBountyBps is below 10,000; 1 <= U <= 262,144; withdrawalDelay is at least U + 2 + the
+# evidence window and below 2^48.
+assert DEPLOYMENT["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER) == 867_361_738
+assert DEPLOYMENT["min_stake"] >= DEPLOYMENT["vp_unit"]
+assert DEPLOYMENT["n_max"] * DEPLOYMENT["min_stake"] >= TAIKO_SUPPLY
+assert 1 <= DEPLOYMENT["n_max"] <= 128 and 1 <= DEPLOYMENT["miss_limit"] <= 65_535
+assert 0 < DEPLOYMENT["miss_slash_bps"] <= 10_000 and 0 < DEPLOYMENT["forfeit_bps"] <= 10_000
+assert DEPLOYMENT["slash_bounty_bps"] < 10_000 and 1 <= DEPLOYMENT["unsettled_limit"] <= 262_144
+assert (
+    DEPLOYMENT["unsettled_limit"] + 2 + DEPLOYMENT["evidence_window_blocks"]
+    <= DEPLOYMENT["withdrawal_delay"]
+    < 2**48
+)
 OTHER_INBOX = "0x3333333333333333333333333333333333333333"
 
 # Registration (spec 4.1, appendix A): EIP-712 domain and type, and the two registering owners.
 EIP712_DOMAIN_TYPE = (
     "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
 )
-EIP712_NAME = "EtnaStakingRegistry"
+EIP712_NAME = "EtnaStaking"
 EIP712_VERSION = "1"
 REGISTER_TYPE = "Register(address owner)"
 OWNERS = ("0x" + "aa" * 20, "0x" + "bb" * 20)
@@ -141,12 +175,13 @@ def dec(value):
 
 
 def decimals(value):
-    """`value` with every integer, at any depth, as a decimal string (booleans stay booleans)."""
+    """`value` with every integer, at any depth, as a decimal string (booleans stay booleans and
+    `None` stays null)."""
     if isinstance(value, dict):
         return {k: decimals(v) for k, v in value.items()}
     if isinstance(value, list):
         return [decimals(v) for v in value]
-    if isinstance(value, (bool, str)):
+    if value is None or isinstance(value, (bool, str)):
         return value
     return dec(value)
 
@@ -359,7 +394,7 @@ def keccak_text(text):
 
 
 @functools.cache
-def register_digest(chain_id, registry, owner):
+def register_digest(chain_id, verifying_contract, owner):
     """`(domainSeparator, structHash, digest)` of the EIP-712 `Register(address owner)` message."""
     domain_separator = keccak(
         abi_encode(
@@ -368,14 +403,14 @@ def register_digest(chain_id, registry, owner):
             keccak_text(EIP712_NAME),
             keccak_text(EIP712_VERSION),
             chain_id,
-            registry,
+            verifying_contract,
         )
     )
     struct_hash = keccak(abi_encode("f(bytes32,address)", keccak_text(REGISTER_TYPE), owner))
     return domain_separator, struct_hash, keccak(concat("0x1901", domain_separator, struct_hash))
 
 
-def typed_data(chain_id, registry, owner):
+def typed_data(chain_id, verifying_contract, owner):
     """The same message as EIP-712 typed data, for cast's own hashing."""
     return json.dumps(
         {
@@ -393,7 +428,7 @@ def typed_data(chain_id, registry, owner):
                 "name": EIP712_NAME,
                 "version": EIP712_VERSION,
                 "chainId": chain_id,
-                "verifyingContract": registry,
+                "verifyingContract": verifying_contract,
             },
             "message": {"owner": owner},
         }
@@ -411,17 +446,18 @@ def join_sig(r, s, v):
     return "0x" + r.to_bytes(32, "big").hex() + s.to_bytes(32, "big").hex() + bytes([v]).hex()
 
 
-def sign_registration(key, chain_id, registry, owner):
-    """A PoP by `key` for `register_digest(chain_id, registry, owner)`, checked three ways.
+def sign_registration(key, chain_id, verifying_contract, owner):
+    """A PoP by `key` for `register_digest(chain_id, verifying_contract, owner)`, checked three
+    ways.
 
     `cast wallet sign --no-hash` signs the digest (RFC 6979, low s); V is rewritten from 27/28 to
     0/1. The signature must equal cast's EIP-712 signature of the same typed data (so the digest is
     cast's EIP-712 hash), pass `cast wallet verify`, and recover to `ck_addr` in pure Python.
     """
-    domain_separator, struct_hash, digest = register_digest(chain_id, registry, owner)
+    domain_separator, struct_hash, digest = register_digest(chain_id, verifying_contract, owner)
     private_key = key["private_key"]
     signed = cast("wallet", "sign", "--no-hash", "--private-key", private_key, digest)
-    typed = typed_data(chain_id, registry, owner)
+    typed = typed_data(chain_id, verifying_contract, owner)
     assert signed == cast("wallet", "sign", "--data", typed, "--private-key", private_key)
     subprocess.run(
         ["cast", "wallet", "verify", "--no-hash", "--address", key["ck_addr"], digest, signed],
@@ -440,17 +476,17 @@ def sign_registration(key, chain_id, registry, owner):
 
 
 def register_digests(key_list):
-    """Every key's PoP for both owners at the deployment registry on the deployment L1 chain."""
-    chain_id, registry = DEPLOYMENT["l1_chain_id"], DEPLOYMENT["registry"]
+    """Every key's PoP for both owners at the deployment's staking contract on the L2 chain."""
+    chain_id, staking = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["staking"]
     out = []
     for key in key_list:
         for owner in OWNERS:
-            signed = sign_registration(key, chain_id, registry, owner)
+            signed = sign_registration(key, chain_id, staking, owner)
             out.append(
                 {
                     "name": f"{key['name']}_owner_{owner[-2:]}",
-                    "l1_chain_id": chain_id,
-                    "registry": registry,
+                    "l2_chain_id": chain_id,
+                    "staking": staking,
                     "owner": owner,
                     "key": key["public_key"],
                     **signed,
@@ -460,7 +496,8 @@ def register_digests(key_list):
 
 
 def pop_accepted(public_key, owner, pop_sig):
-    """Spec 4.1 at the deployment registry: does a registration by `owner` accept this PoP?"""
+    """Spec 4.1 at the deployment's staking contract: does a registration by `owner` accept
+    this PoP?"""
     decoded = decompress(bytes.fromhex(public_key[2:]))
     raw = bytes.fromhex(pop_sig[2:])
     if decoded is None or len(raw) != 65:
@@ -468,17 +505,18 @@ def pop_accepted(public_key, owner, pop_sig):
     r, s, v = split_sig(pop_sig)
     if v not in (0, 1) or not 0 < r < SECP_N or not 0 < s <= SECP_N // 2:
         return False
-    _, _, digest = register_digest(DEPLOYMENT["l1_chain_id"], DEPLOYMENT["registry"], owner)
+    _, _, digest = register_digest(DEPLOYMENT["l2_chain_id"], DEPLOYMENT["staking"], owner)
     signer = ecrecover(digest, r, s, v)
     return signer is not None and signer == address_of(*decoded)
 
 
 def pop_rejections(key_list, digests):
-    """PoPs that a registration by `owner` at the deployment registry rejects; every key decodes.
+    """PoPs that a registration by `owner` at the deployment's staking contract rejects; every key
+    decodes.
 
     The malformed signatures derive from one valid PoP whose V is 0 (so `v_27` is that signature in
     the 27/28 form and `length_64` is also its EIP-2098 compact form). The binding cases are
-    well-formed signatures for another owner, key, chain id (the L2 chain id) or verifying contract
+    well-formed signatures for another owner, key, chain id (the L1 chain id) or verifying contract
     (the Inbox), or for the point with the same X and the other parity.
     """
     base = next(c for c in digests if c["owner"] == OWNERS[0] and c["pop_sig"].endswith("00"))
@@ -490,8 +528,8 @@ def pop_rejections(key_list, digests):
     digest = base["digest"]
     flipped = "0x" + bytes([bytes.fromhex(public_key[2:4])[0] ^ 1]).hex() + public_key[4:]
     unrecoverable_r = smallest_off_curve_x()
-    wrong_chain = sign_registration(key, DEPLOYMENT["l2_chain_id"], DEPLOYMENT["registry"], owner)
-    wrong_registry = sign_registration(key, DEPLOYMENT["l1_chain_id"], DEPLOYMENT["inbox"], owner)
+    wrong_chain = sign_registration(key, DEPLOYMENT["l1_chain_id"], DEPLOYMENT["staking"], owner)
+    wrong_registry = sign_registration(key, DEPLOYMENT["l2_chain_id"], DEPLOYMENT["inbox"], owner)
     assert digest not in (wrong_chain["digest"], wrong_registry["digest"])
     # The malleated twin is a valid ECDSA signature of the same key; only the low-s rule rejects it.
     assert ecrecover(digest, r, SECP_N - s, 1 - v) == key["ck_addr"]
@@ -529,385 +567,72 @@ def pop_rejections(key_list, digests):
     return out
 
 
-# --- committee configuration, registry entries, committee sets -----------------------------------
+# --- configuration and fallback keys ------------------------------------------------------------
+
+CONFIG_SIGNATURE = "f(bytes32,uint256,address,uint256)"
+FALLBACK_KEYS_SIGNATURE = "f(bytes32,(uint8,bytes32)[])"
+# The L2 chain id of the spec's config hash example.
+APPENDIX_MAINNET_CHAIN_ID = 167000
 
 
-def committee_config():
-    """`committeeConfigHash`: seven static words (224 bytes); the fifth is the registry's
-    minStake."""
-    inputs = {
-        "tag": "ETNA_PARENT_ANCHOR_V1",
-        "l2_chain_id": DEPLOYMENT["l2_chain_id"],
-        "registry": DEPLOYMENT["registry"],
-        "vp_unit": VP_UNIT,
-        "min_stake": DEPLOYMENT["min_stake"],
-        "n_max": N_MAX,
-        "unsettled_limit": UNSETTLED_LIMIT,
-    }
+def config_preimage(l2_chain_id, staking, unsettled_limit):
+    """The config hash's preimage: four static words (128 bytes), the bytes32 tag, the L2 chain
+    id, the EtnaStaking proxy and U."""
     preimage = abi_encode(
-        "f(bytes32,uint256,address,uint256,uint256,uint256,uint256)",
-        tag(inputs["tag"]),
-        inputs["l2_chain_id"],
-        inputs["registry"],
-        inputs["vp_unit"],
-        inputs["min_stake"],
-        inputs["n_max"],
-        inputs["unsettled_limit"],
+        CONFIG_SIGNATURE, tag("ETNA_CONFIG_V1"), l2_chain_id, staking, unsettled_limit
     )
-    assert len(preimage) == 2 + 2 * 224
+    assert len(preimage) == 2 + 2 * 128
+    return preimage
+
+
+def config():
+    """`configHash` (Inbox slot 269) of the deployment."""
+    inputs = {
+        "tag": "ETNA_CONFIG_V1",
+        "l2_chain_id": DEPLOYMENT["l2_chain_id"],
+        "staking": DEPLOYMENT["staking"],
+        "unsettled_limit": DEPLOYMENT["unsettled_limit"],
+    }
+    preimage = config_preimage(
+        inputs["l2_chain_id"], inputs["staking"], inputs["unsettled_limit"]
+    )
     return {"inputs": decimals(inputs), "preimage": preimage, "hash": keccak(preimage)}
 
 
-ENTRY_FIELDS = ("ck_prefix", "ck_x", "eff_stake", "active_from_l1", "exit_effective_l1")
-# An empty slot's entry: all-zero fields (ENC-A-20), which still give a nonzero leaf.
-ZERO_ENTRY = {"ck_prefix": 0, "ck_x": word(0), "eff_stake": 0, "active_from_l1": 0,
-              "exit_effective_l1": 0}
-REG_LEAF_SIGNATURE = "f(bytes32,uint256,uint256,bytes32,uint256,uint256,uint256)"
+def fallback_key(k):
+    """The fallback key `(ckPrefix, ckX)` of the compressed public key of private key k."""
+    x, y = point(k)
+    return 2 + (y & 1), word(x)
 
 
-@functools.cache
-def _reg_leaf(index, ck_prefix, ck_x, eff_stake, active_from_l1, exit_effective_l1):
+# The spec's fallback key examples: K1 and K2, the keys of private keys 1 and 2. Both prefixes
+# are 0x02, so [K1, K2] is in ascending order of the 33-byte value ckPrefix || ckX.
+K1, K2 = fallback_key(1), fallback_key(2)
+assert K1 == (2, "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+assert K2 == (2, "0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")
+
+
+def fallback_keys_arg(keys):
+    """A FallbackKey[] as one `cast` argument."""
+    return "[" + ",".join(f"({prefix},{x})" for prefix, x in keys) + "]"
+
+
+def fallback_keys_json(keys):
+    return [{"ck_prefix": prefix, "ck_x": x} for prefix, x in keys]
+
+
+def fallback_keys_preimage(keys):
+    """fallbackKeysHash's preimage: the bytes32 tag and the array offset, then the length and two
+    words (ckPrefix, ckX) per key; n keys take 3 + 2n words."""
     preimage = abi_encode(
-        REG_LEAF_SIGNATURE,
-        tag("ETNA_REG_ENTRY_V1"),
-        index,
-        ck_prefix,
-        ck_x,
-        eff_stake,
-        active_from_l1,
-        exit_effective_l1,
+        FALLBACK_KEYS_SIGNATURE, tag("ETNA_FALLBACK_KEYS_V1"), fallback_keys_arg(keys)
     )
-    assert len(preimage) == 2 + 2 * 224
-    return preimage, keccak(preimage)
-
-
-def reg_leaf_preimage(index, entry):
-    """`regLeaf(j)`'s 224-byte preimage: seven words (ENC-A-37)."""
-    return _reg_leaf(index, *(entry[f] for f in ENTRY_FIELDS))[0]
-
-
-def reg_leaf(index, entry):
-    """`regLeaf(j)`, indexed by the slot number j (ENC-A-37)."""
-    return _reg_leaf(index, *(entry[f] for f in ENTRY_FIELDS))[1]
-
-
-def node(left, right):
-    """An entriesRoot inner node: keccak256(left || right), plain concatenation (ENC-A-5)."""
-    return keccak(concat(left, right))
-
-
-def entries_root(leaves):
-    """ENC-A-38: leaves right-padded with bytes32(0) to the smallest power of two >= count, inner
-    nodes keccak256(left || right); one leaf is its own root and none gives 0."""
-    if not leaves:
-        return word(0)
-    width = 1
-    while width < len(leaves):
-        width *= 2
-    level = leaves + [word(0)] * (width - len(leaves))
-    while len(level) > 1:
-        level = [node(level[j], level[j + 1]) for j in range(0, len(level), 2)]
-    return level[0]
-
-
-def registry_state(slots):
-    """The registry's checkpoint view of `slots`, slot j holding entry `slots[j]` (None: empty).
-
-    count is 0 when every slot is empty and otherwise 1 + the highest occupied slot, occupied slots
-    with zero balance included (STAKE-4.1-36), so a nonempty list ends in an occupied slot
-    (COMM-4.3-2). Each slot below count is listed, an empty one with all-zero fields, and has the
-    slot-indexed leaf that entriesRoot hashes (ENC-A-38).
-    """
-    occupied = [j for j, entry in enumerate(slots) if entry is not None]
-    count = occupied[-1] + 1 if occupied else 0
-    assert count == len(slots) <= MAX_COMMITTEE_SIZE, "a nonempty list ends in an occupied slot"
-    items, leaves = [], []
-    for j, entry in enumerate(slots):
-        fields = ZERO_ENTRY if entry is None else entry
-        assert entry is None or (entry["ck_prefix"] in (2, 3) and entry != ZERO_ENTRY), j
-        items.append({"slot": j, "occupied": entry is not None,
-                      **{f: fields[f] for f in ENTRY_FIELDS}})
-        leaves.append(reg_leaf(j, fields))
-    return {"count": count, "slots": items, "leaves": leaves, "entries_root": entries_root(leaves)}
-
-
-def registry_entry(i, key):
-    """Entry i: (i + 1)·minStake, active from L1 block 10 + i, and an exit at 1000 + i for odd i
-    (none, 2^48 - 1, for even i). Every entry is eligible at snapshot 100 (COMM-4.3-3)."""
-    return {
-        "ck_prefix": int(key["ck_prefix"]),
-        "ck_x": key["ck_x"],
-        "eff_stake": (i + 1) * DEPLOYMENT["min_stake"],
-        "active_from_l1": 10 + i,
-        "exit_effective_l1": 1000 + i if i % 2 == 1 else NO_EXIT,
-    }
-
-
-# The checkpoint history of a three-slot registry: name, L1 block, vectors, the change that block
-# makes, and the slot contents after it (indexes into the entries, "slashed" for entry 2 after a
-# double-sign slash empties it, None for an empty slot). Entry i registered at block i with an
-# activation delay of 10; entry 1's exit is at 1001. Bond 0's later exit request, which also
-# writes a checkpoint, is not listed.
-SLASH_BLOCK = 3_000
-CHECKPOINT_HISTORY = (
-    (
-        "three_bonds",
-        2,
-        [],
-        "bond 2 registers into slot 2 beside bonds 0 and 1 in slots 0 and 1",
-        (0, 1, 2),
-    ),
-    (
-        "slot_1_withdrawn",
-        2_000,
-        ["ENC-A-38 38.h", "COMM-4.3-2 2.d"],
-        "bond 1 withdraws from slot 1; slot 2 is still occupied, so count stays 3 and slot 1 is an "
-        "all-zero entry",
-        (0, None, 2),
-    ),
-    (
-        "slot_2_zero_balance",
-        SLASH_BLOCK,
-        ["STAKE-4.1-36 36.f"],
-        "double-sign slashing empties bond 2 in slot 2 (effStake 0, exitEffectiveL1 3000); the "
-        "occupied zero-balance slot still counts",
-        (0, None, "slashed"),
-    ),
-    (
-        "slot_2_withdrawn",
-        4_000,
-        ["STAKE-4.1-36 36.g"],
-        "bond 2 withdraws from slot 2: count shrinks to 1",
-        (0,),
-    ),
-    (
-        "slot_0_withdrawn",
-        5_000,
-        ["STAKE-4.1-36 36.g"],
-        "bond 0 withdraws from slot 0 in a later block: every slot is empty, count and root are 0",
-        (),
-    ),
-)
-
-
-def checkpoint_history(entries):
-    """Registry checkpoints (l1Block, count, entriesRoot) after each change of CHECKPOINT_HISTORY.
-    Earlier checkpoints keep their own count and root (STAKE-4.1-36). The 38.h state also lists
-    the wrong roots of ENC-A-38 38.i and COMM-4.3-2 2.e."""
-    slashed = {**entries[2], "eff_stake": 0,
-               "exit_effective_l1": min(entries[2]["exit_effective_l1"], SLASH_BLOCK)}
-    assert all(e["active_from_l1"] == i + 10 for i, e in enumerate(entries))
-    out = []
-    for name, l1_block, vectors, change, contents in CHECKPOINT_HISTORY:
-        slots = [None if c is None else slashed if c == "slashed" else entries[c] for c in contents]
-        state = registry_state(slots)
-        item = {
-            "name": name,
-            "vectors": vectors,
-            "l1_block": l1_block,
-            "change": change,
-            **state,
-            "checkpoint_word1": pack(PACKED["registry_checkpoint_word1"][2],
-                                     (l1_block, state["count"])),
-        }
-        if name == "slot_1_withdrawn":
-            l0, z1, l2 = state["leaves"]
-            p = word(0)
-            assert z1 == reg_leaf(1, ZERO_ENTRY) != p
-            assert state["entries_root"] == node(node(l0, z1), node(l2, p))
-            wrong = {
-                # 38.i: a zero word instead of Z1, or the zero-field leaf of slot 3 instead of P.
-                "zero_word_for_empty_slot": node(node(l0, p), node(l2, p)),
-                "zero_entry_padding": node(node(l0, z1), node(l2, reg_leaf(3, ZERO_ENTRY))),
-                # 38.i: slot 2 compacted to slot 1; 2.e: slot 1 omitted (slot 2 keeps its leaf).
-                "compacted": entries_root([l0, reg_leaf(1, entries[2])]),
-                "omitted_empty_slot": entries_root([l0, l2]),
-            }
-            assert len(set(wrong.values()) | {state["entries_root"]}) == len(wrong) + 1
-            item["wrong_roots"] = wrong
-        out.append(item)
-    assert [c["count"] for c in out] == [3, 3, 3, 1, 0]
-    assert out[3]["entries_root"] == out[0]["leaves"][0] and out[4]["entries_root"] == word(0)
-    return out
-
-
-def registry_entries(key_list):
-    """Entries in slots 0..4 from keys a1..a5, their leaves, the leaf of an empty slot, the root of
-    every fully occupied prefix, a checkpoint history with an interior empty slot, and leaves of
-    bonds whose id differs from their slot.
-
-    `regLeaf` is indexed by the slot, never the bond id (appendix A): `bond_slots` pins bond 4096
-    taking slot 7 (ENC-A-37 37.e) and bond 2 taking slot 0 (37.g), each the lowest empty slot
-    after its holder's withdrawal, with the leaf a bond-id index would give as `bond_id_leaf`.
-    """
-    entries = [registry_entry(i, key) for i, key in enumerate(key_list[:5])]
-    leaves = [reg_leaf(i, entry) for i, entry in enumerate(entries)]
-    roots = [
-        {"count": n, "entries_root": registry_state(entries[:n])["entries_root"]}
-        for n in range(len(entries) + 1)
-    ]
-    assert roots[1]["entries_root"] == leaves[0]
-
-    key = key_list[5]
-    bond_entry = {
-        "ck_prefix": int(key["ck_prefix"]),
-        "ck_x": key["ck_x"],
-        "eff_stake": DEPLOYMENT["min_stake"],
-        "active_from_l1": 15,
-        "exit_effective_l1": NO_EXIT,
-    }
-    # Slots 5 and 6 of the 37.e registry hold entries 5 and 6 from keys 0xA6 and 0xA7.
-    extra = [registry_entry(i, consensus_key(f"a{i + 1}", 0xA1 + i)) for i in (5, 6)]
-    bond_slots = []
-    for name, bond_id, slot, vector, description, slots in (
-        (
-            "full_registry_reuse",
-            4096,
-            7,
-            "ENC-A-37 37.e",
-            "bonds 0 to 4095 have been issued; slots 0 to 6 are held, every slot above 7 is empty "
-            "and slot 7's bond has withdrawn; the next registration creates bond 4096 in slot 7",
-            entries + extra + [bond_entry],
-        ),
-        (
-            "withdrawal_reuse",
-            2,
-            0,
-            "ENC-A-37 37.g",
-            "bonds 0 and 1 held slots 0 and 1; bond 0 has withdrawn; the next registration "
-            "creates bond 2 in slot 0",
-            [bond_entry, entries[1]],
-        ),
-    ):
-        leaf, bond_id_leaf = reg_leaf(slot, bond_entry), reg_leaf(bond_id, bond_entry)
-        assert leaf != bond_id_leaf
-        state = registry_state(slots)
-        assert state["leaves"][slot] == leaf and state["count"] == len(slots)
-        bond_slots.append(
-            {
-                "name": name,
-                "vector": vector,
-                "description": description,
-                "bond_id": bond_id,
-                "slot": slot,
-                "entry": bond_entry,
-                "leaf": leaf,
-                "bond_id_leaf": bond_id_leaf,
-                **state,
-            }
-        )
-    return decimals(
-        {
-            "entries": entries,
-            "leaves": leaves,
-            "empty_slot": {"slot": 1, "leaf": reg_leaf(1, ZERO_ENTRY)},
-            "roots": roots,
-            "checkpoints": checkpoint_history(entries),
-            "bond_slots": bond_slots,
-        }
-    )
-
-
-SET_HASH_SIGNATURE = "f(bytes32,uint256,uint256,(uint8,bytes32,uint256,uint64)[])"
-RECORD_SIGNATURE = "f(bytes32,uint256,uint256,uint256,uint256,bytes32,uint256)"
-
-
-@functools.cache
-def set_key(chain_id, ck_prefix, ck_x):
-    """`setKey(ck)`: four words (ENC-A-39)."""
-    return keccak(abi_encode("f(bytes32,uint256,uint256,bytes32)", tag("ETNA_SET_KEY_V1"),
-                             chain_id, ck_prefix, ck_x))
-
-
-def set_hash_preimage(chain_id, k, members):
-    """`setHash`'s preimage (ENC-A-39a): four head words (tag, l2ChainId, k, offset 128), then the
-    array length and four words per `SetMember(ckPrefix, ckX, effStake, assignedPower)`."""
-    array = "[" + ",".join(
-        f"({m['ck_prefix']},{m['ck_x']},{m['eff_stake']},{m['power']})" for m in members
-    ) + "]"
-    preimage = abi_encode(SET_HASH_SIGNATURE, tag("ETNA_SET_V1"), chain_id, k, array)
-    assert len(preimage) == 2 + 2 * 32 * (5 + 4 * len(members))
+    assert len(preimage) == 2 + 2 * 32 * (3 + 2 * len(keys))
     return preimage
 
 
-def record_preimage(chain_id, target_epoch, cutoff, checkpoint, set_hash, total_power):
-    """`CommitteeRecord`'s preimage: seven words (ENC-A-42)."""
-    preimage = abi_encode(RECORD_SIGNATURE, tag("ETNA_COMMITTEE_V1"), chain_id, target_epoch,
-                          cutoff, checkpoint, set_hash, total_power)
-    assert len(preimage) == 2 + 2 * 224
-    return preimage
-
-
-def select_committee(entries, snapshot, chain_id):
-    """Spec 4.3 steps 2-4 over a registry snapshot: eligible entries (activeFromL1 <= snapshot <
-    exitEffectiveL1, effStake >= minStake), the first n_max by descending effStake then ascending
-    set key, encoded in ascending set-key order with assignedPower = floor(effStake / vp_unit)."""
-    eligible = [
-        e for e in entries
-        if e is not None and e["active_from_l1"] <= snapshot < e["exit_effective_l1"]
-        and e["eff_stake"] >= DEPLOYMENT["min_stake"]
-    ]
-    keyed = [(e, int(set_key(chain_id, e["ck_prefix"], e["ck_x"]), 16)) for e in eligible]
-    assert len({k for _, k in keyed}) == len(keyed)  # lifetime-unique keys (COMM-4.3-4)
-    chosen = sorted(keyed, key=lambda item: (-item[0]["eff_stake"], item[1]))[:N_MAX]
-    members = []
-    for entry, key in sorted(chosen, key=lambda item: item[1]):
-        power = entry["eff_stake"] // VP_UNIT
-        assert 0 < power < 2**64
-        members.append({
-            "ck_prefix": entry["ck_prefix"],
-            "ck_x": entry["ck_x"],
-            "eff_stake": entry["eff_stake"],
-            "power": power,
-            "set_key": word(key),
-        })
-    assert sum(m["power"] for m in members) <= MAX_TOTAL_VOTING_POWER
-    return members
-
-
-def committee_sets(entries):
-    """Committees selected from registries holding the first 0, 1, 3 and 5 entries, at snapshot
-    100 (spec 4.3), per appendix A.
-
-    Members are in ascending set-key order; one setHash with `k = targetEpoch + 1` commits the
-    whole set. Spec 4.3 rejects an empty committee, so the 0-member case carries no hash or record.
-    """
-    chain_id = DEPLOYMENT["l2_chain_id"]
-    entries = [{f: e[f] if f == "ck_x" else int(e[f]) for f in ENTRY_FIELDS} for e in entries]
-    target_epoch, cutoff, checkpoint = 7, 100, 3
-    k = target_epoch + 1
-    # Selection applies the registry minimum: one base unit below it is ineligible (COMM-4.3-3).
-    below = {**entries[0], "eff_stake": DEPLOYMENT["min_stake"] - 1}
-    assert select_committee([below], cutoff, chain_id) == []
-    cases = []
-    for count in (0, 1, 3, 5):
-        members = select_committee(entries[:count], cutoff, chain_id)
-        assert sorted(m["ck_x"] for m in members) == sorted(e["ck_x"] for e in entries[:count])
-        if count == 0:
-            assert members == []
-            cases.append({"members": [], "valid": False, "reason": "empty_committee"})
-            continue
-        set_preimage = set_hash_preimage(chain_id, k, members)
-        set_hash = keccak(set_preimage)
-        total_power = sum(member["power"] for member in members)
-        record = record_preimage(chain_id, target_epoch, cutoff, checkpoint, set_hash, total_power)
-        cases.append(
-            {
-                "valid": True,
-                "l2_chain_id": chain_id,
-                "target_epoch": target_epoch,
-                "set_version": k,
-                "cutoff_l1_block": cutoff,
-                "checkpoint_index": checkpoint,
-                "members": members,
-                "set_hash_preimage": set_preimage,
-                "set_hash": set_hash,
-                "total_power": total_power,
-                "record_preimage": record,
-                "record_hash": keccak(record),
-            }
-        )
-    return decimals(cases)
+def fallback_keys_hash(keys):
+    return keccak(fallback_keys_preimage(keys))
 
 
 # --- cuts, statements, land ABI ------------------------------------------------------------------
@@ -1065,8 +790,8 @@ def cut_hash_for(cut_vectors, generation, p, h):
 
 
 STATEMENT_SIGNATURE = (
-    "f(bytes32,uint256,uint256,address,address,uint256,uint256,bytes32,bytes32,bytes32,uint256,"
-    "bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,uint256,bytes32)"
+    "f(bytes32,uint256,uint256,address,uint256,uint256,bytes32,bytes32,bytes32,uint256,"
+    "bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,bytes32)"
 )
 STATEMENT_CASES = (
     # name, generation, p, h, FI head before (at p), FI head after (at h)
@@ -1076,7 +801,9 @@ STATEMENT_CASES = (
 
 
 def land_statements(config, cut_vectors):
-    """Twenty-one static words (672 bytes); origin and terminal values follow `cut_at`."""
+    """Nineteen static words (608 bytes): the tag, the deployment's chain ids and Inbox, the
+    proof origin, the config hash, the terminal values, the L1 reference, the blob hashes, both
+    forced inclusion heads and the cut hash. Origin and terminal values follow `cut_at`."""
     out = []
     for name, generation, p, h, head_before, head_after in STATEMENT_CASES:
         origin, last = cut_at(p), cut_at(h)
@@ -1086,12 +813,11 @@ def land_statements(config, cut_vectors):
             "l1_chain_id": DEPLOYMENT["l1_chain_id"],
             "l2_chain_id": DEPLOYMENT["l2_chain_id"],
             "inbox": DEPLOYMENT["inbox"],
-            "registry": DEPLOYMENT["registry"],
             "generation": generation,
             "parent_height": p,
             "parent_hash": origin["block_hash"],
             "parent_comet_hash": origin["comet_hash"],
-            "committee_config_hash": config["hash"],
+            "config_hash": config["hash"],
             "last_height": h,
             "last_block_hash": last["block_hash"],
             "last_comet_hash": last["comet_hash"],
@@ -1101,7 +827,6 @@ def land_statements(config, cut_vectors):
             "blob_hashes": ["0x01" + "aa" * 31, "0x01" + "bb" * 31],
             "forced_inclusion_head_before": head_before,
             "forced_inclusion_head_after": head_after,
-            "active_committee_snapshot": 18_999_000,
             "cut_hash": cut_hash_for(cut_vectors, generation, p, h),
         }
         blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
@@ -1111,12 +836,11 @@ def land_statements(config, cut_vectors):
             inputs["l1_chain_id"],
             inputs["l2_chain_id"],
             inputs["inbox"],
-            inputs["registry"],
             inputs["generation"],
             inputs["parent_height"],
             inputs["parent_hash"],
             inputs["parent_comet_hash"],
-            inputs["committee_config_hash"],
+            inputs["config_hash"],
             inputs["last_height"],
             inputs["last_block_hash"],
             inputs["last_comet_hash"],
@@ -1126,10 +850,9 @@ def land_statements(config, cut_vectors):
             blob_hashes_hash,
             inputs["forced_inclusion_head_before"],
             inputs["forced_inclusion_head_after"],
-            inputs["active_committee_snapshot"],
             inputs["cut_hash"],
         )
-        assert len(preimage) == 2 + 2 * 672
+        assert len(preimage) == 2 + 2 * 608
         out.append(
             {
                 "name": name,
@@ -1143,12 +866,13 @@ def land_statements(config, cut_vectors):
 
 
 LAND_SIGNATURE = (
-    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
+    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
 )
 
 
 def land_abi(statements):
-    """Calldata of `land(input, leaves, proof)` for the `nonzero` statement (p 6, h 18)."""
+    """Calldata of `land(input, leaves, proof)` for the `nonzero` statement (p 6, h 18), whose
+    input has seven fields."""
     (statement,) = [s for s in statements if s["name"] == "nonzero"]
     inputs = statement["inputs"]
     p, h = int(inputs["parent_height"]), int(inputs["last_height"])
@@ -1163,12 +887,13 @@ def land_abi(statements):
             inputs["last_state_root"],
             inputs["l1_reference_block_number"],
             inputs["forced_inclusion_head_after"],
-            inputs["active_committee_snapshot"],
         ]
     ) + ")"
+    selector = cast("sig", LAND_SIGNATURE)
+    assert selector == "0x5185fd7a", selector
     return {
         "signature": LAND_SIGNATURE,
-        "selector": cast("sig", LAND_SIGNATURE),
+        "selector": selector,
         "statement": "nonzero",
         "leaves": leaves,
         "proof": proof,
@@ -1213,15 +938,58 @@ def chain_domains():
     return decimals(out)
 
 
+ON_BLOCK_START = "onBlockStart(uint48,uint128)"
+# generation, anchorNumber, missBitmap: all zero, the spec's mixed example, every field at its
+# maximum, and seat 0 and seat 127 alone.
+EXTRA_DATA_CASES = (
+    (0, 0, 0),
+    (1, 258, 2**127 + 1),
+    (U48_MAX, U48_MAX, 2**128 - 1),
+    (5, 7, 1),
+    (5, 7, 2**127),
+)
+
+
+def encode_extra_data(generation, anchor_number, miss_bitmap):
+    """extraData = 0x64 || uint48_be(generation) || uint48_be(anchorNumber) ||
+    uint128_be(missBitmap): 29 bytes, `cast abi-encode --packed`, checked against a direct
+    big-endian layout. Seat s is bit s of missBitmap, so seat 0 is the low bit of the last byte."""
+    packed = cast(
+        "abi-encode", "--packed", "f(uint8,uint48,uint48,uint128)", 0x64, generation,
+        anchor_number, miss_bitmap,
+    )
+    direct = (
+        bytes([0x64])
+        + generation.to_bytes(6, "big")
+        + anchor_number.to_bytes(6, "big")
+        + miss_bitmap.to_bytes(16, "big")
+    )
+    assert packed == "0x" + direct.hex(), (generation, anchor_number, miss_bitmap)
+    return packed
+
+
+def on_block_start_calldata(generation, miss_bitmap):
+    """The block-start call with a block's own generation and missBitmap: the selector, then one
+    standard ABI word for each, 68 bytes with nothing after them."""
+    calldata = cast("calldata", ON_BLOCK_START, generation, miss_bitmap)
+    assert calldata == (
+        cast("sig", ON_BLOCK_START) + format(generation, "064x") + format(miss_bitmap, "064x")
+    )
+    assert len(calldata) == 2 + 2 * 68
+    return calldata
+
+
 def extra_data():
-    """extraData = 0x64 || uint48_be(generation) || uint48_be(anchorNumber): 13 bytes."""
+    """Each case's 29-byte extraData and the block-start calldata it implies."""
     out = []
-    for generation, anchor_number in ((0, 0), (5, 7), (U48_MAX, U48_MAX)):
+    for generation, anchor_number, miss_bitmap in EXTRA_DATA_CASES:
         out.append(
             {
                 "generation": generation,
                 "anchor_number": anchor_number,
-                "extra_data": "0x64" + format(generation, "012x") + format(anchor_number, "012x"),
+                "miss_bitmap": miss_bitmap,
+                "extra_data": encode_extra_data(generation, anchor_number, miss_bitmap),
+                "on_block_start_calldata": on_block_start_calldata(generation, miss_bitmap),
             }
         )
     return decimals(out)
@@ -1302,7 +1070,8 @@ VOTE_OVERRIDES = {
     "precommit_a_backdated": {"time": (-1, 0)},
     "precommit_b_backdated": {"time": (-1, 0)},
 }
-# name, vote a, vote b, the Inbox's current generation, reason ("double_sign" when slashable).
+# name, vote a, vote b, the generation onBlockStart last stored, reason ("double_sign" when
+# slashable).
 VOTE_PAIRS = (
     ("precommit_conflict", "precommit_a", "precommit_b", 0, "double_sign"),
     ("precommit_vs_nil", "precommit_a", "precommit_nil", 0, "double_sign"),
@@ -1459,8 +1228,9 @@ def block_id_of(vote):
 def double_sign_failure(key, chain_ids, a, b, current_generation):
     """Spec 4.1 `slashDoubleSign` checks at this deployment: the first one the pair fails, or None.
 
-    Sign bytes are rebuilt from the deployment's own Inbox and the votes' shared generation, so a
-    vote signed for another deployment fails the signature check.
+    A generation above the one onBlockStart last stored (`current_generation`) is a future
+    generation. Sign bytes are rebuilt from the deployment's own Inbox and the votes' shared
+    generation, so a vote signed for another deployment fails the signature check.
     """
     va, vb = a["vote"], b["vote"]
     for rule, field in (
@@ -1549,7 +1319,8 @@ def votes(key_list, domains):
 
 
 def slash_vote_abi(cases):
-    """Pin the registry ABI, including present zero32 and empty dynamic hash fields."""
+    """Pin the staking contract's slashDoubleSign ABI, including present zero32 and empty dynamic
+    hash fields."""
     vote_type = "(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes)"
     signature = "slashDoubleSign(uint256," + vote_type + "," + vote_type + ")"
     a, b = "precommit_a", "precommit_zero_parts_hash"
@@ -1574,28 +1345,31 @@ VAL_STATE_SIGNATURE = (
 )
 VAL_KEYS = tuple((f"c{i}", 0xC0 + i) for i in range(1, 13))  # validator keys c1..c12
 VAL_GENESIS_TIME = 1_700_000_000
-MAX_COMMITTEE_KEY = 0x10000  # member i of the maximum committee has private key 0x10000 + i
-# Rows shown from each end of a maximum-committee set; the full sets follow from the rules.
+MAX_COMMITTEE_KEY = 0x10000  # member i of the 128-member set has private key 0x10000 + i
+# Rows shown from each end of a 128-member set; the full sets follow from the rules.
 MAX_COMMITTEE_SAMPLE = 3
 
-# Each chain is one CometBFT chain from a genesis at start height o. FinalizeBlock returns validator
-# updates only at S(t) = H(t) - 2 = t·L - 1 (4.2, 4.3; H(t) = 1 + t·L counts from block 0 for any
-# S), each the change from the pending committee to epoch t's: new members at their power, leaving
-# members at 0 and re-weighted members at their new power. `expect` names events the chain exists
-# to show: (height, step, kind, fields) that the model must log.
+# Each chain is one CometBFT chain from a genesis at start height o, whose validators sign o + 1 and
+# o + 2. FinalizeBlock(H) may return validator updates at any height H after o, and they first sign
+# H + 2 (4.3): the difference between the set that signs H + 2 and the set that signs H + 1, a new
+# member at its power, a leaving member at 0 and a re-weighted member at its new power; a member
+# whose power stays the same is not listed. `expect` names events the chain exists to show:
+# (height, step, kind, fields) that the model must log.
 VAL_CHAINS = (
     {
         "name": "gen0",
         "description": (
-            "Generation 0 from the Etna start S = 0 with L = 7: genesis at 0, every single-height "
-            "increment through 48, and switches at S(1)..S(7) that add (6), remove (13), re-weight "
-            "(20), add, remove and re-weight at once (27), add (34), replace the largest member "
-            "(41) and re-weight (48). Equal powers order by address; ties go to the lower address."
+            "Generation 0 from height 0, with a genesis of unequal powers that exercises "
+            "CometBFT's arithmetic (an Etna genesis gives each fallback key power 1, as in "
+            "fallback_genesis_to_candidate): every single-height increment through 48, and "
+            "updates returned at 6 (add), 13 (remove), 20 (re-weight), 27 (add, remove and "
+            "re-weight at once), 34 (add), 41 (replace the largest member) and 48 (re-weight), "
+            "each signing from two heights later. Equal powers order by address; ties go to the "
+            "lower address."
         ),
         "generation": 0,
         "start": 0,
         "end": 48,
-        "epoch_length": 7,
         "genesis": (("c1", 30), ("c2", 30), ("c3", 20), ("c4", 10)),
         "switches": {
             6: (("c5", 25),),
@@ -1616,15 +1390,14 @@ VAL_CHAINS = (
     {
         "name": "gen1",
         "description": (
-            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with a "
-            "different committee and initial height 49. Generation 0's update returned at "
-            "S(7) = 48 is discarded with the rest of its state; the next switch is S(8) = 55 "
-            "(add one member, remove another), active from H(8) = 57."
+            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with "
+            "other members of unequal powers and initial height 49. Generation 0's update "
+            "returned at 48 is discarded with the rest of its state; the update returned at 55 "
+            "(add one member, remove another) signs from 57."
         ),
         "generation": 1,
         "start": 48,
         "end": 60,
-        "epoch_length": 7,
         "genesis": (("c3", 40), ("c6", 15), ("c10", 25), ("c11", 25)),
         "switches": {55: (("c12", 10), ("c6", 0))},
         "expect": ((48, "genesis_next", "tie", {"tied": ["c10", "c11"], "proposer": "c10"}),),
@@ -1632,15 +1405,14 @@ VAL_CHAINS = (
     {
         "name": "bounds_a",
         "description": (
-            "L = 3. At S(1) = 2 the update leaves a priority spread of exactly 2·total, so "
-            "neither UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment "
-            "raises it to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
+            "The update returned at 2 leaves a priority spread of exactly 2·total, so neither "
+            "UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment raises it "
+            "to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
             "floor(-1 / 4) = -1, leaving the largest residual sum, n - 1."
         ),
         "generation": 0,
         "start": 0,
         "end": 4,
-        "epoch_length": 3,
         "genesis": (("c2", 2), ("c9", 2), ("c1", 12), ("c4", 8)),
         "switches": {2: (("c12", 1), ("c4", 0))},
         "expect": (
@@ -1653,14 +1425,13 @@ VAL_CHAINS = (
     {
         "name": "bounds_b",
         "description": (
-            "L = 3. Height 3 rescales a spread of 2·total + 1 left by the switch at S(1) = 2; the "
-            "switch at S(2) = 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, whose "
-            "rescale truncates negative priorities toward zero."
+            "Height 3 rescales a spread of 2·total + 1 left by the update returned at 2; the "
+            "update returned at 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, "
+            "whose rescale truncates negative priorities toward zero."
         ),
         "generation": 0,
         "start": 0,
         "end": 6,
-        "epoch_length": 3,
         "genesis": (("c3", 6), ("c6", 4), ("c12", 11), ("c10", 5)),
         "switches": {2: (("c10", 0), ("c9", 1)), 5: (("c12", 0),)},
         "expect": (
@@ -1672,14 +1443,13 @@ VAL_CHAINS = (
     {
         "name": "bounds_c",
         "description": (
-            "L = 3. Three members of equal power: genesis and later increments break priority ties "
-            "by address. Height 3 has no update and increments a set whose spread is exactly "
+            "Three members of equal power: genesis and later increments break priority ties by "
+            "address. Height 3 has no update and increments a set whose spread is exactly "
             "2·total, which is not rescaled."
         ),
         "generation": 0,
         "start": 0,
         "end": 4,
-        "epoch_length": 3,
         "genesis": (("c4", 1), ("c3", 1), ("c8", 1), ("c9", 3)),
         "switches": {2: (("c9", 0),)},
         "expect": (
@@ -1687,13 +1457,54 @@ VAL_CHAINS = (
             (3, "increment", "rescale", {"fires": False}),
         ),
     },
+    {
+        "name": "fallback_genesis_to_candidate",
+        "description": (
+            "Generation 0 as Etna derives it from S = 0: the genesis is the origin's fallback "
+            "key set, c1..c4 at power 1 each, which signs 1 and 2. FinalizeBlock(1) switches to "
+            "a usable candidate (c5 at 30, c6 at 20, c7 at 10) with one list that also removes "
+            "every fallback key, so the candidate signs from 3. A stake change re-weights c6 to "
+            "25 at 4 (signing from 6) and an exit removes c7 at 6 (from 8). At 8 the candidate "
+            "is no longer usable, and one list replaces it with the fallback key set at power 1, "
+            "which signs from 10."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 10,
+        "genesis": tuple((f"c{i}", 1) for i in range(1, 5)),
+        "switches": {
+            1: (("c1", 0), ("c2", 0), ("c3", 0), ("c4", 0), ("c5", 30), ("c6", 20), ("c7", 10)),
+            4: (("c6", 25),),
+            6: (("c7", 0),),
+            8: (("c5", 0), ("c6", 0), ("c1", 1), ("c2", 1), ("c3", 1), ("c4", 1)),
+        },
+        "expect": (
+            (0, "genesis", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+            (8, "increment", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+        ),
+    },
+    {
+        "name": "recovery_origin_keys",
+        "description": (
+            "Generation 1 from governance recovery at c = 10 (8.4): a new genesis at 10 with "
+            "initial height 11, whose validators are the new origin's fallback keys, c8 and c9 "
+            "at power 1; they sign 11 and 12. FinalizeBlock(11) replaces them with a usable "
+            "candidate, c5 at 30, in one list, and the candidate signs from 13."
+        ),
+        "generation": 1,
+        "start": 10,
+        "end": 14,
+        "genesis": (("c8", 1), ("c9", 1)),
+        "switches": {11: (("c8", 0), ("c9", 0), ("c5", 30))},
+        "expect": ((10, "genesis", "tie", {"tied": ["c9", "c8"], "proposer": "c9"}),),
+    },
 )
 
 def max_committee_power(index):
-    """2^48 + (i mod 64) - 32 for i < 4095, and the rest of MaxTotalVotingPower for i = 4095."""
-    if index < MAX_COMMITTEE_SIZE - 1:
+    """2^48 + (i mod 64) - 32 for i < 127, and the rest of MaxTotalVotingPower for i = 127."""
+    if index < MAX_SIGNING_SET - 1:
         return 2**48 + index % 64 - 32
-    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_COMMITTEE_SIZE - 1)))
+    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_SIGNING_SET - 1)))
 
 
 def run_valgen(request):
@@ -1718,73 +1529,26 @@ def keccak_stdin(data):
     ).stdout.strip()
 
 
-def epoch_roles(epoch_length, height):
-    """`S(t)`, `S(t)+1` or `H(t)` when `height` is one of them (S(t) = t·L - 1, H(t) = t·L + 1)."""
-    roles = []
-    for name, offset in (("S", -1), ("S+1", 0), ("H", 1)):
-        t, rest = divmod(height - offset, epoch_length)
-        if rest == 0 and t >= 1:
-            roles.append(f"{name[0]}({t}){name[1:]}")
-    return roles
-
-
-# Rows per `cast abi-encode` argument: Linux limits one argument to 128 KiB (MAX_ARG_STRLEN), and a
-# maximum-committee set written as one argument is about 400 KB.
-VAL_STATE_ROWS_PER_ARG = 512
-
-
 def val_state_preimage(height, sets, key_info):
-    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`.
-
-    A set too large for one argument is encoded in pieces: the head's six words as plain words
-    (tag, x, the first array's offset 192, its proposer, the second array's offset and its
-    proposer), then each array as its length and the rows of `cast abi-encode` of consecutive
-    slices, which is the same standard ABI encoding.
-    """
-
-    def rows(entries):
-        out = []
-        for key, power, priority in entries:
-            info = key_info[key]
-            out.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
-        return out
+    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`."""
 
     def array(entries):
-        return "[" + ",".join(rows(entries)) + "]"
+        rows = []
+        for key, power, priority in entries:
+            info = key_info[key]
+            rows.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
+        return "[" + ",".join(rows) + "]"
 
     (current, current_proposer), (following, next_proposer) = sets
-    if max(len(current), len(following)) <= VAL_STATE_ROWS_PER_ARG:
-        return abi_encode(
-            VAL_STATE_SIGNATURE,
-            tag("ETNA_VAL_STATE_V1"),
-            height,
-            array(current),
-            current_proposer,
-            array(following),
-            next_proposer,
-        )
-
-    def array_words(entries):
-        out = word(len(entries))[2:]
-        for i in range(0, len(entries), VAL_STATE_ROWS_PER_ARG):
-            part = abi_encode(
-                "f((uint8,bytes32,uint64,int64)[])", array(entries[i : i + VAL_STATE_ROWS_PER_ARG])
-            )
-            # Drop the offset and length words; what is left is the slice's rows.
-            out += part[2 + 128 :]
-        assert len(out) == 64 * (1 + 4 * len(entries))
-        return out
-
-    head = abi_encode(
-        "f(bytes32,uint256,uint256,uint256,uint256,uint256)",
+    return abi_encode(
+        VAL_STATE_SIGNATURE,
         tag("ETNA_VAL_STATE_V1"),
         height,
-        192,
+        array(current),
         current_proposer,
-        192 + 32 * (1 + 4 * len(current)),
+        array(following),
         next_proposer,
     )
-    return head + array_words(current) + array_words(following)
 
 
 def check_val_states(chain, generated, key_info, address):
@@ -1810,6 +1574,7 @@ def check_val_states(chain, generated, key_info, address):
                 assert (int(e["ck_prefix"]), e["ck_x"]) == (info["ck_prefix"], info["ck_x"])
             proposer = int(state[side + "_proposer"])
             assert 0 <= proposer < len(entries)
+            assert 1 <= len(entries) <= MAX_SIGNING_SET, (chain["name"], height, side)
             # CometBFT's set order: voting power descending, then address ascending.
             order = [(-power, address[key]) for key, power, _ in entries]
             assert order == sorted(order) and len(set(order)) == len(order), (chain["name"], height)
@@ -1823,11 +1588,18 @@ def check_val_states(chain, generated, key_info, address):
                 )
             sets.append((entries, proposer))
         preimage = val_state_preimage(height, sets, key_info)
-        # A maximum-committee preimage (about 1 MiB) is too large for one command-line argument.
-        digest = keccak_stdin(preimage) if len(preimage) > 100_000 else keccak(preimage)
+        digest = keccak(preimage)
         assert preimage == state["preimage"], (chain["name"], height)
         assert digest == state["hash"], (chain["name"], height)
         out.append((height, *sets[0], *sets[1], preimage, digest))
+    # Each update is the difference from the set that signs H + 1 (next at H - 1): every key once,
+    # no member at the power it already has, and only members of that set at power 0.
+    by_height = {state[0]: state for state in out}
+    for height, changes in chain["switches"].items():
+        signs_next = {key: power for key, power, _ in by_height[height - 1][3]}
+        assert len({key for key, _ in changes}) == len(changes), (chain["name"], height)
+        for key, power in changes:
+            assert signs_next.get(key, 0) != power, (chain["name"], height, key)
     for height, step, kind, fields in chain.get("expect", ()):
         matches = [
             e
@@ -1862,10 +1634,10 @@ def val_state_keys():
 
 
 def max_committee_keys():
-    """The maximum committee's keys (`m0`..`m4095`, private key 0x10000 + i) by consecutive point
+    """The maximum set's keys (`m0`..`m127`, private key 0x10000 + i) by consecutive point
     additions; every address is checked with `cast keccak`."""
     out, current = [], point(MAX_COMMITTEE_KEY)
-    for i in range(MAX_COMMITTEE_SIZE):
+    for i in range(MAX_SIGNING_SET):
         if i:
             current = _add(current, SECP_G)
         x, y = current
@@ -1879,7 +1651,7 @@ def max_committee_keys():
                 "xy": (x, y),
             }
         )
-    assert current == point(MAX_COMMITTEE_KEY + MAX_COMMITTEE_SIZE - 1)
+    assert current == point(MAX_COMMITTEE_KEY + MAX_SIGNING_SET - 1)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         addresses = list(pool.map(lambda key: address_of(*key["xy"]), out))
     for key, ck_addr in zip(out, addresses):
@@ -1904,17 +1676,12 @@ def val_state_chains(domains):
         "generation": 0,
         "start": 0,
         "end": 1,
-        "epoch_length": None,
-        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_COMMITTEE_SIZE)),
+        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_SIGNING_SET)),
         "switches": {},
     }
     assert sum(p for _, p in max_chain["genesis"]) == MAX_TOTAL_VOTING_POWER
+    assert max_committee_power(MAX_SIGNING_SET - 1) == 3969 * 2**48 + 94
     chains = VAL_CHAINS + (max_chain,)
-    for chain in VAL_CHAINS:
-        for height in chain["switches"]:
-            assert epoch_roles(chain["epoch_length"], height)[:1] == [
-                f"S({(height + 1) // chain['epoch_length']})"
-            ], (chain["name"], height)
     request = {
         "keys": [{"name": k["name"], "private_key": k["private_key"]} for k in key_info.values()],
         "chains": [
@@ -1950,11 +1717,9 @@ def val_state_chains(domains):
                 "generation": chain["generation"],
                 "start_height": chain["start"],
                 "end_height": chain["end"],
-                "epoch_length": chain["epoch_length"],
                 "genesis": [list(m) for m in chain["genesis"]],
                 "switches": [
                     {
-                        "epoch": (height + 1) // chain["epoch_length"],
                         "height": height,
                         "activation_height": height + 2,
                         "changes": [list(c) for c in changes],
@@ -2010,16 +1775,16 @@ def val_state_chains(domains):
             "chains": chain_out,
             "max_committee": {
                 "description": (
-                    "4096 members (n_max's bound) at CometBFT's MaxTotalVotingPower: genesis at "
-                    "0 and one increment. Member i (0 <= i < 4096) is key mi with private key "
-                    "0x10000 + i; its power is 2^48 + (i mod 64) - 32 for i < 4095, and member "
-                    "4095 takes the rest of the total, 2^48 + 2078. Only the hash and the first "
-                    "and last rows of each set are listed."
+                    "128 members, the most that any set that signs a block has, at CometBFT's "
+                    "MaxTotalVotingPower: genesis at 0 and one increment. Member i (0 <= i < 128) "
+                    "is key mi with private key 0x10000 + i; its power is 2^48 + (i mod 64) - 32 "
+                    "for i < 127, and member 127 takes the rest of the total, 3969·2^48 + 94. "
+                    "Only the hash and the first and last rows of each set are listed."
                 ),
-                "size": MAX_COMMITTEE_SIZE,
+                "size": MAX_SIGNING_SET,
                 "first_private_key": word(MAX_COMMITTEE_KEY),
                 "total_power": MAX_TOTAL_VOTING_POWER,
-                "last_member_power": max_committee_power(MAX_COMMITTEE_SIZE - 1),
+                "last_member_power": max_committee_power(MAX_SIGNING_SET - 1),
                 "start_height": max_chain["start"],
                 "states": max_out,
                 "events": max_events,
@@ -2614,16 +2379,17 @@ def run_ficheck():
 
 # --- storage layout ------------------------------------------------------------------------------
 
-# Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix
-# takes 8 bits and every other field 48; unused high bits are zero.
-# Each entry: vector key -> (layout table, packing name, fields, ordinary values); every kind also
-# gets an all-max item (2^48 - 1, ckPrefix 3).
+# Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix,
+# holdsSeat and seat take 8 bits, power 64 and every other field 48; unused high bits are zero.
+# Each entry: vector key -> (layout table, packing name, fields, ordinary values). Every kind also
+# gets an all-max item, each field at its largest value: ckPrefix 3, holdsSeat 1, seat 127 and
+# every other field all ones of its width.
 PACKED = {
     "inbox_272": (
         "inbox",
         "genesis_packed",
-        ("genesis_height", "l1_block", "epoch_len_l2"),
-        (6, 19_000_000, 3_600),
+        ("genesis_height", "l1_block"),
+        (6, 19_000_000),
     ),
     "inbox_280_word2": (
         "inbox",
@@ -2650,23 +2416,21 @@ PACKED = {
         ("active_rules", "next_rules", "rules_time", "stop_time"),
         (1, 2, 1_700_003_600, 1_700_007_200),
     ),
-    "registry_checkpoint_word1": (
-        "registry",
-        "checkpoint_word1",
-        ("l1_block", "count"),
-        (19_000_000, 5),
-    ),
-    "registry_entry_word3": (
-        "registry",
-        "entry_word3",
-        ("ck_prefix", "active_from_l1", "exit_effective_l1"),
-        (2, 10, 1_001),
-    ),
+    # The staking contract's key-to-seat value of a key whose bond holds seat 5, and the second
+    # word of a snapshot seat record with prefix 0x02 and power 250,000.
+    "staking_key_seat": ("staking", "key_seat", ("holds_seat", "seat"), (1, 5)),
+    "staking_record_word2": ("staking", "record_word2", ("ck_prefix", "power"), (2, 250_000)),
 }
+FIELD_BITS = {"ck_prefix": 8, "holds_seat": 8, "seat": 8, "power": 64}
+FIELD_MAX = {"ck_prefix": 3, "holds_seat": 1, "seat": 127}
 
 
 def bits_of(field_name):
-    return 8 if field_name == "ck_prefix" else 48
+    return FIELD_BITS.get(field_name, 48)
+
+
+def max_of(field_name):
+    return FIELD_MAX.get(field_name, 2 ** bits_of(field_name) - 1)
 
 
 def packing(table):
@@ -2695,20 +2459,28 @@ def pack(fields, values):
 def packed_words():
     out = {}
     for key, (_, _, fields, ordinary) in PACKED.items():
-        maximum = tuple(3 if f == "ck_prefix" else U48_MAX for f in fields)
+        maximum = tuple(max_of(f) for f in fields)
         out[key] = [
             {**dict(zip(fields, values)), "word": pack(fields, values)}
             for values in (ordinary, maximum)
         ]
-    # STOR-B-24: slot 293 packs four 48-bit fields, so bits 192 and up stay zero.
-    assert all(int(item["word"], 16) >> 192 == 0 for item in out["inbox_293"])
+    # Slot 293 packs four 48-bit fields, so bits 192 and up stay zero; the key-to-seat value takes
+    # 16 bits and a record's second word 72.
+    for key, width in (("inbox_293", 192), ("staking_key_seat", 16), ("staking_record_word2", 72)):
+        assert all(int(item["word"], 16) >> width == 0 for item in out[key]), key
+    assert out["staking_key_seat"][0]["word"] == word(0x0501)
+    assert out["staking_record_word2"][0]["word"] == word(0x3D09002)
     return decimals(out)
 
 
 def origin_words():
-    """Slot 290 origins: (startHeight, l1BlockNumber, l1Timestamp), one full word each."""
-    fields = ("start_height", "l1_block_number", "l1_timestamp")
-    cases = ((0, (0, 19_000_000, 1_700_000_000)), (1, (U48_MAX, U48_MAX, U48_MAX)))
+    """Slot 290 origins: (startHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash), one full word
+    each; the fourth is the value slot 278 holds when the record is written."""
+    fields = ("start_height", "l1_block_number", "l1_timestamp", "fallback_keys_hash")
+    cases = (
+        (0, (0, 19_000_000, 1_700_000_000, fallback_keys_hash([K1]))),
+        (1, (U48_MAX, U48_MAX, U48_MAX, fallback_keys_hash([K1, K2]))),
+    )
     return decimals(
         [{"generation": generation, **dict(zip(fields, values))} for generation, values in cases]
     )
@@ -2717,25 +2489,29 @@ def origin_words():
 INBOX_SLOTS = {
     "initialization_status": 258,
     "recovery_generation": 268,
-    "committee_config_hash": 269,
+    "config_hash": 269,
     "last_checkpoint_height": 270,
     "last_checkpoint_hash": 271,
     "genesis_packed": 272,
     "genesis_block_hash": 273,
     "genesis_state_root": 274,
-    "genesis_committee_record_hash": 278,
-    "genesis_cutoff": 279,
+    "fallback_keys_hash": 278,
+    "min_total_stake": 279,
     "forced_inclusion_queue": 280,
     "forced_inclusion_head_tail": 281,
     "forced_inclusion_config": 282,
-    "active_committee_snapshot": 284,
     "landings": 285,
     "origins": 290,
     "recovery_nonce": 292,
     "rules_schedule": 293,
 }
-RESERVED_SLOTS = (283, 286, 287, 288, 289, 291)
-ANCHOR_SLOTS = (268, 270, 271, 281, 293)
+RESERVED_SLOTS = (283, 284, 286, 287, 288, 289, 291)
+# The anchor witness's slots in proof order: the recovery generation, the checkpoint height and
+# hash, the fallback key hash, minTotalStake, the forced inclusion head and tail and the rules
+# schedule.
+ANCHOR_SLOTS = (268, 270, 271, 278, 279, 281, 293)
+assert not set(INBOX_SLOTS.values()) & set(RESERVED_SLOTS)
+assert set(ANCHOR_SLOTS) <= set(INBOX_SLOTS.values())
 
 
 def mapping_slots(key, slot, count):
@@ -2744,27 +2520,7 @@ def mapping_slots(key, slot, count):
 
 
 def layout():
-    """The node-facing storage layout of the Inbox and the staking registry (appendix B)."""
-    base = cast("index-erc7201", "taiko.etna.registry")
-    base_int = int(base, 16)
-    checkpoint_data = int(keccak(base), 16)
-    entries_slot = word(base_int + 1)
-    entry_data = int(keccak(entries_slot), 16)
-
-    def cp(i):
-        return checkpoint_data + 2 * i
-
-    def namespace(name):
-        ns_base = cast("index-erc7201", name)
-        return {
-            "namespace": name,
-            "base": ns_base,
-            "slots": [
-                {"bond_id": bond_id, "slot": cast("index", "uint256", bond_id, ns_base)}
-                for bond_id in (0, 4096)
-            ],
-        }
-
+    """The node-facing storage layout of the Inbox (appendix B)."""
     inbox = {
         "slots": INBOX_SLOTS,
         "reserved_slots": list(RESERVED_SLOTS),
@@ -2780,42 +2536,564 @@ def layout():
             for h in (0, 6, 18)
         ],
         "origin_slots": [
-            {"generation": g, "slots": mapping_slots(g, INBOX_SLOTS["origins"], 3)}
+            {"generation": g, "slots": mapping_slots(g, INBOX_SLOTS["origins"], 4)}
             for g in (0, 1)
         ],
     }
-    registry = {
-        "namespace": "taiko.etna.registry",
-        "base": base,
-        "checkpoints_slot": base,
-        "entries_slot": entries_slot,
-        "no_exit": NO_EXIT,
-        "packing": packing("registry"),
-        "checkpoint_slots": [
-            {"index": i, "slots": [word(cp(i) + w) for w in range(2)]} for i in (0, 1, 5)
-        ],
-        "entry_slots": [
-            {"index": j, "slots": [word(entry_data + 3 * j + w) for w in range(3)]}
-            for j in (0, 1, 4095)
-        ],
-        "snapshot_slots": [
+    return decimals({"inbox": inbox})
+
+
+# --- L2 staking: fallback keys, storage words, missBitmap, candidate, block-start call ----------
+
+MAX_FALLBACK_KEYS = 128  # a fallback key list holds 1 to 128 keys
+FALLBACK_KEYS_UPDATED = "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])"
+STAKING_NAMESPACE = "taiko.etna.staking"
+# T, the namespace's ERC-7201 base slot, as appendix B lists it.
+STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E00
+SNAPSHOT_RECORDS = 128  # snapshot seat records, one per seat number 0..127 whatever n_max is
+EIP1967_IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+U64_MAX = 2**64 - 1
+# CometBFT's BlockIDFlag values in a LastCommit; only COMMIT is a precommit for the parent block.
+BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL = 1, 2, 3
+
+
+@functools.cache
+def scalar_key(k):
+    """`consensus_key` of private key k: its ckPrefix, ckX and ckAddr (`cast wallet address`)."""
+    key = consensus_key(f"k{k}", k)
+    assert (key["ck_prefix"], key["ck_x"]) == fallback_key(k), k
+    return key
+
+
+def compressed(key):
+    """The 33-byte value ckPrefix || ckX of a key (ckPrefix, ckX)."""
+    prefix, x = key
+    return bytes([prefix]) + bytes.fromhex(x[2:])
+
+
+def ascending_scalars(n):
+    """The private keys 1..n, ordered by the 33-byte value of their compressed public keys."""
+    return sorted(range(1, n + 1), key=lambda k: compressed(fallback_key(k)))
+
+
+def fallback_keys_rejection(keys):
+    """Why setFallbackKeys rejects a list, or None: `count` outside 1 to 128 entries, `order`
+    unless every 33-byte value is above the one before it (so a repeat too), `key` for an entry
+    that is not a valid compressed public key."""
+    if not 1 <= len(keys) <= MAX_FALLBACK_KEYS:
+        return "count"
+    values = [compressed(key) for key in keys]
+    if any(a >= b for a, b in zip(values, values[1:])):
+        return "order"
+    if any(decompress(value) is None for value in values):
+        return "key"
+    return None
+
+
+def fallback_keys():
+    """The fallback key lists setFallbackKeys accepts, each with its preimage and hash, its
+    FallbackKeysUpdated event (the hash as topic 1, the list as data) and the validators it signs
+    as (one per key, power 1, at the key's secp256k1eth address), and the lists it rejects."""
+    k3, k9 = fallback_key(3), fallback_key(9)
+    assert k3 == (2, "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9")
+    assert k9 == (3, "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe")
+    # By X alone K9 comes first; as 33-byte values K3, whose prefix is 0x02, does.
+    assert int(k9[1], 16) < int(k3[1], 16) and compressed(k3) < compressed(k9)
+    topic0 = keccak(FALLBACK_KEYS_UPDATED)
+    assert topic0 == SPEC_TOPICS["fallback_keys_updated"]
+    largest = ascending_scalars(MAX_FALLBACK_KEYS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, largest))
+    accepted = []
+    for name, scalars in (
+        ("one_key", (1,)),
+        ("two_keys", (1, 2)),
+        ("prefix_then_x", (3, 9)),
+        ("max_keys", largest),
+    ):
+        keys = [fallback_key(k) for k in scalars]
+        assert fallback_keys_rejection(keys) is None, name
+        preimage = fallback_keys_preimage(keys)
+        digest = keccak(preimage)
+        # The event data is the list alone: its offset, then the preimage's words after the tag
+        # and the offset.
+        data = abi_encode("f((uint8,bytes32)[])", fallback_keys_arg(keys))
+        assert data == concat(word(32), "0x" + preimage[2 + 128 :]), name
+        accepted.append(
             {
-                "index": i,
-                "has_next": has_next,
-                "slots": [base, word(cp(i)), word(cp(i) + 1)]
-                + ([word(cp(i + 1))] if has_next else []),
+                "name": name,
+                "keys": fallback_keys_json(keys),
+                "preimage": preimage,
+                "hash": digest,
+                "event": {"topic0": topic0, "topic1": digest, "data": data},
+                "validators": [{"ck_addr": scalar_key(k)["ck_addr"], "power": 1} for k in scalars],
             }
-            for i, has_next in ((0, False), (0, True), (3, True))
-        ],
-        "owners": namespace("taiko.etna.registry.owners"),
-        "exit_confirmations": namespace("taiko.etna.registry.exit-confirmations"),
-        "top_ups": namespace("taiko.etna.registry.top-ups"),
-        # STOR-B-32: the lifetime forfeiture flag, a mapping from uint256 bondId to bool.
-        "forfeitures": namespace("taiko.etna.registry.forfeitures"),
+        )
+    hashes = {case["name"]: case["hash"] for case in accepted}
+    assert hashes["one_key"] == APPENDIX_LITERALS["enc_a_36a_a"][1]
+    assert hashes["two_keys"] == APPENDIX_LITERALS["enc_a_36a_b"][1]
+    assert hashes["prefix_then_x"].startswith("0x5890") and hashes["prefix_then_x"].endswith("333b")
+    assert len(accepted[-1]["preimage"]) == 2 + 2 * 8_288
+    assert len(accepted[-1]["event"]["data"]) == 2 + 64 * 258
+    assert smallest_off_curve_x() == 5
+    rejected = []
+    for name, keys, reason in (
+        ("empty", [], "count"),
+        ("too_many", [fallback_key(k) for k in ascending_scalars(MAX_FALLBACK_KEYS + 1)], "count"),
+        ("descending", [K2, K1], "order"),
+        ("duplicate", [K1, K1], "order"),
+        ("x_alone", [k9, k3], "order"),
+        ("prefix_04", [(4, K1[1])], "key"),
+        ("x_not_below_p", [(2, word(SECP_P))], "key"),
+        ("off_curve", [(2, word(smallest_off_curve_x()))], "key"),
+    ):
+        assert fallback_keys_rejection(keys) == reason, name
+        rejected.append({"name": name, "keys": fallback_keys_json(keys), "reason": reason})
+    return decimals({"tag": "ETNA_FALLBACK_KEYS_V1", "accepted": accepted, "rejected": rejected})
+
+
+def staking_base():
+    """T: `cast index-erc7201 taiko.etna.staking`, which must equal
+    keccak256(abi.encode(uint256(keccak256(id)) - 1)) & ~0xff and appendix B's value."""
+    base = int(cast("index-erc7201", STAKING_NAMESPACE), 16)
+    inner = int(keccak_text(STAKING_NAMESPACE), 16) - 1
+    assert base == int(keccak(abi_encode("f(uint256)", inner)), 16) & ~0xFF
+    assert base == STAKING_BASE
+    return base
+
+
+def key_seat_of(value):
+    """The seat a key-to-seat value gives: s for holdsSeat = 1 (bits 0-7), seat = s below 128
+    (bits 8-15) and every bit from bit 16 up zero; None for any other value."""
+    holds_seat, seat = value & 0xFF, value >> 8 & 0xFF
+    if holds_seat == 1 and seat < SNAPSHOT_RECORDS and value >> 16 == 0:
+        return seat
+    return None
+
+
+def record_word2(ck_prefix, power):
+    """Word 2 of a snapshot seat record: ckPrefix in bits 0-7, power in bits 8-71."""
+    return pack(("ck_prefix", "power"), (ck_prefix, power))
+
+
+# Key-to-seat values and the seat each gives: seats 5, 0 and 127; 0, the value of a key that holds
+# no seat; 0x0500, holdsSeat 0 with the seat kept, which a released key must not keep; and the
+# values that are not well formed: holdsSeat 2, seat 128 and bit 16 set.
+KEY_SEAT_WORDS = (
+    (0x0501, 5),
+    (0x0001, 0),
+    (0x7F01, 127),
+    (0x0000, None),
+    (0x0500, None),
+    (0x0502, None),
+    (0x8001, None),
+    (0x10501, None),
+)
+
+
+def staking_layout(key_list):
+    """The words of the L2 staking contract that nodes and guests read (appendix B): snapshotHeight
+    at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2 and record s at
+    T + 3 + 2s and T + 4 + 2s, with the key-to-seat elements of K1, K2 and keys a1-a4 (`cast
+    index`), how key-to-seat values decode, record second words, the proxy's EIP-1967
+    implementation slot and the no-exit value of exitHeight."""
+    base = staking_base()
+    addresses = [scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]]
+    addresses += [key["ck_addr"] for key in key_list[:4]]
+    key_seat_slots = [
+        {"ck_addr": a, "slot": cast("index", "address", a, word(base + 2))} for a in addresses
+    ]
+    assert key_seat_slots[0] == {
+        "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        "slot": "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27",
     }
-    for entry in registry["top_ups"]["slots"]:
-        entry["ready_slot"] = word(int(entry["slot"], 16) + 1)
-    return decimals({"inbox": inbox, "registry": registry})
+    record_slots = [
+        {"seat": s, "word1": word(base + 3 + 2 * s), "word2": word(base + 4 + 2 * s)}
+        for s in (0, 5, SNAPSHOT_RECORDS - 1)
+    ]
+    assert record_slots[-1]["word1"] == (
+        "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+    )
+    key_seat_words = []
+    for value, seat in KEY_SEAT_WORDS:
+        assert key_seat_of(value) == seat, hex(value)
+        key_seat_words.append({"word": word(value), "seat": seat})
+    words2 = [
+        {"ck_prefix": prefix, "power": power, "word": record_word2(prefix, power)}
+        for prefix, power in ((2, 250_000), (3, U64_MAX))
+    ]
+    assert words2[0]["word"] == word(0x3D09002)
+    implementation = word(int(keccak_text("eip1967.proxy.implementation"), 16) - 1)
+    assert implementation == EIP1967_IMPLEMENTATION_SLOT
+    return decimals(
+        {
+            "namespace": STAKING_NAMESPACE,
+            "base": word(base),
+            "snapshot_height_slot": word(base),
+            "snapshot_total_stake_slot": word(base + 1),
+            "key_seat_slot": word(base + 2),
+            "record_slots": record_slots,
+            "key_seat_slots": key_seat_slots,
+            "key_seat_words": key_seat_words,
+            "record_word2": words2,
+            "implementation_slot": implementation,
+            "no_exit": NO_EXIT,
+        }
+    )
+
+
+def miss_bitmap_of(first_block, validators):
+    """The missBitmap block H sets (spec 3.4 rule 6): 0 for the first block of a generation;
+    otherwise bit s is 1 exactly when a validator of the set that signs the parent is missing from
+    H's LastCommit (any flag but commit) and its key-to-seat value in the parent's post-state gives
+    seat s."""
+    if first_block:
+        return 0
+    bitmap = 0
+    for _, flag, value in validators:
+        seat = key_seat_of(value)
+        if flag != BLOCK_ID_FLAG_COMMIT and seat is not None:
+            bitmap |= 1 << seat
+    return bitmap
+
+
+def miss_bitmap(key_list):
+    """missBitmap cases: the validators of the set that signs the parent, each with its address,
+    its flag in the block's LastCommit and its key-to-seat value in the parent's post-state."""
+    a1, a2, a3, a4 = (key["ck_addr"] for key in key_list[:4])
+    # The fallback keys K1 and K2, for the cases where the fallback key set signs the parent.
+    f1, f2 = scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]
+    absent, commit, nil = BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL
+    cases = (
+        ("all_commit", False, ((a1, commit, 0x0001), (a2, commit, 0x0101), (a3, commit, 0x0201)),
+         0),
+        ("absent_seat_5", False,
+         ((a1, commit, 0x0001), (a2, absent, 0x0501), (a3, commit, 0x0201)), 1 << 5),
+        ("nil_seat_0", False, ((a1, nil, 0x0001), (a2, commit, 0x0101)), 1 << 0),
+        # Two missing validators at seats 0 and 3: the bitmap ORs both bits.
+        ("two_seats", False,
+         ((a1, absent, 0x0001), (a2, commit, 0x0101), (a3, nil, 0x0301)), 1 << 0 | 1 << 3),
+        ("seat_127", False, ((a1, commit, 0x0001), (a2, absent, 0x7F01)), 1 << 127),
+        # K1 is the key of no bond, so it maps to 0.
+        ("fallback_key_without_bond", False, ((f1, absent, 0), (f2, commit, 0)), 0),
+        # K1 is also the key of a bond that holds seat 7.
+        ("fallback_key_with_seated_bond", False, ((f1, absent, 0x0701), (f2, commit, 0)), 1 << 7),
+        # a1's bond vacated seat 4 in the parent and a bond whose key is not in the set took it.
+        ("vacated_in_parent", False, ((a1, absent, 0), (a2, commit, 0x0101)), 0),
+        ("malformed_words", False,
+         ((a1, absent, 0x0502), (a2, absent, 0x8001), (a3, nil, 0x10501), (a4, commit, 0x0001)),
+         0),
+        ("two_addresses_one_seat", False, ((a1, absent, 0x0301), (a2, commit, 0x0301)), 1 << 3),
+        # The same two addresses, both missing: the seat's bit is set once, not toggled.
+        ("two_addresses_one_seat_both_missing", False,
+         ((a1, absent, 0x0301), (a2, nil, 0x0301), (a3, commit, 0x0001)), 1 << 3),
+        # n_max 64 does not matter: the bit is set, and onBlockStart then ignores it.
+        ("seat_100", False, ((a1, absent, 0x6401), (a2, commit, 0x0001)), 1 << 100),
+        # The first block of a generation has no LastCommit.
+        ("first_block", True, ((a1, absent, 0x0001), (a2, commit, 0x0101)), 0),
+    )
+    out = []
+    for name, first_block, validators, expected in cases:
+        bitmap = miss_bitmap_of(first_block, validators)
+        assert bitmap == expected, name
+        out.append(
+            {
+                "name": name,
+                "first_block_of_generation": first_block,
+                "validators": [
+                    {"ck_addr": addr, "block_id_flag": flag, "key_seat_word": word(value)}
+                    for addr, flag, value in validators
+                ],
+                "miss_bitmap": bitmap,
+            }
+        )
+    return decimals({"cases": out})
+
+
+CANDIDATE_HEIGHT = 100
+# Seat s of a 128-member candidate holds the key of private key 0x200 + s.
+CANDIDATE_WIDE_KEY = 0x200
+
+
+def candidate_unusable(height, height_word, total, records, threshold):
+    """Why the candidate decided at H (spec 4.3) is not usable, or None, naming the first failing
+    condition in this order: `min_total_stake_max` (the threshold M is 2^256 - 1),
+    `snapshot_height` (the whole word at T is not H), `no_members`, `stray_bits` (a record's
+    word 2 has a bit above power), `invalid_key`, `duplicate_key`, `zero_power`, `power_sum` (the
+    exact sum exceeds MAX) and `below_min_total_stake` (snapshotTotalStake < M)."""
+    members = [(w1, w2) for _, (w1, w2) in sorted(records.items()) if w1 or w2]
+    keys = [bytes([w2 & 0xFF]) + w1.to_bytes(32, "big") for w1, w2 in members]
+    powers = [w2 >> 8 & U64_MAX for _, w2 in members]
+    if threshold == WORD_MOD - 1:
+        return "min_total_stake_max"
+    if height_word != height:
+        return "snapshot_height"
+    if not members:
+        return "no_members"
+    if any(w2 >> 72 for _, w2 in members):
+        return "stray_bits"
+    if any(decompress(key) is None for key in keys):
+        return "invalid_key"
+    if len(set(keys)) != len(keys):
+        return "duplicate_key"
+    if min(powers) == 0:
+        return "zero_power"
+    if sum(powers) > MAX_TOTAL_VOTING_POWER:
+        return "power_sum"
+    if total < threshold:
+        return "below_min_total_stake"
+    return None
+
+
+def candidate(key_list):
+    """Candidate decisions at H = 100: the word at T, snapshotTotalStake, the nonzero snapshot
+    seat records, the M that H's anchor proves and the fallback key set [K1, K2], and the set that
+    signs H + 2: the members in seat order at their stored powers when the candidate is usable,
+    otherwise the fallback keys at power 1. Members are keys a1-a3, except in the 128-member
+    cases."""
+    vp_unit = DEPLOYMENT["vp_unit"]
+
+    def record(key, power):
+        return int(key["ck_x"], 16), int(key["ck_prefix"]) | power << 8
+
+    a1, a2, a3 = key_list[:3]
+    three = {0: record(a1, 100_000), 2: record(a2, 250_000), 5: record(a3, 400_000)}
+    three_total = 750_000 * vp_unit
+    low = 100_000 * vp_unit  # a threshold every usable total below reaches
+    h = CANDIDATE_HEIGHT
+    half = MAX_TOTAL_VOTING_POWER // 2 + 1  # two members at this power sum to MAX + 1
+    # 128 members at 2^57: the exact sum is 2^64, which a 64-bit sum wraps to 0, at most MAX.
+    wrap_power = 2**57
+    wide_scalars = range(CANDIDATE_WIDE_KEY, CANDIDATE_WIDE_KEY + SNAPSHOT_RECORDS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, wide_scalars))
+    wide = {s: record(scalar_key(k), wrap_power) for s, k in enumerate(wide_scalars)}
+    # 128 members at the reference minStake's power: the whole supply staked, the most members a
+    # set has, with the powers summing to 10^18, below MAX.
+    full_power = DEPLOYMENT["min_stake"] // vp_unit
+    full = {s: record(scalar_key(k), full_power) for s, k in enumerate(wide_scalars)}
+
+    def seat_2(word1, word2):
+        return {**three, 2: (word1, word2)}
+
+    x2, word2_2 = three[2]
+    cases = (
+        # name, the word at T, snapshotTotalStake, records, M, why it is not usable
+        ("usable_three", h, three_total, three, low, None),
+        ("equal_threshold", h, three_total, three, three_total, None),
+        ("below_threshold", h, three_total, three, three_total + 1, "below_min_total_stake"),
+        ("threshold_max", h, WORD_MOD - 1, three, WORD_MOD - 1, "min_total_stake_max"),
+        ("stale_height", h - 1, three_total, three, low, "snapshot_height"),
+        ("height_high_bits", h | 1 << 48, three_total, three, low, "snapshot_height"),
+        ("stray_bits", h, three_total, seat_2(x2, word2_2 | 1 << 72), low, "stray_bits"),
+        # Word 2 zero is ckPrefix 0, an invalid key (and power 0).
+        ("zero_prefix", h, three_total, seat_2(x2, 0), low, "invalid_key"),
+        ("zero_power", h, three_total, seat_2(x2, 0x02), low, "zero_power"),
+        ("off_curve_key", h, three_total, seat_2(smallest_off_curve_x(), word2_2), low,
+         "invalid_key"),
+        ("duplicate_key", h, three_total, {**three, 2: record(a1, 250_000)}, low,
+         "duplicate_key"),
+        ("power_sum", h, 2 * half * vp_unit, {0: record(a1, half), 2: record(a2, half)}, low,
+         "power_sum"),
+        # The powers sum to exactly MAX: a valid set.
+        ("power_sum_max", h, MAX_TOTAL_VOTING_POWER * vp_unit,
+         {0: record(a1, half), 2: record(a2, half - 1)}, low, None),
+        ("power_sum_wraps", h, SNAPSHOT_RECORDS * wrap_power * vp_unit, wide, low, "power_sum"),
+        # A record at a seat at or above any n_max below 101 is a member like any other.
+        ("record_at_seat_100", h, 350_000 * vp_unit,
+         {0: record(a1, 100_000), 100: record(a2, 250_000)}, low, None),
+        ("full_128", h, SNAPSHOT_RECORDS * full_power * vp_unit, full, low, None),
+        # The fewest members and the least power: one member at power 1, with a threshold its
+        # total reaches.
+        ("one_member", h, vp_unit, {0: record(a1, 1)}, vp_unit, None),
+        ("empty", h, 0, {}, 0, "no_members"),
+    )
+    assert 2 * half == MAX_TOTAL_VOTING_POWER + 1 == 2**60
+    total_wide = SNAPSHOT_RECORDS * wrap_power
+    assert total_wide == 2**64 and total_wide % 2**64 == 0 < MAX_TOTAL_VOTING_POWER < total_wide
+    assert SNAPSHOT_RECORDS * full_power == 10**18 < MAX_TOTAL_VOTING_POWER
+    assert SNAPSHOT_RECORDS * full_power * vp_unit == TAIKO_SUPPLY
+    fallback_scalars = (1, 2)
+    fallback = [fallback_key(k) for k in fallback_scalars]
+    out = []
+    for name, height_word, total, records, threshold, expected in cases:
+        reason = candidate_unusable(h, height_word, total, records, threshold)
+        assert reason == expected, (name, reason)
+        if reason is None:
+            signers = []
+            for _, (w1, w2) in sorted(records.items()):
+                prefix, power = w2 & 0xFF, w2 >> 8
+                x, y = decompress(bytes([prefix]) + w1.to_bytes(32, "big"))
+                signers.append(
+                    {"ck_prefix": prefix, "ck_x": word(x), "ck_addr": address_of(x, y),
+                     "power": power}
+                )
+        else:
+            signers = [
+                {**{f: scalar_key(k)[f] for f in ("ck_prefix", "ck_x", "ck_addr")}, "power": 1}
+                for k in fallback_scalars
+            ]
+        out.append(
+            {
+                "name": name,
+                "height": h,
+                "snapshot_height_word": word(height_word),
+                "snapshot_total_stake": total,
+                "records": [
+                    {"seat": seat, "word1": word(w1), "word2": word(w2)}
+                    for seat, (w1, w2) in sorted(records.items())
+                    if w1 or w2
+                ],
+                "min_total_stake": threshold,
+                "fallback_keys": fallback_keys_json(fallback),
+                "usable": reason is None,
+                "reason": reason,
+                "signers": signers,
+            }
+        )
+    return decimals({"cases": out})
+
+
+BLOCK_START_FIELDS = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+BLOCK_START_KEY = 0x100  # bond i of a block-start case registers the key of private key 0x100 + i
+BLOCK_START_NUMBER = 1000
+BLOCK_START_GENERATION = 1
+
+
+def check_staking_params(params):
+    """The staking contract's deployment bounds (spec 11) on the fields a block-start case sets."""
+    assert params["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER)
+    assert params["min_stake"] >= params["vp_unit"]
+    assert params["n_max"] * params["min_stake"] >= TAIKO_SUPPLY
+    assert 1 <= params["n_max"] <= 128 and 1 <= params["miss_limit"] <= 65_535
+    assert 0 < params["miss_slash_bps"] <= 10_000
+
+
+def block_start_run(params, amounts, prior_bitmaps, bitmap):
+    """A fresh staking contract (spec 4.1, 4.2): each amount registers a bond, which takes the
+    lowest empty seat; then each prior call and the call run onBlockStart: count a miss for each
+    occupied seat whose bit is 1 and reset the count of the others; then for each seat whose count
+    reached missLimit deduct ceil(effStake * missSlashBps / 10000), reset the count and release
+    the seat if effStake fell below minStake. Returns the registrations' seats, the seats held when
+    the call starts, the miss counts, the effStakes, the bonds the call released, its penalty and
+    the seats held after it (the records follow from them)."""
+    seat_bond, eff, misses, seats = {}, [], [0] * SNAPSHOT_RECORDS, []
+    for amount in amounts:
+        assert amount >= params["min_stake"]
+        seat = next(s for s in range(params["n_max"]) if s not in seat_bond)
+        seat_bond[seat], misses[seat] = len(eff), 0
+        eff.append(amount)
+        seats.append(seat)
+
+    def call(bits):
+        for seat in seat_bond:
+            misses[seat] = misses[seat] + 1 if bits >> seat & 1 else 0
+        penalty, released = 0, []
+        for seat in sorted(seat_bond):
+            if misses[seat] < params["miss_limit"]:
+                continue
+            bond = seat_bond[seat]
+            cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
+            eff[bond] -= cut
+            penalty += cut
+            misses[seat] = 0
+            if eff[bond] < params["min_stake"]:
+                del seat_bond[seat]
+                released.append(bond)
+        return penalty, released
+
+    for bits in prior_bitmaps:
+        assert call(bits) == (0, []), "a case's penalties happen only in its call"
+    held = sorted(seat_bond)
+    penalty, released = call(bitmap)
+    return seats, held, misses, eff, released, penalty, seat_bond
+
+
+def on_block_start():
+    """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit,
+    n_max, missLimit and missSlashBps unless a case overrides them: registrations, earlier
+    block-start calls, then the call in block 1000, with the miss counts, effStakes, released
+    bonds, penalty, records, total, height and generation it leaves. m is minStake."""
+    m = DEPLOYMENT["min_stake"]
+    base = {field: DEPLOYMENT[field] for field in BLOCK_START_FIELDS}
+    n_max_64 = {"n_max": 64, "min_stake": 2 * m}  # ceil(10^27 / 64) = 2m
+    cases = (
+        # name, overrides, registration amounts, prior calls' missBitmaps, the call's missBitmap
+        ("count_up", {}, (m,) * 4, (8, 8), 8),
+        ("count_reset", {}, (m,) * 4, (8, 8), 0),
+        ("empty_seat_bit", {}, (m,), (1,), 1 << 9 | 1),
+        ("zero_bitmap", {}, (m,) * 3, (7, 7), 0),
+        ("bitmap_4", {}, (m,) * 3, (), 4),
+        ("n_max_64_bit_100", n_max_64, (2 * m,), (), 1 << 100 | 1),
+        ("ceil_exact", {"miss_limit": 10}, (10 * m,), (1,) * 9, 1),
+        ("ceil_round_up", {"miss_limit": 10}, (10 * m + 1,), (1,) * 9, 1),
+        ("below_limit", {"miss_limit": 10}, (10 * m,), (1,) * 8, 1),
+        ("release_below_min", {"miss_limit": 10}, (m, m), (1,) * 9, 1),
+        ("miss_limit_1", {"miss_limit": 1}, (2 * m,), (), 1),
+        ("full_bps", {"miss_limit": 1, "miss_slash_bps": 10_000}, (3 * m, m), (), 1),
+        # Seats 1, 3 and 4 fall below minStake in step 2, leaving seats 0, 2 and 5.
+        ("three_seats", {"miss_limit": 1}, (m, m, 2 * m, m, m, 3 * m), (), 0b11010),
+        ("no_seats", {}, (), (), 2**128 - 1),
+        ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), 0),
+        ("n_max_64_records", n_max_64, (2 * m,) * 64, (), 0),
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, range(BLOCK_START_KEY, BLOCK_START_KEY + 64)))
+    out = []
+    for name, overrides, amounts, priors, bitmap in cases:
+        params = {**base, **overrides}
+        check_staking_params(params)
+        seats, held, misses, eff, released, penalty, seat_bond = block_start_run(
+            params, amounts, priors, bitmap
+        )
+        keys = [scalar_key(BLOCK_START_KEY + i) for i in range(len(amounts))]
+        records = []
+        for seat in sorted(seat_bond):
+            key = keys[seat_bond[seat]]
+            power = eff[seat_bond[seat]] // params["vp_unit"]
+            records.append(
+                {"seat": seat, "word1": key["ck_x"], "word2": record_word2(key["ck_prefix"], power)}
+            )
+        out.append(
+            {
+                "name": name,
+                "overrides": overrides,
+                "setup": {
+                    "registrations": [
+                        {"bond_id": i, "private_key": keys[i]["private_key"], "amount": amount,
+                         "seat": seats[i]}
+                        for i, amount in enumerate(amounts)
+                    ],
+                    "prior_calls": [
+                        {"generation": BLOCK_START_GENERATION, "miss_bitmap": bits}
+                        for bits in priors
+                    ],
+                },
+                "call": {
+                    "block_number": BLOCK_START_NUMBER,
+                    "generation": BLOCK_START_GENERATION,
+                    "miss_bitmap": bitmap,
+                    "calldata": on_block_start_calldata(BLOCK_START_GENERATION, bitmap),
+                },
+                "expect": {
+                    "miss_counts": [{"seat": s, "count": misses[s]} for s in held],
+                    "eff_stakes": [{"bond_id": i, "eff_stake": e} for i, e in enumerate(eff)],
+                    "released": released,
+                    "penalty_total": penalty,
+                    "records": records,
+                    "snapshot_total_stake": sum(eff[bond] for bond in seat_bond.values()),
+                    "snapshot_height": BLOCK_START_NUMBER,
+                    "last_generation": BLOCK_START_GENERATION,
+                },
+            }
+        )
+    expect = {case["name"]: case["expect"] for case in out}
+    assert expect["ceil_exact"]["penalty_total"] == m
+    assert expect["ceil_round_up"]["penalty_total"] == m + 1
+    assert [r["seat"] for r in expect["three_seats"]["records"]] == [0, 2, 5]
+    assert [int(r["word2"], 16) >> 8 for r in expect["power_floor"]["records"]] == [2, 1, 1]
+    assert expect["release_below_min"]["released"] == [0] == expect["full_bps"]["released"]
+    return decimals({"deployment": base, "cases": out})
 
 
 # The Etna start used by the start ABI and event vectors: S = 1000 with the hash and stateRoot that
@@ -2826,138 +3104,255 @@ START = (1000, word(0x51), word(0x52))
 FI_TX = "0xc0"
 FI_FEE_WEI = 1_000_000_000
 # The recovery and governance call arguments shared by the ABI and event vectors: the generation
-# the schedule calls expect, recover's exclusions (strictly increasing bond ids, ENC-A-51 51.a) and
-# the forced inclusion indexes it clears, and the incident id of a forfeiture.
+# the schedule calls expect, the forced inclusion indexes recover clears (strictly increasing) and
+# the incident id of a forfeiture.
 EXPECTED_GENERATION = 1
-EXCLUSIONS = (1, 5, 9)
 FI_TO_CLEAR = (3, 5)
 INCIDENT_ID = word(42)
 VALID_UNTIL = 1_700_000_123
 # The Unzen Inbox's proposeCutoff() on a switching network: ETNA_FORK_TIME - PROPOSE_MARGIN, here
-# a fork time of 1,700,000,000 and the 12 s margin (START-10-5a, PARAM-11-12b).
+# a fork time of 1,700,000,000 and the 12 s margin.
 PROPOSE_CUTOFF = 1_700_000_000 - 12
+# setFallbackKeys, getFallbackKeys and the recovered origin use [K1, K2]; Inbox initialization in
+# the event vectors stores [K1]. setMinTotalStake and minTotalStake use 2^256 - 1, the value that
+# hands every block to the fallback keys.
+STORED_FALLBACK_KEYS = (K1, K2)
+MIN_TOTAL_STAKE = WORD_MOD - 1
+# The snapshot() example, encoding-only: seat 0 holds K1 at power 100,000 and seat 2 K2 at power
+# 250,000. A seated bond holds at least min_stake, so no deployment reaches a total this small.
+SNAPSHOT_MEMBERS = ((0, *K1, 100_000), (2, *K2, 250_000))
+SNAPSHOT_HEIGHT = 10
 
 
 def uint_list(values):
     return "[" + ",".join(map(str, values)) + "]"
 
 
-def governance_abi():
-    """Executable appendix A governance calldata, independently checked by contract consumers."""
+def tuple_list(rows):
+    return "[" + ",".join("(" + ",".join(map(str, row)) + ")" for row in rows) + "]"
+
+
+def governance_abi(digests, slash_abi):
+    """Executable calldata of the Inbox's recovery, schedule, start, forced inclusion and fallback
+    key calls and of the staking contract's entry points, each labelled with its contract; the
+    slash call is the votes section's."""
+    (registration,) = [d for d in digests if d["name"] == "a1_owner_aa"]
     calls = {
-        "top_up": ("topUp(uint256,uint256)", [0, 100]),
-        "activate_top_up": ("activateTopUp(uint256)", [0]),
-        "forfeit": ("forfeit(uint256,bytes32,uint256)", [0, INCIDENT_ID, VALID_UNTIL]),
         "recover": (
-            "recover(uint48,uint256,uint256,uint256,uint256[],uint256[],uint48)",
-            [2, 12, 7, VALID_UNTIL, uint_list(EXCLUSIONS), uint_list(FI_TO_CLEAR), 4],
+            "inbox",
+            "recover(uint48,uint256,uint256,uint256,uint256[],uint48)",
+            [2, 12, 7, VALID_UNTIL, uint_list(FI_TO_CLEAR), 4],
         ),
-        "invalidate_recovery_nonce": ("invalidateRecoveryNonce(uint256)", [7]),
+        "invalidate_recovery_nonce": ("inbox", "invalidateRecoveryNonce(uint256)", [7]),
         "schedule_rules": (
+            "inbox",
             "scheduleRules(uint48,uint48,uint48)",
             [EXPECTED_GENERATION, 2, 1_700_003_600],
         ),
-        "schedule_stop": ("scheduleStop(uint48,uint48)", [EXPECTED_GENERATION, 1_700_007_200]),
-        "set_origin": ("setOrigin(uint48)", [START[0]]),
-        "save_forced_inclusion": ("saveForcedInclusion(bytes)", [FI_TX]),
-        "sweep_protocol_fees": ("sweepProtocolFees()", []),
+        "schedule_stop": (
+            "inbox",
+            "scheduleStop(uint48,uint48)",
+            [EXPECTED_GENERATION, 1_700_007_200],
+        ),
+        "set_origin": ("inbox", "setOrigin(uint48)", [START[0]]),
+        "save_forced_inclusion": ("inbox", "saveForcedInclusion(bytes)", [FI_TX]),
+        "sweep_protocol_fees": ("inbox", "sweepProtocolFees()", []),
+        "set_fallback_keys": (
+            "inbox",
+            "setFallbackKeys((uint8,bytes32)[])",
+            [fallback_keys_arg(STORED_FALLBACK_KEYS)],
+        ),
+        "set_min_total_stake": ("inbox", "setMinTotalStake(uint256)", [MIN_TOTAL_STAKE]),
+        "register": (
+            "staking",
+            "register(bytes,uint256,bytes)",
+            [registration["key"], DEPLOYMENT["min_stake"], registration["pop_sig"]],
+        ),
+        "top_up": ("staking", "topUp(uint256,uint256)", [0, 100]),
+        "request_exit": ("staking", "requestExit(uint256)", [0]),
+        "withdraw": ("staking", "withdraw(uint256,address)", [0, OWNERS[0]]),
+        "forfeit": ("staking", "forfeit(uint256,bytes32,uint256)", [0, INCIDENT_ID, VALID_UNTIL]),
+        "on_block_start": ("staking", ON_BLOCK_START, [1, 5]),
     }
-    assert list(EXCLUSIONS) == sorted(set(EXCLUSIONS))
-    return {
+    out = {
         name: {
+            "contract": contract,
             "signature": signature,
             "selector": cast("sig", signature),
             "calldata": cast("calldata", signature, *args),
         }
-        for name, (signature, args) in calls.items()
+        for name, (contract, signature, args) in calls.items()
     }
+    assert out["recover"]["selector"] == "0x95e4b1e5"
+    assert out["on_block_start"]["calldata"] == on_block_start_calldata(1, 5)
+    out["slash_double_sign"] = {
+        "contract": "staking",
+        **{field: slash_abi[field] for field in ("signature", "selector", "calldata")},
+    }
+    return out
 
 
 def forfeitures():
-    """Principal deductions, including pending-only and overflowing intermediate products."""
+    """Forfeiture penalties: ceil(balance * forfeitBps / 10,000) of the bond's whole principal,
+    deducted from effStake, including balances whose product exceeds 256 bits."""
     out = []
-    for effective, pending, rate in (
-        (100, 0, 1000),
-        (2, 98, 1000),
-        (1, 0, 1),
-        (0, 3, 10000),
-        (WORD_MOD - 1, 0, 10000),
+    for balance, rate in (
+        (100, 1000),
+        (99, 1000),
+        (1, 1),
+        (3, 10000),
+        (DEPLOYMENT["min_stake"], DEPLOYMENT["forfeit_bps"]),
+        (WORD_MOD - 1, 10000),
+        (WORD_MOD - 1, 1),
     ):
-        balance = effective + pending
-        penalty = (balance * rate + 9999) // 10000
-        from_effective = min(effective, penalty)
+        penalty = -(-balance * rate // 10000)
+        assert 0 < penalty <= balance
         out.append(
             {
-                "eff_stake": effective,
-                "pending_top_up": pending,
+                "eff_stake": balance,
                 "forfeit_bps": rate,
                 "penalty": penalty,
-                "eff_stake_after": effective - from_effective,
-                "pending_top_up_after": pending - (penalty - from_effective),
+                "eff_stake_after": balance - penalty,
             }
         )
     return decimals(out)
 
 
-def view_abi(key_list):
-    """Calldata and return data of the appendix A registry lookups, the registry's lifetime
-    forfeiture flag and minStake, the Inbox start view and the Unzen Inbox's proposal cutoff.
+def view_abi(key_list, digests, cfg):
+    """Calldata and return data of the Inbox's configuration, fallback key and start views, the
+    Unzen Inbox's proposal cutoff and the staking contract's lookups, snapshot, registration
+    digest, lifetime forfeiture flag and minStake, each labelled with its contract.
 
-    `(true, 0)` names bond 0 or slot 0 and `(false, 0)` is absence, so the flag, not a zero id,
+    `(true, 0)` names bond 0 or seat 0 and `(false, 0)` is absence, so the flag, not a zero id,
     tells them apart. `etnaStart()` returns (0, 0) before the start write. `proposeCutoff()`
     returns 0 while no cutoff is installed, and setOrigin requires a nonzero, reached cutoff.
     """
     found = "(bool,uint256)"
+    keys_hash = fallback_keys_hash(STORED_FALLBACK_KEYS)
+    (registration,) = [d for d in digests if d["name"] == "a1_owner_aa"]
+    snapshot_stake = sum(member[3] for member in SNAPSHOT_MEMBERS) * DEPLOYMENT["vp_unit"]
     views = {
-        "bond_for_key": (
-            "bondForKey(address)",
-            [key_list[0]["ck_addr"]],
-            found,
-            (("bond_0", (True, 0)), ("unused_key", (False, 0))),
+        "config_hash": (
+            "inbox",
+            "configHash()",
+            [],
+            "(bytes32)",
+            (("deployment", (cfg["hash"],)),),
         ),
-        "bond_in_slot": (
-            "bondInSlot(uint256)",
-            [7],
-            found,
-            (("bond_4096", (True, 4096)), ("empty_slot", (False, 0))),
+        "etna_staking": (
+            "inbox",
+            "etnaStaking()",
+            [],
+            "(address)",
+            (("deployment", (DEPLOYMENT["staking"],)),),
         ),
-        "slot_of_bond": (
-            "slotOfBond(uint256)",
-            [0],
-            found,
-            (("slot_0", (True, 0)), ("no_slot", (False, 0))),
+        "unsettled_limit": (
+            "inbox",
+            "unsettledLimit()",
+            [],
+            "(uint64)",
+            (("deployment", (DEPLOYMENT["unsettled_limit"],)),),
         ),
-        "forfeited": (
-            "forfeited(uint256)",
-            [0],
-            "(bool)",
-            (("forfeited", (True,)), ("not_forfeited", (False,))),
+        "get_fallback_keys": (
+            "inbox",
+            "getFallbackKeys()",
+            [],
+            "((uint8,bytes32)[])",
+            (("two_keys", ([list(key) for key in STORED_FALLBACK_KEYS],)),),
         ),
-        "min_stake": (
-            "minStake()",
+        "fallback_keys_hash": (
+            "inbox",
+            "fallbackKeysHash()",
+            [],
+            "(bytes32)",
+            (("two_keys", (keys_hash,)),),
+        ),
+        "min_total_stake": (
+            "inbox",
+            "minTotalStake()",
             [],
             "(uint256)",
-            (("deployment", (DEPLOYMENT["min_stake"],)),),
+            (("fallback_only", (MIN_TOTAL_STAKE,)), ("zero", (0,))),
         ),
         "etna_start": (
+            "inbox",
             "etnaStart()",
             [],
             "(uint48,bytes32)",
             (("written", START[:2]), ("not_written", (0, word(0)))),
         ),
         "propose_cutoff": (
+            "unzen_inbox",
             "proposeCutoff()",
             [],
             "(uint48)",
             (("installed", (PROPOSE_CUTOFF,)), ("not_installed", (0,))),
         ),
+        "bond_for_key": (
+            "staking",
+            "bondForKey(address)",
+            [key_list[0]["ck_addr"]],
+            found,
+            (("bond_0", (True, 0)), ("unused_key", (False, 0))),
+        ),
+        "seat_of_bond": (
+            "staking",
+            "seatOfBond(uint256)",
+            [0],
+            "(bool,uint8)",
+            (("seat_0", (True, 0)), ("no_seat", (False, 0))),
+        ),
+        "bond_in_seat": (
+            "staking",
+            "bondInSeat(uint8)",
+            [0],
+            found,
+            (("bond_0", (True, 0)), ("empty_seat", (False, 0))),
+        ),
+        "snapshot": (
+            "staking",
+            "snapshot()",
+            [],
+            "(uint256,uint256,(uint8,uint8,bytes32,uint64)[])",
+            (
+                ("two_seats", (SNAPSHOT_HEIGHT, snapshot_stake,
+                               [list(member) for member in SNAPSHOT_MEMBERS])),
+                ("empty", (0, 0, [])),
+            ),
+        ),
+        "register_digest": (
+            "staking",
+            "registerDigest(address)",
+            [OWNERS[0]],
+            "(bytes32)",
+            (("owner_aa", (registration["digest"],)),),
+        ),
+        "forfeited": (
+            "staking",
+            "forfeited(uint256)",
+            [0],
+            "(bool)",
+            (("forfeited", (True,)), ("not_forfeited", (False,))),
+        ),
+        "min_stake": (
+            "staking",
+            "minStake()",
+            [],
+            "(uint256)",
+            (("deployment", (DEPLOYMENT["min_stake"],)),),
+        ),
     }
 
     def arg(value):
-        return str(value).lower() if isinstance(value, bool) else value
+        if isinstance(value, bool):
+            return str(value).lower()
+        if isinstance(value, list):
+            return tuple_list(value)
+        return value
 
     return {
         name: {
+            "contract": contract,
             "signature": signature,
             "selector": cast("sig", signature),
             "calldata": cast("calldata", signature, *args),
@@ -2971,105 +3366,155 @@ def view_abi(key_list):
                 for result, values in results
             ],
         }
-        for name, (signature, args, returns, results) in views.items()
+        for name, (contract, signature, args, returns, results) in views.items()
     }
 
 
-def governance_events():
-    """Event topics and non-indexed ABI data: the governance events, explicit nonce invalidation,
-    and the Inbox's initialization, landing, forced inclusion, sweep and recovery events."""
+# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events, and the
+# keccak256 of the signatures the spec's staking interface gives its top-up and forfeiture events.
+SPEC_TOPICS = {
+    "fallback_keys_updated": "0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c",
+    "min_total_stake_updated": "0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1",
+    "top_up_deposited": "0x06a2187e7ae93aae0a9ff5c976b126441fdcc2c16afd1274e9ba793336f179ab",
+    "forfeited": "0xfa0800b34e880af94586f918c482b017b7cb8d550255ba57a432bc218dbdfc6b",
+}
+
+
+def governance_events(cfg):
+    """Event topics and non-indexed ABI data, each labelled with its contract: the Inbox's
+    fallback key and minTotalStake updates, nonce invalidation, rules schedule, start,
+    initialization, landing, forced inclusion, sweep and recovery events, and the staking
+    contract's top-up and forfeiture events."""
     rules_schedule = int(pack(*PACKED["inbox_293"][2:]), 16)
-    exclusions, fi_to_clear = uint_list(EXCLUSIONS), uint_list(FI_TO_CLEAR)
+    initial_keys = (K1,)
     definitions = {
-        "top_up_deposited": (
-            "TopUpDeposited(uint256,uint256,uint48)",
-            [word(0)],
-            "f(uint256,uint48)",
-            [100, 42],
+        "fallback_keys_updated": (
+            "inbox",
+            "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])",
+            [fallback_keys_hash(initial_keys)],
+            "f((uint8,bytes32)[])",
+            [fallback_keys_arg(initial_keys)],
         ),
-        "top_up_activated": ("TopUpActivated(uint256,uint256)", [word(0)], "f(uint256)", [100]),
-        "forfeited": (
-            "Forfeited(uint256,bytes32,uint256,uint256)",
-            [word(0)],
-            "f(bytes32,uint256,uint256)",
-            [INCIDENT_ID, 100, 10],
+        "min_total_stake_updated": (
+            "inbox",
+            "MinTotalStakeUpdated(uint256)",
+            [],
+            "f(uint256)",
+            [MIN_TOTAL_STAKE],
         ),
         "recovery_nonce_invalidated": (
+            "inbox",
             "RecoveryNonceInvalidated(uint256,uint256)",
             [],
             "f(uint256,uint256)",
             [7, 8],
         ),
         "rules_schedule_updated": (
+            "inbox",
             "RulesScheduleUpdated(uint256)",
             [],
             "f(uint256)",
             [rules_schedule],
         ),
         "start_written": (
+            "inbox",
             "StartWritten(uint256,bytes32,bytes32)",
             [],
             "f(uint256,bytes32,bytes32)",
             list(START),
         ),
         "etna_initialized": (
-            "EtnaInitialized(uint256,uint256,bytes32,bytes32)",
+            "inbox",
+            "EtnaInitialized(bytes32,address,uint256)",
             [],
-            "f(uint256,uint256,bytes32,bytes32)",
-            [10, 40, word(0x53), word(0x54)],
+            "f(bytes32,address,uint256)",
+            [cfg["hash"], DEPLOYMENT["staking"], DEPLOYMENT["unsettled_limit"]],
         ),
         "landed": (
-            "Landed(uint256,uint256,uint256,bytes32,uint256,uint8)",
+            "inbox",
+            "Landed(uint256,uint256,uint256,bytes32,uint8)",
             [word(0), word(6), word(12)],
-            "f(bytes32,uint256,uint8)",
-            [word(0x77), 50, 1],
+            "f(bytes32,uint8)",
+            [word(0x77), 1],
         ),
         "forced_inclusion_saved": (
+            "inbox",
             "ForcedInclusionSaved(uint48,bytes,uint256)",
             [word(3)],
             "f(bytes,uint256)",
             [FI_TX, FI_FEE_WEI],
         ),
-        "protocol_fees_swept": ("ProtocolFeesSwept(uint256)", [], "f(uint256)", [FI_FEE_WEI]),
+        "protocol_fees_swept": (
+            "inbox",
+            "ProtocolFeesSwept(uint256)",
+            [],
+            "f(uint256)",
+            [FI_FEE_WEI],
+        ),
         "recovered": (
-            "Recovered(uint48,uint256,uint256,uint256,uint256[],uint256[])",
+            "inbox",
+            "Recovered(uint48,uint256,uint256,uint256,bytes32,uint256[])",
             [word(2)],
-            "f(uint256,uint256,uint256,uint256[],uint256[])",
-            [12, 50, VALID_UNTIL, exclusions, fi_to_clear],
+            "f(uint256,uint256,uint256,bytes32,uint256[])",
+            [12, 50, VALID_UNTIL, fallback_keys_hash(STORED_FALLBACK_KEYS),
+             uint_list(FI_TO_CLEAR)],
+        ),
+        "top_up_deposited": (
+            "staking",
+            "TopUpDeposited(uint256,uint256)",
+            [word(0)],
+            "f(uint256)",
+            [100],
+        ),
+        "forfeited": (
+            "staking",
+            "Forfeited(uint256,bytes32,uint256,uint256)",
+            [word(0)],
+            "f(bytes32,uint256,uint256)",
+            [INCIDENT_ID, 100, 10],
         ),
     }
-    return {
+    out = {
         name: {
+            "contract": contract,
             "signature": signature,
             "topic0": keccak(signature),
             "indexed_topics": topics,
             "data": abi_encode(encoding, *args),
         }
-        for name, (signature, topics, encoding, args) in definitions.items()
+        for name, (contract, signature, topics, encoding, args) in definitions.items()
     }
+    for name, topic in SPEC_TOPICS.items():
+        if out[name]["topic0"] != topic:
+            raise SystemExit(f"{name}: the spec's topic0 does not reproduce\n"
+                             f"  computed: {out[name]['topic0']}\n  spec:     {topic}")
+    return out
 
 
 # --- appendix A literal examples -----------------------------------------------------------------
 
-# The secp256k1 generator G as a registered key: private key 1, ckPrefix 2 (G's Y is even) and
-# ckX = G's X, the key of ENC-A-37 37.i, 39.a and 39a.a.
-G_PREFIX, G_X = 2 + (SECP_G[1] & 1), word(SECP_G[0])
-APPENDIX_MAINNET_CHAIN_ID = 167000  # the l2ChainId of ENC-A-39 39.a, 39a.a and 42.a
-APPENDIX_STAKE = 250_000 * TAIKO  # effStake of 37.i and 39a.a; assignedPower is stake / 10^9
-
-# The literal values the spec's vectors/A.md lists; generation stops if one does not reproduce.
+# The literal values the spec's appendix A vector catalogue lists, as (field, value) of the
+# example that recomputes each; generation stops if one does not reproduce.
 APPENDIX_LITERALS = {
-    "enc_a_10b_a": "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507",
-    "enc_a_37_a": "0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d",
-    "enc_a_37_i": "0xe7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387",
-    "enc_a_37_j": "0x6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7",
-    "enc_a_39_a": "0x7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437",
-    "enc_a_39a_a": "0x0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d",
-    "enc_a_42_a": "0x6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634",
+    "enc_a_10_f": ("extra_data", "0x64" + "00" * 28),
+    "enc_a_10_h": (
+        "extra_data",
+        "0x64" + "000000000001" + "000000000102" + "80000000000000000000000000000001",
+    ),
+    "enc_a_10b_a": ("hash", "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507"),
+    "enc_a_10c_a": ("extra_data_byte_28", "0x05"),
+    "enc_a_10c_b": ("extra_data_byte_13", "0x80"),
+    "enc_a_10d_a": ("calldata", "0xea987592" + "00" * 31 + "01" + "00" * 31 + "05"),
+    "enc_a_10d_b": ("selector", "0xea987592"),
     # Blob bytes from byte 0 up to the last nonzero one; every later byte is zero.
-    "enc_a_23b_a": "0x3f0000001c" + "ff" * 27 + "30",
-    "enc_a_23c_a": "0x00000000" + "01ff",
-    "enc_a_45_g": "0x2a0b08" + "ff" * 9 + "01",
+    "enc_a_23b_a": ("blob_prefix", "0x3f0000001c" + "ff" * 27 + "30"),
+    "enc_a_23c_a": ("blob_prefix", "0x00000000" + "01ff"),
+    "enc_a_36_a": ("hash", "0x78f4b267763e0c4b58a0606e29530287b1761bf4155630c82e79d3e1215fe3b6"),
+    "enc_a_36_f": ("hash", "0x4a305a25878a5ab6f2d7bd36fcdd3d7a5549d0b55471d812df821723caa6383c"),
+    "enc_a_36a_a": ("hash", "0x9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f"),
+    "enc_a_36a_b": ("hash", "0x2bc20cdc8e87ed785fc8f8012165afba944fd223ecf8973e165e41f4cddf0cea"),
+    "enc_a_36a_g": ("preimage_bytes", 224),
+    "enc_a_45_g": ("timestamp_field", "0x2a0b08" + "ff" * 9 + "01"),
 }
 
 BLOB_FIELD_ELEMENTS = 4096
@@ -3277,12 +3722,30 @@ def val_arithmetic_examples():
     return out
 
 
-def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statements, domains,
-                        vote_vectors):
-    """Every literal hash and byte string of the spec's vectors/A.md, recomputed, and the
-    validator-set arithmetic of 29a.n-p; 29a.l and 29b.g are `validator_states` and `app_hashes`. 36.a is `committee_config`'s shape, and 38.h the
-    interior-empty-slot checkpoint of `registry_entries.checkpoints`."""
+def appendix_a_examples(cfg, states, apps, cut_vectors, statements, domains, vote_vectors,
+                        extra_rows):
+    """Every literal hash and byte string of the spec's appendix A vector catalogue, recomputed,
+    and the validator-set arithmetic examples; the validator-state and app-hash examples are
+    `validator_states` and `app_hashes`. The extraData examples are rows of `extra_data`; the
+    config hash and fallback key examples use the spec's own inputs, not the deployment's."""
     out = {}
+    rows = {
+        tuple(int(r[k]) for k in ("generation", "anchor_number", "miss_bitmap")): r
+        for r in extra_rows
+    }
+    for name, vector, inputs in (
+        ("enc_a_10_f", "ENC-A-10 10.f", (0, 0, 0)),
+        ("enc_a_10_h", "ENC-A-10 10.h", (1, 258, 2**127 + 1)),
+    ):
+        row = rows[inputs]
+        assert row["extra_data"] == encode_extra_data(*inputs)
+        out[name] = {
+            "vector": vector,
+            "generation": inputs[0],
+            "anchor_number": inputs[1],
+            "miss_bitmap": inputs[2],
+            "extra_data": row["extra_data"],
+        }
     mix_preimage = abi_encode("f(bytes32,uint256)", word(1_000_000), 12_345)
     out["enc_a_10b_a"] = {
         "vector": "ENC-A-10b 10b.a",
@@ -3290,6 +3753,33 @@ def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statem
         "number": 12_345,
         "preimage": mix_preimage,
         "hash": keccak(mix_preimage),
+    }
+    # The missBitmap bit order: seat s is bit s, so missBitmap 5 sets seats 0 and 2 in the last
+    # byte, and 2^127 sets only seat 127, the high bit of byte 13.
+    for name, vector, inputs, byte_index in (
+        ("enc_a_10c_a", "ENC-A-10c 10c.a", (5, 7, 5), 28),
+        ("enc_a_10c_b", "ENC-A-10c 10c.b", (5, 7, 2**127), 13),
+    ):
+        data = encode_extra_data(*inputs)
+        if inputs in rows:
+            assert rows[inputs]["extra_data"] == data
+        out[name] = {
+            "vector": vector,
+            "miss_bitmap": inputs[2],
+            "seats": [s for s in range(128) if inputs[2] >> s & 1],
+            "extra_data": data,
+            f"extra_data_byte_{byte_index}": "0x" + bytes.fromhex(data[2:])[byte_index:][:1].hex(),
+        }
+    out["enc_a_10d_a"] = {
+        "vector": "ENC-A-10d 10d.a",
+        "generation": 1,
+        "miss_bitmap": 5,
+        "calldata": on_block_start_calldata(1, 5),
+    }
+    out["enc_a_10d_b"] = {
+        "vector": "ENC-A-10d 10d.b",
+        "signature": ON_BLOCK_START,
+        "selector": cast("sig", ON_BLOCK_START),
     }
     out["enc_a_23b_a"] = {
         "vector": "ENC-A-23b 23b.a",
@@ -3323,90 +3813,58 @@ def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statem
         "decodes": False,
     }
     out.update(val_arithmetic_examples())
+    # The config hash of L2 chain id 167000, staking 0x1111..11 and U = 151,200, and the same
+    # inputs with the tag encoded as a dynamic string.
+    config_inputs = {
+        "tag": "ETNA_CONFIG_V1",
+        "l2_chain_id": APPENDIX_MAINNET_CHAIN_ID,
+        "staking": "0x" + "11" * 20,
+        "unsettled_limit": 151_200,
+    }
+    config_args = (
+        config_inputs["l2_chain_id"], config_inputs["staking"], config_inputs["unsettled_limit"]
+    )
+    preimage = config_preimage(*config_args)
     out["enc_a_36_a"] = {
         "vector": "ENC-A-36 36.a",
-        "preimage_bytes": len(config["preimage"]) // 2 - 1,
-        "min_stake": DEPLOYMENT["min_stake"],
-        "hash": config["hash"],
+        "inputs": config_inputs,
+        "preimage": preimage,
+        "preimage_bytes": len(preimage) // 2 - 1,
+        "hash": keccak(preimage),
     }
-    zero_preimage = reg_leaf_preimage(1, ZERO_ENTRY)
-    out["enc_a_37_a"] = {
-        "vector": "ENC-A-37 37.a",
-        "slot": 1,
-        "entry": ZERO_ENTRY,
-        "preimage": zero_preimage,
-        "hash": reg_leaf(1, ZERO_ENTRY),
-    }
-    g_entry = {"ck_prefix": G_PREFIX, "ck_x": G_X, "eff_stake": APPENDIX_STAKE,
-               "active_from_l1": 100, "exit_effective_l1": NO_EXIT}
-    out["enc_a_37_i"] = {
-        "vector": "ENC-A-37 37.i",
-        "slot": 0,
-        "entry": g_entry,
-        "preimage": reg_leaf_preimage(0, g_entry),
-        "hash": reg_leaf(0, g_entry),
-    }
-    dynamic = abi_encode(REG_LEAF_SIGNATURE.replace("bytes32", "string", 1), "ETNA_REG_ENTRY_V1",
-                         1, *(ZERO_ENTRY[f] for f in ENTRY_FIELDS))
-    assert len(dynamic) == 2 + 2 * 288
-    out["enc_a_37_j"] = {
-        "vector": "ENC-A-37 37.j",
+    dynamic = abi_encode(CONFIG_SIGNATURE.replace("bytes32", "string", 1), "ETNA_CONFIG_V1",
+                         *config_args)
+    assert len(dynamic) == 2 + 2 * 192
+    out["enc_a_36_f"] = {
+        "vector": "ENC-A-36 36.f",
         "reject": True,
-        "slot": 1,
-        "entry": ZERO_ENTRY,
         "preimage": dynamic,
+        "preimage_bytes": len(dynamic) // 2 - 1,
         "hash": keccak(dynamic),
     }
-    (h_state,) = [c for c in entries["checkpoints"] if c["name"] == "slot_1_withdrawn"]
-    l0, z1, l2 = h_state["leaves"]
-    out["enc_a_38_h"] = {
-        "vector": "ENC-A-38 38.h",
-        "checkpoint": "slot_1_withdrawn",
-        "count": 3,
-        "l0": l0,
-        "z1": z1,
-        "l2": l2,
-        "p": word(0),
-        "left": node(l0, z1),
-        "right": node(l2, word(0)),
-        "root": node(node(l0, z1), node(l2, word(0))),
-    }
-    assert out["enc_a_38_h"]["root"] == h_state["entries_root"]
-    assert z1 == out["enc_a_37_a"]["hash"]
-    set_key_preimage = abi_encode("f(bytes32,uint256,uint256,bytes32)", tag("ETNA_SET_KEY_V1"),
-                                  APPENDIX_MAINNET_CHAIN_ID, G_PREFIX, G_X)
-    out["enc_a_39_a"] = {
-        "vector": "ENC-A-39 39.a",
-        "l2_chain_id": APPENDIX_MAINNET_CHAIN_ID,
-        "ck_prefix": G_PREFIX,
-        "ck_x": G_X,
-        "preimage": set_key_preimage,
-        "hash": keccak(set_key_preimage),
-    }
-    member = {"ck_prefix": G_PREFIX, "ck_x": G_X, "eff_stake": APPENDIX_STAKE,
-              "power": APPENDIX_STAKE // VP_UNIT}
-    set_preimage = set_hash_preimage(APPENDIX_MAINNET_CHAIN_ID, 1, [member])
-    assert len(set_preimage) == 2 + 2 * 288
-    set_hash = keccak(set_preimage)
-    out["enc_a_39a_a"] = {
-        "vector": "ENC-A-39a 39a.a",
-        "l2_chain_id": APPENDIX_MAINNET_CHAIN_ID,
-        "k": 1,
-        "members": [member],
-        "preimage": set_preimage,
-        "hash": set_hash,
-    }
-    record = record_preimage(APPENDIX_MAINNET_CHAIN_ID, 0, 100, 0, set_hash, member["power"])
-    out["enc_a_42_a"] = {
-        "vector": "ENC-A-42 42.a",
-        "l2_chain_id": APPENDIX_MAINNET_CHAIN_ID,
-        "target_epoch": 0,
-        "cutoff_l1_block": 100,
-        "checkpoint_index": 0,
-        "set_hash": set_hash,
-        "total_power": member["power"],
-        "preimage": record,
-        "hash": keccak(record),
+    # The fallback key hashes of [K1] and [K1, K2], and [K1] with the tag as a dynamic string.
+    for name, vector, keys, size in (
+        ("enc_a_36a_a", "ENC-A-36a 36a.a", (K1,), 160),
+        ("enc_a_36a_b", "ENC-A-36a 36a.b", (K1, K2), 224),
+    ):
+        preimage = fallback_keys_preimage(keys)
+        assert len(preimage) == 2 + 2 * size, name
+        out[name] = {
+            "vector": vector,
+            "keys": fallback_keys_json(keys),
+            "preimage": preimage,
+            "preimage_bytes": size,
+            "hash": keccak(preimage),
+        }
+    dynamic_keys = abi_encode(FALLBACK_KEYS_SIGNATURE.replace("bytes32", "string", 1),
+                              "ETNA_FALLBACK_KEYS_V1", fallback_keys_arg((K1,)))
+    out["enc_a_36a_g"] = {
+        "vector": "ENC-A-36a 36a.g",
+        "reject": True,
+        "keys": fallback_keys_json((K1,)),
+        "preimage": dynamic_keys,
+        "preimage_bytes": len(dynamic_keys) // 2 - 1,
+        "hash": keccak(dynamic_keys),
     }
     seconds_field = b"\x08" + varint_int64(-1)
     timestamp_field = length_delimited(0x2A, seconds_field)
@@ -3422,43 +3880,26 @@ def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statem
         "timestamp_field": "0x" + timestamp_field.hex(),
         "vote": "precommit_a_backdated",
     }
-    for name, literal in APPENDIX_LITERALS.items():
-        example = out[name]
-        value = example.get("hash") or example.get("blob_prefix") or example["timestamp_field"]
+    for name, (field, literal) in APPENDIX_LITERALS.items():
+        value = out[name][field]
         if value != literal:
             raise SystemExit(f"{name}: appendix A literal does not reproduce\n"
                              f"  computed: {value}\n  A.md:     {literal}")
 
-    first_set = sets[1]
     domain, statement, cut = domains[0], statements[0], cut_vectors["cut_hashes"][0]
     (validator_state,), (app,) = states, apps
-    member_rows = uint_list(
-        f"({m['ck_prefix']},{m['ck_x']},{m['eff_stake']},{m['power']})"
-        for m in first_set["members"]
-    )
     val_rows = (
         f"[(2,{word(1)},10,-5),(3,{word(2)},10,5)]",
         f"[(2,{word(1)},10,5),(3,{word(2)},10,-5)]",
     )
-    set_member = first_set["members"][0]
     out["dynamic_tag_rejects"] = dynamic_tag_rejects(
         (
             ("chain_domain", "ETNA_COMET_DOMAIN_V1", "chain_domains[0].chain_domain",
              domain["preimage"], domain["chain_domain"], None),
-            ("committee_config", "ETNA_PARENT_ANCHOR_V1", "committee_config.hash",
-             config["preimage"], config["hash"], None),
-            ("reg_leaf", "ETNA_REG_ENTRY_V1", "appendix_a_examples.enc_a_37_a.hash",
-             zero_preimage, out["enc_a_37_a"]["hash"], None),
-            ("set_key", "ETNA_SET_KEY_V1", "committee_sets[1].members[0].set_key",
-             abi_encode("f(bytes32,uint256,uint256,bytes32)", tag("ETNA_SET_KEY_V1"),
-                        first_set["l2_chain_id"], set_member["ck_prefix"], set_member["ck_x"]),
-             set_member["set_key"], None),
-            ("set_hash", "ETNA_SET_V1", "committee_sets[1].set_hash",
-             first_set["set_hash_preimage"], first_set["set_hash"],
-             (SET_HASH_SIGNATURE, (first_set["l2_chain_id"], first_set["set_version"],
-                                   member_rows))),
-            ("committee_record", "ETNA_COMMITTEE_V1", "committee_sets[1].record_hash",
-             first_set["record_preimage"], first_set["record_hash"], None),
+            ("config", "ETNA_CONFIG_V1", "config.hash", cfg["preimage"], cfg["hash"], None),
+            ("fallback_keys", "ETNA_FALLBACK_KEYS_V1", "appendix_a_examples.enc_a_36a_a.hash",
+             out["enc_a_36a_a"]["preimage"], out["enc_a_36a_a"]["hash"],
+             (FALLBACK_KEYS_SIGNATURE, (fallback_keys_arg((K1,)),))),
             ("val_state", "ETNA_VAL_STATE_V1", "validator_states[0].hash",
              validator_state["preimage"], validator_state["hash"],
              (VAL_STATE_SIGNATURE, (validator_state["height"], val_rows[0],
@@ -3472,34 +3913,31 @@ def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statem
              statement["hash"], None),
         )
     )
-    reg = out["dynamic_tag_rejects"][2]
-    assert reg["preimage"] == out["enc_a_37_j"]["preimage"] and reg["hash"] == APPENDIX_LITERALS[
-        "enc_a_37_j"]
+    keys_reject = out["dynamic_tag_rejects"][2]
+    assert keys_reject["preimage"] == out["enc_a_36a_g"]["preimage"]
+    assert keys_reject["hash"] == out["enc_a_36a_g"]["hash"]
     return decimals(out)
 
 
 def main():
     key_list = keys()
     digests = register_digests(key_list)
-    config = committee_config()
-    entries = registry_entries(key_list)
-    sets = committee_sets(entries["entries"])
+    cfg = config()
     cut_vectors = cuts()
-    statements = land_statements(config, cut_vectors)
+    statements = land_statements(cfg, cut_vectors)
     domains = chain_domains()
     states = validator_states()
     apps = app_hashes(states)
     vote_vectors = votes(key_list, domains)
+    extra_rows = extra_data()
     vectors = {
-        "schema_version": "9",
+        "schema_version": "10",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
         "register_digests": digests,
         "pop_rejections": pop_rejections(key_list, digests),
-        "committee_config": config,
-        "registry_entries": entries,
-        "committee_sets": sets,
+        "config": cfg,
         "validator_states": states,
         "app_hashes": apps,
         "val_state_chains": val_state_chains(domains),
@@ -3509,16 +3947,21 @@ def main():
         "chain_domains": domains,
         "votes": vote_vectors,
         "fi_eligibility": fi_eligibility(),
-        "extra_data": extra_data(),
+        "extra_data": extra_rows,
         "packed_words": packed_words(),
         "origin_words": origin_words(),
         "layout": layout(),
-        "governance_abi": governance_abi(),
+        "fallback_keys": fallback_keys(),
+        "staking_layout": staking_layout(key_list),
+        "miss_bitmap": miss_bitmap(key_list),
+        "candidate": candidate(key_list),
+        "on_block_start": on_block_start(),
+        "governance_abi": governance_abi(digests, vote_vectors["slash_abi"]),
         "forfeitures": forfeitures(),
-        "governance_events": governance_events(),
-        "view_abi": view_abi(key_list),
+        "governance_events": governance_events(cfg),
+        "view_abi": view_abi(key_list, digests, cfg),
         "appendix_a_examples": appendix_a_examples(
-            config, entries, sets, states, apps, cut_vectors, statements, domains, vote_vectors
+            cfg, states, apps, cut_vectors, statements, domains, vote_vectors, extra_rows
         ),
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")

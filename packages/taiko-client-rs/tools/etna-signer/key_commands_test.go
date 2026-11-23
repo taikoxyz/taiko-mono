@@ -135,55 +135,85 @@ func recoveredAddress(t *testing.T, signature, digest []byte) string {
 // The registration PoP signs Register(owner) under the L2 EtnaStaking domain: name
 // "EtnaStaking", version "1", the L2 chain ID and the staking proxy, so it binds the L2 chain,
 // the staking contract and the owner that will send the registration. The digests and
-// signatures are the protocol's devnet registration vectors, written out here until the shared
-// vectors carry them; a signature recovers the key's address over that digest only.
+// signatures are the shared Etna vectors' registration vectors, which the contracts check too; a
+// signature recovers the key's address over that digest only.
 func TestPopUsesTheL2StakingDomain(t *testing.T) {
 	binary := signerBinary(t)
-	aa, bb := "0x"+strings.Repeat("a", 40), "0x"+strings.Repeat("b", 40)
-	for _, c := range []struct {
-		name, private, public, address, owner, digest, signature string
-	}{
-		{"a2_owner_aa", "0xa2", "0x03fbaf4eb5bdf8fe9397a3b8bc51bfa27183ff4ac34a966eb822109700780a7943", "0x612b7be154a64292aae070aaa86fcd66ba218071", aa,
-			"0xfb6650c5bf3ae2dbd4a17c474adf689da2deb14dcd5b167d0c235e1516b8b58f",
-			"0x219a363dac7de6529e6d5e46589a2d1c954f31b777cb331680488fad0def8b9376eea9dbefd9ec37d6f58c4a9bbe13ed6c6dfaf206bdcc022ce87da5b692610e00"},
-		{"a2_owner_bb", "0xa2", "0x03fbaf4eb5bdf8fe9397a3b8bc51bfa27183ff4ac34a966eb822109700780a7943", "0x612b7be154a64292aae070aaa86fcd66ba218071", bb,
-			"0xc1a061023852a010c7c79734737f638a9fd418d81f293c63a691588ef0576434",
-			"0x795695fcf288f9732221c020eaee095a09a6bf07bdbbaad57af51c529e0b541b1cbc1702dbe5a8acd5c605e8b5ca5a0eb7ffb9dc9f36a99f0dfe806c5e053e0900"},
-		// X has a leading zero byte, which the 33-byte public key keeps.
-		{"leading_zero_x_owner_aa", "0x99", "0x0200e3ae1974566ca06cc516d47e0fb165a674a3dabcfca15e722f0e3450f45889", "0x2798ba84d7830c5f60d750f37f87d93277106905", aa,
-			"0xfb6650c5bf3ae2dbd4a17c474adf689da2deb14dcd5b167d0c235e1516b8b58f",
-			"0x5219b7d58169b394d41818d87ba3cab406d1235459cde5a2f38ea827f70558100d84d323ea99809298b3f8740964e2f181cc3a6ef1c3d13ef55783316093530801"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			digest := registrationDigest(t, testStakingDomain, c.owner)
-			if got := "0x" + hex.EncodeToString(digest); got != c.digest {
-				t.Fatalf("registration digest %s, want %s", got, c.digest)
+	raw, err := os.ReadFile("../../../../testdata/etna_vectors/vectors.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors struct {
+		Keys []struct {
+			PrivateKey string `json:"private_key"`
+			PublicKey  string `json:"public_key"`
+			Address    string `json:"ck_addr"`
+		} `json:"keys"`
+		Register []struct {
+			Name      string `json:"name"`
+			Chain     string `json:"l2_chain_id"`
+			Staking   string `json:"staking"`
+			Owner     string `json:"owner"`
+			Key       string `json:"key"`
+			Digest    string `json:"digest"`
+			Signature string `json:"pop_sig"`
+		} `json:"register_digests"`
+	}
+	if err = json.Unmarshal(raw, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, v := range vectors.Register {
+		names[v.Name] = true
+	}
+	// Two owners for one key, and a key whose X has a leading zero byte, which the 33-byte public
+	// key keeps.
+	for _, name := range []string{"a2_owner_aa", "a2_owner_bb", "leading_zero_x_owner_aa"} {
+		if !names[name] {
+			t.Fatalf("missing registration vector %s", name)
+		}
+	}
+	for _, v := range vectors.Register {
+		t.Run(v.Name, func(t *testing.T) {
+			var private, address string
+			for _, k := range vectors.Keys {
+				if k.PublicKey == v.Key {
+					private, address = k.PrivateKey, k.Address
+				}
+			}
+			if private == "" {
+				t.Fatal("missing vector key")
+			}
+			domain := popDomain{"EtnaStaking", "1", v.Chain, v.Staking}
+			digest := registrationDigest(t, domain, v.Owner)
+			if got := "0x" + hex.EncodeToString(digest); got != v.Digest {
+				t.Fatalf("registration digest %s, want %s", got, v.Digest)
 			}
 			dir := t.TempDir()
 			key, state := filepath.Join(dir, "key"), filepath.Join(dir, "state")
-			private := new(big.Int).SetBytes(fromHex(t, c.private)).FillBytes(make([]byte, 32))
-			privval.NewFilePV(secp256k1eth.PrivKey(private), key, state).Save()
+			secret := new(big.Int).SetBytes(fromHex(t, private)).FillBytes(make([]byte, 32))
+			privval.NewFilePV(secp256k1eth.PrivKey(secret), key, state).Save()
 			before := readFile(t, state)
-			got := commandJSON(t, binary, "pop", "--priv-key", key, "--owner", c.owner, "--staking", testStakingDomain.contract, "--l2-chain-id", testStakingDomain.chain)
-			if len(got) != 2 || got["publicKey"] != c.public || got["signature"] != c.signature {
+			got := commandJSON(t, binary, "pop", "--priv-key", key, "--owner", v.Owner, "--staking", v.Staking, "--l2-chain-id", v.Chain)
+			if len(got) != 2 || got["publicKey"] != v.Key || got["signature"] != v.Signature {
 				t.Fatalf("PoP mismatch: %v", got)
 			}
 			sig := fromHex(t, got["signature"])
 			if len(sig) != 65 || sig[64] > 1 || new(big.Int).SetBytes(sig[32:64]).Cmp(new(big.Int).Rsh(new(big.Int).Set(secp256k1.Params().N), 1)) > 0 {
 				t.Fatal("noncanonical signature")
 			}
-			if recoveredAddress(t, sig, digest) != c.address {
+			if recoveredAddress(t, sig, digest) != address {
 				t.Fatal("wrong recovered Ethereum address / double hashing")
 			}
 			// Any other domain recovers another address: the L1 chain ID, the Inbox as verifying
 			// contract, the registry's old name or another version.
 			for _, other := range []popDomain{
-				{"EtnaStaking", "1", "1", testStakingDomain.contract},
-				{"EtnaStaking", "1", testStakingDomain.chain, "0x" + strings.Repeat("11", 20)},
-				{"EtnaStakingRegistry", "1", testStakingDomain.chain, testStakingDomain.contract},
-				{"EtnaStaking", "2", testStakingDomain.chain, testStakingDomain.contract},
+				{"EtnaStaking", "1", "1", v.Staking},
+				{"EtnaStaking", "1", v.Chain, "0x" + strings.Repeat("11", 20)},
+				{"EtnaStakingRegistry", "1", v.Chain, v.Staking},
+				{"EtnaStaking", "2", v.Chain, v.Staking},
 			} {
-				if recoveredAddress(t, sig, registrationDigest(t, other, c.owner)) == c.address {
+				if recoveredAddress(t, sig, registrationDigest(t, other, v.Owner)) == address {
 					t.Fatalf("the PoP also verifies under %v", other)
 				}
 			}

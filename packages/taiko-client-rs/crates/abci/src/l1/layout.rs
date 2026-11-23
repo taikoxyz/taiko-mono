@@ -309,33 +309,30 @@ mod tests {
 
     /// Every plain Inbox slot, the active status and the origin and landing slots match the
     /// shared layout vectors (`testdata/etna_vectors`), which the contracts check against a
-    /// deployed Inbox. The anchor slot list is checked against the specification's own list
-    /// (`anchor_slots_are_in_the_fixed_order` in the witness tests): the shared vectors still list
-    /// the five slots of the anchor witness before it proved slots 278 and 279.
+    /// deployed Inbox; the anchor slot list is checked against them in
+    /// `anchor_slots_are_in_the_fixed_order` (the witness tests). The node proves none of the
+    /// reserved slots.
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 18);
+        assert_eq!(slots.len(), 17);
         for name in slots.keys() {
             let constant = match name.as_str() {
                 "initialization_status" => inbox::STATUS,
                 "recovery_generation" => inbox::RECOVERY_GENERATION,
-                "committee_config_hash" => inbox::CONFIG_HASH,
+                "config_hash" => inbox::CONFIG_HASH,
                 "last_checkpoint_height" => inbox::LAST_CHECKPOINT_HEIGHT,
                 "last_checkpoint_hash" => inbox::LAST_CHECKPOINT_HASH,
                 "genesis_packed" => inbox::GENESIS_PACKED,
                 "genesis_block_hash" => inbox::START_BLOCK_HASH,
                 "genesis_state_root" => inbox::START_STATE_ROOT,
-                // The shared vectors still name slots 278 and 279 by their registry-era meaning.
-                "genesis_committee_record_hash" => inbox::FALLBACK_KEYS_HASH,
-                "genesis_cutoff" => inbox::MIN_TOTAL_STAKE,
+                "fallback_keys_hash" => inbox::FALLBACK_KEYS_HASH,
+                "min_total_stake" => inbox::MIN_TOTAL_STAKE,
                 "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,
                 "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
                 "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
                 "landings" => inbox::LANDINGS,
                 "origins" => inbox::ORIGINS,
-                // Slot 284 is gone from the Inbox; the node reads it nowhere.
-                "active_committee_snapshot" => continue,
                 // Governance authorization state is deliberately absent from node witnesses.
                 "recovery_nonce" => 292,
                 "rules_schedule" => inbox::RULES_SCHEDULE,
@@ -348,11 +345,12 @@ mod tests {
             vectors::u64_at("/layout/inbox/initialized_status")
         );
         assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
-        // The shared vectors still list the three-word origin record; its fourth word,
-        // `fallbackKeysHash`, is checked against the specification in
-        // `origin_record_is_four_consecutive_words`.
+        for reserved in vectors::u64s_at("/layout/inbox/reserved_slots") {
+            let reserved = inbox::slot(reserved);
+            assert!(!inbox::recovery_slots(1, 6).contains(&reserved), "{reserved}");
+        }
         let origin_slots: fn(u64) -> Vec<B256> =
-            |generation| inbox::origin_slots(generation)[..3].into();
+            |generation| inbox::origin_slots(generation).into();
         let landing_slots: fn(u64) -> Vec<B256> =
             |height| inbox::landing_record_slots(height).into();
         for (table, key, slots_fn) in [
@@ -376,23 +374,40 @@ mod tests {
     /// height, L1 block number, L1 timestamp and `fallbackKeysHash`.
     #[test]
     fn origin_record_is_four_consecutive_words() {
-        for (generation, base) in [
-            (0, b256!("67c2238b85f1221355128cce4fe559243be9c53682cf7b4c8b4cb08961267650")),
-            (1, b256!("861f99c61ede1958e2da3e2c0f9306340c58e162066b67475ed47ffedf76c3ae")),
-        ] {
-            let base = U256::from_be_bytes(base.0);
+        for index in 0..vectors::len_at("/layout/inbox/origin_slots") {
+            let path = format!("/layout/inbox/origin_slots/{index}");
+            let generation = vectors::u64_at(&format!("{path}/generation"));
+            let base = U256::from_be_bytes(vectors::b256_at(&format!("{path}/slots/0")).0);
             let expected = [0u64, 1, 2, 3].map(|i| B256::from(base + U256::from(i)));
             assert_eq!(inbox::origin_slots(generation), expected, "generation {generation}");
+            assert_eq!(vectors::b256s_at(&format!("{path}/slots")), expected);
         }
-        assert_eq!(
-            inbox::origin_slots(1)[3],
-            b256!("861f99c61ede1958e2da3e2c0f9306340c58e162066b67475ed47ffedf76c3b1")
-        );
     }
 
-    /// The origin record's first three words are `uint48`s and its fourth a whole `bytes32`.
+    /// The origin record's first three words are `uint48`s and its fourth a whole `bytes32`; the
+    /// shared origin word vectors decode to their fields.
     #[test]
     fn origin_record_decodes_three_uint48_words_and_a_whole_hash() {
+        for index in 0..vectors::len_at("/origin_words") {
+            let field = |name: &str| vectors::u64_at(&format!("/origin_words/{index}/{name}"));
+            let hash = vectors::b256_at(&format!("/origin_words/{index}/fallback_keys_hash"));
+            let words = ["start_height", "l1_block_number", "l1_timestamp"].map(field);
+            assert_eq!(
+                inbox::decode_origin_record([
+                    U256::from(words[0]),
+                    U256::from(words[1]),
+                    U256::from(words[2]),
+                    U256::from_be_bytes(hash.0),
+                ]),
+                Some(etna_core::types::OriginRecord {
+                    start_height: words[0],
+                    l1_number: words[1],
+                    l1_timestamp: words[2],
+                    fallback_keys_hash: hash,
+                }),
+                "origin words {index}"
+            );
+        }
         let max48 = U256::from((1u64 << 48) - 1);
         let hash = U256::MAX;
         assert_eq!(
@@ -416,8 +431,18 @@ mod tests {
     /// and neither slot 278 nor slot 279.
     #[test]
     fn genesis_slots_exclude_278_and_279() {
-        let mut expected = [258, 268, 272, 273, 274, 269, 282].map(inbox::slot).to_vec();
-        expected.extend(inbox::origin_slots(0));
+        let mut expected: Vec<B256> = [
+            "initialization_status",
+            "recovery_generation",
+            "genesis_packed",
+            "genesis_block_hash",
+            "genesis_state_root",
+            "config_hash",
+            "forced_inclusion_config",
+        ]
+        .map(|name| inbox::slot(vectors::u64_at(&format!("/layout/inbox/slots/{name}"))))
+        .to_vec();
+        expected.extend(vectors::b256s_at("/layout/inbox/origin_slots/0/slots"));
         assert_eq!(inbox::genesis_slots(), expected);
         for slot in [inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE] {
             assert!(!inbox::genesis_slots().contains(&inbox::slot(slot)), "{slot}");

@@ -194,24 +194,24 @@ mod tests {
             );
         }
     }
-    /// The configuration hash commits the built-in L2 chain id, staking proxy and U.
+    /// The configuration hash commits the built-in L2 chain id, staking proxy and U: the shared
+    /// configuration vector's inputs and hash.
     #[test]
     fn config_hash_uses_the_builtin_staking_address() {
+        use crate::test_utils::vectors;
         let p = devnet();
-        let expected = alloy_primitives::b256!(
-            "ce98efd6a337c78d7b268a407f9cd0dbfeee0e8724f07bc924087437497b4650"
-        );
+        let expected = vectors::b256_at("/config/hash");
         assert_eq!(
             etna_core::params::config_hash(p.l2_chain_id, p.staking, p.unsettled_limit),
             expected
         );
         assert_eq!(
-            etna_core::params::config_hash(
-                167_001,
-                address!("1670010000000000000000000000000000010003"),
-                151_200
-            ),
-            expected
+            (p.l2_chain_id, p.staking, p.unsettled_limit),
+            (
+                vectors::u64_at("/config/inputs/l2_chain_id"),
+                vectors::str_at("/config/inputs/staking").parse().unwrap(),
+                vectors::u64_at("/config/inputs/unsettled_limit"),
+            )
         );
         assert_eq!(p.config_hash(), expected);
         assert_ne!(ChainParams { staking: Address::repeat_byte(1), ..p }.config_hash(), expected);

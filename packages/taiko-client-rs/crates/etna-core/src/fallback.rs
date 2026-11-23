@@ -186,7 +186,8 @@ impl From<FallbackKeys> for Vec<ConsensusKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{U256, b256, hex};
+    use crate::test_utils::vectors;
+    use alloy_primitives::{U256, hex};
 
     /// The compressed public key of private key 1.
     const K1: [u8; 33] = hex!("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
@@ -215,24 +216,103 @@ mod tests {
         U256::from(value).to_be_bytes()
     }
 
+    /// The keys of the `{ck_prefix, ck_x}` array at `pointer`, each as given, valid or not.
+    fn keys_at(pointer: &str) -> Vec<Result<ConsensusKey, ()>> {
+        (0..vectors::len_at(pointer))
+            .map(|index| {
+                let prefix = vectors::u64_at(&format!("{pointer}/{index}/ck_prefix"));
+                let x = vectors::b256_at(&format!("{pointer}/{index}/ck_x"));
+                let bytes = [&[u8::try_from(prefix).unwrap()][..], x.as_slice()].concat();
+                ConsensusKey::from_slice(&bytes).map_err(drop)
+            })
+            .collect()
+    }
+
+    /// The shared accepted list named `name`, with its preimage and hash.
+    fn accepted(name: &str) -> (FallbackKeys, Vec<u8>, B256) {
+        let index = (0..vectors::len_at("/fallback_keys/accepted"))
+            .find(|index| vectors::str_at(&format!("/fallback_keys/accepted/{index}/name")) == name)
+            .unwrap_or_else(|| panic!("no accepted fallback key vector {name}"));
+        let path = |field: &str| format!("/fallback_keys/accepted/{index}/{field}");
+        let keys = keys_at(&path("keys")).into_iter().map(Result::unwrap).collect();
+        let preimage = hex::decode(vectors::str_at(&path("preimage"))).unwrap();
+        (FallbackKeys::new(keys).unwrap(), preimage, vectors::b256_at(&path("hash")))
+    }
+
     #[test]
     fn hash_of_one_key() {
         let keys = FallbackKeys::new(vec![key(&K1)]).unwrap();
+        let (vector, preimage, hash) = accepted("one_key");
+        assert_eq!(keys, vector);
         assert_eq!(keys.hash_preimage().len(), 160);
-        assert_eq!(
-            keys.hash(),
-            b256!("9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f")
-        );
+        assert_eq!(keys.hash_preimage(), preimage);
+        assert_eq!(keys.hash(), hash);
     }
 
     #[test]
     fn hash_of_two_keys() {
         let keys = FallbackKeys::new(vec![key(&K1), key(&K2)]).unwrap();
+        let (vector, preimage, hash) = accepted("two_keys");
+        assert_eq!(keys, vector);
         assert_eq!(keys.hash_preimage().len(), 224);
-        assert_eq!(
-            keys.hash(),
-            b256!("2bc20cdc8e87ed785fc8f8012165afba944fd223ecf8973e165e41f4cddf0cea")
-        );
+        assert_eq!(keys.hash_preimage(), preimage);
+        assert_eq!(keys.hash(), hash);
+    }
+
+    /// Every shared accepted list hashes to its vector, logs its keys as the event data and signs
+    /// with its keys at power 1; every shared rejected list is refused for its reason.
+    #[test]
+    fn shared_vectors_accept_and_reject_their_lists() {
+        assert_eq!(FALLBACK_KEYS_TAG, tag(vectors::str_at("/fallback_keys/tag").as_bytes()));
+        for index in 0..vectors::len_at("/fallback_keys/accepted") {
+            let path = |field: &str| format!("/fallback_keys/accepted/{index}/{field}");
+            let (keys, preimage, hash) = accepted(vectors::str_at(&path("name")));
+            assert_eq!(keys.hash_preimage(), preimage, "{}", path("name"));
+            assert_eq!(keys.hash(), hash, "{}", path("name"));
+            assert_eq!(vectors::b256_at(&path("event/topic0")), FALLBACK_KEYS_UPDATED);
+            assert_eq!(vectors::b256_at(&path("event/topic1")), hash);
+            let data = hex::decode(vectors::str_at(&path("event/data"))).unwrap();
+            assert_eq!(keys.abi_encode(), data, "{}", path("name"));
+            assert_eq!(FallbackKeys::from_abi(&data), Ok(keys.clone()));
+            let validators: Vec<_> = keys
+                .validator_set()
+                .into_iter()
+                .map(|(key, power)| (format!("{:#x}", key.address()), power.to_string()))
+                .collect();
+            let expected: Vec<_> = (0..vectors::len_at(&path("validators")))
+                .map(|validator| {
+                    let field = |name: &str| format!("{}/{validator}/{name}", path("validators"));
+                    (
+                        vectors::str_at(&field("ck_addr")).to_string(),
+                        vectors::str_at(&field("power")).to_string(),
+                    )
+                })
+                .collect();
+            assert_eq!(validators, expected, "{}", path("name"));
+        }
+        for index in 0..vectors::len_at("/fallback_keys/rejected") {
+            let path = |field: &str| format!("/fallback_keys/rejected/{index}/{field}");
+            let name = vectors::str_at(&path("name"));
+            let keys = keys_at(&path("keys"));
+            match vectors::str_at(&path("reason")) {
+                "key" => assert!(keys.iter().any(Result::is_err), "{name}"),
+                "count" => assert!(
+                    matches!(
+                        FallbackKeys::new(keys.into_iter().map(Result::unwrap).collect()),
+                        Err(FallbackKeysError::Empty | FallbackKeysError::TooMany(_))
+                    ),
+                    "{name}"
+                ),
+                "order" => assert!(
+                    matches!(
+                        FallbackKeys::new(keys.into_iter().map(Result::unwrap).collect()),
+                        Err(FallbackKeysError::NotAscending(_))
+                    ),
+                    "{name}"
+                ),
+                other => panic!("{name}: no rejection reason named {other}"),
+            }
+        }
     }
 
     #[test]

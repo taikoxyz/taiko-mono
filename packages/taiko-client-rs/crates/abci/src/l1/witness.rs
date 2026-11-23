@@ -263,13 +263,14 @@ mod tests {
         anchor_witness_in(&live_state_with(words), INBOX, l1_header(9, 99))
     }
 
-    /// The anchor witness proves exactly these Inbox slots, in this order: the generation, the
-    /// last checkpoint's height and hash, the fallback keys hash, the minimum total stake, the
-    /// forced inclusion queue's head and tail, and the rules schedule. A witness proving them in
-    /// any other order is refused, though every proof in it is valid.
+    /// The anchor witness proves exactly the shared layout vectors' anchor slots, in their
+    /// order: the generation, the last checkpoint's height and hash, the fallback keys hash, the
+    /// minimum total stake, the forced inclusion queue's head and tail, and the rules schedule. A
+    /// witness proving them in any other order is refused, though every proof in it is valid.
     #[test]
     fn anchor_slots_are_in_the_fixed_order() {
-        let fixed: Vec<B256> = [268u64, 270, 271, 278, 279, 281, 293].map(inbox::slot).to_vec();
+        let fixed: Vec<B256> =
+            vectors::u64s_at("/layout/inbox/anchor_slots").into_iter().map(inbox::slot).collect();
         assert_eq!(inbox::anchor_slots(), fixed);
         assert_eq!(
             (inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE),
@@ -348,11 +349,9 @@ mod tests {
             ),
             word("genesis_block_hash", 0xa1),
             word("genesis_state_root", 0xa2),
-            word("committee_config_hash", 0xa3),
-            // The shared vectors still name slots 279 and 278, `minTotalStake` and
-            // `fallbackKeysHash`, by their registry-era meaning.
-            (slot("genesis_cutoff"), U256::from((1u64 << 48) - 5)),
-            word("genesis_committee_record_hash", 0xa4),
+            word("config_hash", 0xa3),
+            (slot("min_total_stake"), U256::from((1u64 << 48) - 5)),
+            word("fallback_keys_hash", 0xa4),
             packed(
                 "forced_inclusion_config",
                 &[

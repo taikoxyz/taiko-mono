@@ -3,7 +3,7 @@ use crate::{
     fallback::FallbackKeys,
     params::UINT48_MAX,
     staking::{RECORD_COUNT, StakingWords},
-    test_utils::test_key,
+    test_utils::{test_key, vectors},
 };
 use alloy_primitives::hex;
 use proptest::{collection::vec, prelude::*};
@@ -167,11 +167,108 @@ fn vector_record_decodes() {
     let x = U256::from_be_bytes(hex!(
         "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
     ));
-    // Prefix 2 in bits 0–7 and power 250,000 in bits 8–71.
-    let packed = U256::from(0x3d09002u64);
+    // Prefix 2 in bits 0–7 and power 250,000 in bits 8–71: the shared record word 2 vector.
+    let packed = word_at("/staking_layout/record_word2/0/word");
+    assert_eq!(vectors::u64_at("/staking_layout/record_word2/0/ck_prefix"), 2);
+    assert_eq!(vectors::u64_at("/staking_layout/record_word2/0/power"), 250_000);
     assert_eq!(record(k1(), 250_000), [x, packed]);
     let snapshot = words(H, m(), &[(0, [x, packed])]);
     assert_eq!(decide_at(&snapshot, m()), candidate(vec![(k1(), 250_000)]));
+}
+
+/// Every shared record word 2 vector packs its prefix and power, and a record of that word
+/// beside a valid X decodes to a member of that prefix and power, the full 64-bit power
+/// included.
+#[test]
+fn shared_record_word_2_vectors_pack_prefix_and_power() {
+    for family in ["/staking_layout/record_word2", "/packed_words/staking_record_word2"] {
+        for index in 0..vectors::len_at(family) {
+            let path = |field: &str| format!("{family}/{index}/{field}");
+            let prefix = u8::try_from(vectors::u64_at(&path("ck_prefix"))).unwrap();
+            let power = vectors::u64_at(&path("power"));
+            let packed = word_at(&path("word"));
+            assert_eq!(packed, U256::from(prefix) | (U256::from(power) << 8), "{family} {index}");
+            let mut bytes = K1;
+            bytes[0] = prefix;
+            let key = ConsensusKey::from_slice(&bytes).unwrap();
+            assert_eq!(record(key, power)[1], packed, "{family} {index}");
+            let x = U256::from_be_bytes(key.x().0);
+            assert_eq!(decode_member(x, packed), Some((key, power)), "{family} {index}");
+        }
+    }
+}
+
+/// The word at `pointer`, a 32-byte hex string.
+fn word_at(pointer: &str) -> U256 {
+    U256::from_be_bytes(vectors::b256_at(pointer).0)
+}
+
+/// The decimal integer at `pointer`, of any width up to 256 bits.
+fn u256_at(pointer: &str) -> U256 {
+    U256::from_str_radix(vectors::str_at(pointer), 10).unwrap()
+}
+
+/// The keys of the `{ck_prefix, ck_x}` array at `pointer`.
+fn keys_at(pointer: &str) -> Vec<ConsensusKey> {
+    (0..vectors::len_at(pointer))
+        .map(|index| {
+            let prefix = u8::try_from(vectors::u64_at(&format!("{pointer}/{index}/ck_prefix")));
+            let x = vectors::b256_at(&format!("{pointer}/{index}/ck_x"));
+            ConsensusKey::from_slice(&[&[prefix.unwrap()][..], x.as_slice()].concat()).unwrap()
+        })
+        .collect()
+}
+
+/// Every shared candidate vector decides its signers: the candidate's members when it is usable,
+/// otherwise the fallback keys at power 1, for the first condition it fails.
+#[test]
+fn shared_candidate_vectors_decide_their_signers() {
+    for index in 0..vectors::len_at("/candidate/cases") {
+        let path = |field: &str| format!("/candidate/cases/{index}/{field}");
+        let name = vectors::str_at(&path("name"));
+        let height = vectors::u64_at(&path("height"));
+        let mut snapshot = StakingWords::header_only(
+            word_at(&path("snapshot_height_word")),
+            u256_at(&path("snapshot_total_stake")),
+        );
+        for record in 0..vectors::len_at(&path("records")) {
+            let field = |name: &str| format!("{}/{record}/{name}", path("records"));
+            let seat = vectors::usize_at(&field("seat"));
+            snapshot.records[seat] = [word_at(&field("word1")), word_at(&field("word2"))];
+        }
+        let min_total_stake = u256_at(&path("min_total_stake"));
+        let fallback = FallbackKeys::new(keys_at(&path("fallback_keys"))).unwrap();
+        let signer_keys = keys_at(&path("signers"));
+        let mut signers: Vec<_> = signer_keys
+            .iter()
+            .enumerate()
+            .map(|(signer, key)| {
+                (*key, vectors::u64_at(&format!("{}/{signer}/power", path("signers"))))
+            })
+            .collect();
+        signers.sort();
+        let decided = decide(height, &snapshot, min_total_stake, &fallback);
+        let mut members = decided.members.clone();
+        members.sort();
+        assert_eq!(members, signers, "{name}");
+        let result = candidate_members(height, &snapshot, min_total_stake);
+        if vectors::at(&path("usable")).as_bool().unwrap() {
+            assert_eq!(decided.source, SignerSource::Candidate, "{name}");
+            assert_eq!(result, Ok(decided.members), "{name}");
+        } else {
+            assert_eq!(decided.source, SignerSource::Fallback, "{name}");
+            assert_eq!(decided.members, fallback.validator_set(), "{name}");
+            let cause = match vectors::str_at(&path("reason")) {
+                "min_total_stake_max" => Unusable::MinTotalStakeMax,
+                "snapshot_height" => Unusable::StaleSnapshot,
+                "below_min_total_stake" => Unusable::BelowMinTotalStake,
+                "stray_bits" | "invalid_key" | "zero_power" | "duplicate_key" | "power_sum" |
+                "no_members" => Unusable::InvalidSet,
+                other => panic!("{name}: no unusable cause named {other}"),
+            };
+            assert_eq!(result, Err(cause), "{name}");
+        }
+    }
 }
 
 #[test]

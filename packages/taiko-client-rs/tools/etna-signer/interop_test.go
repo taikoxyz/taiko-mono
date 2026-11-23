@@ -47,8 +47,8 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 	if err = json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if fixture.SchemaVersion != "9" {
-		t.Fatalf("vote fixture schema: got %q, want 9", fixture.SchemaVersion)
+	if fixture.SchemaVersion != "10" {
+		t.Fatalf("vote fixture schema: got %q, want 10", fixture.SchemaVersion)
 	}
 	wantCases := map[string]bool{
 		"precommit_a":                true,
@@ -82,7 +82,7 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 		"zero_parts_hash_only":       true,
 	}
 	if len(fixture.Votes.Cases) != len(wantCases) {
-		t.Fatalf("schema 9 vote fixtures: got %d, want %d", len(fixture.Votes.Cases), len(wantCases))
+		t.Fatalf("schema 10 vote fixtures: got %d, want %d", len(fixture.Votes.Cases), len(wantCases))
 	}
 	for _, c := range fixture.Votes.Cases {
 		if !wantCases[c.Name] {

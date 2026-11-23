@@ -127,31 +127,48 @@ impl StakingWords {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, b256};
+    use crate::test_utils::vectors::{at as vector, b256_at, len_at, str_at, u64_at};
 
     fn at(offset: u64) -> B256 {
         B256::from(U256::from_be_bytes(BASE.0) + U256::from(offset))
     }
 
+    /// The word at `pointer`, a 32-byte hex string.
+    fn word_at(pointer: &str) -> U256 {
+        U256::from_be_bytes(b256_at(pointer).0)
+    }
+
     #[test]
     fn base_is_the_erc7201_slot_of_the_namespace() {
-        let expected = b256!("5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00");
+        let expected = b256_at("/staking_layout/base");
+        assert_eq!(NAMESPACE, str_at("/staking_layout/namespace"));
         assert_eq!(BASE, expected);
         assert_eq!(erc7201_base(NAMESPACE), expected);
         assert_eq!(snapshot_height_slot(), BASE);
+        assert_eq!(snapshot_height_slot(), b256_at("/staking_layout/snapshot_height_slot"));
         assert_eq!(snapshot_total_stake_slot(), at(1));
+        assert_eq!(
+            snapshot_total_stake_slot(),
+            b256_at("/staking_layout/snapshot_total_stake_slot")
+        );
+        // The key-to-seat mapping's base slot, T + 2.
+        assert_eq!(at(2), b256_at("/staking_layout/key_seat_slot"));
     }
 
     #[test]
     fn record_slots_follow_the_base() {
         assert_eq!(record_slots(0), [at(3), at(4)]);
         assert_eq!(record_slots(5), [at(13), at(14)]);
-        let last = record_slots(127);
-        assert_eq!(
-            last[0],
-            b256!("5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01")
-        );
-        assert_eq!(last[1], at(258));
+        assert_eq!(record_slots(127)[1], at(258));
+        for index in 0..len_at("/staking_layout/record_slots") {
+            let path = |field: &str| format!("/staking_layout/record_slots/{index}/{field}");
+            let seat = u8::try_from(u64_at(&path("seat"))).unwrap();
+            assert_eq!(
+                record_slots(seat),
+                [b256_at(&path("word1")), b256_at(&path("word2"))],
+                "seat {seat}"
+            );
+        }
     }
 
     #[test]
@@ -160,12 +177,18 @@ mod tests {
         record_slots(128);
     }
 
+    /// The key-to-seat slot of each shared vector address, the first the key of secret one.
     #[test]
     fn key_to_seat_slot_of_the_key_of_secret_one() {
         assert_eq!(
-            key_to_seat_slot(address!("7E5F4552091A69125d5DfCb7b8C2659029395Bdf")),
-            b256!("5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27")
+            str_at("/staking_layout/key_seat_slots/0/ck_addr").parse::<Address>().unwrap(),
+            crate::test_utils::test_key(0).address()
         );
+        for index in 0..len_at("/staking_layout/key_seat_slots") {
+            let path = |field: &str| format!("/staking_layout/key_seat_slots/{index}/{field}");
+            let address: Address = str_at(&path("ck_addr")).parse().unwrap();
+            assert_eq!(key_to_seat_slot(address), b256_at(&path("slot")), "{address}");
+        }
     }
 
     #[test]
@@ -180,6 +203,20 @@ mod tests {
         }
         assert_eq!(decode_seat(U256::MAX), None);
         assert_eq!(decode_seat((U256::from(1) << 255) | U256::from(0x0501)), None);
+        // The shared key-to-seat words, each with its seat or none.
+        for index in 0..len_at("/staking_layout/key_seat_words") {
+            let path = format!("/staking_layout/key_seat_words/{index}");
+            let seat =
+                vector(&format!("{path}/seat")).as_str().map(|seat| seat.parse::<u8>().unwrap());
+            assert_eq!(decode_seat(word_at(&format!("{path}/word"))), seat, "{path}");
+        }
+        // The packed holdsSeat flag and seat number.
+        for index in 0..len_at("/packed_words/staking_key_seat") {
+            let path = |field: &str| format!("/packed_words/staking_key_seat/{index}/{field}");
+            assert_eq!(u64_at(&path("holds_seat")), 1);
+            let seat = u8::try_from(u64_at(&path("seat"))).unwrap();
+            assert_eq!(decode_seat(word_at(&path("word"))), Some(seat), "seat {seat}");
+        }
     }
 
     #[test]

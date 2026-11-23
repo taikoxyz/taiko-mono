@@ -11,8 +11,12 @@ use serde_json::Value;
 
 use super::{ValEntry, ValSet, ValState};
 use crate::{
-    comet::validators::Validators, committee, key::ConsensusKey, params::MAX_SET_MEMBERS,
-    test_utils::vectors::at, validator::ValidatorUpdate,
+    comet::validators::Validators,
+    committee,
+    key::ConsensusKey,
+    params::MAX_SET_MEMBERS,
+    test_utils::{test_key, vectors::at},
+    validator::ValidatorUpdate,
 };
 
 fn number(value: &Value) -> u64 {
@@ -102,7 +106,7 @@ fn abci_updates(previous: &ValSet, recorded: &ValSet) -> Vec<(ConsensusKey, u64)
 // every set row come from stock ApplyVerifiedBlock, not another replay of our arithmetic.
 #[test]
 fn shared_stock_chains_replay_every_abci_validator_state() {
-    assert_eq!(at("/schema_version"), "9");
+    assert_eq!(at("/schema_version"), "10");
     assert_eq!(at("/val_state_chains/cometbft"), "v0.40.0");
     let keys = key_ring();
     let mut checked = 0;
@@ -166,7 +170,56 @@ fn shared_stock_chains_replay_every_abci_validator_state() {
         }
         assert_eq!(state.height, number(&chain["end_height"]), "{name}: full chain");
     }
-    assert_eq!(checked, 79);
+    assert_eq!(checked, 95);
+}
+
+// Catches priority arithmetic, proposer selection and ordering going wrong at the 128-member bound
+// with CometBFT's MaxTotalVotingPower, against the shared vectors' stock-recorded rows: the
+// genesis and one increment, their valStateHash, preimage size and the first and last three rows
+// of each set.
+#[test]
+fn shared_stock_max_committee_replays_both_recorded_hashes() {
+    let fixture = at("/val_state_chains/max_committee");
+    let size = number(&fixture["size"]) as usize;
+    assert_eq!(size, MAX_SET_MEMBERS);
+    let first: U256 = fixture["first_private_key"].as_str().unwrap().parse().unwrap();
+    let first: u64 = first.try_into().unwrap();
+    // Member i has private key first + i, which `test_key` derives from seed first - 1 + i; its
+    // power is 2^48 + (i mod 64) - 32, and the last member takes the rest of the total.
+    let mut genesis = (0..size)
+        .map(|index| (test_key(first - 1 + index as u64), (1_u64 << 48) + (index % 64) as u64 - 32))
+        .collect::<Vec<_>>();
+    genesis.last_mut().unwrap().1 = number(&fixture["total_power"]) -
+        genesis[..size - 1].iter().map(|(_, power)| power).sum::<u64>();
+    assert_eq!(genesis.last().unwrap().1, number(&fixture["last_member_power"]));
+    let names: BTreeMap<_, _> =
+        genesis.iter().enumerate().map(|(index, (key, _))| (format!("m{index}"), *key)).collect();
+    let keys: BTreeMap<_, _> = names.iter().map(|(name, key)| (name.as_str(), *key)).collect();
+    let mut state = ValState::genesis(number(&fixture["start_height"]), &genesis).unwrap();
+    let recorded_states = fixture["states"].as_array().unwrap();
+    assert_eq!(recorded_states.len(), 2);
+    for (index, recorded) in recorded_states.iter().enumerate() {
+        if index > 0 {
+            state = state.advance(&[]).unwrap();
+        }
+        assert_eq!(state.height, number(&recorded["height"]));
+        assert_eq!(state.hash(), recorded["hash"].as_str().unwrap().parse::<B256>().unwrap());
+        let preimage = state.encode();
+        assert_eq!(preimage.len(), number(&recorded["preimage_bytes"]) as usize);
+        assert_eq!(preimage, abi_preimage(&state));
+        for (name, set) in [("current", &state.current), ("next", &state.next)] {
+            assert_eq!(set.proposer, number(&recorded[format!("{name}_proposer")]) as usize);
+            for (side, actual) in [("head", &set.entries[..3]), ("tail", &set.entries[size - 3..])]
+            {
+                let expected = recorded_set(
+                    &recorded[format!("{name}_{side}")],
+                    &Value::String("0".into()),
+                    &keys,
+                );
+                assert_eq!(actual, expected.entries, "{name} {side} at {}", state.height);
+            }
+        }
+    }
 }
 
 // Catches full-size power/address ordering and priority arithmetic at MaxTotalVotingPower, at

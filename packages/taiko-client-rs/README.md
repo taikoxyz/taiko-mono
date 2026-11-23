@@ -1282,15 +1282,16 @@ Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
 The script requires the pinned protocol revision (see Fresh deployment; `PINNED_REVISION` in the
 script) as HEAD, installs pnpm
-dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry and
-SignalService with their test fixtures, verifies compiler source hashes,
+dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox and SignalService with
+their test fixtures and the L2 `EtnaStaking`, its proxy and the L2 TAIKO token, verifies
+compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
 tests read) from that revision and records their hashes. Run it twice and require identical
 generated output.
 The export includes the switching SignalService and an ABI-only Unzen cutoff artifact, whose
 external library references are recorded in the manifest rather than exposing unlinked deployment
-bytecode. Shared vectors follow the pinned contracts' schema 9. Test adapter updates and execution
+bytecode. Shared vectors follow the pinned contracts' schema 10. Test adapter updates and execution
 are separate from this artifact refresh.
 
 Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with

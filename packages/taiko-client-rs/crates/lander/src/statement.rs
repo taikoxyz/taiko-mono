@@ -104,21 +104,9 @@ mod tests {
     use super::*;
     use crate::test_utils::{protocol::request, vectors};
     use alloy::sol_types::SolCall;
-    use alloy_primitives::b256;
-
-    /// The configuration hash of the devnet's built-in L2 chain id, `EtnaStaking` proxy and U,
-    /// the one the pinned statements bind.
-    const DEVNET_CONFIG_HASH: B256 =
-        b256!("ce98efd6a337c78d7b268a407f9cd0dbfeee0e8724f07bc924087437497b4650");
-
-    /// The hashes of the pinned statements, in vector order, under the nineteen-word encoding.
-    const STATEMENT_HASHES: [B256; 2] = [
-        b256!("8a0f8fe6072214c4f2aa16338aca44d834982d61d8255b37c91d88cf2b9a5ec9"),
-        b256!("d33539cefca32052bc3bb80d1650b7f4727e09307a50b3f76e8d086c50eacbcb"),
-    ];
 
     /// The pinned statement `index`: its snapshot, seven-field input, reference hash and blob
-    /// hashes, bound to [`DEVNET_CONFIG_HASH`].
+    /// hashes, bound to the statement's configuration hash.
     fn vector(index: usize) -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
         let path = |key: &str| format!("/land_statements/{index}/inputs/{key}");
         let mut snapshot = request().batch.snapshot;
@@ -129,7 +117,7 @@ mod tests {
         snapshot.checkpoint_height = vectors::u64_at(&path("parent_height"));
         snapshot.checkpoint_hash = vectors::b256_at(&path("parent_hash"));
         snapshot.checkpoint_comet_hash = vectors::b256_at(&path("parent_comet_hash"));
-        snapshot.config_hash = DEVNET_CONFIG_HASH;
+        snapshot.config_hash = vectors::b256_at(&path("config_hash"));
         snapshot.forced_inclusion_head = vectors::u64_at(&path("forced_inclusion_head_before"));
         let input = LandInput {
             parentHeight: vectors::u256_at(&path("parent_height")),
@@ -169,14 +157,14 @@ mod tests {
     #[test]
     fn statement_is_19_words() {
         assert_eq!(PREIMAGE_BYTES, 608);
-        assert_eq!(
-            DEVNET_CONFIG_HASH,
-            <abci::ChainParams as abci::ChainParamsExt>::builtin(167001).unwrap().config_hash(),
-            "the devnet's built-in chain id, staking proxy and U"
-        );
-        assert_eq!(vectors::len_at("/land_statements"), STATEMENT_HASHES.len());
-        for (index, expected_hash) in STATEMENT_HASHES.into_iter().enumerate() {
+        for index in 0..vectors::len_at("/land_statements") {
             let path = |key: &str| format!("/land_statements/{index}/inputs/{key}");
+            assert_eq!(
+                vectors::b256_at(&path("config_hash")),
+                <abci::ChainParams as abci::ChainParamsExt>::builtin(167001).unwrap().config_hash(),
+                "the devnet's built-in chain id, staking proxy and U"
+            );
+            let expected_hash = vectors::b256_at(&format!("/land_statements/{index}/hash"));
             let (snapshot, input, reference, blobs) = vector(index);
             let leaves = leaves(index);
             assert_eq!(
@@ -187,8 +175,9 @@ mod tests {
             assert_eq!(cut, vectors::b256_at(&path("cut_hash")));
             let number = |key: &str| vectors::u256_at(&path(key)).to_be_bytes::<32>();
             let hash_word = |key: &str| vectors::b256_at(&path(key)).0;
+            let tag_text = vectors::str_at(&path("tag")).as_bytes();
             let mut tag = [0u8; 32];
-            tag[..b"TAIKO_ETNA_LAND_V1".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V1");
+            tag[..tag_text.len()].copy_from_slice(tag_text);
             let expected = [
                 tag,
                 number("l1_chain_id"),
@@ -198,7 +187,7 @@ mod tests {
                 number("parent_height"),
                 hash_word("parent_hash"),
                 hash_word("parent_comet_hash"),
-                DEVNET_CONFIG_HASH.0,
+                hash_word("config_hash"),
                 number("last_height"),
                 hash_word("last_block_hash"),
                 hash_word("last_comet_hash"),
@@ -215,6 +204,11 @@ mod tests {
             let encoded = preimage(&snapshot, &input, reference, &blobs, &leaves);
             assert_eq!(encoded.len(), 19 * 32);
             assert_eq!(encoded.as_slice(), expected.as_slice(), "statement {index}");
+            assert_eq!(
+                encoded.as_slice(),
+                vectors::bytes_at(&format!("/land_statements/{index}/preimage")).as_ref(),
+                "statement {index}"
+            );
             assert_eq!(hash(&snapshot, &input, reference, &blobs, &leaves), expected_hash);
             assert_eq!(keccak256(&expected), expected_hash);
             assert_eq!(
@@ -468,11 +462,8 @@ mod tests {
         let (_, input, _, _) = vector(1);
         let leaves = vectors::b256s_at("/land_abi/leaves");
         let proof = vectors::bytes_at("/land_abi/proof");
-        assert_eq!(
-            landCall::SIGNATURE,
-            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
-        );
-        assert_eq!(landCall::SELECTOR, [0x51, 0x85, 0xfd, 0x7a]);
+        assert_eq!(landCall::SIGNATURE, vectors::str_at("/land_abi/signature"));
+        assert_eq!(landCall::SELECTOR.as_slice(), vectors::bytes_at("/land_abi/selector").as_ref());
         let fields = [
             input.parentHeight.to_be_bytes::<32>(),
             input.lastHeight.to_be_bytes::<32>(),
@@ -498,6 +489,7 @@ mod tests {
         expected.resize(4 + (expected.len() - 4).div_ceil(32) * 32, 0);
         let call = landCall { _input: input, _leaves: leaves, _proof: proof };
         assert_eq!(call.abi_encode(), expected);
+        assert_eq!(expected, vectors::bytes_at("/land_abi/calldata").as_ref());
         assert_eq!(landCall::abi_decode(&expected).unwrap(), call);
     }
 }

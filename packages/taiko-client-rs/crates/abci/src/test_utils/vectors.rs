@@ -39,6 +39,11 @@ pub(crate) fn u64_at(pointer: &str) -> u64 {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
 }
 
+/// The decimal integers of the array at `pointer`.
+pub(crate) fn u64s_at(pointer: &str) -> Vec<u64> {
+    (0..len_at(pointer)).map(|i| u64_at(&format!("{pointer}/{i}"))).collect()
+}
+
 /// The decimal integer at `pointer`.
 pub(crate) fn usize_at(pointer: &str) -> usize {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))

@@ -122,7 +122,6 @@ impl ChainParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, b256};
 
     /// A switch configuration names the Etna L2 SignalService implementation; the replaced
     /// `anchor_implementation` key is unknown and refused, alone or beside the new key.
@@ -150,22 +149,33 @@ mod tests {
     }
 
     /// The configuration hash is four words, the tag, the L2 chain id, the staking proxy address
-    /// and U, and matches the appendix vector.
+    /// and U, and matches the appendix vector and the shared configuration vector.
     #[test]
     fn config_hash_matches_the_appendix_vector() {
-        let staking = address!("1111111111111111111111111111111111111111");
-        let expected = b256!("78f4b267763e0c4b58a0606e29530287b1761bf4155630c82e79d3e1215fe3b6");
-        assert_eq!(config_hash(167_000, staking, 151_200), expected);
-        let params = ChainParams {
-            l2_chain_id: 167_000,
-            staking,
-            unsettled_limit: 151_200,
-            ..crate::test_utils::params()
-        };
+        use crate::test_utils::vectors::{b256_at, str_at, u64_at};
+        let example = "/appendix_a_examples/enc_a_36_a";
+        let l2_chain_id = u64_at(&format!("{example}/inputs/l2_chain_id"));
+        let staking: Address = str_at(&format!("{example}/inputs/staking")).parse().unwrap();
+        let unsettled_limit = u64_at(&format!("{example}/inputs/unsettled_limit"));
+        let expected = b256_at(&format!("{example}/hash"));
+        assert_eq!(config_hash(l2_chain_id, staking, unsettled_limit), expected);
+        let params =
+            ChainParams { l2_chain_id, staking, unsettled_limit, ..crate::test_utils::params() };
         assert_eq!(params.config_hash(), expected);
-        assert_ne!(config_hash(167_000, staking, 151_201), expected);
-        assert_ne!(config_hash(167_001, staking, 151_200), expected);
-        assert_ne!(config_hash(167_000, Address::with_last_byte(0x11), 151_200), expected);
+        assert_ne!(config_hash(l2_chain_id, staking, unsettled_limit + 1), expected);
+        assert_ne!(config_hash(l2_chain_id + 1, staking, unsettled_limit), expected);
+        assert_ne!(
+            config_hash(l2_chain_id, Address::with_last_byte(0x11), unsettled_limit),
+            expected
+        );
+        assert_eq!(
+            config_hash(
+                u64_at("/config/inputs/l2_chain_id"),
+                str_at("/config/inputs/staking").parse().unwrap(),
+                u64_at("/config/inputs/unsettled_limit"),
+            ),
+            b256_at("/config/hash")
+        );
     }
 
     /// U is any integer from 1 to 262,144, not only a multiple of a grid interval.

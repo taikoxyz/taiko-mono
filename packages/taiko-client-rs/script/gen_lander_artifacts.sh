@@ -7,7 +7,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=78cc12fb08f7c1690d1d40d785a5f56fee824c09
+PINNED_REVISION=b9083ab794041c53511dca656b96e7e814b77ef3
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -25,10 +25,15 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
 (cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer1 forge build \
     contracts/layer1/etna/impl/EtnaInbox.sol \
     contracts/layer1/etna/impl/EtnaInboxBootstrap.sol \
-    contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
     contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
-    test/layer1/etna/MockUnzenInbox.sol \
+    test/layer1/etna/MockUnzenInbox.sol test/mocks/TestERC20.sol \
+    --build-info)
+# The L2 staking contract, the proxy it is deployed behind and the L2 TAIKO token it stakes.
+(cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer2 forge build \
+    contracts/layer2/etna/EtnaStaking.sol \
+    node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol \
+    contracts/layer2/mainnet/BridgedTaikoToken.sol \
     --build-info)
 
 python3 - "$PROTOCOL_CHECKOUT" "$CLIENT_DIR" "$PINNED_REVISION" <<'PYTHON'
@@ -42,17 +47,23 @@ checkout, client, revision = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]
 protocol = checkout / "packages/protocol"
 output = client / "crates/lander/tests/fixtures/contracts"
 output.mkdir(parents=True, exist_ok=True)
+# Name -> (Foundry profile, artifact path under that profile's output).
 artifacts = {
-    "EtnaInbox": "EtnaInbox.sol/EtnaInbox.json",
-    "EtnaStakingRegistry": "EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
-    "EtnaInboxBootstrap": "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json",
-    "SignalService": "SignalService.sol/SignalService.json",
-    "InboxWithEtnaCutoffs": "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json",
-    "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
-    "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
-    "MockUnzenInbox": "MockUnzenInbox.sol/MockUnzenInbox.json",
-    "TestERC20": "TestERC20.sol/TestERC20.json",
+    "EtnaInbox": ("layer1", "EtnaInbox.sol/EtnaInbox.json"),
+    "EtnaInboxBootstrap": ("layer1", "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json"),
+    "SignalService": ("layer1", "SignalService.sol/SignalService.json"),
+    "InboxWithEtnaCutoffs": ("layer1", "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json"),
+    "MockLandProofVerifier": ("layer1", "EtnaInboxTestBase.sol/MockLandProofVerifier.json"),
+    "MockUnzenInbox": ("layer1", "MockUnzenInbox.sol/MockUnzenInbox.json"),
+    "TestERC20": ("layer1", "TestERC20.sol/TestERC20.json"),
+    "EtnaStaking": ("layer2", "EtnaStaking.sol/EtnaStaking.json"),
+    "ERC1967Proxy": ("layer2", "ERC1967Proxy.sol/ERC1967Proxy.json"),
+    "BridgedTaikoToken": ("layer2", "BridgedTaikoToken.sol/BridgedTaikoToken.json"),
 }
+# An artifact the list no longer names is removed, so the committed set is exactly the list.
+for stale in output.glob("*.json"):
+    if stale.stem not in artifacts and stale.name != "manifest.json":
+        stale.unlink()
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
@@ -65,8 +76,7 @@ manifest = {
     ],
     "artifacts": {},
 }
-for name, relative in artifacts.items():
-    profile = "layer1"
+for name, (profile, relative) in artifacts.items():
     source = protocol / f"out/{profile}" / relative
     artifact = json.loads(source.read_text())
     metadata = json.loads(artifact["rawMetadata"])

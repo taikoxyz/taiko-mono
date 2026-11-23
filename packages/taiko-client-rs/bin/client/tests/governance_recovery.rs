@@ -39,7 +39,7 @@ async fn checkpoint_import_recovered_fixed_and_landed_points_continue_stock() ->
 
 async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool) -> Result<()> {
     test_harness::init_tracing();
-    let f = ContractFixture::deploy_config(1, 120, epoch_len).await?;
+    let f = ContractFixture::deploy_config(1, 120).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let mut c = ContractConsensus::start_native(
         f.anvil.http.clone(),
@@ -116,7 +116,6 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 &f,
                 0,
                 6,
-                vec![],
                 if clear_fi { vec![alloy_primitives::U256::ZERO] } else { vec![] },
             )
             .await?;
@@ -222,7 +221,18 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             assert_eq!(landed.generation, 1);
             assert!(landed.checkpoint_height > 6);
             let origin = landed.recovery.as_ref().context("authenticated recovery origin")?;
-            assert_ne!(origin.fallback_keys_hash, alloy_primitives::B256::ZERO);
+            // The recovery origin names the list the fixture deployed, which signs c + 1 = 7,
+            // each key at power 1.
+            assert_eq!(origin.fallback_keys_hash, f.fallback_keys.hash());
+            let mut signers: Vec<_> = c
+                .cmt
+                .validators(Some(7))
+                .await?
+                .into_iter()
+                .map(|validator| (validator.pubkey, validator.power))
+                .collect();
+            signers.sort();
+            assert_eq!(signers, f.fallback_keys.validator_set());
             assert_eq!(origin.forced_cursor, 0);
             if first_fi.is_some() {
                 assert_eq!(
@@ -394,7 +404,7 @@ async fn build_unpromoted_origin_candidate(
 #[ignore = "docker"]
 async fn governance_recovery_zero_origin_and_second_generation_preserve_archives() -> Result<()> {
     test_harness::init_tracing();
-    let f = ContractFixture::deploy_config(1, 120, 8).await?;
+    let f = ContractFixture::deploy_config(1, 120).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let mut c = ContractConsensus::start_native(
         f.anvil.http.clone(),
@@ -495,7 +505,7 @@ fn archived_domain_states(f: &ContractFixture) -> Result<Vec<(std::path::PathBuf
 async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key() -> Result<()>
 {
     test_harness::init_tracing();
-    let f = ContractFixture::deploy_config(1, 120, 8).await?;
+    let f = ContractFixture::deploy_config(1, 120).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let mut c = ContractConsensus::start_native(
         f.anvil.http.clone(),
@@ -569,7 +579,7 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
     use contracts_support::contracts::{EtnaInbox, transact};
     use serde_json::{Value, json};
     test_harness::init_tracing();
-    let f = ContractFixture::deploy_config(1, 120, 8).await?;
+    let f = ContractFixture::deploy_config(1, 120).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let mut c = ContractConsensus::start_native(
         f.anvil.http.clone(),

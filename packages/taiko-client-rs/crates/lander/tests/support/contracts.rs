@@ -1,8 +1,4 @@
-//! Deploy the pinned real Inbox, registry and SignalService, without planting their
-//! storage.
-
-// Current generated registry ABI includes an eight-field event constructor.
-#![allow(clippy::too_many_arguments)]
+//! Deploy the pinned real Inbox and SignalService, without planting their storage.
 
 use abci::{ChainParams, ChainParamsExt, GenesisRecord, fallback::FallbackKeys};
 use alloy::{
@@ -21,7 +17,6 @@ use test_harness::{StandaloneAnvil, StandaloneReth, ValidatorKey, dev_signer, mi
 
 sol!(EtnaInboxBootstrap, "../../crates/lander/tests/fixtures/contracts/EtnaInboxBootstrap.json");
 sol!(EtnaInbox, "../../crates/lander/tests/fixtures/contracts/EtnaInbox.json");
-sol!(EtnaStakingRegistry, "../../crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json");
 /// Kept apart from EtnaInbox: both ABIs declare `ICheckpointStore`, which the Inbox's
 /// `saveCheckpoint` takes.
 mod signal_service {
@@ -33,24 +28,10 @@ sol!(
     MockLandProofVerifier,
     "../../crates/lander/tests/fixtures/contracts/MockLandProofVerifier.json"
 );
-sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 sol!(MockUnzenInbox, "../../crates/lander/tests/fixtures/contracts/MockUnzenInbox.json");
 
-/// Each fixture bond's stake and the pinned registry's `minStake`: 7,600,000 TAIKO, the pinned
-/// contracts' devnet default (`DEFAULT_REGISTRY_MIN_STAKE`). The pinned registry constructor
-/// requires `4096 * minStake > 10^27` (more than 244,140.625 TAIKO). The client reads no stake:
-/// the registered keys sign as fallback keys, each at power 1.
-pub const STAKE: u128 = 7_600_000 * 10u128.pow(18);
-/// The pinned Inbox's `vpUnit` initialization word, which the client no longer reads.
-pub const PINNED_VP_UNIT: u64 = 1_000_000_000;
-/// The Inbox's recovery capacity F: the devnet deployment default (`DEFAULT_RECOVERY_CAPACITY`),
-/// the measured largest exclusion count whose worst-case `recover` fits the L1 per-transaction gas
-/// cap. `init` requires `K = floor(10^27 / minStake) <= F` (START-10-14), 131 at [`STAKE`].
-pub const RECOVERY_CAPACITY: u16 = 131;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
-/// Accelerated canonical epoch: D(1)=12, S(1)=13, H(1)=15.
-pub const EPOCH_LEN: u64 = 14;
 /// Forced inclusion delay installed at genesis, in seconds.
 pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 /// Maximum anchor age installed at genesis, in seconds.
@@ -62,17 +43,15 @@ pub struct ContractFixture {
     pub anvil: StandaloneAnvil,
     pub l2: StandaloneReth,
     pub inbox: Address,
-    pub registry: Address,
     pub signal: Address,
     pub verifier: Address,
     pub admin: Address,
     pub params: ChainParams,
     pub genesis: GenesisRecord,
     pub parent_header: Header,
-    /// The pinned Inbox's genesis cutoff, an L1 block, which its `activeCommitteeSnapshot` holds.
-    pub genesis_cutoff: u64,
-    /// Generation 0's origin fallback key list, the registered keys: its hash is at slot 278.
-    /// Its keys sign every block, each at power 1.
+    /// Generation 0's origin fallback key list, the signer-generated keys: `init` stores it and
+    /// its hash (slot 278). With `minTotalStake` at its maximum and no L2 staking contract, these
+    /// keys sign every block, each at power 1.
     pub fallback_keys: FallbackKeys,
     pub keys: Vec<ValidatorKey>,
     pub signer_storage: tempfile::TempDir,
@@ -97,24 +76,14 @@ impl ContractFixture {
         Self::deploy_validators(1).await
     }
 
-    /// Creates keys exactly once with the shipped signer CLI and registers actual PoPs.
+    /// Creates keys exactly once with the shipped signer CLI; they are the fallback keys.
     pub async fn deploy_validators(count: usize) -> Result<Self> {
-        Self::deploy_config(count, 120, EPOCH_LEN).await
+        Self::deploy_config(count, 120).await
     }
 
-    pub async fn deploy_config(count: usize, unsettled_limit: u64, epoch_len: u64) -> Result<Self> {
-        Self::deploy_committee_config(count, unsettled_limit, epoch_len, 128).await
-    }
-
-    /// Initializes the pinned Inbox with the committee cap `n_max`, a word the client no longer
-    /// reads.
-    pub async fn deploy_committee_config(
-        count: usize,
-        unsettled_limit: u64,
-        epoch_len: u64,
-        n_max: usize,
-    ) -> Result<Self> {
-        Self::deploy_network(count, unsettled_limit, epoch_len, n_max, None).await
+    /// `count` fallback keys and the unsettled limit U.
+    pub async fn deploy_config(count: usize, unsettled_limit: u64) -> Result<Self> {
+        Self::deploy_network(count, unsettled_limit, None).await
     }
 
     /// A switching network (START-10-5): the EtnaInbox names a mock live Unzen Inbox and an
@@ -123,7 +92,7 @@ impl ContractFixture {
     /// that unwritten start (height 0, zero hash and root); the chain parameters carry the
     /// matching `[switch]` configuration.
     pub async fn deploy_switching(fork_after: u64) -> Result<(Self, Switching)> {
-        Self::deploy_network(1, 120, EPOCH_LEN, 128, Some(fork_after)).await.map(|fixture| {
+        Self::deploy_network(1, 120, Some(fork_after)).await.map(|fixture| {
             let switch = fixture.params.switch.as_ref().expect("switching parameters");
             let switching =
                 Switching { unzen: switch.unzen_inbox, fork_time: switch.fork_timestamp };
@@ -134,8 +103,6 @@ impl ContractFixture {
     async fn deploy_network(
         count: usize,
         unsettled_limit: u64,
-        epoch_len: u64,
-        n_max: usize,
         switching: Option<u64>,
     ) -> Result<Self> {
         let anvil = StandaloneAnvil::start().await?;
@@ -150,51 +117,6 @@ impl ContractFixture {
             owner,
             bootstrap,
             EtnaInboxBootstrap::initCall { _owner: owner }.abi_encode().into(),
-        )
-        .await?;
-        let token = deploy(
-            p,
-            owner,
-            include_str!("../fixtures/contracts/TestERC20.json"),
-            TestERC20::constructorCall { name: "Taiko fixture".into(), symbol: "TAIKO".into() }
-                .abi_encode(),
-        )
-        .await?;
-        let registry_impl = deploy(
-            p,
-            owner,
-            include_str!("../fixtures/contracts/EtnaStakingRegistry.json"),
-            EtnaStakingRegistry::constructorCall {
-                _config: IEtnaStakingRegistry::Config {
-                    token,
-                    minStake: U256::from(STAKE),
-                    activationDelay: U256::from(1),
-                    exitDelay: U256::from(20),
-                    withdrawalDelay: U256::from(30),
-                    slashBountyBps: U256::ZERO,
-                    slashSink: admin,
-                    l2ChainId: L2_CHAIN_ID,
-                    inbox,
-                    forfeitBps: U256::from(1000),
-                },
-            }
-            .abi_encode(),
-        )
-        .await?;
-        let registry = proxy(
-            p,
-            owner,
-            registry_impl,
-            EtnaStakingRegistry::initCall { _owner: owner }.abi_encode().into(),
-        )
-        .await?;
-        let amount = U256::from(STAKE) * U256::from(count);
-        transact(p, owner, token, TestERC20::mintCall { to: owner, amount }.abi_encode()).await?;
-        transact(
-            p,
-            owner,
-            token,
-            TestERC20::approveCall { spender: registry, amount }.abi_encode(),
         )
         .await?;
         let l1_chain_id: U256 = p.raw_request("eth_chainId".into(), ()).await?;
@@ -215,38 +137,8 @@ impl ContractFixture {
                 String::from_utf8_lossy(&generated.stderr)
             );
             test_harness::init_signer_domains_log(&dir)?;
-            let key = ValidatorKey::from_file(&key_file)?;
-            let proof = Command::new(&binary)
-                .arg("pop")
-                .arg("--priv-key")
-                .arg(&key_file)
-                .args([
-                    "--owner",
-                    &owner.to_string(),
-                    "--registry",
-                    &registry.to_string(),
-                    "--l1-chain-id",
-                    &l1_chain_id.to_string(),
-                ])
-                .output()?;
-            ensure!(proof.status.success(), "registration PoP failed");
-            let pop: serde_json::Value = serde_json::from_slice(&proof.stdout)?;
-            transact(
-                p,
-                owner,
-                registry,
-                EtnaStakingRegistry::registerCall {
-                    _publicKey: Bytes::copy_from_slice(key.pubkey().as_bytes()),
-                    _amount: U256::from(STAKE),
-                    _popSig: pop["signature"].as_str().context("PoP signature")?.parse()?,
-                }
-                .abi_encode(),
-            )
-            .await?;
-            keys.push(key);
+            keys.push(ValidatorKey::from_file(&key_file)?);
         }
-        mine_l1_blocks(p, 3).await?;
-        let cutoff = test_harness::finalized_number(p).await?;
         let unzen = match switching {
             Some(_) => Some(
                 deploy(p, owner, include_str!("../fixtures/contracts/MockUnzenInbox.json"), vec![])
@@ -278,9 +170,7 @@ impl ContractFixture {
             switch: switch.clone(),
             ..ChainParams::builtin(L2_CHAIN_ID)?
         };
-        // The registered keys are generation 0's fallback keys, each at power 1. The pinned
-        // contracts predate fallback keys: their `committeeRecordHash` lands at slot 278, so it
-        // takes the list's hash.
+        // The generated keys are generation 0's fallback keys, each at power 1.
         let mut origin_keys: Vec<_> = keys.iter().map(|key| key.pubkey()).collect();
         origin_keys.sort();
         let fallback_keys = FallbackKeys::new(origin_keys)?;
@@ -334,13 +224,14 @@ impl ContractFixture {
                         .try_into()?,
                     proofVerifier: verifier,
                     signalService: signal,
-                    stakingRegistry: registry,
+                    // The configuration hash binds the L2 staking proxy the client reads.
+                    etnaStaking: params.staking,
                     l2ChainId: L2_CHAIN_ID,
                     maxBatchBlocks: 1000,
                     forcedInclusionFeeInGwei: 1,
                     forcedInclusionFeeDoubleThreshold: 50,
                     protocolFeeRecipient: admin,
-                    recoveryCapacity: RECOVERY_CAPACITY,
+                    unsettledLimit: params.unsettled_limit,
                 },
             }
             .abi_encode(),
@@ -355,14 +246,13 @@ impl ContractFixture {
         let input = IEtnaInbox::InitParams {
             genesisBlockHash: start_hash,
             genesisStateRoot: start_root,
-            epochLenL2: U256::from(epoch_len),
-            genesisCutoff: U256::from(cutoff),
-            committeeRecordHash: fallback_keys.hash(),
-            committeeConfig: IEtnaInbox::CommitteeConfig {
-                vpUnit: U256::from(PINNED_VP_UNIT),
-                nMax: U256::from(n_max),
-                unsettledLimit: U256::from(params.unsettled_limit),
-            },
+            fallbackKeys: fallback_keys
+                .keys()
+                .iter()
+                .map(|key| IEtnaInbox::FallbackKey { ckPrefix: key.prefix(), ckX: key.x() })
+                .collect(),
+            // No candidate is ever usable: the fallback keys sign every block.
+            minTotalStake: U256::MAX,
             forcedInclusionDelay: U256::from(FORCED_INCLUSION_DELAY),
             maxAnchorAge: U256::from(MAX_ANCHOR_AGE),
         };
@@ -392,14 +282,12 @@ impl ContractFixture {
             anvil,
             l2,
             inbox,
-            registry,
             signal,
             verifier,
             admin,
             params,
             genesis,
             parent_header,
-            genesis_cutoff: cutoff,
             fallback_keys,
             keys,
             signer_storage,

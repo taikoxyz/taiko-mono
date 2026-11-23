@@ -287,7 +287,7 @@ fn threshold_line(process: &CliProcess) -> Result<String> {
 #[tokio::test]
 #[ignore = "docker"]
 async fn lander_cli_submits_at_minimum_or_timeout_and_restarts_wait_after_sigkill() -> Result<()> {
-    let fixture = ContractFixture::deploy_config(1, 120, 60).await?;
+    let fixture = ContractFixture::deploy_config(1, 120).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
         chain.extend(&fixture, 6).await?;
@@ -389,7 +389,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_restarts_wait_after_sigkil
 #[tokio::test]
 #[ignore = "docker"]
 async fn lander_cli_flushes_back_pressure_before_deadline() -> Result<()> {
-    let fixture = ContractFixture::deploy_config(1, 12, 15).await?;
+    let fixture = ContractFixture::deploy_config(1, 12).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
         chain.extend(&fixture, 6).await?;

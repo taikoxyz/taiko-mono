@@ -476,14 +476,13 @@ pub fn snapshot(dirs: &[&Path]) -> Result<Vec<(PathBuf, Vec<u8>)>> {
 }
 
 pub async fn recover_and_finalize(f: &ContractFixture, generation: u64, c: u64) -> Result<()> {
-    recover_with_lists(f, generation, c, vec![], vec![]).await
+    recover_with_lists(f, generation, c, vec![]).await
 }
 
 pub async fn recover_with_lists(
     f: &ContractFixture,
     generation: u64,
     c: u64,
-    exclusions: Vec<U256>,
     fi_to_clear: Vec<U256>,
 ) -> Result<()> {
     let p = &f.anvil.provider;
@@ -499,7 +498,6 @@ pub async fn recover_with_lists(
             _expectedC: U256::from(c),
             _expectedRecoveryNonce: nonce,
             _validUntil: U256::from(now + 3600),
-            _exclusions: exclusions,
             _fiToClear: fi_to_clear,
             _rules: U48::ZERO,
         }

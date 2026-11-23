@@ -125,6 +125,36 @@ mod tests {
         assert_eq!(miss_bitmap(&[], |address| panic!("read the seat of {address}")), 0);
     }
 
+    /// Every shared miss bitmap vector: the parent's signers in order with their LastCommit
+    /// flags (2 is a commit, 1 absent and 3 nil) and live key-to-seat words. A generation's first
+    /// block has no LastCommit, so its bitmap is 0 whatever the listed entries.
+    #[test]
+    fn shared_vectors_give_their_bitmaps() {
+        use crate::test_utils::vectors::{at, b256_at, len_at, str_at};
+        for index in 0..len_at("/miss_bitmap/cases") {
+            let path = |field: &str| format!("/miss_bitmap/cases/{index}/{field}");
+            let name = str_at(&path("name"));
+            let expected: u128 = str_at(&path("miss_bitmap")).parse().unwrap();
+            if at(&path("first_block_of_generation")).as_bool().unwrap() {
+                assert_eq!(expected, 0, "{name}");
+                assert_eq!(missing_addresses(&[], &[]), Some(vec![]), "{name}");
+                continue;
+            }
+            let mut signers = Vec::new();
+            let mut committed = Vec::new();
+            let mut words = BTreeMap::new();
+            for validator in 0..len_at(&path("validators")) {
+                let field = |name: &str| format!("{}/{validator}/{name}", path("validators"));
+                let address: Address = str_at(&field("ck_addr")).parse().unwrap();
+                signers.push(address);
+                committed.push(str_at(&field("block_id_flag")) == "2");
+                words.insert(address, U256::from_be_bytes(b256_at(&field("key_seat_word")).0));
+            }
+            let missing = missing_addresses(&signers, &committed).unwrap();
+            assert_eq!(miss_bitmap(&missing, |address| words[&address]), expected, "{name}");
+        }
+    }
+
     #[test]
     fn length_mismatch_is_none() {
         let signers = [addr(1), addr(2)];

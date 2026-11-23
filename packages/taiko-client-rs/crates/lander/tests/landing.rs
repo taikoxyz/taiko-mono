@@ -13,7 +13,7 @@ use lander::{
 };
 use support::{
     ContractFixture,
-    contracts::{EtnaInbox, EtnaStakingRegistry, SignalService, receipt, transact, view},
+    contracts::{EtnaInbox, SignalService, receipt, transact, view},
     fixtures::FixtureChain,
 };
 use test_harness::{dev_signer, mine_l1_blocks};
@@ -115,42 +115,18 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
-    // Land at the height the removed epoch schedule derived its first switch at, then mutate the
-    // registry: no signing set follows it.
-    let (derivation_height, switch_height) = (12, 13);
+    // Land at the height the removed epoch schedule derived its first switch at.
+    let derivation_height = 12;
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
     chain.extend(&fixture, derivation_height).await?;
     let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
     fixture.expect_statement(derivation.batch.statement_hash).await?;
     assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
-    let exit = transact(
-        &fixture.anvil.provider,
-        dev_signer().address(),
-        fixture.registry,
-        EtnaStakingRegistry::requestExitCall { _bondId: U256::ZERO }.abi_encode(),
-    )
-    .await?;
-    let immutable_snapshot = chain.anchors[usize::try_from(derivation_height)?].number;
-    let exit_block = exit.block_number.context("exit inclusion block")?;
-    assert!(exit_block > immutable_snapshot);
-    use abci::l1::source::{L1Source, RpcL1Source};
-    let source = RpcL1Source::new(p.clone());
-    for _ in 0..32 {
-        if source.finalized_number().await? >= exit_block {
-            break;
-        }
-        mine_l1_blocks(p, 1).await?;
-    }
-    assert!(
-        source.finalized_number().await? >= exit_block,
-        "exit must be finalized before S is constructed"
-    );
-    // A later prefix past the global schedule's first epoch start lands in one batch, still
-    // signed by the genesis set: the exit changes no signing set.
+    // A later prefix past the removed schedule's first epoch start lands in one batch, still
+    // signed by the origin fallback keys: no candidate is ever usable.
     for last in [18, 24] {
         mine_l1_blocks(p, 3).await?;
         chain.extend(&fixture, last).await?;
-        assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
         fixture.expect_statement(next.batch.statement_hash).await?;
@@ -248,13 +224,8 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
     assert!(receipt.logs().is_empty(), "reverted call must remove all emitted protocol events");
     assert_eq!(fixture.checkpoint().await?, (0, fixture.genesis.genesis_hash));
     assert_eq!(
-        view(
-            &fixture.anvil.provider,
-            fixture.inbox,
-            EtnaInbox::genesisCommitteeRecordHashCall {},
-            None
-        )
-        .await?,
+        view(&fixture.anvil.provider, fixture.inbox, EtnaInbox::fallbackKeysHashCall {}, None)
+            .await?,
         fixture.fallback_keys.hash()
     );
     assert!(
@@ -375,13 +346,8 @@ async fn lander_statement_mismatch_is_refused_before_broadcast() -> Result<()> {
     assert_eq!(transport(&fixture)?.nonce_state().await?, before);
     assert_eq!(fixture.checkpoint().await?, (0, fixture.genesis.genesis_hash));
     assert_eq!(
-        view(
-            &fixture.anvil.provider,
-            fixture.inbox,
-            EtnaInbox::genesisCommitteeRecordHashCall {},
-            None
-        )
-        .await?,
+        view(&fixture.anvil.provider, fixture.inbox, EtnaInbox::fallbackKeysHashCall {}, None)
+            .await?,
         fixture.fallback_keys.hash()
     );
     fixture.anvil.stop().await
@@ -393,7 +359,7 @@ async fn lander_statement_mismatch_is_refused_before_broadcast() -> Result<()> {
 async fn authenticated_planned_stop_ends_real_consensus_after_the_first_late_block() -> Result<()> {
     use abci::{RpcL1Source, l1::source::L1Source};
     use test_harness::{ContractConsensus, anvil_request};
-    let f = ContractFixture::deploy_config(1, 120, 6).await?;
+    let f = ContractFixture::deploy_config(1, 120).await?;
     let p = &f.anvil.provider;
     let owner = dev_signer().address();
     let now = p

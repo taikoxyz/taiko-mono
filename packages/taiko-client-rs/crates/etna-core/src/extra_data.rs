@@ -116,10 +116,28 @@ mod tests {
         let data = extra(1, 258, (1 << 127) + 1);
         let bytes = data.encode().unwrap();
         assert_eq!(
-            bytes,
-            hex!("64" "000000000001" "000000000102" "80000000000000000000000000000001")
+            bytes.as_slice(),
+            hex::decode(crate::test_utils::vectors::str_at("/extra_data/1/extra_data")).unwrap()
         );
         assert_eq!(ExtraData::decode(&bytes), Ok(data));
+    }
+
+    /// Every shared extraData vector encodes its generation, anchor number and miss bitmap after
+    /// the base fee sharing percentage, and decodes back to them.
+    #[test]
+    fn shared_vectors_encode_and_decode() {
+        use crate::test_utils::vectors::{len_at, str_at, u64_at};
+        for index in 0..len_at("/extra_data") {
+            let path = |field: &str| format!("/extra_data/{index}/{field}");
+            let data = extra(
+                u64_at(&path("generation")),
+                u64_at(&path("anchor_number")),
+                str_at(&path("miss_bitmap")).parse().unwrap(),
+            );
+            let bytes = hex::decode(str_at(&path("extra_data"))).unwrap();
+            assert_eq!(data.encode().unwrap().as_slice(), bytes, "extraData {index}");
+            assert_eq!(ExtraData::decode(&bytes), Ok(data), "extraData {index}");
+        }
     }
 
     #[test]

@@ -87,7 +87,7 @@ pub async fn fetch_fallback_keys<L: L1Source + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{Bytes, U256, b256, keccak256};
+    use alloy_primitives::{Bytes, U256, keccak256};
     use alloy_sol_types::{SolCall, SolEvent, SolValue};
 
     use super::*;
@@ -311,24 +311,31 @@ mod tests {
         }
     }
 
-    /// The declared ABI is the spec's: event signatures, the call's selector, and an encoding
-    /// of the list that is [`FallbackKeys::abi_encode`] in both the return data and the log.
+    /// The declared ABI is the spec's, as the shared event and view vectors spell it: event
+    /// signatures and topics, the call's selector, and an encoding of the list that is
+    /// [`FallbackKeys::abi_encode`] in both the return data and the log.
     #[test]
     fn topic0_matches_the_event_signature() {
-        assert_eq!(
-            FallbackKeysUpdated::SIGNATURE,
-            "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])"
-        );
+        use crate::test_utils::vectors;
+        let event = "/governance_events/fallback_keys_updated";
+        assert_eq!(FallbackKeysUpdated::SIGNATURE, vectors::str_at(&format!("{event}/signature")));
         assert_eq!(FallbackKeysUpdated::SIGNATURE_HASH, FALLBACK_KEYS_UPDATED);
-        assert_eq!(
-            FALLBACK_KEYS_UPDATED,
-            b256!("ad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c")
-        );
+        assert_eq!(FALLBACK_KEYS_UPDATED, vectors::b256_at(&format!("{event}/topic0")));
+        let event = "/governance_events/min_total_stake_updated";
+        assert_eq!(MinTotalStakeUpdated::SIGNATURE, vectors::str_at(&format!("{event}/signature")));
         assert_eq!(
             MinTotalStakeUpdated::SIGNATURE_HASH,
-            b256!("fd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1")
+            vectors::b256_at(&format!("{event}/topic0"))
         );
         assert_eq!(getFallbackKeysCall::SELECTOR, keccak256("getFallbackKeys()")[..4]);
+        assert_eq!(
+            getFallbackKeysCall::SIGNATURE,
+            vectors::str_at("/view_abi/get_fallback_keys/signature")
+        );
+        assert_eq!(
+            format!("0x{}", alloy_primitives::hex::encode(getFallbackKeysCall::SELECTOR)),
+            vectors::str_at("/view_abi/get_fallback_keys/selector")
+        );
 
         let keys = list(0, 2);
         let log = FallbackKeysUpdated { fallbackKeysHash: keys.hash(), keys: entries(keys.keys()) }

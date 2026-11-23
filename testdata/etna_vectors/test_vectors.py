@@ -10,7 +10,10 @@ and words and check what can be checked without keccak: word order and count, fi
 packing offsets, the 48-byte chain id, key compression and decompression, signature recovery to the
 registered point, and the shape of each case. The validator-state chains are the exception: they
 are replayed with `valset_model.py` and every hash is recomputed with a Keccak-256 written here
-(hashlib's when the Python build has one).
+(hashlib's when the Python build has one). So are the staking sections: the fallback key hashes,
+the staking contract's slots and the validator addresses use that Keccak-256, and every
+missBitmap, candidate and block-start case is decided again by models written here, separately
+from `generate.py`'s.
 """
 
 import base64
@@ -45,10 +48,6 @@ def words(value):
     data = hexbytes(value)
     assert len(data) % 32 == 0, value
     return ["0x" + data[i : i + 32].hex() for i in range(0, len(data), 32)]
-
-
-def word(value, index):
-    return words(value)[index]
 
 
 def tag(name):
@@ -661,66 +660,19 @@ def join_words(*values):
     return out
 
 
-ENTRY_FIELDS = ("ck_prefix", "ck_x", "eff_stake", "active_from_l1", "exit_effective_l1")
-ZERO_ENTRY = {"ck_prefix": "0", "ck_x": uint(0), "eff_stake": "0", "active_from_l1": "0",
-              "exit_effective_l1": "0"}
-
-
-def reg_leaf_preimage(slot, entry):
-    """ENC-A-37: seven static words, the bytes32 tag first, indexed by the slot number."""
-    return join_words(
-        tag("ETNA_REG_ENTRY_V1"),
-        uint(slot),
-        uint(entry["ck_prefix"]),
-        entry["ck_x"],
-        uint(entry["eff_stake"]),
-        uint(entry["active_from_l1"]),
-        uint(entry["exit_effective_l1"]),
-    )
-
-
-def reg_leaf(slot, entry):
-    return h256(reg_leaf_preimage(slot, entry))
-
-
-def entries_root(leaves):
-    """ENC-A-38: 0 for no leaf; otherwise right-padded with bytes32(0) to the smallest power of
-    two, inner nodes keccak256(left || right), one leaf its own root."""
-    if not leaves:
-        return uint(0)
-    level = list(leaves)
-    while len(level) & (len(level) - 1):
-        level.append(uint(0))
-    while len(level) > 1:
-        level = [h256(join_words(level[i], level[i + 1])) for i in range(0, len(level), 2)]
-    return level[0]
-
-
-def set_hash_preimage(chain_id, k, members):
-    """ENC-A-39a: four head words (bytes32 tag, l2ChainId, k, offset 128), then the array length
-    and four words per SetMember(ckPrefix, ckX, effStake, assignedPower)."""
-    out = [tag("ETNA_SET_V1"), uint(chain_id), uint(k), uint(128), uint(len(members))]
-    for m in members:
-        out += [uint(m["ck_prefix"]), m["ck_x"], uint(m["eff_stake"]), uint(m["power"])]
+def fallback_keys_preimage(keys):
+    """fallbackKeysHash's preimage, written from appendix A: the tag and the array offset, then
+    the length and two words per key (ckPrefix, then ckX)."""
+    out = [tag("ETNA_FALLBACK_KEYS_V1"), uint(64), uint(len(keys))]
+    for key in keys:
+        out += [uint(key["ck_prefix"]), key["ck_x"]]
     return join_words(*out)
 
 
-def check_registry_state(test, state):
-    """A listed registry state: count is 0 or 1 + the highest occupied slot (STAKE-4.1-36), every
-    slot below count is listed (an empty one with all-zero fields), each leaf is regLeaf of its
-    slot and the root follows ENC-A-38."""
-    slots = state["slots"]
-    occupied = [int(s["slot"]) for s in slots if s["occupied"]]
-    test.assertEqual(int(state["count"]), occupied[-1] + 1 if occupied else 0)
-    test.assertEqual([int(s["slot"]) for s in slots], list(range(int(state["count"]))))
-    for item in slots:
-        fields = {f: item[f] for f in ENTRY_FIELDS}
-        if item["occupied"]:
-            test.assertIn(item["ck_prefix"], ("2", "3"))
-        else:
-            test.assertEqual(fields, ZERO_ENTRY)
-    test.assertEqual(state["leaves"], [reg_leaf(s["slot"], s) for s in slots])
-    test.assertEqual(state["entries_root"], entries_root(state["leaves"]))
+# The compressed public keys of the private keys 1 and 2, as the spec's fallback key examples
+# list them: both prefixes are 0x02, so the list [K1, K2] is ascending by X.
+K1 = {"ck_prefix": "2", "ck_x": "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"}
+K2 = {"ck_prefix": "2", "ck_x": "0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"}
 
 
 def blob_encode(data):
@@ -762,73 +714,239 @@ def blob_decode(blob):
     return bytes(stream[4 : 4 + n])
 
 
-# Literal values copied from the Etna spec's vectors/A.md (ENC-A-10b to ENC-A-45).
+# Literal hashes copied from the Etna spec's appendix A vector catalogue: the mixHash example, the
+# config hash example and its dynamic-string twin, and the one- and two-key fallback key hashes.
 APPENDIX_A_LITERALS = {
     "enc_a_10b_a": "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507",
-    "enc_a_37_a": "0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d",
-    "enc_a_37_i": "0xe7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387",
-    "enc_a_37_j": "0x6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7",
-    "enc_a_39_a": "0x7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437",
-    "enc_a_39a_a": "0x0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d",
-    "enc_a_42_a": "0x6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634",
+    "enc_a_36_a": "0x78f4b267763e0c4b58a0606e29530287b1761bf4155630c82e79d3e1215fe3b6",
+    "enc_a_36_f": "0x4a305a25878a5ab6f2d7bd36fcdd3d7a5549d0b55471d812df821723caa6383c",
+    "enc_a_36a_a": "0x9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f",
+    "enc_a_36a_b": "0x2bc20cdc8e87ed785fc8f8012165afba944fd223ecf8973e165e41f4cddf0cea",
 }
+# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events, and the
+# keccak256 of the signatures the spec's staking interface gives its top-up and forfeiture events.
+SPEC_TOPICS = {
+    "fallback_keys_updated": "0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c",
+    "min_total_stake_updated": "0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1",
+    "top_up_deposited": "0x06a2187e7ae93aae0a9ff5c976b126441fdcc2c16afd1274e9ba793336f179ab",
+    "forfeited": "0xfa0800b34e880af94586f918c482b017b7cb8d550255ba57a432bc218dbdfc6b",
+}
+ON_BLOCK_START_SELECTOR = "0xea987592"
+
+
+# --- L2 staking: fallback keys, storage words, miss bitmap, candidate, block-start call -----------
+
+# The compressed public keys of the private keys 3 and 9: K3's prefix is 0x02 and K9's 0x03, and
+# K9's X is the smaller, so [K3, K9] is ascending as 33-byte values but not by X alone.
+K3 = {"ck_prefix": "2", "ck_x": "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"}
+K9 = {"ck_prefix": "3", "ck_x": "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe"}
+# The staking contract's ERC-7201 base slot T, the word T + 257 (word 1 of snapshot seat record
+# 127), the key-to-seat element of K1's address, and the EIP-1967 implementation slot.
+STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E00
+STAKING_RECORD_127_WORD1 = "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+K1_ADDR = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+K1_KEY_SEAT_SLOT = "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27"
+IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+PREFIX_THEN_X_HASH = "0x5890fcdf8ee020d53fbf91c780a078701c0cecd248bbf4322f5feccf57bc333b"
+MAX_POWER_SUM = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower
+U64_MAX = 2**64 - 1
+U256_MAX = 2**256 - 1
+BLOCK_ID_FLAG_COMMIT = "2"
+
+
+def key_bytes(key):
+    """The 33-byte value ckPrefix || ckX of a {ck_prefix, ck_x} key."""
+    return bytes([int(key["ck_prefix"])]) + hexbytes(key["ck_x"])
+
+
+def scalar_key(k):
+    """The compressed public key of private key k, as {ck_prefix, ck_x}."""
+    x, y = ec_mul(SECP_G, k)
+    return {"ck_prefix": str(2 + y % 2), "ck_x": uint(x)}
+
+
+def ascending_scalar_keys(n):
+    """The keys of private keys 1..n in ascending order of their 33-byte values."""
+    return sorted((scalar_key(k) for k in range(1, n + 1)), key=key_bytes)
+
+
+def fallback_list_failures(keys):
+    """The setFallbackKeys conditions a list breaks: 1 to 128 entries, strictly ascending as
+    33-byte values (so no repeats), every key a valid compressed public key."""
+    raw = [key_bytes(key) for key in keys]
+    failures = []
+    if len(raw) < 1 or len(raw) > 128:
+        failures.append("count")
+    if raw != sorted(set(raw)):
+        failures.append("order")
+    if any(decompress(r) is None for r in raw):
+        failures.append("key")
+    return failures
+
+
+def seat_from_word(value):
+    """The seat a key-to-seat value gives: holdsSeat (bits 0-7) must be 1, seat (bits 8-15) below
+    128 and every higher bit zero; anything else is no seat."""
+    if value >> 16 != 0 or value & 0xFF != 1 or value >> 8 >= 128:
+        return None
+    return value >> 8
+
+
+def record_member(record):
+    """(33-byte key, power, stray high bits) of a snapshot seat record."""
+    word1, word2 = int(record["word1"], 16), int(record["word2"], 16)
+    return bytes([word2 & 0xFF]) + word1.to_bytes(32, "big"), word2 >> 8 & U64_MAX, word2 >> 72
+
+
+def candidate_failures(case):
+    """Which of the candidate conditions the case breaks, in a fixed order: the threshold is not
+    the largest uint256, the whole word at T equals H, the set has members, no record word 2 has
+    bits above `power`, every key is valid and distinct, every power is at least 1, their exact
+    sum is at most MAX, and the snapshot total reaches the threshold."""
+    members = [record_member(r) for r in case["records"]]
+    keys = [key for key, _, _ in members]
+    powers = [power for _, power, _ in members]
+    threshold = int(case["min_total_stake"])
+    checks = (
+        ("min_total_stake_max", threshold == U256_MAX),
+        ("snapshot_height", int(case["snapshot_height_word"], 16) != int(case["height"])),
+        ("no_members", not members),
+        ("stray_bits", any(stray for _, _, stray in members)),
+        ("invalid_key", any(decompress(key) is None for key in keys)),
+        ("duplicate_key", len(set(keys)) < len(keys)),
+        ("zero_power", any(power == 0 for power in powers)),
+        ("power_sum", sum(powers) > MAX_POWER_SUM),
+        ("below_min_total_stake", int(case["snapshot_total_stake"]) < threshold),
+    )
+    return [name for name, failed in checks if failed]
+
+
+def signer(key, power):
+    """A signer entry: the key, its secp256k1eth address and its power."""
+    return {
+        "ck_prefix": str(key[0]),
+        "ck_x": "0x" + key[1:].hex(),
+        "ck_addr": "0x" + eth_address(decompress(key)),
+        "power": str(power),
+    }
+
+
+def replay_block_start(params, case):
+    """The staking contract from a fresh deployment through the case's registrations, prior calls
+    and call (spec 4.1 and 4.2), in plain lists: a registration takes the lowest empty seat; each
+    call counts a miss for an occupied seat whose bit is 1 and resets the count otherwise, then
+    takes ceil(effStake * missSlashBps / 10000) from every seat that reached missLimit, resets its
+    count and releases a bond left below minStake, then writes the 128 records, the total and the
+    height. Returns the registration seats, the seats held when the call starts and the call's
+    effects."""
+    n_max, min_stake = params["n_max"], params["min_stake"]
+    stake, holder, misses = [], [None] * 128, [0] * 128
+    seats = []
+    for reg in case["setup"]["registrations"]:
+        assert int(reg["amount"]) >= min_stake
+        free = [s for s in range(n_max) if holder[s] is None][0]
+        holder[free], misses[free] = len(stake), 0
+        stake.append(int(reg["amount"]))
+        seats.append(free)
+
+    def block_start(bitmap):
+        for s in range(n_max):
+            if holder[s] is not None:
+                misses[s] = misses[s] + 1 if bitmap >> s & 1 else 0
+        taken, released = 0, []
+        for s in range(n_max):
+            bond = holder[s]
+            if bond is None or misses[s] < params["miss_limit"]:
+                continue
+            cut = (stake[bond] * params["miss_slash_bps"] + 9_999) // 10_000
+            stake[bond] -= cut
+            taken += cut
+            misses[s] = 0
+            if stake[bond] < min_stake:
+                holder[s] = None
+                released.append(bond)
+        return taken, released
+
+    for prior in case["setup"]["prior_calls"]:
+        assert block_start(int(prior["miss_bitmap"])) == (0, []), case["name"]
+    held = [s for s in range(128) if holder[s] is not None]
+    taken, released = block_start(int(case["call"]["miss_bitmap"]))
+    keys = [scalar_key(int(reg["private_key"], 16)) for reg in case["setup"]["registrations"]]
+    records = []
+    for s in range(128):
+        bond = holder[s]
+        if bond is not None:
+            power = stake[bond] // params["vp_unit"]
+            assert power <= U64_MAX, case["name"]
+            word2 = int(keys[bond]["ck_prefix"]) | power << 8
+            records.append({"seat": str(s), "word1": keys[bond]["ck_x"], "word2": uint(word2)})
+    expect = {
+        "miss_counts": [{"seat": str(s), "count": str(misses[s])} for s in held],
+        "eff_stakes": [{"bond_id": str(b), "eff_stake": str(v)} for b, v in enumerate(stake)],
+        "released": [str(b) for b in released],
+        "penalty_total": str(taken),
+        "records": records,
+        "snapshot_total_stake": str(sum(stake[b] for b in holder if b is not None)),
+        "snapshot_height": case["call"]["block_number"],
+        "last_generation": case["call"]["generation"],
+    }
+    return seats, expect
 
 
 class VectorsTest(unittest.TestCase):
     def test_governance_authorization_and_principal_vectors(self):
-        self.assertIn("governance_abi", V)
         calls = V["governance_abi"]
-        self.assertEqual(
-            set(calls),
-            {
-                "top_up",
-                "activate_top_up",
-                "forfeit",
-                "recover",
-                "invalidate_recovery_nonce",
-                "schedule_rules",
-                "schedule_stop",
-                "set_origin",
-                "save_forced_inclusion",
-                "sweep_protocol_fees",
-            },
-        )
-        for call in calls.values():
-            self.assertEqual(call["calldata"][:10], call["selector"])
-            self.assertEqual(len(hexbytes(call["selector"])), 4)
-        # forfeit(bondId, incidentId, validUntil): exactly three arguments (ENC-A-54).
-        self.assertEqual(calls["forfeit"]["signature"], "forfeit(uint256,bytes32,uint256)")
-        self.assertEqual(
-            [int(w, 16) for w in words("0x" + calls["forfeit"]["calldata"][10:])],
-            [0, 42, 1_700_000_123],
-        )
+        contracts = {
+            "recover": "inbox",
+            "invalidate_recovery_nonce": "inbox",
+            "schedule_rules": "inbox",
+            "schedule_stop": "inbox",
+            "set_origin": "inbox",
+            "save_forced_inclusion": "inbox",
+            "sweep_protocol_fees": "inbox",
+            "set_fallback_keys": "inbox",
+            "set_min_total_stake": "inbox",
+            "register": "staking",
+            "top_up": "staking",
+            "request_exit": "staking",
+            "withdraw": "staking",
+            "forfeit": "staking",
+            "on_block_start": "staking",
+            "slash_double_sign": "staking",
+        }
+        self.assertEqual({name: call["contract"] for name, call in calls.items()}, contracts)
+        for name, call in calls.items():
+            self.assertEqual(list(call), ["contract", "signature", "selector", "calldata"], name)
+            self.assertEqual(call["selector"], h256(call["signature"].encode())[:10], name)
+            self.assertEqual(call["calldata"][:10], call["selector"], name)
+
+        def args(name):
+            return [int(w, 16) for w in words("0x" + calls[name]["calldata"][10:])]
+
+        # recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, fiToClear,
+        # rules): six head words, the one list's offset fifth and `rules` last, then the cleared
+        # forced inclusion indexes.
         self.assertEqual(
             calls["recover"]["signature"],
-            "recover(uint48,uint256,uint256,uint256,uint256[],uint256[],uint48)",
+            "recover(uint48,uint256,uint256,uint256,uint256[],uint48)",
         )
-        # Seven head words: the two list offsets, then `rules` last. Exclusions are bond ids, one
-        # word each, strictly increasing (ENC-A-51).
-        recovery = [int(w, 16) for w in words("0x" + calls["recover"]["calldata"][10:])]
-        self.assertEqual(recovery[:7], [2, 12, 7, 1700000123, 224, 352, 4])
-        self.assertEqual(recovery[7:11], [3, 1, 5, 9])
-        self.assertEqual(recovery[11:], [2, 3, 5])
-        self.assertEqual(recovery[8:11], sorted(set(recovery[8:11])))
-        # Both schedule calls take the expected generation first (START-10.1-5c).
+        self.assertEqual(calls["recover"]["selector"], "0x95e4b1e5")
+        self.assertEqual(args("recover"), [2, 12, 7, 1_700_000_123, 192, 4, 2, 3, 5])
+        self.assertEqual(
+            calls["invalidate_recovery_nonce"]["signature"], "invalidateRecoveryNonce(uint256)"
+        )
+        self.assertEqual(args("invalidate_recovery_nonce"), [7])
+        # Both schedule calls take the expected generation first.
         self.assertEqual(
             calls["schedule_rules"]["signature"], "scheduleRules(uint48,uint48,uint48)"
         )
-        self.assertEqual(
-            [int(w, 16) for w in words("0x" + calls["schedule_rules"]["calldata"][10:])],
-            [1, 2, 1_700_003_600],
-        )
+        self.assertEqual(args("schedule_rules"), [1, 2, 1_700_003_600])
         self.assertEqual(calls["schedule_stop"]["signature"], "scheduleStop(uint48,uint48)")
-        stop = [int(w, 16) for w in words("0x" + calls["schedule_stop"]["calldata"][10:])]
-        self.assertEqual(stop, [1, 1_700_007_200])
-        # setOrigin(S): the caller supplies only the height (START-10-5a, LAND-6.1-8a).
+        self.assertEqual(args("schedule_stop"), [1, 1_700_007_200])
+        # setOrigin(S): the caller supplies only the height.
         self.assertEqual(calls["set_origin"]["signature"], "setOrigin(uint48)")
-        self.assertEqual(words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000)])
-        # saveForcedInclusion(bytes) takes the raw transaction (spec 7.1); sweepProtocolFees() no
-        # argument.
+        self.assertEqual(args("set_origin"), [1000])
+        # saveForcedInclusion(bytes) takes the raw transaction; sweepProtocolFees() no argument.
         self.assertEqual(calls["save_forced_inclusion"]["signature"], "saveForcedInclusion(bytes)")
         fi = words("0x" + calls["save_forced_inclusion"]["calldata"][10:])
         self.assertEqual([int(w, 16) for w in fi[:2]], [32, 1])
@@ -837,78 +955,205 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(
             calls["sweep_protocol_fees"]["calldata"], calls["sweep_protocol_fees"]["selector"]
         )
-        cases = V["forfeitures"]
-        expected = [(100, 0, 1000, 10, 90, 0), (2, 98, 1000, 10, 0, 90), (1, 0, 1, 1, 0, 0), (0, 3, 10000, 3, 0, 0)]
-        self.assertEqual([tuple(int(c[k]) for k in ("eff_stake", "pending_top_up", "forfeit_bps", "penalty", "eff_stake_after", "pending_top_up_after")) for c in cases[:4]], expected)
-        large = cases[4]
-        self.assertEqual(int(large["eff_stake"]), 2**256 - 1)
-        self.assertEqual(int(large["penalty"]), 2**256 - 1)
-        self.assertEqual(int(large["eff_stake_after"]), 0)
+        # setFallbackKeys takes the list as (ckPrefix, ckX) pairs, here [K1, K2]; setMinTotalStake
+        # one word, here the value that hands every block to the fallback keys.
+        self.assertEqual(
+            calls["set_fallback_keys"]["signature"], "setFallbackKeys((uint8,bytes32)[])"
+        )
+        self.assertEqual(
+            words("0x" + calls["set_fallback_keys"]["calldata"][10:]),
+            [uint(32), uint(2), uint(2), K1["ck_x"], uint(2), K2["ck_x"]],
+        )
+        self.assertEqual(calls["set_min_total_stake"]["signature"], "setMinTotalStake(uint256)")
+        self.assertEqual(args("set_min_total_stake"), [2**256 - 1])
 
-    def test_top_up_and_lifetime_forfeiture_namespaces(self):
-        registry = V["layout"]["registry"]
-        self.assertIn("top_ups", registry)
-        self.assertIn("forfeitures", registry)
-        self.assertEqual(registry["top_ups"]["namespace"], "taiko.etna.registry.top-ups")
-        for entry in registry["top_ups"]["slots"]:
-            self.assertEqual(int(entry["ready_slot"], 16), int(entry["slot"], 16) + 1)
-        # STOR-B-32: the lifetime flag is keyed by bond id, like the top-ups.
-        forfeitures = registry["forfeitures"]
-        self.assertEqual(forfeitures["namespace"], "taiko.etna.registry.forfeitures")
-        self.assertEqual(int(forfeitures["base"], 16) & 0xFF, 0)
-        self.assertEqual([s["bond_id"] for s in forfeitures["slots"]], ["0", "4096"])
-        self.assertEqual(list(forfeitures["slots"][0]), ["bond_id", "slot"])
-        self.assertNotEqual(forfeitures["base"], registry["top_ups"]["base"])
+        # The staking entry points carry the selectors of the spec's staking interface.
+        self.assertEqual(
+            {name: calls[name]["selector"] for name, c in contracts.items() if c == "staking"},
+            {
+                "register": "0x864274b0",
+                "top_up": "0xde643a71",
+                "request_exit": "0x721c6513",
+                "withdraw": "0x00f714ce",
+                "forfeit": "0x7b41461f",
+                "on_block_start": ON_BLOCK_START_SELECTOR,
+                "slash_double_sign": "0xd61617a4",
+            },
+        )
+        # register(publicKey, amount, popSig): key a1's 33 bytes, minStake and its 65-byte proof
+        # of possession for owner 0xaa..aa, each byte string padded to whole words.
+        self.assertEqual(calls["register"]["signature"], "register(bytes,uint256,bytes)")
+        (pop,) = [d for d in V["register_digests"] if d["name"] == "a1_owner_aa"]
+        register = hexbytes("0x" + calls["register"]["calldata"][10:])
+        self.assertEqual(len(register), 320)
+        self.assertEqual(
+            [int(w, 16) for w in words("0x" + register[:96].hex())],
+            [96, int(V["deployment"]["min_stake"]), 192],
+        )
+        self.assertEqual(int.from_bytes(register[96:128], "big"), 33)
+        self.assertEqual(register[128:192], hexbytes(pop["key"]).ljust(64, b"\0"))
+        self.assertEqual(int.from_bytes(register[192:224], "big"), 65)
+        self.assertEqual(register[224:], hexbytes(pop["pop_sig"]).ljust(96, b"\0"))
+        self.assertEqual(calls["top_up"]["signature"], "topUp(uint256,uint256)")
+        self.assertEqual(args("top_up"), [0, 100])
+        self.assertEqual(calls["request_exit"]["signature"], "requestExit(uint256)")
+        self.assertEqual(args("request_exit"), [0])
+        self.assertEqual(calls["withdraw"]["signature"], "withdraw(uint256,address)")
+        self.assertEqual(
+            words("0x" + calls["withdraw"]["calldata"][10:]), [uint(0), address(OWNERS[0])]
+        )
+        # forfeit(bondId, incidentId, validUntil): exactly three arguments.
+        self.assertEqual(calls["forfeit"]["signature"], "forfeit(uint256,bytes32,uint256)")
+        self.assertEqual(args("forfeit"), [0, 42, 1_700_000_123])
+        # The block-start call: generation 1 and missBitmap 5, one word each.
+        self.assertEqual(calls["on_block_start"]["signature"], "onBlockStart(uint48,uint128)")
+        self.assertEqual(args("on_block_start"), [1, 5])
+        # The slash call is the votes section's zero-parts-hash conflict.
+        slash = V["votes"]["slash_abi"]
+        for field in ("signature", "selector", "calldata"):
+            self.assertEqual(calls["slash_double_sign"][field], slash[field], field)
+
+        # A forfeiture takes ceil(balance * forfeitBps / 10,000) of the bond's whole principal
+        # from effStake, also where the product exceeds 256 bits; nothing else is deducted.
+        cases = V["forfeitures"]
+        fields = ("eff_stake", "forfeit_bps", "penalty", "eff_stake_after")
+        min_stake, top = int(V["deployment"]["min_stake"]), 2**256 - 1
+        self.assertEqual(
+            [tuple(int(c[k]) for k in fields) for c in cases],
+            [
+                (100, 1000, 10, 90),
+                (99, 1000, 10, 89),
+                (1, 1, 1, 0),
+                (3, 10000, 3, 0),
+                (min_stake, 1000, min_stake // 10, min_stake - min_stake // 10),
+                (top, 10000, top, 0),
+                (top, 1, top // 10000 + 1, top - top // 10000 - 1),
+            ],
+        )
+        for case in cases:
+            self.assertEqual(list(case), list(fields))
+            balance, rate = int(case["eff_stake"]), int(case["forfeit_bps"])
+            self.assertGreater(balance, 0)
+            self.assertTrue(0 < rate <= 10_000)
+            self.assertEqual(int(case["penalty"]), -(-balance * rate // 10_000))
+
+    def test_top_up_and_lifetime_forfeiture_live_on_the_staking_contract(self):
+        calls, events, views = V["governance_abi"], V["governance_events"], V["view_abi"]
+        # A top-up is one staking call that adds to the bond at once: there is no activation
+        # call, and its event carries only the bond id and the amount.
+        self.assertNotIn("activate_top_up", calls)
+        self.assertNotIn("top_up_activated", events)
+        self.assertEqual(calls["top_up"]["contract"], "staking")
+        self.assertEqual(
+            (events["top_up_deposited"]["contract"], events["top_up_deposited"]["signature"]),
+            ("staking", "TopUpDeposited(uint256,uint256)"),
+        )
+        # The lifetime forfeiture flag is a staking view keyed by bond id.
+        forfeited = views["forfeited"]
+        self.assertEqual(
+            (forfeited["contract"], forfeited["signature"]), ("staking", "forfeited(uint256)")
+        )
+        self.assertEqual(words("0x" + forfeited["calldata"][10:]), [uint(0)])
+        self.assertEqual([r["values"] for r in forfeited["results"]], [[True], [False]])
+        self.assertEqual(events["forfeited"]["contract"], "staking")
+        # Recovery authorization stays on the Inbox, in slot 292.
+        self.assertEqual(calls["invalidate_recovery_nonce"]["contract"], "inbox")
         self.assertEqual(V["layout"]["inbox"]["slots"]["recovery_nonce"], "292")
 
     def test_entry_keys_are_removed(self):
-        # The lifetime forfeiture flag and recovery exclusions use bond ids, so no key hash remains.
+        # The lifetime forfeiture flag uses bond ids, so no key hash remains.
         self.assertTrue(all("entry_key" not in key for key in V["keys"]))
         self.assertNotIn("entry_key", json.dumps(V))
         self.assertNotIn("origin_writer", json.dumps(V))
 
+    def test_no_registry_families(self):
+        for family in ("committee_config", "registry_entries", "committee_sets"):
+            self.assertNotIn(family, V)
+        self.assertEqual(set(V["layout"]), {"inbox"})
+
+        def keys_of(value):
+            if isinstance(value, dict):
+                return set(value) | set().union(*map(keys_of, value.values()))
+            if isinstance(value, list):
+                return set().union(*map(keys_of, value))
+            return set()
+
+        self.assertEqual({k for k in keys_of(V) if "registry" in k}, set())
+        # No preimage carries a tag of the registry, committee set or committee record encodings,
+        # and the registry's address appears nowhere.
+        text = json.dumps(V)
+        for retired in (
+            "ETNA_PARENT_ANCHOR_V1",
+            "ETNA_REG_ENTRY_V1",
+            "ETNA_SET_KEY_V1",
+            "ETNA_SET_V1",
+            "ETNA_COMMITTEE_V1",
+        ):
+            self.assertNotIn(retired, text)
+            self.assertNotIn(tag(retired)[2:], text)
+        self.assertNotIn("22" * 20, text)
+
     def test_governance_event_payloads(self):
-        self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
         events = V["governance_events"]
         rules = int(V["packed_words"]["inbox_293"][0]["word"], 16)
-        self.assertEqual(
-            events["forfeited"]["signature"], "Forfeited(uint256,bytes32,uint256,uint256)"
-        )
-        self.assertEqual(
-            events["recovered"]["signature"],
-            "Recovered(uint48,uint256,uint256,uint256,uint256[],uint256[])",
-        )
-        for event in events.values():
-            self.assertEqual(event["topic0"], h256(event["signature"].encode()))
+        one_key = h256(fallback_keys_preimage([K1]))
+        two_keys = h256(fallback_keys_preimage([K1, K2]))
         expected = {
-            "top_up_deposited": [100, 42],
-            "top_up_activated": [100],
-            "forfeited": [42, 100, 10],
-            "recovery_nonce_invalidated": [7, 8],
-            "rules_schedule_updated": [rules],
-            "start_written": [1000, 0x51, 0x52],
-            "etna_initialized": [10, 40, 0x53, 0x54],
-            "landed": [0x77, 50, 1],
+            "fallback_keys_updated": (
+                "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])",
+                [32, 1, 2, int(K1["ck_x"], 16)],
+            ),
+            "min_total_stake_updated": ("MinTotalStakeUpdated(uint256)", [2**256 - 1]),
+            "recovery_nonce_invalidated": ("RecoveryNonceInvalidated(uint256,uint256)", [7, 8]),
+            "rules_schedule_updated": ("RulesScheduleUpdated(uint256)", [rules]),
+            "start_written": ("StartWritten(uint256,bytes32,bytes32)", [1000, 0x51, 0x52]),
+            "etna_initialized": (
+                "EtnaInitialized(bytes32,address,uint256)",
+                [int(V["config"]["hash"], 16), int(V["deployment"]["staking"], 16), 151_200],
+            ),
+            "landed": ("Landed(uint256,uint256,uint256,bytes32,uint8)", [0x77, 1]),
             # The offset of the bytes, the fee, the length, then the one-byte transaction
             # left-aligned.
-            "forced_inclusion_saved": [64, 1_000_000_000, 1, 0xC0 << 248],
-            "protocol_fees_swept": [1_000_000_000],
-            # Five head words with the two list offsets, then each list's length and items: the
-            # excluded bond ids and the cleared forced inclusion indexes.
-            "recovered": [12, 50, 1700000123, 160, 288, 3, 1, 5, 9, 2, 3, 5],
+            "forced_inclusion_saved": (
+                "ForcedInclusionSaved(uint48,bytes,uint256)",
+                [64, 1_000_000_000, 1, 0xC0 << 248],
+            ),
+            "protocol_fees_swept": ("ProtocolFeesSwept(uint256)", [1_000_000_000]),
+            # Five head words, the list's offset last, then the cleared forced inclusion
+            # indexes; the fourth word is the fallback key hash of the new origin record.
+            "recovered": (
+                "Recovered(uint48,uint256,uint256,uint256,bytes32,uint256[])",
+                [12, 50, 1_700_000_123, int(two_keys, 16), 160, 2, 3, 5],
+            ),
+            "top_up_deposited": ("TopUpDeposited(uint256,uint256)", [100]),
+            "forfeited": ("Forfeited(uint256,bytes32,uint256,uint256)", [42, 100, 10]),
         }
         self.assertEqual(set(events), set(expected))
-        for name, values in expected.items():
-            self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
-            self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
+        for name, (signature, values) in expected.items():
+            event = events[name]
+            self.assertEqual(
+                list(event), ["contract", "signature", "topic0", "indexed_topics", "data"], name
+            )
+            self.assertEqual(event["signature"], signature, name)
+            self.assertEqual([int(w, 16) for w in words(event["data"])], values, name)
+        # FallbackKeysUpdated indexes the list's hash and carries the stored list: the hash's
+        # preimage after the tag, with the list's offset counted from the data.
+        keys_event = events["fallback_keys_updated"]
+        self.assertEqual(keys_event["indexed_topics"], [one_key])
+        self.assertEqual(
+            hexbytes(keys_event["data"]), hexbytes(uint(32)) + fallback_keys_preimage([K1])[64:]
+        )
+        self.assertEqual((one_key, two_keys), (APPENDIX_A_LITERALS["enc_a_36a_a"],
+                                               APPENDIX_A_LITERALS["enc_a_36a_b"]))
         # Landed indexes its three heights; ForcedInclusionSaved its queue index; Recovered the
-        # new generation; Forfeited and the top-up events the bond id. The other events index
-        # nothing.
+        # new generation; the staking events the bond id. The other events index nothing.
         self.assertEqual(events["landed"]["indexed_topics"], [uint(0), uint(6), uint(12)])
         self.assertEqual(events["forced_inclusion_saved"]["indexed_topics"], [uint(3)])
         self.assertEqual(events["recovered"]["indexed_topics"], [uint(2)])
+        self.assertEqual(events["top_up_deposited"]["indexed_topics"], [uint(0)])
         self.assertEqual(events["forfeited"]["indexed_topics"], [uint(0)])
         for name in (
+            "min_total_stake_updated",
             "rules_schedule_updated",
             "start_written",
             "recovery_nonce_invalidated",
@@ -917,46 +1162,135 @@ class VectorsTest(unittest.TestCase):
         ):
             self.assertEqual(events[name]["indexed_topics"], [], name)
 
+    def test_event_topics(self):
+        events = V["governance_events"]
+        staking = {name for name, event in events.items() if event["contract"] == "staking"}
+        self.assertEqual(staking, {"top_up_deposited", "forfeited"})
+        self.assertEqual({event["contract"] for event in events.values()}, {"inbox", "staking"})
+        # topic0 is keccak256 of the event signature, recomputed with both Keccak-256s here.
+        for name, event in events.items():
+            for impl in (keccak256_python, keccak256):
+                self.assertEqual(
+                    "0x" + impl(event["signature"].encode()).hex(), event["topic0"], name
+                )
+        for name, topic in SPEC_TOPICS.items():
+            self.assertEqual(events[name]["topic0"], topic, name)
+
     def test_view_return_data(self):
         views = V["view_abi"]
         self.assertEqual(
-            {name: view["signature"] for name, view in views.items()},
+            {name: (v["contract"], v["signature"], v["returns"]) for name, v in views.items()},
             {
-                "bond_for_key": "bondForKey(address)",
-                "bond_in_slot": "bondInSlot(uint256)",
-                "slot_of_bond": "slotOfBond(uint256)",
-                "forfeited": "forfeited(uint256)",
-                "min_stake": "minStake()",
-                "etna_start": "etnaStart()",
-                "propose_cutoff": "proposeCutoff()",
+                "config_hash": ("inbox", "configHash()", "(bytes32)"),
+                "etna_staking": ("inbox", "etnaStaking()", "(address)"),
+                "unsettled_limit": ("inbox", "unsettledLimit()", "(uint64)"),
+                "get_fallback_keys": ("inbox", "getFallbackKeys()", "((uint8,bytes32)[])"),
+                "fallback_keys_hash": ("inbox", "fallbackKeysHash()", "(bytes32)"),
+                "min_total_stake": ("inbox", "minTotalStake()", "(uint256)"),
+                "etna_start": ("inbox", "etnaStart()", "(uint48,bytes32)"),
+                "propose_cutoff": ("unzen_inbox", "proposeCutoff()", "(uint48)"),
+                "bond_for_key": ("staking", "bondForKey(address)", "(bool,uint256)"),
+                "seat_of_bond": ("staking", "seatOfBond(uint256)", "(bool,uint8)"),
+                "bond_in_seat": ("staking", "bondInSeat(uint8)", "(bool,uint256)"),
+                "snapshot": (
+                    "staking",
+                    "snapshot()",
+                    "(uint256,uint256,(uint8,uint8,bytes32,uint64)[])",
+                ),
+                "register_digest": ("staking", "registerDigest(address)", "(bytes32)"),
+                "forfeited": ("staking", "forfeited(uint256)", "(bool)"),
+                "min_stake": ("staking", "minStake()", "(uint256)"),
             },
         )
-        for view in views.values():
-            self.assertEqual(view["selector"], h256(view["signature"].encode())[:10])
         for name, view in views.items():
+            self.assertEqual(
+                list(view), ["contract", "signature", "selector", "calldata", "returns", "results"]
+            )
+            self.assertEqual(view["selector"], h256(view["signature"].encode())[:10], name)
             self.assertEqual(view["calldata"][:10], view["selector"], name)
-            self.assertEqual(len(hexbytes(view["selector"])), 4, name)
+            if "[]" in view["returns"]:
+                continue  # the two list views are checked word by word below
             types = view["returns"][1:-1].split(",")
             for result in view["results"]:
                 encoded = []
-                for kind, value in zip(types, result["values"]):
+                for kind, value in zip(types, result["values"], strict=True):
                     if kind == "bool":
                         encoded.append(uint(1 if value else 0))
                     elif kind == "bytes32":
                         encoded.append(value)
+                    elif kind == "address":
+                        encoded.append(address(value))
                     else:
                         encoded.append(uint(value))
                 self.assertEqual(words(result["data"]), encoded, (name, result["name"]))
-        # A present bond 0 or slot 0 and an absent one differ only in the flag word.
-        for name in ("bond_for_key", "bond_in_slot", "slot_of_bond"):
+        self.assertEqual(
+            {name: views[name]["selector"] for name in
+             ("bond_for_key", "seat_of_bond", "bond_in_seat", "snapshot", "register_digest")},
+            {
+                "bond_for_key": "0x830dc3a1",
+                "seat_of_bond": "0x7b81a4dc",
+                "bond_in_seat": "0xd0b5360d",
+                "snapshot": "0x9711715a",
+                "register_digest": "0x049785d3",
+            },
+        )
+        # A present bond, seat or seat holder and an absent one differ only in the flag word:
+        # (true, 0) names bond 0 or seat 0 and (false, 0) is absence.
+        for name in ("bond_for_key", "seat_of_bond", "bond_in_seat"):
             present, absent = views[name]["results"]
-            self.assertTrue(present["values"][0])
-            self.assertEqual(absent["values"], [False, "0"])
-        self.assertEqual(views["slot_of_bond"]["results"][0]["values"], [True, "0"])
-        self.assertEqual(views["bond_for_key"]["results"][0]["values"], [True, "0"])
+            self.assertEqual(present["values"], [True, "0"], name)
+            self.assertEqual(absent["values"], [False, "0"], name)
         self.assertEqual(
             words("0x" + views["bond_for_key"]["calldata"][10:]),
             [address(V["keys"][0]["ck_addr"])],
+        )
+        for name in ("seat_of_bond", "bond_in_seat"):
+            self.assertEqual(words("0x" + views[name]["calldata"][10:]), [uint(0)], name)
+        # snapshot(): the height word, the total stake, then the occupied seats in ascending
+        # seat order as (seat, ckPrefix, ckX, power): seat 0 holds K1 at power 100,000 and seat
+        # 2 K2 at 250,000; an empty snapshot is all zero with no member.
+        two_seats, empty = views["snapshot"]["results"]
+        self.assertEqual(
+            two_seats["values"],
+            ["10", str(350_000 * 10**9),
+             [["0", "2", K1["ck_x"], "100000"], ["2", "2", K2["ck_x"], "250000"]]],
+        )
+        self.assertEqual(
+            words(two_seats["data"]),
+            [uint(10), uint(350_000 * 10**9), uint(96), uint(2),
+             uint(0), uint(2), K1["ck_x"], uint(100_000),
+             uint(2), uint(2), K2["ck_x"], uint(250_000)],
+        )
+        self.assertEqual(empty["values"], ["0", "0", []])
+        self.assertEqual(words(empty["data"]), [uint(0), uint(0), uint(96), uint(0)])
+        # registerDigest(owner) is the owner's EIP-712 registration digest.
+        (digest,) = views["register_digest"]["results"]
+        self.assertEqual(words("0x" + views["register_digest"]["calldata"][10:]),
+                         [address(OWNERS[0])])
+        (pop,) = [d for d in V["register_digests"] if d["name"] == "a1_owner_aa"]
+        self.assertEqual(digest["values"], [pop["digest"]])
+        (min_stake,) = views["min_stake"]["results"]
+        self.assertEqual(min_stake["values"], [V["deployment"]["min_stake"]])
+        # The Inbox's configuration views: the config hash, its staking address and U.
+        for name, value in (
+            ("config_hash", V["config"]["hash"]),
+            ("etna_staking", V["deployment"]["staking"]),
+            ("unsettled_limit", V["deployment"]["unsettled_limit"]),
+        ):
+            (result,) = views[name]["results"]
+            self.assertEqual(result["values"], [value], name)
+            self.assertEqual(views[name]["calldata"], views[name]["selector"], name)
+        # getFallbackKeys() returns the stored list [K1, K2], fallbackKeysHash() its hash.
+        (keys,) = views["get_fallback_keys"]["results"]
+        self.assertEqual(keys["values"], [[["2", K1["ck_x"]], ["2", K2["ck_x"]]]])
+        self.assertEqual(
+            words(keys["data"]), [uint(32), uint(2), uint(2), K1["ck_x"], uint(2), K2["ck_x"]]
+        )
+        (keys_hash,) = views["fallback_keys_hash"]["results"]
+        self.assertEqual(keys_hash["values"], [APPENDIX_A_LITERALS["enc_a_36a_b"]])
+        self.assertEqual(
+            [r["values"] for r in views["min_total_stake"]["results"]],
+            [[str(2**256 - 1)], ["0"]],
         )
         self.assertEqual(views["etna_start"]["calldata"], views["etna_start"]["selector"])
         written, not_written = views["etna_start"]["results"]
@@ -966,21 +1300,13 @@ class VectorsTest(unittest.TestCase):
         start = words(V["governance_events"]["start_written"]["data"])
         self.assertEqual(words(written["data"]), [origin[0], start[1]])
         self.assertEqual(start[0], origin[0])
-        # The lifetime forfeiture flag is read by bond id; minStake is the deployment's.
-        self.assertEqual(words("0x" + views["forfeited"]["calldata"][10:]), [uint(0)])
-        self.assertEqual(
-            [r["values"] for r in views["forfeited"]["results"]], [[True], [False]]
-        )
-        (min_stake,) = views["min_stake"]["results"]
-        self.assertEqual(min_stake["values"], [V["deployment"]["min_stake"]])
-        self.assertEqual(views["min_stake"]["calldata"], views["min_stake"]["selector"])
         installed, not_installed = views["propose_cutoff"]["results"]
         self.assertGreater(int(installed["values"][0]), 0)
         self.assertLess(int(installed["values"][0]), 2**48)
         self.assertEqual(not_installed["data"], uint(0))
 
-    def test_schema_version_is_9(self):
-        self.assertEqual(V["schema_version"], "9")
+    def test_schema_is_ten(self):
+        self.assertEqual(V["schema_version"], "10")
 
     def test_deployment(self):
         self.assertEqual(
@@ -989,49 +1315,83 @@ class VectorsTest(unittest.TestCase):
                 "l1_chain_id": "1",
                 "l2_chain_id": "167001",
                 "inbox": "0x1111111111111111111111111111111111111111",
-                "registry": "0x2222222222222222222222222222222222222222",
+                "staking": "0x1670010000000000000000000000000000010003",
+                "token": "0x1670010000000000000000000000000000000007",
                 "l2_block_gas_limit": "45000000",
-                "min_stake": str(250_000 * 10**18),
+                "min_stake": str(7_812_500 * 10**18),
+                "vp_unit": str(10**9),
+                "n_max": "128",
+                "miss_limit": "3600",
+                "miss_slash_bps": "1000",
+                "slash_bounty_bps": "1000",
+                "forfeit_bps": "1000",
+                "withdrawal_delay": "302402",
+                "unsettled_limit": "151200",
+                "evidence_window_blocks": "151200",
                 "etna_start": "0",
                 "unzen_inbox": "0x0000000000000000000000000000000000000000",
                 "etna_fork_time": "0",
             },
         )
+        d = {k: int(v) for k, v in V["deployment"].items() if not v.startswith("0x")}
+        # The staking proxy and the bridged token are chain 167001's genesis predeploys: the
+        # chain id's digits, zeros, then the suffix 10003 or 7, forty hex digits in all.
+        for name, suffix in (("staking", "10003"), ("token", "7")):
+            self.assertEqual(V["deployment"][name], "0x167001" + suffix.rjust(34, "0"), name)
+        # The staking contract's bounds: vp_unit at least ceil(10^27 / MaxTotalVotingPower),
+        # minStake at least vp_unit and n_max seats at minStake at least 10^27 base units,
+        # 1 <= n_max <= 128, 1 <= missLimit <= 65,535, both penalty rates in (0, 10,000], the
+        # bounty below 10,000, 1 <= U <= 262,144, and withdrawalDelay at least U + 2 + the
+        # evidence window and below 2^48.
+        self.assertEqual(-(-(10**27) // ((2**63 - 1) // 8)), 867_361_738)
+        self.assertGreaterEqual(d["vp_unit"], 867_361_738)
+        self.assertGreaterEqual(d["min_stake"], d["vp_unit"])
+        self.assertGreaterEqual(d["min_stake"] * d["n_max"], 10**27)
+        self.assertTrue(1 <= d["n_max"] <= 128)
+        self.assertTrue(1 <= d["miss_limit"] <= 65_535)
+        self.assertTrue(0 < d["miss_slash_bps"] <= 10_000)
+        self.assertTrue(0 < d["forfeit_bps"] <= 10_000)
+        self.assertLess(d["slash_bounty_bps"], 10_000)
+        self.assertTrue(1 <= d["unsettled_limit"] <= 262_144)
+        self.assertGreaterEqual(
+            d["withdrawal_delay"], d["unsettled_limit"] + 2 + d["evidence_window_blocks"]
+        )
+        self.assertLess(d["withdrawal_delay"], 2**48)
 
-    def test_config_is_seven_words(self):
-        cfg = V["committee_config"]
-        inputs = cfg["inputs"]
-        self.assertEqual(len(hexbytes(cfg["preimage"])), 224)
-        self.assertEqual(inputs["tag"], "ETNA_PARENT_ANCHOR_V1")
-        self.assertEqual(inputs["unsettled_limit"], "3600")
-        self.assertEqual(inputs["registry"], V["deployment"]["registry"])
-        # The fifth word is the registry's immutable minStake (ENC-A-36, START-10-14).
-        self.assertEqual(inputs["min_stake"], V["deployment"]["min_stake"])
+    def test_config_is_four_words_and_matches_the_spec_literal(self):
+        cfg, deployment = V["config"], V["deployment"]
+        self.assertEqual(list(cfg), ["inputs", "preimage", "hash"])
         self.assertEqual(
-            list(inputs),
-            ["tag", "l2_chain_id", "registry", "vp_unit", "min_stake", "n_max", "unsettled_limit"],
+            cfg["inputs"],
+            {
+                "tag": "ETNA_CONFIG_V1",
+                "l2_chain_id": deployment["l2_chain_id"],
+                "staking": deployment["staking"],
+                "unsettled_limit": deployment["unsettled_limit"],
+            },
         )
+        self.assertEqual(list(cfg["inputs"]), ["tag", "l2_chain_id", "staking", "unsettled_limit"])
         self.assertEqual(
-            words(cfg["preimage"]),
-            [
-                tag("ETNA_PARENT_ANCHOR_V1"),
-                uint(inputs["l2_chain_id"]),
-                address(inputs["registry"]),
-                uint(inputs["vp_unit"]),
-                uint(inputs["min_stake"]),
-                uint(inputs["n_max"]),
-                uint(inputs["unsettled_limit"]),
-            ],
+            hexbytes(cfg["preimage"]),
+            join_words(
+                tag("ETNA_CONFIG_V1"),
+                uint(deployment["l2_chain_id"]),
+                address(deployment["staking"]),
+                uint(deployment["unsettled_limit"]),
+            ),
         )
+        self.assertEqual(len(hexbytes(cfg["preimage"])), 128)
         self.assertEqual(h256(hexbytes(cfg["preimage"])), cfg["hash"])
-        # START-10-10..12: vp_unit >= ceil(10^27 / MAX), minStake >= vp_unit,
-        # 4096 * minStake > 10^27, 1 <= n_max <= 4096 and 1 <= U <= 65,536.
-        vp_unit, min_stake = int(inputs["vp_unit"]), int(inputs["min_stake"])
-        self.assertGreaterEqual(vp_unit, 867_361_738)
-        self.assertGreaterEqual(min_stake, vp_unit)
-        self.assertGreater(4096 * min_stake, 10**27)
-        self.assertTrue(1 <= int(inputs["n_max"]) <= 4096)
-        self.assertTrue(1 <= int(inputs["unsettled_limit"]) <= 65_536)
+        # The spec's own example, encoded and hashed here: L2 chain id 167000, staking
+        # 0x1111..11 and U = 151,200.
+        example = join_words(
+            tag("ETNA_CONFIG_V1"), uint(167_000), address("0x" + "11" * 20), uint(151_200)
+        )
+        for impl in (keccak256_python, keccak256):
+            self.assertEqual("0x" + impl(example).hex(), APPENDIX_A_LITERALS["enc_a_36_a"])
+        spec = V["appendix_a_examples"]["enc_a_36_a"]
+        self.assertEqual(hexbytes(spec["preimage"]), example)
+        self.assertEqual(spec["hash"], APPENDIX_A_LITERALS["enc_a_36_a"])
 
     def test_validator_state_published_encoding(self):
         case = V["validator_states"][0]
@@ -1056,7 +1416,7 @@ class VectorsTest(unittest.TestCase):
 
     def test_keccak256(self):
         published = V["validator_states"][0]
-        config = V["committee_config"]
+        config = V["config"]
         key = V["keys"][0]
         for impl in (keccak256_python, keccak256):
             self.assertEqual("0x" + impl(b"").hex(), KECCAK_EMPTY)
@@ -1085,20 +1445,22 @@ class VectorsTest(unittest.TestCase):
         address = {k["name"]: k["ck_addr"][2:] for k in section["keys"]}
         self.assertEqual(
             [c["name"] for c in section["chains"]],
-            ["gen0", "gen1", "bounds_a", "bounds_b", "bounds_c"],
+            [
+                "gen0",
+                "gen1",
+                "bounds_a",
+                "bounds_b",
+                "bounds_c",
+                "fallback_genesis_to_candidate",
+                "recovery_origin_keys",
+            ],
         )
         for chain in section["chains"]:
             start, end = int(chain["start_height"]), int(chain["end_height"])
-            epoch_length = int(chain["epoch_length"])
-            self.assertGreaterEqual(epoch_length, 3)  # START-10-7
-            updates = {}
-            for switch in chain["switches"]:
-                height, t = int(switch["height"]), int(switch["epoch"])
-                # FinalizeBlock at S(t) = H(t) - 2 returns the update; it first signs H(t).
-                self.assertEqual(height, t * epoch_length - 1)
-                self.assertEqual(int(switch["activation_height"]), t * epoch_length + 1)
-                self.assertTrue(start < height <= end)
-                updates[height] = [(k, int(p)) for k, p in switch["changes"]]
+            updates = {
+                int(s["height"]): [(k, int(p)) for k, p in s["changes"]]
+                for s in chain["switches"]
+            }
             genesis = [(k, int(p)) for k, p in chain["genesis"]]
             states, events = valset_model.replay(address, start, end, genesis, updates)
             self.assertEqual(
@@ -1184,15 +1546,69 @@ class VectorsTest(unittest.TestCase):
                     else:
                         del expected[key]
                 self.assertEqual(committee(state["next"]), expected)
-            # H + 2: a switch returned at S(t) signs neither S(t) + 1 (current at S(t)) nor
-            # S(t) + 2 = H(t) until current at S(t) + 1.
-            by_height = {int(s["height"]): s for s in states}
-            for height, switch in switches.items():
-                new = committee(by_height[height]["next"])
-                self.assertNotEqual(committee(by_height[height]["current"]), new)
-                if height + 1 in by_height:
-                    self.assertEqual(committee(by_height[height + 1]["current"]), new)
         self.assertGreater(stored_not_highest, 0)
+
+    def test_val_state_chains_have_no_epochs_and_activate_two_heights_later(self):
+        """FinalizeBlock(H) may return an update at any height after the genesis; the update
+        leaves the set that signs H + 1 as it was and first signs H + 2."""
+        section = V["val_state_chains"]
+        for chain in section["chains"]:
+            self.assertFalse([k for k in chain if "epoch" in k], chain["name"])
+            start, end = int(chain["start_height"]), int(chain["end_height"])
+            by_height = {int(s["height"]): s for s in chain["states"]}
+            heights = [int(s["height"]) for s in chain["switches"]]
+            self.assertEqual(heights, sorted(set(heights)), chain["name"])
+            for switch in chain["switches"]:
+                height = int(switch["height"])
+                with self.subTest(chain=chain["name"], height=height):
+                    self.assertEqual(set(switch), {"height", "activation_height", "changes"})
+                    self.assertEqual(int(switch["activation_height"]), height + 2)
+                    self.assertTrue(start < height <= end)
+                    signs_next = committee(by_height[height - 1]["next"])
+                    # Every change changes the set that signs H + 1: a member that keeps its
+                    # power is not listed and only a member of that set leaves.
+                    for key, power in switch["changes"]:
+                        self.assertNotEqual(signs_next.get(key, 0), int(power), key)
+                    self.assertEqual(committee(by_height[height]["current"]), signs_next)
+                    new = committee(by_height[height]["next"])
+                    self.assertNotEqual(new, signs_next)
+                    if height + 1 in by_height:
+                        self.assertEqual(committee(by_height[height + 1]["current"]), new)
+
+    def test_every_signing_set_has_1_to_128_members(self):
+        section = V["val_state_chains"]
+        sizes = set()
+        for chain in section["chains"]:
+            for state in chain["states"]:
+                for side in ("current", "next"):
+                    self.assertTrue(1 <= len(state[side]) <= 128, (chain["name"], side))
+                    sizes.add(len(state[side]))
+        mc = section["max_committee"]
+        self.assertEqual(int(mc["size"]), 128)
+        sizes.add(int(mc["size"]))
+        self.assertEqual((min(sizes), max(sizes)), (1, 128))
+
+    def test_mode_switch_replaces_the_whole_set(self):
+        """From the genesis's fallback keys to a usable candidate at 1, and back at 8: one update
+        list removes every member of the set that signs H + 1 and adds every new member, so the
+        two sets share no key; every fallback key signs at power 1."""
+        chains = {c["name"]: c for c in V["val_state_chains"]["chains"]}
+        chain = chains["fallback_genesis_to_candidate"]
+        fallback = {f"c{i}": 1 for i in range(1, 5)}
+        self.assertEqual({k: int(p) for k, p in chain["genesis"]}, fallback)
+        by_height = {int(s["height"]): s for s in chain["states"]}
+        switches = {int(s["height"]): s for s in chain["switches"]}
+        for height, new in ((1, {"c5": 30, "c6": 20, "c7": 10}), (8, fallback)):
+            with self.subTest(height=height):
+                old = committee(by_height[height]["current"])
+                self.assertEqual(committee(by_height[height]["next"]), new)
+                self.assertFalse(set(old) & set(new))
+                self.assertEqual(
+                    sorted((k, int(p)) for k, p in switches[height]["changes"]),
+                    sorted([(k, 0) for k in old] + list(new.items())),
+                )
+                self.assertEqual(committee(by_height[height + 1]["current"]), new)
+                self.assertEqual(committee(by_height[height + 1]["next"]), new)
 
     def test_validator_state_events_cover_bounds(self):
         """Rescaling at 2·total (none) and 2·total + 1 (ratio 2) in both UpdateWithChangeSet and
@@ -1256,10 +1672,10 @@ class VectorsTest(unittest.TestCase):
         )
 
     def test_validator_state_max_committee(self):
-        """Rebuilds the 4096-member committee at MaxTotalVotingPower from its rules."""
+        """Rebuilds the 128-member set at MaxTotalVotingPower from its rules."""
         mc = V["val_state_chains"]["max_committee"]
         size, total = int(mc["size"]), int(mc["total_power"])
-        self.assertEqual((size, total), (4096, (2**63 - 1) // 8))
+        self.assertEqual((size, total), (128, (2**63 - 1) // 8))
         keys, address, genesis = {}, {}, []
         point = ec_mul(SECP_G, int(mc["first_private_key"], 16))
         for i in range(size):
@@ -1270,6 +1686,7 @@ class VectorsTest(unittest.TestCase):
             address[name] = eth_address(point)
             genesis.append((name, 2**48 + i % 64 - 32))
         genesis[-1] = (genesis[-1][0], total - sum(p for _, p in genesis[:-1]))
+        self.assertEqual(genesis[-1][1], 3969 * 2**48 + 94)
         self.assertEqual(int(mc["last_member_power"]), genesis[-1][1])
         start = int(mc["start_height"])
         states, events = valset_model.replay(
@@ -1297,24 +1714,54 @@ class VectorsTest(unittest.TestCase):
             self.assertEqual("0x" + keccak256(preimage).hex(), state["hash"])
         self.assertEqual(mc["events"], model_events(events))
 
-    def test_statements_are_21_words(self):
+    def test_statements_have_nineteen_words(self):
         statements = V["land_statements"]
         self.assertEqual([s["name"] for s in statements], ["genesis", "nonzero"])
         table = {int(c["height"]): c for c in V["cuts"]["table"]}
+        deployment = V["deployment"]
         for statement in statements:
             inputs = statement["inputs"]
+            self.assertEqual(
+                list(inputs),
+                [
+                    "tag",
+                    "l1_chain_id",
+                    "l2_chain_id",
+                    "inbox",
+                    "generation",
+                    "parent_height",
+                    "parent_hash",
+                    "parent_comet_hash",
+                    "config_hash",
+                    "last_height",
+                    "last_block_hash",
+                    "last_comet_hash",
+                    "last_state_root",
+                    "l1_reference_block_number",
+                    "l1_reference_block_hash",
+                    "blob_hashes",
+                    "forced_inclusion_head_before",
+                    "forced_inclusion_head_after",
+                    "cut_hash",
+                ],
+            )
             p, h = int(inputs["parent_height"]), int(inputs["last_height"])
-            self.assertEqual(len(hexbytes(statement["preimage"])), 672)
-            self.assertEqual(word(statement["preimage"], 0), tag("TAIKO_ETNA_LAND_V1"))
-            self.assertEqual(word(statement["preimage"], 20), inputs["cut_hash"])
-            self.assertEqual(inputs["committee_config_hash"], V["committee_config"]["hash"])
+            self.assertEqual(len(hexbytes(statement["preimage"])), 608)
+            self.assertEqual(inputs["tag"], "TAIKO_ETNA_LAND_V1")
+            for name in ("l1_chain_id", "l2_chain_id", "inbox"):
+                self.assertEqual(inputs[name], deployment[name], name)
+            self.assertEqual(inputs["config_hash"], V["config"]["hash"])
             # Origin and terminal values follow the cut table.
             self.assertEqual(inputs["parent_hash"], table[p]["block_hash"])
             self.assertEqual(inputs["parent_comet_hash"], table[p]["comet_hash"])
-            self.assertEqual(int(inputs["forced_inclusion_head_before"]), int(table[p]["forced_head"]))
+            self.assertEqual(
+                int(inputs["forced_inclusion_head_before"]), int(table[p]["forced_head"])
+            )
             self.assertEqual(inputs["last_block_hash"], table[h]["block_hash"])
             self.assertEqual(inputs["last_comet_hash"], table[h]["comet_hash"])
-            self.assertEqual(int(inputs["forced_inclusion_head_after"]), int(table[h]["forced_head"]))
+            self.assertEqual(
+                int(inputs["forced_inclusion_head_after"]), int(table[h]["forced_head"])
+            )
             cut = [
                 c
                 for c in V["cuts"]["cut_hashes"]
@@ -1325,6 +1772,12 @@ class VectorsTest(unittest.TestCase):
             self.assertEqual(inputs["cut_hash"], cut[0]["cut_hash"])
             blobs = b"".join(hexbytes(blob) for blob in inputs["blob_hashes"])
             self.assertEqual("0x" + keccak256(blobs).hex(), statement["blob_hashes_hash"])
+            for blob in inputs["blob_hashes"]:
+                self.assertEqual(len(hexbytes(blob)), 32)
+                self.assertEqual(hexbytes(blob)[0], 0x01)
+            # The tag, the deployment, the proof origin, configHash, the terminal values, the L1
+            # reference, the blobs, both FI heads and the cut hash: no staking address and no
+            # committee snapshot.
             self.assertEqual(
                 words(statement["preimage"]),
                 [
@@ -1332,12 +1785,11 @@ class VectorsTest(unittest.TestCase):
                     uint(inputs["l1_chain_id"]),
                     uint(inputs["l2_chain_id"]),
                     address(inputs["inbox"]),
-                    address(inputs["registry"]),
                     uint(inputs["generation"]),
                     uint(p),
                     inputs["parent_hash"],
                     inputs["parent_comet_hash"],
-                    inputs["committee_config_hash"],
+                    inputs["config_hash"],
                     uint(h),
                     inputs["last_block_hash"],
                     inputs["last_comet_hash"],
@@ -1347,16 +1799,13 @@ class VectorsTest(unittest.TestCase):
                     statement["blob_hashes_hash"],
                     uint(inputs["forced_inclusion_head_before"]),
                     uint(inputs["forced_inclusion_head_after"]),
-                    uint(inputs["active_committee_snapshot"]),
                     inputs["cut_hash"],
                 ],
             )
+            self.assertNotIn(address(deployment["staking"]), words(statement["preimage"]))
             self.assertEqual(
                 "0x" + keccak256(hexbytes(statement["preimage"])).hex(), statement["hash"]
             )
-            for blob in inputs["blob_hashes"]:
-                self.assertEqual(len(hexbytes(blob)), 32)
-                self.assertEqual(hexbytes(blob)[0], 0x01)
 
     def test_cut_leaves_are_four_words(self):
         self.assertEqual(set(V["cuts"]), {"table", "cut_hashes"})
@@ -1792,112 +2241,199 @@ class VectorsTest(unittest.TestCase):
         ]
         self.assertTrue(historical)
 
-    def test_extra_data_is_13_bytes(self):
+    def test_extra_data_is_29_bytes_seat_0_is_the_low_bit_of_byte_28(self):
         cases = V["extra_data"]
         self.assertEqual(
-            [(int(c["generation"]), int(c["anchor_number"])) for c in cases],
-            [(0, 0), (5, 7), (U48_MAX, U48_MAX)],
+            [tuple(int(c[k]) for k in ("generation", "anchor_number", "miss_bitmap"))
+             for c in cases],
+            [(0, 0, 0), (1, 258, 2**127 + 1), (U48_MAX, U48_MAX, 2**128 - 1), (5, 7, 1),
+             (5, 7, 2**127)],
         )
         for case in cases:
-            data = hexbytes(case["extra_data"])
-            self.assertEqual(len(data), 13)
+            self.assertEqual(
+                list(case),
+                ["generation", "anchor_number", "miss_bitmap", "extra_data",
+                 "on_block_start_calldata"],
+            )
+            data, bitmap = hexbytes(case["extra_data"]), int(case["miss_bitmap"])
+            self.assertEqual(len(data), 29)
             self.assertEqual(data[0], 0x64)
             self.assertEqual(int.from_bytes(data[1:7], "big"), int(case["generation"]))
             self.assertEqual(int.from_bytes(data[7:13], "big"), int(case["anchor_number"]))
-        self.assertEqual(cases[1]["extra_data"], "0x64000000000005000000000007")
+            self.assertEqual(int.from_bytes(data[13:29], "big"), bitmap)
+            # Seat s is bit s of missBitmap: byte 28, the last, holds seats 0-7 with seat 0 its
+            # low bit, and byte 13 seats 120-127 with seat 127 its high bit.
+            for seat in range(128):
+                self.assertEqual(
+                    data[28 - seat // 8] >> (seat % 8) & 1, bitmap >> seat & 1, (bitmap, seat)
+                )
+        by_bitmap = {int(c["miss_bitmap"]): hexbytes(c["extra_data"]) for c in cases}
+        self.assertEqual(by_bitmap[1][13:], bytes(15) + b"\x01")
+        self.assertEqual(by_bitmap[2**127][13:], b"\x80" + bytes(15))
+        self.assertEqual(cases[0]["extra_data"], "0x64" + "00" * 28)
+        self.assertEqual(
+            cases[1]["extra_data"],
+            "0x64" + "000000000001" + "000000000102" + "80000000000000000000000000000001",
+        )
+
+    def test_on_block_start_calldata_is_68_bytes(self):
+        signature = b"onBlockStart(uint48,uint128)"
+        for impl in (keccak256_python, keccak256):
+            self.assertEqual("0x" + impl(signature)[:4].hex(), ON_BLOCK_START_SELECTOR)
+        for case in V["extra_data"]:
+            # The selector, then the block's own generation and missBitmap as one standard ABI
+            # word each; nothing follows.
+            calldata = hexbytes(case["on_block_start_calldata"])
+            self.assertEqual(len(calldata), 68)
+            self.assertEqual(
+                calldata,
+                hexbytes(ON_BLOCK_START_SELECTOR)
+                + hexbytes(uint(case["generation"]))
+                + hexbytes(uint(case["miss_bitmap"])),
+            )
+        example = V["appendix_a_examples"]["enc_a_10d_a"]
+        self.assertEqual(
+            example["calldata"], ON_BLOCK_START_SELECTOR + "00" * 31 + "01" + "00" * 31 + "05"
+        )
+        self.assertEqual(V["governance_abi"]["on_block_start"]["calldata"], example["calldata"])
 
     def test_packed_words_decode_to_inputs(self):
-        packing = {
-            "inbox_272": V["layout"]["inbox"]["packing"]["genesis_packed"],
-            "inbox_280_word2": V["layout"]["inbox"]["packing"]["forced_inclusion_entry_word2"],
-            "inbox_281": V["layout"]["inbox"]["packing"]["forced_inclusion_head_tail"],
-            "inbox_282": V["layout"]["inbox"]["packing"]["forced_inclusion_config"],
-            "inbox_285_word1": V["layout"]["inbox"]["packing"]["landing_word1"],
-            "inbox_293": V["layout"]["inbox"]["packing"]["rules_schedule"],
-            "registry_checkpoint_word1": V["layout"]["registry"]["packing"]["checkpoint_word1"],
-            "registry_entry_word3": V["layout"]["registry"]["packing"]["entry_word3"],
+        packing = V["layout"]["inbox"]["packing"]
+        tables = {
+            "inbox_272": packing["genesis_packed"],
+            "inbox_280_word2": packing["forced_inclusion_entry_word2"],
+            "inbox_281": packing["forced_inclusion_head_tail"],
+            "inbox_282": packing["forced_inclusion_config"],
+            "inbox_285_word1": packing["landing_word1"],
+            "inbox_293": packing["rules_schedule"],
         }
-        self.assertEqual(set(V["packed_words"]), set(packing))
+        # Every packed Inbox field takes 48 bits, in the listed order from bit 0.
+        lanes = {}
+        for kind, fields in tables.items():
+            lanes[kind] = [(name, int(lane["offset"]), int(lane["bits"]))
+                           for name, lane in fields.items()]
+            self.assertEqual(
+                [(offset, bits) for _, offset, bits in lanes[kind]],
+                [(48 * i, 48) for i in range(len(fields))],
+                kind,
+            )
+        # The staking contract's key-to-seat value packs holdsSeat and seat, and a snapshot seat
+        # record's second word ckPrefix and power, from bit 0: 8, 8, 8 and 64 bits.
+        lanes["staking_key_seat"] = [("holds_seat", 0, 8), ("seat", 8, 8)]
+        lanes["staking_record_word2"] = [("ck_prefix", 0, 8), ("power", 8, 64)]
+        self.assertEqual(set(V["packed_words"]), set(lanes))
+        # The all-max item holds each field's largest value: ckPrefix 3, holdsSeat 1, seat 127,
+        # every other field all ones of its width.
+        maxima = {"ck_prefix": 3, "holds_seat": 1, "seat": 127}
         for kind, items in V["packed_words"].items():
-            fields = packing[kind]
-            # Fields sit in the listed order from bit 0: ckPrefix 8 bits, everything else 48.
-            offset = 0
-            for name, lane in fields.items():
-                self.assertEqual(int(lane["offset"]), offset, (kind, name))
-                self.assertEqual(int(lane["bits"]), 8 if name == "ck_prefix" else 48, (kind, name))
-                offset += int(lane["bits"])
+            width = sum(bits for _, _, bits in lanes[kind])
             self.assertGreaterEqual(len(items), 2, kind)
             saw_max = False
             for item in items:
-                self.assertEqual(list(item), [*fields, "word"], kind)
+                self.assertEqual(list(item), [name for name, _, _ in lanes[kind]] + ["word"], kind)
                 value = int(item["word"], 16)
                 self.assertEqual(len(hexbytes(item["word"])), 32)
-                for name, lane in fields.items():
-                    bits = int(lane["bits"])
-                    lane_value = (value >> int(lane["offset"])) & ((1 << bits) - 1)
-                    self.assertEqual(lane_value, int(item[name]), (kind, name))
-                self.assertEqual(value >> offset, 0, kind)
+                for name, offset, bits in lanes[kind]:
+                    self.assertEqual(
+                        value >> offset & ((1 << bits) - 1), int(item[name]), (kind, name)
+                    )
+                self.assertEqual(value >> width, 0, kind)
                 saw_max |= all(
-                    int(item[name]) == (3 if name == "ck_prefix" else U48_MAX) for name in fields
+                    int(item[name]) == maxima.get(name, 2**bits - 1)
+                    for name, _, bits in lanes[kind]
                 )
             self.assertTrue(saw_max, kind)
-        # STOR-B-24: slot 293 packs exactly activeRules, nextRules, rulesTime and stopTime, 48 bits
-        # each, so every bit from 192 up is zero.
+        # Slot 272 packs genesisHeight and L1_0 only; slot 293 its four fields, so every bit from
+        # 192 up is zero.
+        self.assertEqual(list(tables["inbox_272"]), ["genesis_height", "l1_block"])
         self.assertEqual(
-            list(packing["inbox_293"]), ["active_rules", "next_rules", "rules_time", "stop_time"]
+            list(tables["inbox_293"]), ["active_rules", "next_rules", "rules_time", "stop_time"]
         )
         for item in V["packed_words"]["inbox_293"]:
             self.assertEqual(int(item["word"], 16) >> 192, 0)
+        # Seat 5 held, and the record word of prefix 0x02 at power 250,000.
+        self.assertEqual(V["packed_words"]["staking_key_seat"][0]["word"], uint(0x0501))
+        self.assertEqual(V["packed_words"]["staking_record_word2"][0]["word"], uint(0x3D09002))
 
-    def test_origin_words_are_three_full_words(self):
+    def test_origin_words_have_four_fields(self):
         origins = V["origin_words"]
         self.assertEqual([int(o["generation"]) for o in origins], [0, 1])
-        for origin in origins:
-            self.assertEqual(
-                list(origin), ["generation", "start_height", "l1_block_number", "l1_timestamp"]
-            )
-            for name in ("start_height", "l1_block_number", "l1_timestamp"):
-                self.assertLessEqual(int(origin[name]), U48_MAX)
         fields = ("start_height", "l1_block_number", "l1_timestamp")
+        for origin in origins:
+            self.assertEqual(list(origin), ["generation", *fields, "fallback_keys_hash"])
+            for name in fields:
+                self.assertLessEqual(int(origin[name]), U48_MAX)
+            self.assertEqual(len(hexbytes(origin["fallback_keys_hash"])), 32)
         self.assertTrue(any(all(int(o[n]) == U48_MAX for n in fields) for o in origins))
-
-    def test_layout_anchor_and_reserved_slots(self):
-        inbox = V["layout"]["inbox"]
-        self.assertEqual(inbox["anchor_slots"], ["268", "270", "271", "281", "293"])
-        self.assertEqual(inbox["reserved_slots"], ["283", "286", "287", "288", "289", "291"])
-        self.assertEqual(inbox["initialized_status"], "3")
+        # The fourth word is the fallback key hash slot 278 held when the record was written.
         self.assertEqual(
-            inbox["slots"],
+            [o["fallback_keys_hash"] for o in origins],
+            [h256(fallback_keys_preimage([K1])), h256(fallback_keys_preimage([K1, K2]))],
+        )
+        # Each record is four consecutive words from its generation's mapping element.
+        for item in V["layout"]["inbox"]["origin_slots"]:
+            self.assertEqual(len(item["slots"]), 4)
+
+    def test_inbox_layout_slots_and_anchor_order(self):
+        inbox = V["layout"]["inbox"]
+        self.assertEqual(inbox["initialized_status"], "3")
+        slots = inbox["slots"]
+        self.assertEqual(
+            slots,
             {
                 "initialization_status": "258",
                 "recovery_generation": "268",
-                "committee_config_hash": "269",
+                "config_hash": "269",
                 "last_checkpoint_height": "270",
                 "last_checkpoint_hash": "271",
                 "genesis_packed": "272",
                 "genesis_block_hash": "273",
                 "genesis_state_root": "274",
-                "genesis_committee_record_hash": "278",
-                "genesis_cutoff": "279",
+                "fallback_keys_hash": "278",
+                "min_total_stake": "279",
                 "forced_inclusion_queue": "280",
                 "forced_inclusion_head_tail": "281",
                 "forced_inclusion_config": "282",
-                "active_committee_snapshot": "284",
                 "landings": "285",
                 "origins": "290",
                 "recovery_nonce": "292",
                 "rules_schedule": "293",
             },
         )
-        used = set(inbox["slots"].values())
-        self.assertFalse(used & set(inbox["reserved_slots"]))
+        self.assertEqual(
+            inbox["reserved_slots"], ["283", "284", "286", "287", "288", "289", "291"]
+        )
+        # The anchor witness proves, in this order, the recovery generation, the checkpoint
+        # height and hash, the fallback key hash, minTotalStake, the forced inclusion head and
+        # tail, and the rules schedule; never the config hash or the recovery nonce.
+        self.assertEqual(
+            inbox["anchor_slots"], ["268", "270", "271", "278", "279", "281", "293"]
+        )
+        self.assertEqual(
+            inbox["anchor_slots"],
+            [
+                slots[name]
+                for name in (
+                    "recovery_generation",
+                    "last_checkpoint_height",
+                    "last_checkpoint_hash",
+                    "fallback_keys_hash",
+                    "min_total_stake",
+                    "forced_inclusion_head_tail",
+                    "rules_schedule",
+                )
+            ],
+        )
+        self.assertNotIn(slots["config_hash"], inbox["anchor_slots"])
+        self.assertNotIn(slots["recovery_nonce"], inbox["anchor_slots"])
+        self.assertFalse(set(slots.values()) & set(inbox["reserved_slots"]))
 
     def test_layout_mapping_slots_are_consecutive(self):
         inbox = V["layout"]["inbox"]
         for key, field, count, ids in (
             ("forced_inclusion_entry_slots", "index", 2, ["0", "7"]),
             ("landing_slots", "height", 3, ["0", "6", "18"]),
-            ("origin_slots", "generation", 3, ["0", "1"]),
+            ("origin_slots", "generation", 4, ["0", "1"]),
         ):
             self.assertEqual([item[field] for item in inbox[key]], ids, key)
             for item in inbox[key]:
@@ -1905,174 +2441,503 @@ class VectorsTest(unittest.TestCase):
                 self.assertEqual(len(slots), count, key)
                 self.assertEqual(slots, [slots[0] + w for w in range(count)], key)
 
-    def test_registry_entries_have_three_words(self):
-        registry = V["layout"]["registry"]
-        base = int(registry["base"], 16)
-        self.assertEqual(registry["namespace"], "taiko.etna.registry")
-        self.assertEqual(registry["no_exit"], str(U48_MAX))
-        self.assertEqual(int(registry["checkpoints_slot"], 16), base)
-        self.assertEqual(int(registry["entries_slot"], 16), base + 1)
-        self.assertEqual(base & 0xFF, 0)  # ERC-7201 clears the low byte
-
-        entries = registry["entry_slots"]
-        self.assertEqual([e["index"] for e in entries], ["0", "1", "4095"])
-        entry_data = int(entries[0]["slots"][0], 16)
-        for entry in entries:
-            slots = [int(s, 16) for s in entry["slots"]]
-            self.assertEqual(slots, [entry_data + 3 * int(entry["index"]) + w for w in range(3)])
-
-        checkpoints = registry["checkpoint_slots"]
-        self.assertEqual([c["index"] for c in checkpoints], ["0", "1", "5"])
-        checkpoint_data = int(checkpoints[0]["slots"][0], 16)
-        for checkpoint in checkpoints:
-            slots = [int(s, 16) for s in checkpoint["slots"]]
-            self.assertEqual(
-                slots, [checkpoint_data + 2 * int(checkpoint["index"]) + w for w in range(2)]
-            )
-
-        snapshots = registry["snapshot_slots"]
+    def test_fallback_keys_accept_reject_and_hash(self):
+        family = V["fallback_keys"]
+        self.assertEqual(list(family), ["tag", "accepted", "rejected"])
+        self.assertEqual(family["tag"], "ETNA_FALLBACK_KEYS_V1")
+        # K1, K2, K3 and K9 are the keys of private keys 1, 2, 3 and 9; by X alone K9 would
+        # precede K3, as 33-byte values it follows it.
+        self.assertEqual([scalar_key(k) for k in (1, 2, 3, 9)], [K1, K2, K3, K9])
+        self.assertLess(int(K9["ck_x"], 16), int(K3["ck_x"], 16))
+        self.assertLess(key_bytes(K3), key_bytes(K9))
+        accepted = family["accepted"]
         self.assertEqual(
-            [(s["index"], s["has_next"]) for s in snapshots],
-            [("0", False), ("0", True), ("3", True)],
-        )
-        for snapshot in snapshots:
-            cp = checkpoint_data + 2 * int(snapshot["index"])
-            expected = [base, cp, cp + 1] + ([cp + 2] if snapshot["has_next"] else [])
-            self.assertEqual([int(s, 16) for s in snapshot["slots"]], expected)
-
-        for key, namespace in (
-            ("owners", "taiko.etna.registry.owners"),
-            ("exit_confirmations", "taiko.etna.registry.exit-confirmations"),
-            ("top_ups", "taiko.etna.registry.top-ups"),
-            ("forfeitures", "taiko.etna.registry.forfeitures"),
-        ):
-            self.assertEqual(registry[key]["namespace"], namespace)
-            self.assertEqual(int(registry[key]["base"], 16) & 0xFF, 0)
-            # Bond ids are not slots: 4096 is a valid id beyond the last slot.
-            self.assertEqual([s["bond_id"] for s in registry[key]["slots"]], ["0", "4096"])
-
-    def test_registry_entries_match_keys(self):
-        reg = V["registry_entries"]
-        self.assertEqual(
-            list(reg), ["entries", "leaves", "empty_slot", "roots", "checkpoints", "bond_slots"]
-        )
-        self.assertEqual(len(reg["entries"]), 5)
-        self.assertEqual(len(reg["leaves"]), 5)
-        min_stake = int(V["deployment"]["min_stake"])
-        for i, (entry, key) in enumerate(zip(reg["entries"], V["keys"])):
-            self.assertEqual(entry["ck_prefix"], key["ck_prefix"])
-            self.assertEqual(entry["ck_x"], key["ck_x"])
-            self.assertEqual(int(entry["eff_stake"]), (i + 1) * min_stake)
-            self.assertEqual(int(entry["active_from_l1"]), 10 + i)
-            self.assertEqual(int(entry["exit_effective_l1"]), 1000 + i if i % 2 else U48_MAX)
-            self.assertEqual(reg["leaves"][i], reg_leaf(i, entry))
-        # Only states whose last listed slot is occupied: every prefix of the five entries.
-        roots = reg["roots"]
-        self.assertEqual([int(r["count"]) for r in roots], list(range(6)))
-        for n, root in enumerate(roots):
-            self.assertEqual(root["entries_root"], entries_root(reg["leaves"][:n]))
-        self.assertEqual(roots[0]["entries_root"], uint(0))
-        self.assertEqual(roots[1]["entries_root"], reg["leaves"][0])
-
-    def test_empty_slot_leaf_uses_zero_fields(self):
-        # An interior empty slot hashes its all-zero fields under its own slot number: ENC-A-37
-        # 37.a's leaf, Z1 of 38.h.
-        empty = V["registry_entries"]["empty_slot"]
-        self.assertEqual(empty["slot"], "1")
-        self.assertEqual(empty["leaf"], reg_leaf(1, ZERO_ENTRY))
-        self.assertEqual(empty["leaf"], APPENDIX_A_LITERALS["enc_a_37_a"])
-        self.assertNotEqual(empty["leaf"], uint(0))
-        self.assertNotIn(empty["leaf"], V["registry_entries"]["leaves"])
-
-    def test_registry_checkpoint_history_count_rule(self):
-        checkpoints = V["registry_entries"]["checkpoints"]
-        self.assertEqual(
-            [(c["name"], int(c["l1_block"]), int(c["count"])) for c in checkpoints],
+            [(c["name"], c["keys"]) for c in accepted],
             [
-                ("three_bonds", 2, 3),
-                ("slot_1_withdrawn", 2000, 3),
-                ("slot_2_zero_balance", 3000, 3),
-                ("slot_2_withdrawn", 4000, 1),
-                ("slot_0_withdrawn", 5000, 0),
+                ("one_key", [K1]),
+                ("two_keys", [K1, K2]),
+                ("prefix_then_x", [K3, K9]),
+                ("max_keys", ascending_scalar_keys(128)),
             ],
         )
-        entries = V["registry_entries"]["entries"]
-        lanes = V["layout"]["registry"]["packing"]["checkpoint_word1"]
-        for checkpoint in checkpoints:
-            check_registry_state(self, checkpoint)
-            value = int(checkpoint["checkpoint_word1"], 16)
-            for name, field in (("l1_block", "l1_block"), ("count", "count")):
-                lane = lanes[name]
-                self.assertEqual(
-                    (value >> int(lane["offset"])) & ((1 << int(lane["bits"])) - 1),
-                    int(checkpoint[field]),
-                )
-            self.assertEqual(value >> 96, 0)
-        full, interior, zero_balance, one, none = checkpoints
-        self.assertEqual(full["entries_root"], V["registry_entries"]["roots"][3]["entries_root"])
-        # 38.h / 2.d: slots 0 and 2 occupied, slot 1 the all-zero entry Z1, padding P = 0.
-        l0, z1, l2 = interior["leaves"]
-        self.assertEqual((l0, l2), (V["registry_entries"]["leaves"][0], full["leaves"][2]))
-        self.assertEqual(z1, V["registry_entries"]["empty_slot"]["leaf"])
-        self.assertEqual(
-            interior["entries_root"],
-            h256(join_words(h256(join_words(l0, z1)), h256(join_words(l2, uint(0))))),
-        )
-        self.assertEqual(interior["vectors"], ["ENC-A-38 38.h", "COMM-4.3-2 2.d"])
-        wrong = interior["wrong_roots"]
-        self.assertEqual(
-            wrong["zero_word_for_empty_slot"], entries_root([l0, uint(0), l2])
-        )
-        self.assertEqual(
-            wrong["zero_entry_padding"], entries_root([l0, z1, l2, reg_leaf(3, ZERO_ENTRY)])
-        )
-        self.assertEqual(wrong["compacted"], entries_root([l0, reg_leaf(1, entries[2])]))
-        self.assertEqual(wrong["omitted_empty_slot"], entries_root([l0, l2]))
-        self.assertNotIn(interior["entries_root"], wrong.values())
-        # 36.f: a zero-balance bond still occupies slot 2, so count stays 3.
-        slashed = zero_balance["slots"][2]
-        self.assertTrue(slashed["occupied"])
-        self.assertEqual(slashed["eff_stake"], "0")
-        self.assertEqual(slashed["exit_effective_l1"], zero_balance["l1_block"])
-        self.assertEqual(slashed["ck_x"], entries[2]["ck_x"])
-        # 36.g: count shrinks to 1, then 0 with root 0; earlier checkpoints keep theirs.
-        self.assertEqual(one["entries_root"], l0)
-        self.assertEqual((none["slots"], none["entries_root"]), ([], uint(0)))
-        self.assertEqual(len({c["entries_root"] for c in checkpoints}), len(checkpoints))
-
-    def test_reg_leaf_is_indexed_by_slot_not_bond_id(self):
-        cases = V["registry_entries"]["bond_slots"]
-        self.assertEqual(
-            [(c["name"], int(c["bond_id"]), int(c["slot"]), int(c["count"])) for c in cases],
-            [("full_registry_reuse", 4096, 7, 8), ("withdrawal_reuse", 2, 0, 2)],
-        )
-        key = V["keys"][5]
-        leaves = set(V["registry_entries"]["leaves"])
-        entries = V["registry_entries"]["entries"]
-        for case in cases:
-            self.assertLess(int(case["slot"]), 4096)
-            self.assertNotEqual(case["bond_id"], case["slot"])
-            self.assertEqual(case["entry"]["ck_prefix"], key["ck_prefix"])
-            self.assertEqual(case["entry"]["ck_x"], key["ck_x"])
-            self.assertEqual(case["leaf"], reg_leaf(case["slot"], case["entry"]))
-            self.assertEqual(case["bond_id_leaf"], reg_leaf(case["bond_id"], case["entry"]))
-            self.assertNotEqual(case["leaf"], case["bond_id_leaf"])
-            self.assertNotIn(case["leaf"], leaves)
-            # Every state is valid under the count rule, and the bond's slot holds its leaf.
-            check_registry_state(self, case)
-            self.assertTrue(all(s["occupied"] for s in case["slots"]))
-            self.assertEqual(case["leaves"][int(case["slot"])], case["leaf"])
+        topic0 = h256(b"FallbackKeysUpdated(bytes32,(uint8,bytes32)[])")
+        self.assertEqual(topic0, SPEC_TOPICS["fallback_keys_updated"])
+        for case in accepted:
+            name, keys = case["name"], case["keys"]
             self.assertEqual(
-                {f: case["slots"][int(case["slot"])][f] for f in ENTRY_FIELDS}, case["entry"]
+                list(case), ["name", "keys", "preimage", "hash", "event", "validators"], name
             )
-        self.assertNotEqual(cases[0]["leaf"], cases[1]["leaf"])
-        # 37.e: slots 0-4 hold the shared entries, 5 and 6 two more keys, 7 bond 4096.
-        full = cases[0]
-        self.assertEqual(full["leaves"][:5], V["registry_entries"]["leaves"])
-        self.assertEqual(len({s["ck_x"] for s in full["slots"]}), 8)
-        # 37.g: bond 1 keeps slot 1 while bond 2 takes slot 0.
-        reuse = cases[1]
-        self.assertEqual({f: reuse["slots"][1][f] for f in ENTRY_FIELDS}, entries[1])
+            self.assertEqual(fallback_list_failures(keys), [], name)
+            # The tag and the offset, then the length and (ckPrefix, ckX) per key: 3 + 2n words.
+            preimage = fallback_keys_preimage(keys)
+            self.assertEqual(hexbytes(case["preimage"]), preimage, name)
+            self.assertEqual(len(preimage), 32 * (3 + 2 * len(keys)), name)
+            self.assertEqual(case["hash"], h256(preimage), name)
+            # FallbackKeysUpdated: the hash is topic 1 and the data is the list alone (its offset,
+            # its length and two words per key).
+            event = case["event"]
+            self.assertEqual(list(event), ["topic0", "topic1", "data"], name)
+            self.assertEqual((event["topic0"], event["topic1"]), (topic0, case["hash"]), name)
+            self.assertEqual(hexbytes(event["data"]), hexbytes(uint(32)) + preimage[64:], name)
+            # The list signs as one validator per key, each at its secp256k1eth address with
+            # power 1.
+            self.assertEqual(
+                case["validators"],
+                [
+                    {"ck_addr": "0x" + eth_address(decompress(key_bytes(key))), "power": "1"}
+                    for key in keys
+                ],
+                name,
+            )
+        hashes = {c["name"]: c["hash"] for c in accepted}
+        self.assertEqual(hashes["one_key"], APPENDIX_A_LITERALS["enc_a_36a_a"])
+        self.assertEqual(hashes["two_keys"], APPENDIX_A_LITERALS["enc_a_36a_b"])
+        self.assertEqual(hashes["prefix_then_x"], PREFIX_THEN_X_HASH)
+        self.assertEqual(by_name(accepted, "one_key")["validators"][0]["ck_addr"], K1_ADDR)
+        largest = by_name(accepted, "max_keys")
+        self.assertEqual(len(hexbytes(largest["preimage"])), 8_288)
+        self.assertEqual(len(words(largest["event"]["data"])), 258)
+
+        # Each rejected list breaks exactly the condition it is labelled with: 1 to 128 entries,
+        # strict ascending order of ckPrefix || ckX (a repeat is out of order), or a valid key.
+        self.assertEqual(min(x for x in range(1, 10) if not has_point(x)), 5)
+        expected = [
+            ("empty", [], "count"),
+            ("too_many", ascending_scalar_keys(129), "count"),
+            ("descending", [K2, K1], "order"),
+            ("duplicate", [K1, K1], "order"),
+            ("x_alone", [K9, K3], "order"),
+            ("prefix_04", [{"ck_prefix": "4", "ck_x": K1["ck_x"]}], "key"),
+            ("x_not_below_p", [{"ck_prefix": "2", "ck_x": uint(SECP_P)}], "key"),
+            ("off_curve", [{"ck_prefix": "2", "ck_x": uint(5)}], "key"),
+        ]
+        rejected = family["rejected"]
+        self.assertEqual([(c["name"], c["keys"], c["reason"]) for c in rejected], expected)
+        for case in rejected:
+            self.assertEqual(list(case), ["name", "keys", "reason"], case["name"])
+            self.assertEqual(fallback_list_failures(case["keys"]), [case["reason"]], case["name"])
+
+    def test_staking_layout_slots_and_words(self):
+        layout = V["staking_layout"]
+        self.assertEqual(
+            list(layout),
+            [
+                "namespace",
+                "base",
+                "snapshot_height_slot",
+                "snapshot_total_stake_slot",
+                "key_seat_slot",
+                "record_slots",
+                "key_seat_slots",
+                "key_seat_words",
+                "record_word2",
+                "implementation_slot",
+                "no_exit",
+            ],
+        )
+        # T = keccak256(abi.encode(uint256(keccak256("taiko.etna.staking")) - 1)) & ~0xff.
+        self.assertEqual(layout["namespace"], "taiko.etna.staking")
+        for impl in (keccak256_python, keccak256):
+            inner = int.from_bytes(impl(layout["namespace"].encode()), "big") - 1
+            base = int.from_bytes(impl(inner.to_bytes(32, "big")), "big") & ~0xFF
+            self.assertEqual(base, STAKING_BASE)
+        base = STAKING_BASE
+        # snapshotHeight at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2.
+        self.assertEqual(
+            [layout[k] for k in ("base", "snapshot_height_slot", "snapshot_total_stake_slot",
+                                 "key_seat_slot")],
+            [uint(base), uint(base), uint(base + 1), uint(base + 2)],
+        )
+        # Snapshot seat record s: ckX at T + 3 + 2s, the packed ckPrefix and power at T + 4 + 2s.
+        records = layout["record_slots"]
+        self.assertEqual([r["seat"] for r in records], ["0", "5", "127"])
+        for record in records:
+            seat = int(record["seat"])
+            self.assertEqual(list(record), ["seat", "word1", "word2"])
+            self.assertEqual(
+                (record["word1"], record["word2"]),
+                (uint(base + 3 + 2 * seat), uint(base + 4 + 2 * seat)),
+            )
+        self.assertEqual(records[-1]["word1"], STAKING_RECORD_127_WORD1)
+        # A key's element is at keccak256(abi.encode(ckAddr, T + 2)): K1's, K2's and those of
+        # keys a1-a4.
+        slots = layout["key_seat_slots"]
+        k2_addr = "0x" + eth_address(decompress(key_bytes(K2)))
+        self.assertEqual(
+            [item["ck_addr"] for item in slots],
+            [K1_ADDR, k2_addr] + [key["ck_addr"] for key in V["keys"][:4]],
+        )
+        self.assertEqual(slots[0]["slot"], K1_KEY_SEAT_SLOT)
+        for item in slots:
+            self.assertEqual(list(item), ["ck_addr", "slot"])
+            self.assertEqual(
+                item["slot"], h256(hexbytes(address(item["ck_addr"])) + hexbytes(uint(base + 2)))
+            )
+        # A key-to-seat value gives seat s only for holdsSeat 1, seat s below 128 and nothing
+        # from bit 16 up; 0x0500 is the value a released key must not keep.
+        self.assertEqual(
+            [(int(item["word"], 16), item["seat"]) for item in layout["key_seat_words"]],
+            [
+                (0x0501, "5"),
+                (0x0001, "0"),
+                (0x7F01, "127"),
+                (0x0000, None),
+                (0x0500, None),
+                (0x0502, None),
+                (0x8001, None),
+                (0x10501, None),
+            ],
+        )
+        for item in layout["key_seat_words"]:
+            self.assertEqual(list(item), ["word", "seat"])
+            self.assertEqual(len(hexbytes(item["word"])), 32)
+            seat = seat_from_word(int(item["word"], 16))
+            self.assertEqual(item["seat"], None if seat is None else str(seat))
+        # Record word 2 packs ckPrefix in bits 0-7 and power in bits 8-71.
+        self.assertEqual(
+            [(item["ck_prefix"], item["power"], int(item["word"], 16))
+             for item in layout["record_word2"]],
+            [("2", "250000", 0x3D09002), ("3", str(U64_MAX), 0xFFFFFFFFFFFFFFFF03)],
+        )
+        for item in layout["record_word2"]:
+            self.assertEqual(list(item), ["ck_prefix", "power", "word"])
+            self.assertEqual(
+                item["word"], uint(int(item["ck_prefix"]) | int(item["power"]) << 8)
+            )
+            self.assertEqual(int(item["word"], 16) >> 72, 0)
+        # The proxy's EIP-1967 implementation slot, keccak256("eip1967.proxy.implementation") - 1,
+        # and exitHeight's no-exit value.
+        for impl in (keccak256_python, keccak256):
+            digest = int.from_bytes(impl(b"eip1967.proxy.implementation"), "big")
+            self.assertEqual(uint(digest - 1), IMPLEMENTATION_SLOT)
+        self.assertEqual(layout["implementation_slot"], IMPLEMENTATION_SLOT)
+        self.assertEqual(layout["no_exit"], str(U48_MAX))
+
+    def test_miss_bitmap_cases(self):
+        family = V["miss_bitmap"]
+        self.assertEqual(list(family), ["cases"])
+        expected = {
+            "all_commit": 0,
+            "absent_seat_5": 1 << 5,
+            "nil_seat_0": 1 << 0,
+            "two_seats": 9,
+            "seat_127": 1 << 127,
+            "fallback_key_without_bond": 0,
+            "fallback_key_with_seated_bond": 1 << 7,
+            "vacated_in_parent": 0,
+            "malformed_words": 0,
+            "two_addresses_one_seat": 1 << 3,
+            "two_addresses_one_seat_both_missing": 1 << 3,
+            "seat_100": 1 << 100,
+            "first_block": 0,
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(expected))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(
+                list(case), ["name", "first_block_of_generation", "validators", "miss_bitmap"]
+            )
+            self.assertEqual(case["first_block_of_generation"], name == "first_block", name)
+            self.assertTrue(case["validators"], name)
+            missing_seats = set()
+            for validator in case["validators"]:
+                self.assertEqual(list(validator), ["ck_addr", "block_id_flag", "key_seat_word"])
+                self.assertEqual(len(hexbytes(validator["ck_addr"])), 20, name)
+                self.assertEqual(len(hexbytes(validator["key_seat_word"])), 32, name)
+                self.assertIn(validator["block_id_flag"], ("1", "2", "3"), name)
+                # Missing is any flag other than commit: absent (1) or nil (3).
+                if validator["block_id_flag"] != BLOCK_ID_FLAG_COMMIT:
+                    missing_seats.add(seat_from_word(int(validator["key_seat_word"], 16)))
+            missing_seats.discard(None)
+            # The first block of a generation has no LastCommit: its bitmap is 0.
+            bitmap = 0
+            if not case["first_block_of_generation"]:
+                bitmap = sum(1 << seat for seat in missing_seats)
+            self.assertEqual(int(case["miss_bitmap"]), bitmap, name)
+            self.assertEqual(bitmap, expected[name], name)
+
+        def missing(name):
+            return [
+                (v["block_id_flag"], int(v["key_seat_word"], 16))
+                for v in by_name(cases, name)["validators"]
+                if v["block_id_flag"] != BLOCK_ID_FLAG_COMMIT
+            ]
+
+        self.assertEqual(missing("all_commit"), [])
+        self.assertEqual(missing("absent_seat_5"), [("1", 0x0501)])
+        self.assertEqual(missing("nil_seat_0"), [("3", 0x0001)])
+        self.assertEqual(missing("seat_127"), [("1", 0x7F01)])
+        self.assertEqual(missing("vacated_in_parent"), [("1", 0)])
+        self.assertEqual(
+            sorted(word for _, word in missing("malformed_words")), [0x0502, 0x8001, 0x10501]
+        )
+        self.assertEqual(missing("seat_100"), [("1", 0x6401)])
+        self.assertEqual(missing("two_seats"), [("1", 0x0001), ("3", 0x0301)])
+        # A seat two addresses map to is set when either is missing, and when both are.
+        pair = by_name(cases, "two_addresses_one_seat")["validators"]
+        self.assertEqual(sorted(v["block_id_flag"] for v in pair), ["1", "2"])
+        self.assertEqual({int(v["key_seat_word"], 16) for v in pair}, {0x0301})
+        both = by_name(cases, "two_addresses_one_seat_both_missing")["validators"]
+        self.assertEqual([v["ck_addr"] for v in both[:2]], [v["ck_addr"] for v in pair])
+        self.assertEqual(missing("two_addresses_one_seat_both_missing"),
+                         [("1", 0x0301), ("3", 0x0301)])
+
+        # The bitmap ORs one bit per missing validator. A reader that assigns each validator's bit
+        # instead keeps only the last one and fails `two_seats`; one that toggles it clears the
+        # seat of `two_addresses_one_seat_both_missing`.
+        def read(case, combine):
+            bitmap = 0
+            for _, value in missing(case["name"]):
+                seat = seat_from_word(value)
+                if seat is not None:
+                    bitmap = combine(bitmap, 1 << seat)
+            return bitmap
+
+        def or_bit(bitmap, bit):
+            return bitmap | bit
+
+        def assign_bit(_, bit):
+            return bit
+
+        def toggle_bit(bitmap, bit):
+            return bitmap ^ bit
+
+        for case in cases:
+            if not case["first_block_of_generation"]:
+                self.assertEqual(read(case, or_bit), int(case["miss_bitmap"]), case["name"])
+        for name, wrong in (("two_seats", assign_bit),
+                            ("two_addresses_one_seat_both_missing", toggle_bit)):
+            case = by_name(cases, name)
+            self.assertNotEqual(read(case, wrong), int(case["miss_bitmap"]), name)
+        # While the fallback key set signs the parent, its keys are the validators: K1 and K2.
+        fallback_addrs = [K1_ADDR, "0x" + eth_address(decompress(key_bytes(K2)))]
+        for name, word_value in (("fallback_key_without_bond", 0),
+                                 ("fallback_key_with_seated_bond", 0x0701)):
+            case = by_name(cases, name)
+            self.assertEqual([v["ck_addr"] for v in case["validators"]], fallback_addrs, name)
+            self.assertEqual(missing(name), [("1", word_value)], name)
+        # The first block's commit flags and seats would set a bit in any other block.
+        self.assertTrue(any(seat_from_word(word) is not None for _, word in missing("first_block")))
+
+    def test_candidate_cases(self):
+        family = V["candidate"]
+        self.assertEqual(list(family), ["cases"])
+        expected = {
+            "usable_three": None,
+            "equal_threshold": None,
+            "below_threshold": "below_min_total_stake",
+            "threshold_max": "min_total_stake_max",
+            "stale_height": "snapshot_height",
+            "height_high_bits": "snapshot_height",
+            "stray_bits": "stray_bits",
+            "zero_prefix": "invalid_key",
+            "zero_power": "zero_power",
+            "off_curve_key": "invalid_key",
+            "duplicate_key": "duplicate_key",
+            "power_sum": "power_sum",
+            "power_sum_max": None,
+            "power_sum_wraps": "power_sum",
+            "record_at_seat_100": None,
+            "full_128": None,
+            "one_member": None,
+            "empty": "no_members",
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(expected))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(
+                list(case),
+                ["name", "height", "snapshot_height_word", "snapshot_total_stake", "records",
+                 "min_total_stake", "fallback_keys", "usable", "reason", "signers"],
+                name,
+            )
+            self.assertEqual(len(hexbytes(case["snapshot_height_word"])), 32, name)
+            # Only nonzero records are listed, in ascending seat order below 128.
+            seats = [int(r["seat"]) for r in case["records"]]
+            self.assertEqual(seats, sorted(set(seats)), name)
+            self.assertTrue(all(seat < 128 for seat in seats), name)
+            for record in case["records"]:
+                self.assertEqual(list(record), ["seat", "word1", "word2"], name)
+                self.assertEqual(len(hexbytes(record["word1"])), 32, name)
+                self.assertEqual(len(hexbytes(record["word2"])), 32, name)
+                self.assertTrue(int(record["word1"], 16) or int(record["word2"], 16), name)
+            self.assertEqual(fallback_list_failures(case["fallback_keys"]), [], name)
+            failures = candidate_failures(case)
+            self.assertEqual(case["usable"], not failures, name)
+            self.assertEqual(case["reason"], failures[0] if failures else None, name)
+            self.assertEqual(case["reason"], expected[name], name)
+            # Each unusable case breaks one condition only, except that a zero word 2 is both
+            # ckPrefix 0 and power 0.
+            self.assertEqual(len(failures), 2 if name == "zero_prefix" else int(bool(failures)))
+            # A usable candidate signs with its members in seat order at their stored powers,
+            # otherwise the fallback keys sign, each with power 1.
+            if failures:
+                signers = [signer(key_bytes(key), 1) for key in case["fallback_keys"]]
+            else:
+                signers = [signer(key, power) for key, power, _ in map(record_member,
+                                                                       case["records"])]
+            self.assertEqual(case["signers"], signers, name)
+
+        c = {case["name"]: case for case in cases}
+        height = int(c["usable_three"]["height"])
+        self.assertTrue(all(int(case["height"]) == height for case in cases))
+
+        def total_and_threshold(name):
+            return int(c[name]["snapshot_total_stake"]), int(c[name]["min_total_stake"])
+
+        total, threshold = total_and_threshold("equal_threshold")
+        self.assertEqual(total, threshold)
+        total, threshold = total_and_threshold("below_threshold")
+        self.assertEqual(total, threshold - 1)
+        self.assertEqual(total_and_threshold("threshold_max"), (U256_MAX, U256_MAX))
+        self.assertEqual(int(c["stale_height"]["snapshot_height_word"], 16), height - 1)
+        # The word at T with bit 48 set and its low 48 bits equal to H is not H.
+        self.assertEqual(int(c["height_high_bits"]["snapshot_height_word"], 16), height | 1 << 48)
+
+        def words2(name):
+            return [int(r["word2"], 16) for r in c[name]["records"]]
+
+        self.assertTrue(any(w >> 72 == 1 for w in words2("stray_bits")))
+        self.assertIn(0, words2("zero_prefix"))
+        self.assertIn(0x02, words2("zero_power"))
+        self.assertIn(uint(5), [r["word1"] for r in c["off_curve_key"]["records"]])
+        def powers(name):
+            return [power for _, power, _ in map(record_member, c[name]["records"])]
+
+        # MAX = floor((2^63 - 1) / 8) = 2^60 - 1. The exact sum MAX + 1 is too much and exactly
+        # MAX is a valid set, so a reader that rejects at MAX fails `power_sum_max`.
+        self.assertEqual(MAX_POWER_SUM, 1_152_921_504_606_846_975)
+        self.assertEqual(MAX_POWER_SUM, 2**60 - 1)
+        self.assertEqual(sum(powers("power_sum")), MAX_POWER_SUM + 1)
+        self.assertEqual(sum(powers("power_sum_max")), MAX_POWER_SUM)
+        self.assertTrue(c["power_sum_max"]["usable"])
+        # 128 members at 2^57, one in every seat: the exact sum is 2^64, which a 64-bit sum wraps
+        # to 0, at most MAX, so a reader that wraps finds the set usable.
+        wide = c["power_sum_wraps"]
+        self.assertEqual([r["seat"] for r in wide["records"]], [str(s) for s in range(128)])
+        self.assertEqual(powers("power_sum_wraps"), [2**57] * 128)
+        self.assertEqual(sum(powers("power_sum_wraps")), 2**64)
+        self.assertLessEqual(sum(powers("power_sum_wraps")) % 2**64, MAX_POWER_SUM)
+        self.assertFalse(wide["usable"])
+        self.assertIn("100", [r["seat"] for r in c["record_at_seat_100"]["records"]])
+        # The largest usable set: a member in every seat at the reference minStake's power, so
+        # the snapshot total is TAIKO's supply and the powers sum to 10^18, below MAX. A reader
+        # that bounds the set below 128 members fails it.
+        full = c["full_128"]
+        full_power = int(V["deployment"]["min_stake"]) // int(V["deployment"]["vp_unit"])
+        self.assertEqual([r["seat"] for r in full["records"]], [str(s) for s in range(128)])
+        self.assertEqual(powers("full_128"), [full_power] * 128)
+        self.assertEqual(sum(powers("full_128")), 10**18)
+        self.assertLess(sum(powers("full_128")), MAX_POWER_SUM)
+        self.assertEqual(int(full["snapshot_total_stake"]), 10**27)
+        self.assertEqual(len({key for key, _, _ in map(record_member, full["records"])}), 128)
+        self.assertTrue(full["usable"])
+        self.assertEqual(len(full["signers"]), 128)
+        # The smallest usable set: one member at power 1, the least power a member may have.
+        one = c["one_member"]
+        self.assertEqual([r["seat"] for r in one["records"]], ["0"])
+        self.assertEqual(powers("one_member"), [1])
+        self.assertTrue(one["usable"])
+        self.assertEqual(len(one["signers"]), 1)
+        self.assertEqual(c["empty"]["records"], [])
+
+    def test_on_block_start_cases(self):
+        family = V["on_block_start"]
+        self.assertEqual(list(family), ["deployment", "cases"])
+        fields = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+        self.assertEqual(family["deployment"], {k: V["deployment"][k] for k in fields})
+        base = {k: int(v) for k, v in family["deployment"].items()}
+        m = base["min_stake"]
+        # Per case: the miss counts of the seats held when the call starts (in seat order), the
+        # seats of the records the call writes, the bonds it releases and the penalty it takes.
+        pins = {
+            "count_up": ([0, 0, 0, 3], [0, 1, 2, 3], [], 0),
+            "count_reset": ([0, 0, 0, 0], [0, 1, 2, 3], [], 0),
+            "empty_seat_bit": ([2], [0], [], 0),
+            "zero_bitmap": ([0, 0, 0], [0, 1, 2], [], 0),
+            "bitmap_4": ([0, 0, 1], [0, 1, 2], [], 0),
+            "n_max_64_bit_100": ([1], [0], [], 0),
+            "ceil_exact": ([0], [0], [], m),
+            "ceil_round_up": ([0], [0], [], m + 1),
+            "below_limit": ([9], [0], [], 0),
+            "release_below_min": ([0, 0], [1], [0], m // 10),
+            "miss_limit_1": ([0], [0], [], 2 * m // 10),
+            "full_bps": ([0, 0], [1], [0], 3 * m),
+            "three_seats": ([0] * 6, [0, 2, 5], [1, 3, 4], 3 * m // 10),
+            "no_seats": ([], [], [], 0),
+            "power_floor": ([0, 0, 0], [0, 1, 2], [], 0),
+            "n_max_64_records": ([0] * 64, list(range(64)), [], 0),
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(pins))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(list(case), ["name", "overrides", "setup", "call", "expect"], name)
+            self.assertLessEqual(set(case["overrides"]), set(fields), name)
+            params = {**base, **{k: int(v) for k, v in case["overrides"].items()}}
+            # Every case deploys within the staking contract's bounds.
+            self.assertTrue(1 <= params["n_max"] <= 128, name)
+            self.assertGreaterEqual(params["vp_unit"], 867_361_738, name)
+            self.assertGreaterEqual(params["min_stake"], params["vp_unit"], name)
+            self.assertGreaterEqual(params["min_stake"] * params["n_max"], 10**27, name)
+            self.assertTrue(1 <= params["miss_limit"] <= 65_535, name)
+            self.assertTrue(0 < params["miss_slash_bps"] <= 10_000, name)
+            setup, call = case["setup"], case["call"]
+            self.assertEqual(list(setup), ["registrations", "prior_calls"], name)
+            regs = setup["registrations"]
+            self.assertEqual([r["bond_id"] for r in regs], [str(i) for i in range(len(regs))])
+            for reg in regs:
+                self.assertEqual(list(reg), ["bond_id", "private_key", "amount", "seat"], name)
+                self.assertEqual(len(hexbytes(reg["private_key"])), 32, name)
+            self.assertEqual(len({r["private_key"] for r in regs}), len(regs), name)
+            for prior in setup["prior_calls"]:
+                self.assertEqual(list(prior), ["generation", "miss_bitmap"], name)
+            # The call's calldata is the selector and one word each for generation and missBitmap.
+            self.assertEqual(
+                list(call), ["block_number", "generation", "miss_bitmap", "calldata"], name
+            )
+            self.assertEqual(
+                hexbytes(call["calldata"]),
+                hexbytes(ON_BLOCK_START_SELECTOR) + hexbytes(uint(call["generation"]))
+                + hexbytes(uint(call["miss_bitmap"])),
+                name,
+            )
+            self.assertEqual(len(hexbytes(call["calldata"])), 68, name)
+            seats, expect = replay_block_start(params, case)
+            self.assertEqual([r["seat"] for r in regs], [str(s) for s in seats], name)
+            self.assertEqual(list(case["expect"]), list(expect), name)
+            self.assertEqual(case["expect"], expect, name)
+            counts, record_seats, released, penalty = pins[name]
+            got = case["expect"]
+            self.assertEqual([int(c["count"]) for c in got["miss_counts"]], counts, name)
+            self.assertEqual([int(r["seat"]) for r in got["records"]], record_seats, name)
+            self.assertEqual([int(b) for b in got["released"]], released, name)
+            self.assertEqual(int(got["penalty_total"]), penalty, name)
+
+        c = {case["name"]: case for case in cases}
+
+        def eff_stakes(name):
+            return [int(e["eff_stake"]) for e in c[name]["expect"]["eff_stakes"]]
+
+        # ceil(10m / 10) = m and ceil((10m + 1) / 10) = m + 1 both leave 9m.
+        self.assertEqual(eff_stakes("ceil_exact"), [9 * m])
+        self.assertEqual(eff_stakes("ceil_round_up"), [9 * m])
+        self.assertEqual(c["ceil_round_up"]["setup"]["registrations"][0]["amount"], str(10 * m + 1))
+        # A full-rate penalty takes the whole effStake.
+        self.assertEqual(eff_stakes("full_bps")[0], 0)
+        # With vp_unit = m, effStake 2.5m gives power 2.
+        self.assertEqual(c["power_floor"]["overrides"], {"vp_unit": str(m)})
+        self.assertEqual(
+            [int(r["word2"], 16) >> 8 for r in c["power_floor"]["expect"]["records"]], [2, 1, 1]
+        )
+        self.assertEqual(eff_stakes("power_floor")[0], 5 * m // 2)
+        # n_max 64 needs minStake of at least ceil(10^27 / 64) = 2m.
+        for name in ("n_max_64_bit_100", "n_max_64_records"):
+            self.assertEqual(c[name]["overrides"], {"n_max": "64", "min_stake": str(2 * m)}, name)
+        self.assertEqual(int(c["n_max_64_bit_100"]["call"]["miss_bitmap"]) >> 100 & 1, 1)
+        self.assertEqual(int(c["no_seats"]["call"]["miss_bitmap"]), 2**128 - 1)
 
     def test_keys_compress_to_33_bytes(self):
         keys = V["keys"]
@@ -2206,8 +3071,8 @@ class VectorsTest(unittest.TestCase):
                 list(case),
                 [
                     "name",
-                    "l1_chain_id",
-                    "registry",
+                    "l2_chain_id",
+                    "staking",
                     "owner",
                     "key",
                     "domain_separator",
@@ -2216,8 +3081,8 @@ class VectorsTest(unittest.TestCase):
                     "pop_sig",
                 ],
             )
-            self.assertEqual(case["l1_chain_id"], V["deployment"]["l1_chain_id"])
-            self.assertEqual(case["registry"], V["deployment"]["registry"])
+            self.assertEqual(case["l2_chain_id"], V["deployment"]["l2_chain_id"])
+            self.assertEqual(case["staking"], V["deployment"]["staking"])
             for field in ("domain_separator", "struct_hash", "digest"):
                 self.assertEqual(len(hexbytes(case[field])), 32)
             r, s, v = sig_parts(hexbytes(case["pop_sig"]))
@@ -2226,6 +3091,48 @@ class VectorsTest(unittest.TestCase):
             self.assertTrue(0 < s <= SECP_N // 2)
             self.assertEqual(recover(case["digest"], r, s, v), key_point(keys[case["key"]]))
             self.assertTrue(pop_accepted(case["key"], case["digest"], case["pop_sig"]))
+
+    def test_register_digests_use_the_l2_staking_domain(self):
+        d = V["deployment"]
+        domain_type = h256(
+            b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        )
+        register_type = h256(b"Register(address owner)")
+
+        def separator(chain_id, contract):
+            return h256(
+                join_words(
+                    domain_type, h256(b"EtnaStaking"), h256(b"1"), uint(chain_id), address(contract)
+                )
+            )
+
+        def digest(chain_id, contract, owner):
+            struct_hash = h256(join_words(register_type, address(owner)))
+            return h256(b"\x19\x01" + hexbytes(separator(chain_id, contract)) + hexbytes(struct_hash))
+
+        # The EIP-712 domain is named "EtnaStaking", version "1", on the L2 chain id with the
+        # staking proxy as verifying contract, recomputed here.
+        for case in V["register_digests"]:
+            self.assertEqual(case["domain_separator"], separator(d["l2_chain_id"], d["staking"]))
+            self.assertEqual(
+                case["struct_hash"], h256(join_words(register_type, address(case["owner"])))
+            )
+            self.assertEqual(case["digest"], digest(d["l2_chain_id"], d["staking"], case["owner"]))
+        # The chain-bound rejection is the key's PoP for the L1 chain id, and the contract-bound
+        # one for the Inbox as verifying contract: each recovers the key under its own domain.
+        rejections = {c["name"]: c for c in V["pop_rejections"]}
+        keys = {key["public_key"]: key for key in V["keys"]}
+        for name, chain_id, contract in (
+            ("wrong_chain", d["l1_chain_id"], d["staking"]),
+            ("wrong_registry", d["l2_chain_id"], d["inbox"]),
+        ):
+            case = rejections[name]
+            r, s, v = sig_parts(hexbytes(case["pop_sig"]))
+            self.assertEqual(
+                recover(digest(chain_id, contract, case["owner"]), r, s, v),
+                key_point(keys[case["public_key"]]),
+                name,
+            )
 
     def test_pop_rejection_reasons(self):
         cases = V["pop_rejections"]
@@ -2256,7 +3163,8 @@ class VectorsTest(unittest.TestCase):
             public_key, owner, reason = case["public_key"], case["owner"], case["reason"]
             digest = digests[owner]
             sig = hexbytes(case["pop_sig"])
-            # Every case is rejected at the deployment registry when submitted by `owner`.
+            # Every case is rejected at the deployment's staking contract when submitted by
+            # `owner`.
             self.assertFalse(pop_accepted(public_key, digest, case["pop_sig"]), case["name"])
             self.assertIsNotNone(decompress(hexbytes(public_key)), case["name"])
             if reason in ("length_64", "length_66"):
@@ -2285,7 +3193,8 @@ class VectorsTest(unittest.TestCase):
                 self.assertTrue(0 < r < SECP_N and 0 < s <= SECP_N // 2 and v in (0, 1))
                 self.assertIsNone(decompress(bytes([2 + v]) + r.to_bytes(32, "big")))
             else:
-                # Well-formed signatures that are bound to another owner, key, chain or registry.
+                # Well-formed signatures that are bound to another owner, key, chain or
+                # verifying contract.
                 self.assertTrue(0 < r < SECP_N and 0 < s <= SECP_N // 2 and v in (0, 1), reason)
                 if reason == "wrong_owner":
                     (other,) = [o for o in OWNERS if o != owner]
@@ -2303,149 +3212,95 @@ class VectorsTest(unittest.TestCase):
                     self.assertNotIn(case["pop_sig"], valid.values())
                     self.assertIn(public_key, keys)
 
-    def test_committee_sets_match_appendix_a(self):
-        cases = V["committee_sets"]
-        self.assertEqual([len(c["members"]) for c in cases], [0, 1, 3, 5])
-        # Spec 4.3 step 4: an empty committee is rejected, so it has no set hash or record.
-        self.assertEqual(cases[0], {"members": [], "valid": False, "reason": "empty_committee"})
-        vp_unit = int(V["committee_config"]["inputs"]["vp_unit"])
-        min_stake = int(V["deployment"]["min_stake"])
-        entries = V["registry_entries"]["entries"]
-        for case in cases[1:]:
-            self.assertTrue(case["valid"])
-            self.assertEqual(
-                list(case),
-                [
-                    "valid",
-                    "l2_chain_id",
-                    "target_epoch",
-                    "set_version",
-                    "cutoff_l1_block",
-                    "checkpoint_index",
-                    "members",
-                    "set_hash_preimage",
-                    "set_hash",
-                    "total_power",
-                    "record_preimage",
-                    "record_hash",
-                ],
-            )
-            k = int(case["target_epoch"]) + 1
-            self.assertEqual(int(case["set_version"]), k)
-            members = case["members"]
-            set_keys = [int(m["set_key"], 16) for m in members]
-            self.assertEqual(set_keys, sorted(set_keys))
-            # The members are the registry's first entries, each eligible at the snapshot
-            # (COMM-4.3-3: activeFromL1 <= snapshot < exitEffectiveL1, effStake >= minStake).
-            snapshot = int(case["cutoff_l1_block"])
-            selected = entries[: len(members)]
-            self.assertEqual({m["ck_x"] for m in members}, {e["ck_x"] for e in selected})
-            for entry in selected:
-                self.assertLessEqual(int(entry["active_from_l1"]), snapshot)
-                self.assertLess(snapshot, int(entry["exit_effective_l1"]))
-                self.assertGreaterEqual(int(entry["eff_stake"]), min_stake)
-            for member in members:
-                self.assertEqual(int(member["power"]), int(member["eff_stake"]) // vp_unit)
-                self.assertTrue(0 < int(member["power"]) < 2**64)
-                self.assertEqual(
-                    member["set_key"],
-                    h256(
-                        join_words(
-                            tag("ETNA_SET_KEY_V1"),
-                            uint(case["l2_chain_id"]),
-                            uint(member["ck_prefix"]),
-                            member["ck_x"],
-                        )
-                    ),
-                )
-            # ENC-A-39a: one hash over the whole set, standard ABI encoding.
-            preimage = set_hash_preimage(case["l2_chain_id"], k, members)
-            self.assertEqual(hexbytes(case["set_hash_preimage"]), preimage)
-            self.assertEqual(len(preimage), 32 * (5 + 4 * len(members)))
-            self.assertEqual(h256(preimage), case["set_hash"])
-            self.assertEqual(int(case["total_power"]), sum(int(m["power"]) for m in members))
-            self.assertLessEqual(int(case["total_power"]), (2**63 - 1) // 8)
-            self.assertEqual(
-                words(case["record_preimage"]),
-                [
-                    tag("ETNA_COMMITTEE_V1"),
-                    uint(case["l2_chain_id"]),
-                    uint(case["target_epoch"]),
-                    uint(case["cutoff_l1_block"]),
-                    uint(case["checkpoint_index"]),
-                    case["set_hash"],
-                    uint(case["total_power"]),
-                ],
-            )
-            self.assertEqual(h256(hexbytes(case["record_preimage"])), case["record_hash"])
-
     def test_appendix_a_literals(self):
         examples = V["appendix_a_examples"]
         for name, literal in APPENDIX_A_LITERALS.items():
             self.assertEqual(examples[name]["hash"], literal, name)
-            if "preimage" in examples[name]:
-                self.assertEqual(h256(hexbytes(examples[name]["preimage"])), literal, name)
-        # 10b.a: mixHash = keccak256(abi.encode(bytes32(p.difficulty), uint256(b.number))).
+            self.assertEqual(h256(hexbytes(examples[name]["preimage"])), literal, name)
+        # mixHash = keccak256(abi.encode(bytes32(p.difficulty), uint256(b.number))).
         mix = examples["enc_a_10b_a"]
         self.assertEqual(hexbytes(mix["preimage"]), join_words(uint(1_000_000), uint(12_345)))
-        # 37.a and 37.i: seven words under the bytes32 tag (224 bytes).
-        g_x = "0x" + format(SECP_G[0], "064x")
-        self.assertEqual(
-            hexbytes(examples["enc_a_37_a"]["preimage"]), reg_leaf_preimage(1, ZERO_ENTRY)
-        )
-        entry = {"ck_prefix": "2", "ck_x": g_x, "eff_stake": str(250_000 * 10**18),
-                 "active_from_l1": "100", "exit_effective_l1": str(U48_MAX)}
-        self.assertEqual(examples["enc_a_37_i"]["entry"], entry)
-        self.assertEqual(hexbytes(examples["enc_a_37_i"]["preimage"]), reg_leaf_preimage(0, entry))
-        # 37.j: the 37.a entry with the tag as a dynamic string, 288 bytes; rejected.
-        dynamic = hexbytes(examples["enc_a_37_j"]["preimage"])
-        self.assertEqual(len(dynamic), 288)
-        self.assertEqual(
-            dynamic,
-            join_words(uint(224), *words("0x" + reg_leaf_preimage(1, ZERO_ENTRY)[32:].hex()))
-            + join_words(uint(17), tag("ETNA_REG_ENTRY_V1")),
-        )
-        self.assertTrue(examples["enc_a_37_j"]["reject"])
-        # 38.h: root = K(K(L0, Z1), K(L2, P)), the interior-empty-slot checkpoint.
-        h = examples["enc_a_38_h"]
-        self.assertEqual(h["z1"], APPENDIX_A_LITERALS["enc_a_37_a"])
-        self.assertEqual(h["p"], uint(0))
-        self.assertEqual(h["left"], h256(join_words(h["l0"], h["z1"])))
-        self.assertEqual(h["right"], h256(join_words(h["l2"], h["p"])))
-        self.assertEqual(h["root"], h256(join_words(h["left"], h["right"])))
-        (checkpoint,) = [
-            c for c in V["registry_entries"]["checkpoints"] if c["name"] == h["checkpoint"]
-        ]
-        self.assertEqual(checkpoint["leaves"], [h["l0"], h["z1"], h["l2"]])
-        self.assertEqual(checkpoint["entries_root"], h["root"])
-        # 39.a, 39a.a and 42.a: l2ChainId 167000 and G as the key.
-        self.assertEqual(
-            hexbytes(examples["enc_a_39_a"]["preimage"]),
-            join_words(tag("ETNA_SET_KEY_V1"), uint(167000), uint(2), g_x),
-        )
-        member = {"ck_prefix": "2", "ck_x": g_x, "eff_stake": str(250_000 * 10**18),
-                  "power": str(250_000 * 10**9)}
-        self.assertEqual(examples["enc_a_39a_a"]["members"], [member])
-        set_preimage = set_hash_preimage(167000, 1, [member])
-        self.assertEqual(len(set_preimage), 288)
-        self.assertEqual(hexbytes(examples["enc_a_39a_a"]["preimage"]), set_preimage)
-        self.assertEqual(
-            hexbytes(examples["enc_a_42_a"]["preimage"]),
-            join_words(
-                tag("ETNA_COMMITTEE_V1"),
-                uint(167000),
-                uint(0),
-                uint(100),
-                uint(0),
-                APPENDIX_A_LITERALS["enc_a_39a_a"],
-                uint(250_000 * 10**9),
+        # extraData: all zero after the 0x64 byte, and generation 1, anchor number 258 and
+        # missBitmap 2^127 + 1; both are rows of `extra_data`.
+        rows = {
+            tuple(int(c[k]) for k in ("generation", "anchor_number", "miss_bitmap")): c
+            for c in V["extra_data"]
+        }
+        for name, inputs, extra_data in (
+            ("enc_a_10_f", (0, 0, 0), "0x64" + "00" * 28),
+            (
+                "enc_a_10_h",
+                (1, 258, 2**127 + 1),
+                "0x64" + "000000000001" + "000000000102" + "80000000000000000000000000000001",
             ),
+        ):
+            example = examples[name]
+            self.assertEqual(
+                tuple(int(example[k]) for k in ("generation", "anchor_number", "miss_bitmap")),
+                inputs,
+                name,
+            )
+            self.assertEqual(example["extra_data"], extra_data, name)
+            self.assertEqual(rows[inputs]["extra_data"], extra_data, name)
+        # The missBitmap bit order: 5 sets seats 0 and 2 in the last byte; 2^127 sets seat 127,
+        # the high bit of byte 13.
+        five, top = examples["enc_a_10c_a"], examples["enc_a_10c_b"]
+        self.assertEqual(
+            (five["miss_bitmap"], five["seats"], five["extra_data_byte_28"]), ("5", ["0", "2"], "0x05")
         )
-        # 36.a: seven words (224 bytes) with the deployment's minStake fifth.
-        config = examples["enc_a_36_a"]
-        self.assertEqual(config["preimage_bytes"], "224")
-        self.assertEqual(config["hash"], V["committee_config"]["hash"])
-        self.assertEqual(word(V["committee_config"]["preimage"], 4), uint(config["min_stake"]))
+        self.assertEqual(hexbytes(five["extra_data"])[28], 0x05)
+        self.assertEqual(
+            (top["miss_bitmap"], top["seats"], top["extra_data_byte_13"]),
+            (str(2**127), ["127"], "0x80"),
+        )
+        self.assertEqual(hexbytes(top["extra_data"])[13], 0x80)
+        self.assertEqual(top["extra_data"], rows[(5, 7, 2**127)]["extra_data"])
+        # The block-start call for generation 1 and missBitmap 5, and its selector.
+        self.assertEqual(
+            examples["enc_a_10d_a"]["calldata"],
+            ON_BLOCK_START_SELECTOR + uint(1)[2:] + uint(5)[2:],
+        )
+        self.assertEqual(
+            (examples["enc_a_10d_b"]["signature"], examples["enc_a_10d_b"]["selector"]),
+            ("onBlockStart(uint48,uint128)", ON_BLOCK_START_SELECTOR),
+        )
+        # The config hash example is four words, 128 bytes; with the tag as a dynamic string it
+        # is six words, 192 bytes, and a different hash.
+        spec = examples["enc_a_36_a"]
+        staking = "0x" + "11" * 20
+        self.assertEqual(
+            spec["inputs"],
+            {"tag": "ETNA_CONFIG_V1", "l2_chain_id": "167000", "staking": staking,
+             "unsettled_limit": "151200"},
+        )
+        self.assertEqual(spec["preimage_bytes"], "128")
+        dynamic = examples["enc_a_36_f"]
+        self.assertTrue(dynamic["reject"])
+        self.assertEqual(dynamic["preimage_bytes"], "192")
+        self.assertEqual(
+            hexbytes(dynamic["preimage"]),
+            join_words(uint(128), uint(167_000), address(staking), uint(151_200), uint(14),
+                       tag("ETNA_CONFIG_V1")),
+        )
+        # The fallback key hashes of [K1] (160 bytes) and [K1, K2] (224 bytes), encoded here;
+        # [K1] with the tag as a dynamic string is 224 bytes and rejected.
+        one, two = examples["enc_a_36a_a"], examples["enc_a_36a_b"]
+        for example, keys, size in ((one, [K1], 160), (two, [K1, K2], 224)):
+            self.assertEqual(example["keys"], keys)
+            self.assertEqual(hexbytes(example["preimage"]), fallback_keys_preimage(keys))
+            self.assertEqual(example["preimage_bytes"], str(size))
+            self.assertEqual(len(fallback_keys_preimage(keys)), size)
+        dynamic_keys = examples["enc_a_36a_g"]
+        self.assertTrue(dynamic_keys["reject"])
+        self.assertEqual(dynamic_keys["keys"], [K1])
+        self.assertEqual(dynamic_keys["preimage_bytes"], "224")
+        self.assertEqual(
+            hexbytes(dynamic_keys["preimage"]),
+            join_words(uint(64), uint(128), uint(21), tag("ETNA_FALLBACK_KEYS_V1"), uint(1),
+                       uint(2), K1["ck_x"]),
+        )
+        self.assertEqual(h256(hexbytes(dynamic_keys["preimage"])), dynamic_keys["hash"])
+        self.assertNotEqual(dynamic_keys["hash"], one["hash"])
         # 45.g: seconds = -1 is ten varint bytes; the timestamp field is 2a 0b and those bytes.
         ts = examples["enc_a_45_g"]
         self.assertEqual(ts["seconds_field"], "0x08" + "ff" * 9 + "01")
@@ -2563,11 +3418,8 @@ class VectorsTest(unittest.TestCase):
             [c["tag"] for c in cases],
             [
                 "ETNA_COMET_DOMAIN_V1",
-                "ETNA_PARENT_ANCHOR_V1",
-                "ETNA_REG_ENTRY_V1",
-                "ETNA_SET_KEY_V1",
-                "ETNA_SET_V1",
-                "ETNA_COMMITTEE_V1",
+                "ETNA_CONFIG_V1",
+                "ETNA_FALLBACK_KEYS_V1",
                 "ETNA_VAL_STATE_V1",
                 "ETNA_APP_HASH_V1",
                 "ETNA_LAND_CUTS_V1",
@@ -2585,24 +3437,33 @@ class VectorsTest(unittest.TestCase):
                 join_words(uint(len(case["tag"])), tag(case["tag"])),
                 case["name"],
             )
-        self.assertEqual(cases[2]["hash"], APPENDIX_A_LITERALS["enc_a_37_j"])
+        by_tag = {c["tag"]: c for c in cases}
+        self.assertEqual(by_tag["ETNA_CONFIG_V1"]["accepted_hash"], V["config"]["hash"])
+        keys, example = by_tag["ETNA_FALLBACK_KEYS_V1"], V["appendix_a_examples"]["enc_a_36a_g"]
+        self.assertEqual(keys["accepted_hash"], APPENDIX_A_LITERALS["enc_a_36a_a"])
+        self.assertEqual((keys["preimage"], keys["hash"]), (example["preimage"], example["hash"]))
 
-    def test_land_abi_encodes_the_nonzero_statement(self):
+    def test_land_abi_has_seven_fields(self):
         abi = V["land_abi"]
-        self.assertEqual(
-            abi["signature"],
-            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)",
+        signature = (
+            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
         )
+        self.assertEqual(abi["signature"], signature)
+        self.assertEqual(abi["selector"], "0x5185fd7a")
+        self.assertEqual(abi["selector"], h256(signature.encode())[:10])
         self.assertEqual(abi["statement"], "nonzero")
         inputs = by_name(V["land_statements"], "nonzero")["inputs"]
         table = {int(c["height"]): c["leaf"] for c in V["cuts"]["table"]}
         # One leaf per height strictly between p = 6 and h = 18.
-        self.assertEqual(abi["leaves"], [table[x] for x in range(7, 18)])
+        leaves = abi["leaves"]
+        self.assertEqual(leaves, [table[x] for x in range(7, 18)])
         self.assertEqual(abi["proof"], "0x00")
         calldata = hexbytes(abi["calldata"])
         self.assertEqual(calldata[:4], hexbytes(abi["selector"]))
+        # The seven LandInput fields inline, the offsets of the leaves and the proof, then the
+        # leaves and the one-byte proof, padded.
         self.assertEqual(
-            ["0x" + calldata[4 + 32 * i : 36 + 32 * i].hex() for i in range(8)],
+            words("0x" + calldata[4:].hex()),
             [
                 uint(inputs["parent_height"]),
                 uint(inputs["last_height"]),
@@ -2611,7 +3472,12 @@ class VectorsTest(unittest.TestCase):
                 inputs["last_state_root"],
                 uint(inputs["l1_reference_block_number"]),
                 uint(inputs["forced_inclusion_head_after"]),
-                uint(inputs["active_committee_snapshot"]),
+                uint(9 * 32),
+                uint(9 * 32 + 32 * (1 + len(leaves))),
+                uint(len(leaves)),
+                *leaves,
+                uint(1),
+                uint(0),
             ],
         )
 

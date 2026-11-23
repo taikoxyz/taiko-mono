@@ -138,8 +138,7 @@ async fn scenario(kind: Scenario) -> Result<()> {
     // U = 6 holds the latest source at checkpoint + 6. `latest` releases it only up to s, so
     // both FI entries come due after s.
     let unsettled = if kind == Scenario::Latest { 6 } else { 120 };
-    let epoch_len = if registered { 6 } else { 8 };
-    let f = ContractFixture::deploy_config(count, unsettled, epoch_len).await?;
+    let f = ContractFixture::deploy_config(count, unsettled).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let dirs = (0..count).map(|i| f.signer_storage.path().join(i.to_string())).collect();
     let mut c =
