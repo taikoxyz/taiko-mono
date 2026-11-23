@@ -112,6 +112,27 @@ fn m_max_makes_even_max_total_unusable() {
     assert_eq!(decide_at(&snapshot, U256::MAX), fallback_set());
 }
 
+/// An unusable candidate names the first condition it fails: the minimum at 2^256 − 1 before a
+/// stale snapshot, a stale snapshot before a total below the minimum, and those three before
+/// records that form no valid set, which only a snapshot that passes them reaches.
+#[test]
+fn unusable_candidate_names_the_first_failed_condition() {
+    let valid = [(0, record(k1(), 5))];
+    let invalid = [(0, record(k1(), 0))];
+    let below = m() - U256::from(1);
+    for (snapshot, min, cause) in [
+        (words(H - 1, below, &invalid), U256::MAX, Unusable::MinTotalStakeMax),
+        (words(H - 1, below, &invalid), m(), Unusable::StaleSnapshot),
+        (words(H, below, &invalid), m(), Unusable::BelowMinTotalStake),
+        (words(H, m(), &invalid), m(), Unusable::InvalidSet),
+        (words(H, m(), &[]), m(), Unusable::InvalidSet),
+    ] {
+        assert_eq!(candidate_members(H, &snapshot, min), Err(cause));
+        assert_eq!(usable_candidate(H, &snapshot, min), None);
+    }
+    assert_eq!(candidate_members(H, &words(H, m(), &valid), m()), Ok(vec![(k1(), 5)]));
+}
+
 #[test]
 fn m_max_minus_one_with_max_total_is_usable() {
     let snapshot = words(H, U256::MAX, &[(0, record(k1(), 5))]);

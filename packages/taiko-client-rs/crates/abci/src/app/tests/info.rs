@@ -6,18 +6,21 @@ use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
 use tendermint::abci::{Code, request::CheckTxKind};
 
+use etna_core::staking::StakingWords;
+
 use super::{
     proposal::next_height,
-    signers::{MIN_STAKE, snapshot, step},
+    signers::{MIN_STAKE, node, snapshot, step},
     *,
 };
 use crate::{
     app::{APP_NAME, APP_VERSION, Status},
+    committee::{SignerSource, Unusable},
     config::{ConfigError, ParamsError},
     engine::PayloadVerdict,
     fallback::FallbackKeys,
     rules::RuleViolation,
-    store::{ExecutionFloor, SignerStatus, Signers, StoreError},
+    store::{ExecutionFloor, FallbackReason, SignerStatus, Signers, StoreError},
     test_utils::{
         EngineCall, InboxStorage, MockEngine, fallback_list, serve_fallback_keys, test_key,
     },
@@ -656,22 +659,26 @@ async fn anchored_on(
 }
 
 /// `/status` reports the set that signs the next height and the one after it, each with where
-/// it comes from: the origin keys sign both after `InitChain`; the fallback list an anchor
-/// proves is named by its hash; a usable candidate by its snapshot height and total stake. Each
-/// block shifts the pair by one, and a restarted app reports the same sets from its store.
+/// it comes from: the origin keys sign both after `InitChain`, for that reason alone; a decided
+/// set carries the candidate's total stake and the minimum its anchor proves, the fallback list
+/// that anchor proves is named by its hash and the reason it signs, a usable candidate by its
+/// snapshot height. Each block shifts the pair by one, and a restarted app reports the same sets
+/// from its store.
 #[tokio::test]
 async fn status_reports_both_sets() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let other = fallback_list(&[2, 3, 4]);
     let mut app = anchored_on(&fx, dir.path(), &other).await;
-    let origin = SignerStatus::fallback(&fx.fallback_keys);
-    let fallback = SignerStatus::fallback(&other);
+    let min = U256::from(MIN_STAKE);
+    let origin = SignerStatus::origin(&fx.fallback_keys);
+    let fallback = SignerStatus::fallback(&other, Unusable::StaleSnapshot, U256::ZERO, min);
     let candidate =
-        |height, total: u64, size| SignerStatus::candidate(height, U256::from(total), size);
+        |height, total: u64, size| SignerStatus::candidate(height, U256::from(total), min, size);
     let signers = |app: &App<MockL1, MockEngine>| app.status().expect("initialized").signers;
     assert_eq!(signers(&app), Signers { next: origin, after: origin });
 
+    // No block-start call wrote this block's snapshot: all its words are zero.
     let h = next_height(&app);
     step(&mut app, None).await;
     assert_eq!(signers(&app), Signers { next: origin, after: fallback });
@@ -689,8 +696,8 @@ async fn status_reports_both_sets() {
 }
 
 /// `/signers` answers the JSON of the two sets `/status` reports, at the committed height: each
-/// names its source in lower case and writes the facts its source lacks as `null`, and it
-/// decodes to the same value. Before `InitChain` it is refused.
+/// names its source and fallback reason in lower case and writes the facts a set lacks as
+/// `null`, and it decodes to the same value. Before `InitChain` it is refused.
 #[tokio::test]
 async fn signers_query_round_trips() {
     let fx = Fixture::genesis(2);
@@ -712,15 +719,19 @@ async fn signers_query_round_trips() {
         serde_json::json!({
             "next": {
                 "source": "fallback",
+                "fallback_reason": "generation_origin",
                 "snapshot_height": null,
                 "total_stake": null,
+                "min_total_stake": null,
                 "fallback_keys_hash": fx.fallback_keys.hash(),
                 "size": 2,
             },
             "after": {
                 "source": "candidate",
+                "fallback_reason": null,
                 "snapshot_height": h,
                 "total_stake": "0xfa0",
+                "min_total_stake": "0x3e8",
                 "fallback_keys_hash": null,
                 "size": 3,
             },
@@ -729,6 +740,85 @@ async fn signers_query_round_trips() {
     let signers: Signers = serde_json::from_slice(&resp.value).expect("signers decode");
     assert_eq!(signers, app.status().unwrap().signers);
     assert_eq!(serde_json::to_vec(&signers).unwrap(), resp.value);
+}
+
+/// The status of the origin fallback keys of `fx` signing because the candidate, of stored total
+/// stake `total`, fails the minimum `min` for `reason`.
+fn falls_back(fx: &Fixture, reason: FallbackReason, total: U256, min: U256) -> SignerStatus {
+    SignerStatus {
+        source: SignerSource::Fallback,
+        fallback_reason: Some(reason),
+        snapshot_height: None,
+        total_stake: Some(total),
+        min_total_stake: Some(min),
+        fallback_keys_hash: Some(fx.fallback_keys.hash()),
+        size: 2,
+    }
+}
+
+/// The status `/status` reports, after a node of `fx` whose anchor proves the minimum `min` has
+/// committed its first block H with the candidate snapshot `words(H)`, of the set H decided.
+async fn decided_at_first_block(
+    fx: &Fixture,
+    min: U256,
+    words: impl FnOnce(u64) -> StakingWords,
+) -> SignerStatus {
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = node(fx, dir.path(), min).await;
+    let h = next_height(&app);
+    step(&mut app, Some(words(h))).await;
+    app.status().expect("initialized").signers.after
+}
+
+/// Two members at powers 5 and 7: a valid set.
+fn members() -> [(crate::key::ConsensusKey, u64); 2] {
+    [(test_key(11), 5), (test_key(12), 7)]
+}
+
+/// A minimum total stake of 2^256 − 1 hands H + 2 to the fallback keys even when H's own call
+/// wrote a valid snapshot whose total stake is 2^256 − 1: the status names that reason beside
+/// the total and the minimum.
+#[tokio::test]
+async fn status_reports_a_maximal_minimum_as_the_fallback_reason() {
+    let fx = Fixture::genesis(2);
+    let after = decided_at_first_block(&fx, U256::MAX, |h| StakingWords {
+        total_stake: U256::MAX,
+        ..snapshot(h, 0, &members())
+    })
+    .await;
+    assert_eq!(after, falls_back(&fx, FallbackReason::MinTotalStakeMax, U256::MAX, U256::MAX));
+}
+
+/// A snapshot H's own call did not write, the one H − 1 stored, hands H + 2 to the fallback keys:
+/// the status names a stale snapshot, with the total stake that snapshot stores.
+#[tokio::test]
+async fn status_reports_a_stale_snapshot_as_the_fallback_reason() {
+    let fx = Fixture::genesis(2);
+    let min = U256::from(MIN_STAKE);
+    let after = decided_at_first_block(&fx, min, |h| snapshot(h - 1, 4_000, &members())).await;
+    assert_eq!(after, falls_back(&fx, FallbackReason::StaleSnapshot, U256::from(4_000), min));
+}
+
+/// A total stake one below the minimum hands H + 2 to the fallback keys: the status shows both,
+/// so the gap is visible while the fallback keys sign.
+#[tokio::test]
+async fn status_reports_a_total_below_the_minimum_as_the_fallback_reason() {
+    let fx = Fixture::genesis(2);
+    let min = U256::from(MIN_STAKE);
+    let after = decided_at_first_block(&fx, min, |h| snapshot(h, MIN_STAKE - 1, &members())).await;
+    let total = U256::from(MIN_STAKE - 1);
+    assert_eq!(after, falls_back(&fx, FallbackReason::BelowMinTotalStake, total, min));
+}
+
+/// A snapshot whose records form no valid set, here a member at power 0, hands H + 2 to the
+/// fallback keys although its total stake reaches the minimum: the status names an invalid set.
+#[tokio::test]
+async fn status_reports_an_invalid_set_as_the_fallback_reason() {
+    let fx = Fixture::genesis(2);
+    let min = U256::from(MIN_STAKE);
+    let zero_power = [(test_key(11), 5), (test_key(12), 0)];
+    let after = decided_at_first_block(&fx, min, |h| snapshot(h, 4_000, &zero_power)).await;
+    assert_eq!(after, falls_back(&fx, FallbackReason::InvalidSet, U256::from(4_000), min));
 }
 
 #[tokio::test]

@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use alloy_primitives::B256;
+use alloy_primitives::{B256, U256};
 use etna_core::staking::{snapshot_height_slot, snapshot_total_stake_slot};
 use tendermint::{AppHash, Hash, abci::Code};
 
@@ -26,7 +26,7 @@ use crate::{
     envelope::EtnaEnvelope,
     forced::ForcedError,
     l1::{L1Error, RawL1Header},
-    store::{AppState, Record, SEGMENT_HEIGHTS},
+    store::{AppState, Record, SEGMENT_HEIGHTS, SignerStatus},
     test_utils::{GenesisSpec, L1Call, LogCapture, l1_header},
     types::ParentInfo,
     valstate,
@@ -351,6 +351,13 @@ async fn finalize_updates_parent_and_anchor() {
         grandparent_timestamp: before.parent.timestamp,
     };
     expected.anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
+    // The launch anchor holds a minimum total stake of 2^256 − 1: the fallback keys sign H_0 + 2.
+    expected.signers.after = SignerStatus::fallback(
+        &fx.fallback_keys,
+        crate::committee::Unusable::MinTotalStakeMax,
+        U256::ZERO,
+        U256::MAX,
+    );
     assert_eq!(app.pending.as_ref(), Some(&expected));
     assert_eq!(app.state(), Some(&before), "the committed state waits for Commit");
     commit(&mut app).await.expect("commits");

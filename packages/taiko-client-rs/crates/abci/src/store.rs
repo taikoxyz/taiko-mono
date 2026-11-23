@@ -25,7 +25,7 @@ use alloy_primitives::{Address, B256, U256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    committee::SignerSource,
+    committee::{SignerSource, Unusable},
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::RecoveryOrigin,
@@ -134,26 +134,37 @@ impl Signers {
     /// A generation's origin: its origin record's fallback keys `keys` sign its first two
     /// blocks.
     pub fn origin(keys: &FallbackKeys) -> Self {
-        let origin = SignerStatus::fallback(keys);
+        let origin = SignerStatus::origin(keys);
         Self { next: origin, after: origin }
     }
 }
 
-/// Where one signing set comes from: the usable candidate snapshot, named by its snapshot height
-/// and total stake, or the fallback key list, named by its hash. The facts of the other source
-/// are `None` (`null` in JSON); every field is written and required.
+/// Where one signing set comes from: the usable candidate snapshot, named by its snapshot height,
+/// or the fallback key list, named by its hash and the reason it signs. A decided set also
+/// carries the candidate's stored total stake and the minimum total stake it was held to,
+/// whichever source won. Facts a set lacks are `None` (`null` in JSON); every field is written
+/// and required.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignerStatus {
     /// Whether the candidate or the fallback key list signs.
     pub source: SignerSource,
-    /// The candidate's `snapshotHeight`: the height H whose block-start call stored it and whose
-    /// `FinalizeBlock` decided it for H + 2.
+    /// Why the fallback key list signs; `None` when the candidate signs.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub fallback_reason: Option<FallbackReason>,
+    /// The candidate's `snapshotHeight` when it signs: the height H whose block-start call
+    /// stored it and whose `FinalizeBlock` decided it for H + 2.
     #[serde(deserialize_with = "Option::deserialize")]
     pub snapshot_height: Option<u64>,
-    /// The candidate's stored `snapshotTotalStake`, the sum of its bonds' effective stake.
+    /// The stored `snapshotTotalStake` of the candidate snapshot in the deciding block's
+    /// post-state, read whether or not the candidate signs; `None` at a generation's origin,
+    /// whose two sets no snapshot decides.
     #[serde(deserialize_with = "Option::deserialize")]
     pub total_stake: Option<U256>,
+    /// The `minTotalStake` the deciding block's anchor proves, which the candidate's total stake
+    /// must reach; `None` at a generation's origin.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub min_total_stake: Option<U256>,
     /// The hash of the fallback key list that signs, each key at power 1.
     #[serde(deserialize_with = "Option::deserialize")]
     pub fallback_keys_hash: Option<B256>,
@@ -162,26 +173,102 @@ pub struct SignerStatus {
 }
 
 impl SignerStatus {
-    /// The fallback key list `keys`, each key at power 1.
-    pub fn fallback(keys: &FallbackKeys) -> Self {
+    /// One of a generation's first two sets: its origin record's fallback key list `keys`.
+    pub fn origin(keys: &FallbackKeys) -> Self {
         Self {
             source: SignerSource::Fallback,
+            fallback_reason: Some(FallbackReason::GenerationOrigin),
             snapshot_height: None,
             total_stake: None,
+            min_total_stake: None,
             fallback_keys_hash: Some(keys.hash()),
             size: keys.keys().len(),
         }
     }
 
     /// The usable candidate snapshot of `snapshot_height` with `size` members and the stored
-    /// total stake `total_stake`.
-    pub fn candidate(snapshot_height: u64, total_stake: U256, size: usize) -> Self {
+    /// total stake `total_stake`, which reaches `min_total_stake`.
+    pub fn candidate(
+        snapshot_height: u64,
+        total_stake: U256,
+        min_total_stake: U256,
+        size: usize,
+    ) -> Self {
         Self {
             source: SignerSource::Candidate,
+            fallback_reason: None,
             snapshot_height: Some(snapshot_height),
             total_stake: Some(total_stake),
+            min_total_stake: Some(min_total_stake),
             fallback_keys_hash: None,
             size,
+        }
+    }
+
+    /// The fallback key list `keys`, signing because the candidate snapshot, of stored total
+    /// stake `total_stake`, is not usable under `min_total_stake` for the reason `cause`.
+    pub fn fallback(
+        keys: &FallbackKeys,
+        cause: Unusable,
+        total_stake: U256,
+        min_total_stake: U256,
+    ) -> Self {
+        Self {
+            fallback_reason: Some(cause.into()),
+            total_stake: Some(total_stake),
+            min_total_stake: Some(min_total_stake),
+            ..Self::origin(keys)
+        }
+    }
+}
+
+/// Why the fallback key list signs a set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FallbackReason {
+    /// The set signs one of a generation's first two blocks, which its origin record's fallback
+    /// keys sign whatever the candidate is.
+    GenerationOrigin,
+    /// The minimum total stake is `2^256 − 1` ([`Unusable::MinTotalStakeMax`]).
+    MinTotalStakeMax,
+    /// The deciding block's own block-start call did not write the snapshot
+    /// ([`Unusable::StaleSnapshot`]).
+    StaleSnapshot,
+    /// The candidate's total stake is below the minimum ([`Unusable::BelowMinTotalStake`]).
+    BelowMinTotalStake,
+    /// The candidate's records form no valid set ([`Unusable::InvalidSet`]).
+    InvalidSet,
+}
+
+impl FallbackReason {
+    /// Every reason, in declaration order.
+    pub const ALL: [Self; 5] = [
+        Self::GenerationOrigin,
+        Self::MinTotalStakeMax,
+        Self::StaleSnapshot,
+        Self::BelowMinTotalStake,
+        Self::InvalidSet,
+    ];
+
+    /// The reason's name, as JSON writes it and metrics label it.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::GenerationOrigin => "generation_origin",
+            Self::MinTotalStakeMax => "min_total_stake_max",
+            Self::StaleSnapshot => "stale_snapshot",
+            Self::BelowMinTotalStake => "below_min_total_stake",
+            Self::InvalidSet => "invalid_set",
+        }
+    }
+}
+
+impl From<Unusable> for FallbackReason {
+    fn from(cause: Unusable) -> Self {
+        match cause {
+            Unusable::MinTotalStakeMax => Self::MinTotalStakeMax,
+            Unusable::StaleSnapshot => Self::StaleSnapshot,
+            Unusable::BelowMinTotalStake => Self::BelowMinTotalStake,
+            Unusable::InvalidSet => Self::InvalidSet,
         }
     }
 }
@@ -798,8 +885,13 @@ mod tests {
             )
             .unwrap(),
             signers: Signers {
-                next: SignerStatus::fallback(&crate::test_utils::fallback_list(&[1, 2, 3])),
-                after: SignerStatus::candidate(105, U256::from(4_000), 3),
+                next: SignerStatus::fallback(
+                    &crate::test_utils::fallback_list(&[1, 2, 3]),
+                    Unusable::BelowMinTotalStake,
+                    U256::from(999),
+                    U256::from(1_000),
+                ),
+                after: SignerStatus::candidate(105, U256::from(4_000), U256::from(1_000), 3),
             },
             fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
                 .into_iter()
@@ -1008,8 +1100,9 @@ mod tests {
         assert_eq!(serde_json::from_value::<AppState>(json).unwrap(), s);
     }
 
-    /// The two signing sets are saved by name, each source by its name and the facts it lacks
-    /// as `null`; an unknown source, a missing fact or an unknown field does not load.
+    /// The two signing sets are saved by name, each source and fallback reason by its name and
+    /// the facts a set lacks as `null`; an unknown name, a missing fact or an unknown field does
+    /// not load.
     #[test]
     fn signers_are_saved_by_name() {
         let s = state();
@@ -1020,15 +1113,19 @@ mod tests {
             serde_json::json!({
                 "next": {
                     "source": "fallback",
+                    "fallback_reason": "below_min_total_stake",
                     "snapshot_height": null,
-                    "total_stake": null,
+                    "total_stake": "0x3e7",
+                    "min_total_stake": "0x3e8",
                     "fallback_keys_hash": hash,
                     "size": 3,
                 },
                 "after": {
                     "source": "candidate",
+                    "fallback_reason": null,
                     "snapshot_height": 105,
                     "total_stake": "0xfa0",
+                    "min_total_stake": "0x3e8",
                     "fallback_keys_hash": null,
                     "size": 3,
                 },
@@ -1037,7 +1134,10 @@ mod tests {
         assert_eq!(serde_json::from_value::<AppState>(json.clone()).unwrap(), s);
         for (pointer, field, value) in [
             ("/signers/next", "source", Some(serde_json::json!("staked"))),
+            ("/signers/next", "fallback_reason", Some(serde_json::json!("offline"))),
+            ("/signers/next", "fallback_reason", None),
             ("/signers/next", "total_stake", None),
+            ("/signers/after", "min_total_stake", None),
             ("/signers/after", "snapshot_height", None),
             ("/signers/after", "members", Some(serde_json::json!([]))),
             ("/signers", "after", None),
@@ -1049,6 +1149,14 @@ mod tests {
                 None => object.remove(field),
             };
             assert!(serde_json::from_value::<AppState>(json).is_err(), "{pointer}/{field}");
+        }
+    }
+
+    /// Every fallback reason's label is the name its JSON carries.
+    #[test]
+    fn fallback_reason_labels_are_their_json_names() {
+        for reason in FallbackReason::ALL {
+            assert_eq!(serde_json::to_value(reason).unwrap(), reason.label());
         }
     }
 

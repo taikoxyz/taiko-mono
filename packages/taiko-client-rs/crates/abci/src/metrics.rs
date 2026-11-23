@@ -5,12 +5,16 @@
 //! series is exported from the beginning. A collector that cannot register (a name clash) is
 //! logged and keeps counting unexported: metrics never stop the node.
 
+use alloy_primitives::U256;
 use once_cell::sync::Lazy;
 use prometheus::{
     Gauge, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts,
 };
 
-use crate::{committee::SignerSource, store::Signers};
+use crate::{
+    committee::SignerSource,
+    store::{FallbackReason, Signers},
+};
 
 /// Histogram buckets for handler latencies, in seconds.
 pub const DURATION_SECONDS_BUCKETS: &[f64] =
@@ -88,11 +92,26 @@ impl AbciMetrics {
         &METRICS.signing_source
     }
 
-    /// `abci_candidate_total_stake`: the stored total stake of the candidate snapshot that signs
-    /// the second height after the committed head, in base units, or 0 while the fallback key
-    /// list signs it. A float gauge, since a uint256 total does not fit an integer one.
+    /// `abci_fallback_reason{set,reason}`: 1 for the reason the fallback key list signs `set`
+    /// (`next` or `after`, as [`AbciMetrics::signing_source`]), 0 for every other reason; all
+    /// 0 while the candidate signs it. The reasons are [`FallbackReason::label`]s.
+    pub fn fallback_reason() -> &'static IntGaugeVec {
+        &METRICS.fallback_reason
+    }
+
+    /// `abci_candidate_total_stake`: the stored total stake of the candidate snapshot in the
+    /// post-state of the committed head, which decided the set signing the second height after
+    /// it, in base units, whether or not the candidate signs; 0 at a generation's origin, where
+    /// no snapshot decides. A float gauge, since a uint256 total does not fit an integer one.
     pub fn candidate_total_stake() -> &'static Gauge {
         &METRICS.candidate_total_stake
+    }
+
+    /// `abci_min_total_stake`: the `minTotalStake` the committed head's anchor proves, which
+    /// [`AbciMetrics::candidate_total_stake`] must reach for the candidate to sign, in base units
+    /// (`2^256 − 1` hands every block to the fallback key list); 0 at a generation's origin.
+    pub fn min_total_stake() -> &'static Gauge {
+        &METRICS.min_total_stake
     }
 
     /// `abci_l1_finality_lag`: the own L1 finalized block number minus the committed anchor's,
@@ -140,9 +159,9 @@ pub(crate) fn set_u64(gauge: &IntGauge, value: u64) {
     gauge.set(i64::try_from(value).unwrap_or(i64::MAX));
 }
 
-/// Publishes where the two signing sets `signers` come from
-/// ([`AbciMetrics::signing_source`]) and the total stake of the candidate that signs the later
-/// one ([`AbciMetrics::candidate_total_stake`]).
+/// Publishes where the two signing sets `signers` come from ([`AbciMetrics::signing_source`],
+/// [`AbciMetrics::fallback_reason`]) and the candidate total stake and minimum that decided the
+/// later one ([`AbciMetrics::candidate_total_stake`], [`AbciMetrics::min_total_stake`]).
 pub(crate) fn publish_signers(signers: &Signers) {
     for (set, status) in [("next", &signers.next), ("after", &signers.after)] {
         let source = match status.source {
@@ -150,8 +169,14 @@ pub(crate) fn publish_signers(signers: &Signers) {
             SignerSource::Fallback => 1,
         };
         AbciMetrics::signing_source().with_label_values(&[set]).set(source);
+        for reason in FallbackReason::ALL {
+            let raised = i64::from(status.fallback_reason == Some(reason));
+            AbciMetrics::fallback_reason().with_label_values(&[set, reason.label()]).set(raised);
+        }
     }
-    AbciMetrics::candidate_total_stake().set(signers.after.total_stake.map_or(0.0, f64::from));
+    let float = |value: Option<U256>| value.map_or(0.0, f64::from);
+    AbciMetrics::candidate_total_stake().set(float(signers.after.total_stake));
+    AbciMetrics::min_total_stake().set(float(signers.after.min_total_stake));
 }
 
 /// The ABCI app's collectors.
@@ -178,8 +203,12 @@ struct Metrics {
     unsettled_depth: IntGauge,
     /// See [`AbciMetrics::signing_source`].
     signing_source: IntGaugeVec,
+    /// See [`AbciMetrics::fallback_reason`].
+    fallback_reason: IntGaugeVec,
     /// See [`AbciMetrics::candidate_total_stake`].
     candidate_total_stake: Gauge,
+    /// See [`AbciMetrics::min_total_stake`].
+    min_total_stake: Gauge,
     /// See [`AbciMetrics::l1_finality_lag`].
     l1_finality_lag: IntGauge,
     /// See [`AbciMetrics::checkpoint_trust_ready`].
@@ -243,11 +272,28 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
         )
         .expect("valid gauge vector options"),
     ),
+    fallback_reason: register(
+        IntGaugeVec::new(
+            Opts::new(
+                "abci_fallback_reason",
+                "1 for the reason the fallback keys sign the set (next or after), 0 otherwise",
+            ),
+            &["set", "reason"],
+        )
+        .expect("valid gauge vector options"),
+    ),
     candidate_total_stake: register(
         Gauge::new(
             "abci_candidate_total_stake",
-            "Total stake of the candidate signing head+2 in base units, 0 while the fallback \
-             keys sign it",
+            "Stored total stake of the candidate snapshot that decided the set signing head+2, \
+             in base units",
+        )
+        .expect("valid gauge options"),
+    ),
+    min_total_stake: register(
+        Gauge::new(
+            "abci_min_total_stake",
+            "minTotalStake the head's anchor proves, which the candidate total stake must reach",
         )
         .expect("valid gauge options"),
     ),
@@ -310,6 +356,7 @@ mod tests {
         AbciMetrics::process_rejected().with_label_values(&["envelope"]).inc();
         AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).inc();
         AbciMetrics::signing_source().with_label_values(&["next"]).set(1);
+        AbciMetrics::fallback_reason().with_label_values(&["next", "stale_snapshot"]).set(1);
         let names: Vec<String> =
             prometheus::gather().iter().map(|family| family.get_name().to_string()).collect();
         for name in [
@@ -324,7 +371,9 @@ mod tests {
             "abci_generation",
             "abci_unsettled_depth",
             "abci_signing_source",
+            "abci_fallback_reason",
             "abci_candidate_total_stake",
+            "abci_min_total_stake",
             "abci_l1_finality_lag",
             "abci_halted",
         ] {

@@ -14,6 +14,7 @@ use super::{
 use crate::{
     l1::L1Error,
     metrics::AbciMetrics,
+    store::FallbackReason,
     test_utils::{in_own_process, test_key},
 };
 
@@ -71,17 +72,57 @@ async fn a_committed_round_counts_and_publishes_the_new_head() {
     assert_eq!(AbciMetrics::halted().get(), 0);
 }
 
-/// `abci_signing_source{set}`, `abci_candidate_total_stake`: where the set that signs the next
-/// height and the one after it come from.
-fn signing_gauges() -> (i64, i64, f64) {
-    let source = |set: &str| AbciMetrics::signing_source().with_label_values(&[set]).get();
-    (source("next"), source("after"), AbciMetrics::candidate_total_stake().get())
+/// The signing gauges: `abci_signing_source` of the `next` and `after` sets, the reasons
+/// `abci_fallback_reason` raises for each, and `abci_candidate_total_stake` and
+/// `abci_min_total_stake`.
+#[derive(Debug, PartialEq)]
+struct SigningGauges {
+    sources: (i64, i64),
+    reasons: (Vec<&'static str>, Vec<&'static str>),
+    total: f64,
+    min: f64,
 }
 
-/// The signing-source gauges follow a switch to a candidate and back to the fallback keys, one
-/// height apart for the set that signs the next height and the one after it (0 candidate,
-/// 1 fallback), and the candidate total stake gauge shows the total stake of the candidate that
-/// signs the later of them, 0 while the fallback keys sign it. A restarted app publishes them
+/// The signing gauges as published now; every reason series is 0 or 1.
+fn signing_gauges() -> SigningGauges {
+    let source = |set: &str| AbciMetrics::signing_source().with_label_values(&[set]).get();
+    let raised = |set: &str| -> Vec<&'static str> {
+        FallbackReason::ALL
+            .iter()
+            .map(|reason| reason.label())
+            .filter(|label| {
+                let value = AbciMetrics::fallback_reason().with_label_values(&[set, label]).get();
+                assert!(value == 0 || value == 1, "{set}/{label} = {value}");
+                value == 1
+            })
+            .collect()
+    };
+    SigningGauges {
+        sources: (source("next"), source("after")),
+        reasons: (raised("next"), raised("after")),
+        total: AbciMetrics::candidate_total_stake().get(),
+        min: AbciMetrics::min_total_stake().get(),
+    }
+}
+
+/// The signing gauges for the sources and raised reasons of `next` and `after` and the total
+/// stake and minimum that decided `after`.
+fn gauges(
+    sources: (i64, i64),
+    next: &[&'static str],
+    after: &[&'static str],
+    total: u64,
+    min: u64,
+) -> SigningGauges {
+    let (total, min) = (f64::from(U256::from(total)), f64::from(U256::from(min)));
+    SigningGauges { sources, reasons: (next.to_vec(), after.to_vec()), total, min }
+}
+
+/// The signing gauges follow a switch to a candidate and back to the fallback keys, one height
+/// apart for the set that signs the next height and the one after it (`abci_signing_source`:
+/// 0 candidate, 1 fallback), with the reason each fallback set signs for. The candidate total
+/// stake and the minimum that decided the later set are published whichever source won, so a
+/// total below the minimum shows while the fallback keys sign. A restarted app publishes them
 /// from its store.
 #[tokio::test]
 async fn gauges_follow_a_mode_switch() {
@@ -91,27 +132,36 @@ async fn gauges_follow_a_mode_switch() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
-    assert_eq!(signing_gauges(), (1, 1, 0.0), "the origin keys sign both");
+    let origin = &["generation_origin"];
+    assert_eq!(signing_gauges(), gauges((1, 1), origin, origin, 0, 0), "nothing decided yet");
 
     let members = [(test_key(11), 5), (test_key(12), 7)];
     let h = next_height(&app);
     step(&mut app, Some(snapshot(h, 4_000, &members))).await;
-    assert_eq!(signing_gauges(), (1, 0, 4_000.0));
+    assert_eq!(signing_gauges(), gauges((1, 0), origin, &[], 4_000, MIN_STAKE));
     step(&mut app, Some(snapshot(h + 1, 5_000, &members))).await;
-    assert_eq!(signing_gauges(), (0, 0, 5_000.0));
+    assert_eq!(signing_gauges(), gauges((0, 0), &[], &[], 5_000, MIN_STAKE));
     step(&mut app, Some(snapshot(h + 2, MIN_STAKE - 1, &members))).await;
-    assert_eq!(signing_gauges(), (0, 1, 0.0), "a total below the minimum falls back");
+    let below = &["below_min_total_stake"];
+    assert_eq!(signing_gauges(), gauges((0, 1), &[], below, MIN_STAKE - 1, MIN_STAKE));
     step(&mut app, None).await;
-    assert_eq!(signing_gauges(), (1, 1, 0.0));
+    let stale = &["stale_snapshot"];
+    assert_eq!(signing_gauges(), gauges((1, 1), below, stale, 0, MIN_STAKE));
     step(&mut app, Some(snapshot(h + 4, 6_000, &members))).await;
-    assert_eq!(signing_gauges(), (1, 0, 6_000.0));
+    let expected = gauges((1, 0), stale, &[], 6_000, MIN_STAKE);
+    assert_eq!(signing_gauges(), expected);
 
     drop(app);
-    AbciMetrics::signing_source().with_label_values(&["next"]).set(-1);
-    AbciMetrics::signing_source().with_label_values(&["after"]).set(-1);
+    for set in ["next", "after"] {
+        AbciMetrics::signing_source().with_label_values(&[set]).set(-1);
+        for reason in FallbackReason::ALL {
+            AbciMetrics::fallback_reason().with_label_values(&[set, reason.label()]).set(1);
+        }
+    }
     AbciMetrics::candidate_total_stake().set(-1.0);
+    AbciMetrics::min_total_stake().set(-1.0);
     let _app = fx.app(dir.path());
-    assert_eq!(signing_gauges(), (1, 0, 6_000.0), "the restarted app publishes its store's sets");
+    assert_eq!(signing_gauges(), expected, "the restarted app publishes its store's sets");
 }
 
 #[tokio::test]

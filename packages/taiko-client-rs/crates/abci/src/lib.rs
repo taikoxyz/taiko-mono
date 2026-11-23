@@ -95,6 +95,8 @@ pub use server::{
     AbciHandler, AppService, ConnectionEpoch, ExitProcess, HaltHook, ListenAddr,
     SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
 };
-pub use store::{AppState, ExecutionFloor, SignerStatus, Signers, Store, StoreError};
+pub use store::{
+    AppState, ExecutionFloor, FallbackReason, SignerStatus, Signers, Store, StoreError,
+};
 pub use switch::{SwitchOrigin, l2_signal_service_address};
 pub use types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts, ParentInfo, StorageProof};

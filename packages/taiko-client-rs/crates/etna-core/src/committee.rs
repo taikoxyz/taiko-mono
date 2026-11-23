@@ -7,7 +7,7 @@
 //! `snapshotHeight` equals H in all 256 bits, its `snapshotTotalStake` is at least M and its
 //! records form a valid set. Otherwise the fallback key set whose hash H's anchor proves signs in
 //! its place, each key at power 1. The choice is made again at every block, with no hysteresis,
-//! and an unusable candidate is never an error.
+//! and an unusable candidate is never a fault: [`Unusable`] only names the condition it fails.
 //!
 //! A generation's first two blocks are signed by the fallback keys of its origin record whatever
 //! the candidate is; callers apply that rule and authenticate every input themselves.
@@ -44,6 +44,23 @@ pub struct SignerSet {
     pub members: Vec<(ConsensusKey, u64)>,
 }
 
+/// Why a candidate snapshot is not usable at a height: the first usability condition it fails,
+/// in the order [`candidate_members`] checks them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Unusable {
+    /// The minimum total stake is `2^256 − 1`, with which the DAO hands every block to the
+    /// fallback key set whatever the snapshot holds.
+    MinTotalStakeMax,
+    /// `snapshotHeight` differs from the height in some bit: the height's own block-start call
+    /// did not write the snapshot, for example because it failed.
+    StaleSnapshot,
+    /// `snapshotTotalStake` is below the minimum total stake.
+    BelowMinTotalStake,
+    /// The records form no valid set: a malformed record, a power of 0, a repeated key, no
+    /// member, or powers whose sum exceeds [`MAX_TOTAL_POWER`].
+    InvalidSet,
+}
+
 /// Whether the candidate's header words leave it usable at `height`, so that its records decide:
 /// the minimum total stake is not `2^256 − 1`, `snapshot_height` equals `height` in all 256 bits
 /// and `total_stake` is at least the minimum. When this is false the candidate is unusable
@@ -54,13 +71,22 @@ pub fn needs_records(
     total_stake: U256,
     min_total_stake: U256,
 ) -> bool {
-    min_total_stake != U256::MAX &&
-        snapshot_height == U256::from(height) &&
-        total_stake >= min_total_stake
+    check_header(height, snapshot_height, total_stake, min_total_stake).is_ok()
 }
 
 /// The members of the candidate `words` when it is usable at `height` under the minimum total
-/// stake `min_total_stake`, in ascending key order; `None` when it is not.
+/// stake `min_total_stake`, in ascending key order; `None` when it is not
+/// ([`candidate_members`]).
+pub fn usable_candidate(
+    height: u64,
+    words: &StakingWords,
+    min_total_stake: U256,
+) -> Option<Vec<(ConsensusKey, u64)>> {
+    candidate_members(height, words, min_total_stake).ok()
+}
+
+/// The members of the candidate `words` when it is usable at `height` under the minimum total
+/// stake `min_total_stake`, in ascending key order, or the first condition it fails.
 ///
 /// Beyond [`needs_records`], every record must be an empty seat (both words zero) or hold a
 /// member: its second word packs `ckPrefix` in bits 0–7 and a power of at least 1 in bits 8–71
@@ -68,29 +94,50 @@ pub fn needs_records(
 /// count, whatever the contract's seat limit is. The members' keys are distinct, there are 1 to
 /// [`MAX_SET_MEMBERS`] of them, and their powers' exact sum is at most [`MAX_TOTAL_POWER`].
 /// Powers are used as stored; no record is dropped or rescaled to make the set valid.
-pub fn usable_candidate(
+pub fn candidate_members(
     height: u64,
     words: &StakingWords,
     min_total_stake: U256,
-) -> Option<Vec<(ConsensusKey, u64)>> {
-    if !needs_records(height, words.snapshot_height, words.total_stake, min_total_stake) {
-        return None;
-    }
+) -> Result<Vec<(ConsensusKey, u64)>, Unusable> {
+    check_header(height, words.snapshot_height, words.total_stake, min_total_stake)?;
     let mut members = Vec::new();
     for [x, packed] in &words.records {
         if x.is_zero() && packed.is_zero() {
             continue;
         }
-        members.push(decode_member(*x, *packed)?);
+        members.push(decode_member(*x, *packed).ok_or(Unusable::InvalidSet)?);
     }
     members.sort_unstable();
     let distinct = members.windows(2).all(|pair| pair[0].0 != pair[1].0);
     // At most 128 powers below 2^64 each: the exact sum fits a u128.
     let total: u128 = members.iter().map(|(_, power)| u128::from(*power)).sum();
-    (distinct &&
+    if distinct &&
         (1..=MAX_SET_MEMBERS).contains(&members.len()) &&
-        total <= u128::from(MAX_TOTAL_POWER))
-    .then_some(members)
+        total <= u128::from(MAX_TOTAL_POWER)
+    {
+        Ok(members)
+    } else {
+        Err(Unusable::InvalidSet)
+    }
+}
+
+/// The first header condition of usability at `height` that the snapshot words fail, in the
+/// order of [`Unusable`]'s variants.
+fn check_header(
+    height: u64,
+    snapshot_height: U256,
+    total_stake: U256,
+    min_total_stake: U256,
+) -> Result<(), Unusable> {
+    if min_total_stake == U256::MAX {
+        Err(Unusable::MinTotalStakeMax)
+    } else if snapshot_height != U256::from(height) {
+        Err(Unusable::StaleSnapshot)
+    } else if total_stake < min_total_stake {
+        Err(Unusable::BelowMinTotalStake)
+    } else {
+        Ok(())
+    }
 }
 
 /// The set that signs `height + 2`, decided at `height` from the candidate snapshot `words` that

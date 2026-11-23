@@ -31,7 +31,7 @@ use crate::{
     envelope::EtnaEnvelope,
     fallback::FallbackKeys,
     key::ConsensusKey,
-    store::AppState,
+    store::{AppState, SignerStatus},
     test_utils::{
         GenesisSpec, InboxStorage, L1Call, LogCapture, fallback_list, init_chain_request,
         recovery_fixture, serve_fallback_keys, test_key, test_options,
@@ -550,6 +550,13 @@ async fn finalize_replay_with_the_el_already_at_h_returns_identical_updates_and_
     let replayed = finalize(&mut app, req).await.expect("the replay finalizes");
     assert_eq!(replayed, first);
     assert_eq!(app.pending.as_ref(), Some(&pending));
+    let decided = SignerStatus::candidate(
+        committed.last_height + 1,
+        U256::from(MIN_STAKE),
+        U256::from(MIN_STAKE),
+        2,
+    );
+    assert_eq!(pending.signers.after, decided, "the replay records the same decision");
     let reads = storage_reads(&app);
     assert!(!reads.is_empty() && reads.iter().all(|(at, _)| *at == hash), "{reads:?}");
 }
