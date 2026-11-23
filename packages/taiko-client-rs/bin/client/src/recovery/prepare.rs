@@ -13,13 +13,22 @@ use abci::{
 };
 use std::{sync::Arc, time::Duration};
 
-/// Deadline of each L1 read, independent of the provider's own transport deadline. Only single
-/// reads are bounded, never the acquisition as a whole: the origin fallback key list of a
+/// Deadline of each L1 read; the transport of [`own_l1`] never times a request out earlier. Only
+/// single reads are bounded, never the acquisition as a whole: the origin fallback key list of a
 /// generation whose list was stored long before R comes, on an L1 without archive state at R,
 /// from a backward log scan of many queries, which must be able to finish.
-const L1_READ_DEADLINE: Duration = Duration::from_secs(30);
+pub(crate) const L1_READ_DEADLINE: Duration = Duration::from_secs(30);
 /// Deadline of the read-only EL state check at c.
 const READ_DEADLINE: Duration = Duration::from_secs(10);
+
+/// The own L1 at `url` for [`prepare`]. Its HTTP request timeout is at least
+/// [`L1_READ_DEADLINE`], so the transport never cuts a read short of its deadline.
+pub fn own_l1(url: url::Url) -> abci::RpcL1Source {
+    abci::RpcL1Source::new(rpc::client::connect_http_with_timeout(
+        url,
+        rpc::client::http_timeout_for(L1_READ_DEADLINE),
+    ))
+}
 
 /// Authenticates generation `generation` on the node's own finalized L1 and returns its plan.
 ///

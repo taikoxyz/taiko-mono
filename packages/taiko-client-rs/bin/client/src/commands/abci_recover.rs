@@ -8,7 +8,7 @@ use crate::{
         RecoveryCommandError,
         install::install,
         plan::RecoveryPlan,
-        prepare::prepare,
+        prepare::{own_l1, prepare},
         status::{RecoveryStatus, status},
     },
 };
@@ -107,12 +107,7 @@ impl AbciRecoverSubCommand {
                     expected_l1,
                     rpc_chain_id(&endpoints.l1_http_endpoint, "l1.http").await?,
                 )?;
-                let l1 = std::sync::Arc::new(abci::RpcL1Source::new(
-                    rpc::client::connect_http_with_timeout(
-                        endpoints.l1_http_endpoint.clone(),
-                        rpc::client::DEFAULT_HTTP_TIMEOUT,
-                    ),
-                ));
+                let l1 = std::sync::Arc::new(own_l1(endpoints.l1_http_endpoint.clone()));
                 let engine = abci::RpcEngine::new(
                     endpoints.l2_http_endpoint.clone(),
                     endpoints.l2_auth_endpoint.clone(),

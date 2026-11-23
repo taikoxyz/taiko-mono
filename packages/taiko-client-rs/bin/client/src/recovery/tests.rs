@@ -1,7 +1,7 @@
 use super::{
     install::{install, normalized_comet_config, parse_comet_template},
     plan::*,
-    prepare::prepare,
+    prepare::{L1_READ_DEADLINE, own_l1, prepare},
     status::*,
     *,
 };
@@ -864,6 +864,36 @@ async fn recovery_engine_read_deadlines_bound_a_stalled_public_endpoint() {
     let start = tokio::time::Instant::now();
     assert!(engine.historical_state_available(B256::repeat_byte(9)).await.is_err());
     assert!(start.elapsed() <= std::time::Duration::from_secs(10));
+    task.abort();
+}
+
+/// `prepare`'s own L1 lets each read run to its own deadline: a log query that the L1 answers
+/// after 20 s, past the default 12 s HTTP request timeout but within the 30 s of one read,
+/// completes instead of being cut by the transport. The server pauses the clock once the request
+/// has arrived, so the connection is made in real time and only the wait runs on virtual time.
+#[tokio::test]
+async fn prepare_l1_transport_never_cuts_a_read_short_of_its_deadline() {
+    use serde_json::{Value, json};
+    let answer = Duration::from_secs(20);
+    assert!(rpc::client::DEFAULT_HTTP_TIMEOUT < answer && answer < L1_READ_DEADLINE);
+    let app = axum::Router::new().route(
+        "/",
+        axum::routing::post(move |axum::Json(body): axum::Json<Value>| async move {
+            tokio::time::pause();
+            tokio::time::sleep(answer).await;
+            axum::Json(json!({"jsonrpc": "2.0", "id": body["id"], "result": []}))
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let l1 = abci::l1::ReadBounded {
+        l1: Arc::new(own_l1(url.parse().unwrap())),
+        limit: L1_READ_DEADLINE,
+    };
+    let start = tokio::time::Instant::now();
+    assert_eq!(l1.inbox_logs(Address::ZERO, B256::ZERO, B256::ZERO, 1, 10_000).await, Ok(vec![]));
+    assert!(start.elapsed() >= answer, "{:?}", start.elapsed());
     task.abort();
 }
 
