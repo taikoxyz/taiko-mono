@@ -3,10 +3,12 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 import "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
 
 contract TestSignalService is CommonTest {
+    address private constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     address private constant AUTHORIZED_SYNCER =
         address(uint160(uint256(keccak256("authorized_syncer"))));
     address private constant REMOTE_SIGNAL_SERVICE = 0x604C61d6618AaCdF7a7A2Fe4c42E35Ecba32AE75;
@@ -231,6 +233,103 @@ contract TestSignalService is CommonTest {
         vm.chainId(originalChainId);
     }
 
+    function test_getCheckpoint_EtnaUpgradePreservesLegacyRecordSlots() public {
+        uint48 height = uint48(VALID_PROOF_BLOCK_ID);
+        _saveCheckpoint(height, VALID_PROOF_STATE_ROOT);
+        EtnaSignalService etna = _upgradeSignalService(false);
+        assertEq(etna.VERSION(), 1);
+        assertEq(etna.getStateRoot(height), VALID_PROOF_STATE_ROOT);
+        assertEq(etna.getCheckpoint(height).stateRoot, VALID_PROOF_STATE_ROOT);
+        etna.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
+
+        // The retired hash word precedes the state root in each version-1 record at slot 254.
+        bytes32 hashSlot = _checkpointHashSlot(height);
+        bytes32 rootSlot = bytes32(uint256(hashSlot) + 1);
+        bytes32 nextRoot = keccak256("updated state");
+        vm.prank(AUTHORIZED_SYNCER);
+        etna.saveCheckpoint(ICheckpointStore.Checkpoint(height, bytes32(0), nextRoot));
+        assertEq(vm.load(address(etna), hashSlot), VALID_BLOCK_HASH);
+        assertEq(vm.load(address(etna), rootSlot), nextRoot);
+        assertEq(etna.getCheckpoint(height).blockHash, bytes32(0));
+        assertEq(etna.getStateRoot(height), nextRoot);
+    }
+
+    function test_saveCheckpoint_EtnaStoresOnlyRootAndEmitsSuppliedHash() public {
+        EtnaSignalService etna = _upgradeSignalService(false);
+        vm.expectEmit(address(etna));
+        emit ICheckpointStore.CheckpointSaved(20, VALID_BLOCK_HASH, VALID_PROOF_STATE_ROOT);
+        _saveCheckpoint(20, VALID_PROOF_STATE_ROOT);
+        ICheckpointStore.Checkpoint memory cp = etna.getCheckpoint(20);
+        assertEq(cp.blockNumber, 20);
+        assertEq(cp.blockHash, bytes32(0));
+        assertEq(cp.stateRoot, VALID_PROOF_STATE_ROOT);
+        assertEq(vm.load(address(etna), _checkpointHashSlot(20)), bytes32(0));
+
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        etna.saveCheckpoint(cp);
+        vm.prank(AUTHORIZED_SYNCER);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        etna.saveCheckpoint(ICheckpointStore.Checkpoint(21, VALID_BLOCK_HASH, bytes32(0)));
+    }
+
+    function test_getStateRoot_EtnaL1OnlyUsesStoredCheckpoints() public {
+        EtnaSignalService etna = _upgradeSignalService(false);
+        _saveCheckpoint(1, VALID_PROOF_STATE_ROOT);
+        uint64 timestamp = (uint64(1) << 48) + 1;
+        vm.mockCall(BEACON_ROOTS, abi.encode(timestamp), abi.encode(VALID_PROOF_STATE_ROOT));
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        etna.getStateRoot(timestamp);
+    }
+
+    function test_saveCheckpoint_EtnaL2OnlyWritesOnSuccessfulZeroBeaconRead() public {
+        EtnaSignalService etna = _upgradeSignalService(true);
+        bytes memory query = abi.encode(block.timestamp);
+        ICheckpointStore.Checkpoint memory cp =
+            ICheckpointStore.Checkpoint(7, bytes32(0), VALID_PROOF_STATE_ROOT);
+
+        vm.etch(BEACON_ROOTS, hex"");
+        vm.startPrank(AUTHORIZED_SYNCER);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
+        etna.saveCheckpoint(cp);
+        vm.mockCall(BEACON_ROOTS, query, hex"00");
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
+        etna.saveCheckpoint(cp);
+        vm.mockCall(BEACON_ROOTS, query, abi.encode(VALID_PROOF_STATE_ROOT));
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
+        etna.saveCheckpoint(cp);
+        vm.mockCall(BEACON_ROOTS, query, abi.encode(bytes32(0)));
+        etna.saveCheckpoint(cp);
+        vm.stopPrank();
+
+        vm.mockCall(BEACON_ROOTS, abi.encode(uint256(7)), abi.encode(keccak256("another root")));
+        assertEq(etna.getStateRoot(7), cp.stateRoot);
+    }
+
+    function test_proveSignalReceived_EtnaL2UsesFullTimestampAndCachesProof() public {
+        EtnaSignalService etna = _upgradeSignalService(true);
+        ISignalService.HopProof[] memory proofs =
+            abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
+        uint64 timestamp = uint64(VALID_PROOF_BLOCK_ID) + (uint64(1) << 48);
+        proofs[0].blockId = timestamp;
+        bytes memory proof = abi.encode(proofs);
+        bytes memory query = abi.encode(timestamp);
+
+        vm.mockCall(BEACON_ROOTS, query, abi.encode(bytes32(0)));
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        etna.getStateRoot(timestamp);
+
+        vm.mockCall(BEACON_ROOTS, query, abi.encode(VALID_PROOF_STATE_ROOT));
+        assertEq(etna.getStateRoot(timestamp), VALID_PROOF_STATE_ROOT);
+        etna.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
+        vm.mockCall(BEACON_ROOTS, query, abi.encode(keccak256("different root")));
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        etna.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
+        vm.mockCallRevert(BEACON_ROOTS, query, hex"");
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        etna.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
+        etna.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
     // ---------------------------------------------------------------
     // Pause authorization (owner or designated immutable pauser)
     // ---------------------------------------------------------------
@@ -292,6 +391,19 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function _upgradeSignalService(bool usesBeaconRoots) private returns (EtnaSignalService) {
+        EtnaSignalService impl = new EtnaSignalService(
+            AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, address(0), usesBeaconRoots
+        );
+        vm.prank(deployer);
+        signalService.upgradeTo(address(impl));
+        return EtnaSignalService(address(signalService));
+    }
+
+    function _checkpointHashSlot(uint48 height) private pure returns (bytes32) {
+        return keccak256(abi.encode(height, keccak256(abi.encode(uint256(1), uint256(254)))));
     }
 
     function _deployWithPauser(address pauser) private returns (SignalService) {
