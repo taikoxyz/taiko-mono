@@ -25,17 +25,10 @@ interface ISignalService is ICheckpointStore {
         /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
         /// hop's source chain ID.
         uint64 chainId;
-        /// @notice The ID of a source chain block whose state root has been synced to the hop's
-        /// destination chain.
-        /// Note that this block ID must be greater than or equal to the block ID where the signal
-        /// was sent on the source chain.
+        /// @notice Remote checkpoint height, or on Etna L2 the local timestamp that recorded
+        /// the remote root through EIP-4788.
         uint64 blockId;
-        /// @notice The state root or signal root of the source chain at the above blockId. This
-        /// value has been synced to the destination chain.
-        /// @dev To get both the blockId and the rootHash, apps should subscribe to the
-        /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
-        /// LibStrings.H_STATE_ROOT to get the most recent block ID synced, then call
-        /// `getSyncedChainData` to read the synchronized data.
+        /// @notice The remote state root for blockId against which to verify the signal.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
         /// current chain.

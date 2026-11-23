@@ -13,7 +13,7 @@ interface ICheckpointStore {
     struct Checkpoint {
         /// @notice The block number associated with the checkpoint.
         uint48 blockNumber;
-        /// @notice The block hash for the referenced block.
+        /// @notice Hash supplied by the writer. Etna emits it and returns zero on reads.
         bytes32 blockHash;
         /// @notice The state root for the referenced block.
         bytes32 stateRoot;
@@ -34,7 +34,7 @@ interface ICheckpointStore {
     // ---------------------------------------------------------------
 
     /// @notice Saves a checkpoint
-    /// @param _checkpoint The checkpoint data to persist
+    /// @param _checkpoint The checkpoint supplied by the authorized writer
     function saveCheckpoint(Checkpoint calldata _checkpoint) external;
 
     /// @notice Gets a checkpoint by its block number
