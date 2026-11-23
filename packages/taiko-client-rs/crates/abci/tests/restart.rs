@@ -1,7 +1,8 @@
-//! Docker scenario on one single-validator devnet, whose phases each run past the height the
-//! global schedule names as the first epoch's start:
+//! Docker scenario on one single-validator devnet, whose one key is the Inbox's fallback key list
+//! and whose `minTotalStake` of 2^256 − 1 makes no candidate usable:
 //!
-//! 1. the genesis validator still signs there alone, with no committee publication on L1;
+//! 1. the fallback key signs every block alone at power 1, each set decided per block from the
+//!    planted L1 state with no publication;
 //! 2. stopping the `abci` app mid-chain and starting it again over the same store recovers through
 //!    the CometBFT handshake, leaving the L2 chain below the old head unchanged;
 //! 3. missing app state is reconstructed from the intact CometBFT history, its signing set
@@ -33,25 +34,25 @@ async fn validator_set(
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::Result<()> {
+async fn fallback_signer_restart_and_state_loss_recover_on_one_devnet() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    // A height well past the first two blocks, where the removed epoch schedule switched.
+    // A height well past the generation's first two blocks, which the origin record's list signs.
     let h = 21;
     devnet.wait_for_height(0, (h + 5).max(26), Duration::from_secs(90)).await?;
 
-    // 1. The genesis validator signs alone past h; no epoch mapping exists or is written.
-    assert_eq!(validator_set(&devnet, h).await?, validator_set(&devnet, 1).await?);
-    assert_eq!(validator_set(&devnet, h).await?.len(), 1);
-    for epoch in [1, 2, 3] {
-        let legacy_mapping_slot = alloy_primitives::keccak256(
-            [abci::l1::layout::inbox::slot(epoch), abci::l1::layout::inbox::slot(278)].concat(),
-        );
-        assert!(
-            devnet.planter().inbox_word(legacy_mapping_slot).await?.is_zero(),
-            "no future committee mapping output for epoch {epoch}"
+    // 1. Every block decides the fallback key alone at power 1, for the reason that the minimum
+    //    total stake is 2^256 − 1.
+    let key = devnet.keys()[0].pubkey();
+    for height in 1..=h {
+        assert_eq!(
+            validator_set(&devnet, height).await?,
+            BTreeSet::from([(key, 1)]),
+            "the set that signs {height}"
         );
     }
+    let signers = devnet.cmt(0).abci_signers().await?;
+    assert_eq!(signers.after.fallback_reason, Some(abci::FallbackReason::MinTotalStakeMax));
     assert_eq!(devnet.app_halt(0), None);
 
     // 2. Stop the app mid-chain and recover through the handshake.
@@ -83,9 +84,9 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
         old_hashes,
         "L2 chain changed below the old head"
     );
-    // Header h + 1 commits appHash(h) (CONS-3.1-8). The one validator keeps its key and power,
-    // so no rotation returns an update (COMM-4.3-13) and the validator state after h is the
-    // genesis one advanced h times.
+    // Header h + 1 commits the app hash of h's EL block and validator state. Every block decides
+    // the same fallback key set, so no FinalizeBlock returns an update and the validator state
+    // after h is the genesis one advanced h times.
     let genesis_set: Vec<_> = validator_set(&devnet, 1).await?.into_iter().collect();
     assert_eq!(genesis_set.len(), 1);
     let mut val_state = abci::valstate::ValState::genesis(0, &genesis_set)?;

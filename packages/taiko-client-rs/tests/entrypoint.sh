@@ -33,7 +33,7 @@ cd "$DIR/.."
 filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
-    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=four_validator_native_consensus_fees_fi_epoch_landing_and_restart) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=four_validator_native_consensus_fees_fi_landing_and_restart) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
 elif [[ "${1:-}" == "--full" ]]; then
     shift
     filter='kind(test)'

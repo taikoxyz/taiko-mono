@@ -30,6 +30,7 @@ fn rpc_data(chain: &FixtureChain) -> RpcData {
         blocks: chain.blocks.clone(),
         headers: chain.headers.clone(),
         val_states: chain.val_states.iter().map(abci::valstate::ValState::encode).collect(),
+        validators: chain.validators.validators().iter().map(|v| (v.pub_key, v.power())).collect(),
     }
 }
 
@@ -94,7 +95,8 @@ fn assert_key_absent(process: &CliProcess) {
 
 /// One devnet covers both restart kinds: SIGKILL while a landing is pending resumes the same signed
 /// bytes and nonce, and SIGTERM after a landing exits cleanly and the next process resumes the
-/// cross-epoch suffix in one further landing.
+/// suffix in one further landing, rebuilding the landed checkpoint's signing sets from the
+/// archived `/validators` and each later block's set from its staking read.
 #[tokio::test]
 #[ignore = "docker"]
 async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<()> {
@@ -169,10 +171,10 @@ async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<
                 (resumed_height, chain.headers[usize::try_from(resumed_height)?].hash_slow()),
             "resumed CLI checkpoint differs"
         );
-        // The available cross-epoch suffix lands in one batch.
+        // The available suffix lands in one batch.
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
-            "cross-epoch progress must use exactly one further landing nonce"
+            "the suffix must use exactly one further landing nonce"
         );
         ensure!(
             third.signal(libc::SIGTERM).await?.success(),
@@ -466,6 +468,7 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             blocks: Vec::new(),
             headers: Vec::new(),
             val_states: Vec::new(),
+            validators: Vec::new(),
         })
         .await?;
         *rpc.engine_reply.write().await = (status, body);

@@ -28,7 +28,8 @@ RECOVERY_IMAGE = {
 LONG_FENCE = "support::checkpoint_import::long_fence::native_long_fence_restarts_and_executes_with_body_pruned_parents"
 NATIVE_EL = {
     "support::checkpoint_import::checkpoint_import_latest_full_node_restarts_forced_skips_and_retries",
-    "support::checkpoint_import::registered_checkpoint_older_signs_proposes_and_lands",
+    "support::checkpoint_import::checkpoint_import_older_validator_signs_proposes_and_lands",
+    "support::checkpoint_import::checkpoint_import_across_a_candidate_and_fallback_switch",
     "support::checkpoint_import::checkpoint_import_fixed_origin_runs_original_stock_init_chain",
     "checkpoint_import_recovered_fixed_and_landed_points_continue_stock",
     LONG_FENCE,

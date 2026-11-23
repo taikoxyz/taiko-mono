@@ -190,7 +190,7 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         self.assertIn(["docker", "pull", "--quiet", "reviewed:external"], self.calls())
 
     def test_native_checkpoint_prepares_el_and_comet_without_recovery_image(self):
-        self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_older_signs_proposes_and_lands")
+        self.select("governance_recovery", "support::checkpoint_import::checkpoint_import_older_validator_signs_proposes_and_lands")
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime"})

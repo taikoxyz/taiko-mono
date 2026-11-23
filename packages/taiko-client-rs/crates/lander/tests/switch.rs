@@ -1,39 +1,52 @@
-//! The switch's start write and first landing on the pinned contracts (START-10-5/5a/5c,
-//! LAND-6.1-8a): a mock live Unzen Inbox serves `proposeCutoff()` and `getCoreState()`, its
-//! checkpoint at S reaches the L1 SignalService through the EtnaInbox forwarder, an account
-//! with no role writes the start, the client authenticates it from its own L1 view, the first
-//! landing from S reads no Unzen state, and the forwarder is closed afterwards.
+//! The switch's start write and first landing on the pinned contracts: a mock live Unzen Inbox
+//! serves `proposeCutoff()` and `getCoreState()`, its checkpoint at S reaches the L1
+//! SignalService through the EtnaInbox forwarder, an account with no role writes the start, the
+//! client authenticates it from its own L1 view, the lander's first batch from S carries the
+//! implementation proofs of the L2 SignalService and `EtnaStaking` proxies at S and lands without
+//! reading Unzen state, and the forwarder is closed afterwards. S is a real block of the fixture's
+//! EL, so both proofs verify under its state root.
 mod support;
 
+use abci::{
+    Engine, ParentInfo, PayloadVerdict,
+    envelope::AnchorWitness,
+    l1::{
+        layout::inbox,
+        source::{L1Source, RpcL1Source},
+        witness::verify_anchor_witness,
+    },
+    rules::{self, HeaderInputs},
+};
 use alloy::{
-    eips::eip2718::Encodable2718,
-    rpc::types::{TransactionReceipt, TransactionRequest},
-    signers::SignerSync,
+    rpc::types::TransactionReceipt,
     sol_types::{SolCall, SolError},
 };
-use alloy_consensus::{
-    Header, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-};
-use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
+use alloy_consensus::Header;
+use alloy_eips::BlockId;
+use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48, b256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
 use lander::{
     SidecarMode,
-    contracts::IEtnaInbox::{LandInput, landCall},
     l1::{LandingSource, RpcLandingSource},
+    tx::{FeeCaps, RpcTransactionTransport, TransactionTransport},
 };
 use support::{
     ContractFixture,
     contracts::{
-        EtnaInbox, ICheckpointStore, MockUnzenInbox, SignalService, Switching, USER_KEY, receipt,
-        transact, view,
+        EtnaInbox, ICheckpointStore, L2_CHAIN_ID, MockUnzenInbox, SignalService, Switching,
+        USER_KEY, receipt, transact, view,
     },
-    fixtures::limits,
+    fixtures::FixtureChain,
 };
 use test_harness::{anvil_request, dev_signer, mine_l1_blocks};
 
-/// The Etna start S, the last Unzen block.
-const S: u64 = 7;
+/// The Etna start S, the last Unzen block: the first block on the fixture's EL genesis.
+const S: u64 = 1;
+
+/// The EIP-1967 implementation slot.
+const IMPLEMENTATION_SLOT: B256 =
+    b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
 
 /// Calls `to` with `input` from `sender` and requires a revert carrying the custom error
 /// `selector`, without mining anything.
@@ -95,48 +108,58 @@ async fn now(p: &RootProvider) -> Result<u64> {
         .timestamp)
 }
 
-/// Lands (S, S + 1] with one blob, signed by the dev account: the mock verifier accepts any
-/// statement, so this checks the Inbox's own landing rules at the start.
-async fn land_first(f: &ContractFixture) -> Result<TransactionReceipt> {
-    let p = &f.anvil.provider;
-    let signer = dev_signer();
-    let blobs = lander::blob::build(&[0xc0], &limits(), SidecarMode::Eip7594)?;
-    let input = LandInput {
-        parentHeight: U256::from(S),
-        lastHeight: U256::from(S + 1),
-        lastBlockHash: B256::repeat_byte(0x51),
-        lastCometHash: B256::repeat_byte(0x52),
-        lastStateRoot: B256::repeat_byte(0x53),
-        l1ReferenceBlockNumber: U256::from(p.get_block_number().await?),
-        forcedInclusionHead: U256::ZERO,
+/// Builds S on the EL's genesis through the Engine API, with no transaction, and makes it
+/// canonical. Its state holds the genesis's L2 SignalService and `EtnaStaking` proxies, each with
+/// its implementation; its timestamp, the anchor's, is before `ETNA_FORK_TIME`.
+async fn build_start(f: &ContractFixture) -> Result<Header> {
+    let source = RpcL1Source::new(f.anvil.provider.clone());
+    let number = source.finalized_number().await?;
+    let l1_header = source.header(number).await?;
+    let witness = source.account_witness(f.inbox, &inbox::anchor_slots(), number).await?;
+    let anchor = verify_anchor_witness(&AnchorWitness { l1_header, inbox: witness }, f.inbox)?;
+    let genesis = &f.parent_header;
+    let parent = ParentInfo {
+        number: genesis.number,
+        hash: genesis.hash_slow(),
+        timestamp: genesis.timestamp,
+        gas_limit: genesis.gas_limit,
+        gas_used: genesis.gas_used,
+        base_fee: genesis.base_fee_per_gas.context("genesis base fee")?,
+        difficulty: genesis.difficulty,
+        grandparent_timestamp: 0,
     };
-    let mut tx = TxEip4844 {
-        chain_id: p.get_chain_id().await?,
-        nonce: p.get_transaction_count(signer.address()).await?,
-        gas_limit: 0,
-        max_fee_per_gas: 20_000_000_000,
-        max_priority_fee_per_gas: 1_000_000_000,
-        to: f.inbox,
-        value: U256::ZERO,
-        access_list: Default::default(),
-        blob_versioned_hashes: blobs.versioned_hashes.clone(),
-        max_fee_per_blob_gas: 20_000_000_000,
-        input: landCall { _input: input, _leaves: vec![], _proof: Bytes::from_static(&[0]) }
-            .abi_encode()
-            .into(),
-    };
-    let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(signer.address());
-    estimate.gas = None;
-    let estimated = p.estimate_gas(estimate).await.context("first landing estimate")?;
-    tx.gas_limit = estimated + estimated / 5;
-    let variant: TxEip4844Variant =
-        TxEip4844WithSidecar::from_tx_and_sidecar(tx, blobs.sidecar).into();
-    let signature = signer.sign_hash_sync(&variant.signature_hash())?;
-    let network = TxEnvelope::Eip4844(variant.into_signed(signature)).encoded_2718();
-    let hash = *p.send_raw_transaction(&network).await?.tx_hash();
-    let landed = receipt(p, hash).await?;
-    ensure!(landed.status(), "the first landing from S reverted: {hash}");
-    Ok(landed)
+    let expected = rules::expected_header(&HeaderInputs {
+        height: S,
+        beneficiary: f.params.fee_recipient,
+        parent: &parent,
+        anchor: &anchor,
+        bft_time_secs: anchor.timestamp,
+        generation: 0,
+        miss_bitmap: 0,
+        params: &f.params,
+        min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(L2_CHAIN_ID),
+    })?;
+    let engine = f.l2.engine()?;
+    let attributes =
+        rules::payload_attributes(&expected, anchor.hash, Some(Bytes::from_static(&[0xc0])));
+    let block = engine.build_block(parent.hash, attributes).await?;
+    rules::check_header(&block.header, &expected)?;
+    ensure!(engine.new_payload(&block).await? == PayloadVerdict::Valid, "S is not valid");
+    let hash = block.header.hash_slow();
+    ensure!(
+        engine.forkchoice(hash, hash, B256::ZERO).await? == PayloadVerdict::Valid,
+        "S did not become canonical"
+    );
+    Ok(block.header)
+}
+
+/// The implementation the EIP-1967 slot of `proxy` holds in the state of L2 block `at`.
+async fn implementation(f: &ContractFixture, proxy: Address, at: B256) -> Result<Address> {
+    let slot = U256::from_be_bytes(IMPLEMENTATION_SLOT.0);
+    let word = f.l2.provider.get_storage_at(proxy, slot).block_id(BlockId::hash(at)).await?;
+    let implementation = Address::from_word(B256::from(word));
+    ensure!(!implementation.is_zero(), "the proxy {proxy} has no implementation at S");
+    Ok(implementation)
 }
 
 #[tokio::test]
@@ -146,16 +169,18 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     let (mut f, Switching { unzen, fork_time }) = ContractFixture::deploy_switching(3_600).await?;
     let p = f.anvil.provider.clone();
     let user: Address = USER_KEY.parse::<alloy::signers::local::PrivateKeySigner>()?.address();
-    // S, the last Unzen block, with a nonzero hash and state root; the contracts take both from
-    // the checkpoint the final Unzen proof saves.
-    let start = Header {
-        number: S,
-        parent_hash: f.parent_header.hash_slow(),
-        timestamp: f.parent_header.timestamp + S,
-        state_root: B256::repeat_byte(0x5a),
-        ..f.parent_header.clone()
-    };
+    // S, the last Unzen block, a real block of the fixture's EL; the contracts take its hash and
+    // state root from the checkpoint the final Unzen proof saves. The client's switch parameters
+    // name the implementations S's proxies hold, as a release builds them in.
+    let start = build_start(&f).await?;
     let (hash, root) = (start.hash_slow(), start.state_root);
+    assert!(start.timestamp < fork_time, "S is not before the fork time");
+    let signal_service = abci::l2_signal_service_address(L2_CHAIN_ID);
+    let signal_service_implementation = implementation(&f, signal_service, hash).await?;
+    let staking_implementation = implementation(&f, f.params.staking, hash).await?;
+    let switch = f.params.switch.as_mut().context("switching parameters")?;
+    switch.signal_service_implementation = signal_service_implementation;
+    switch.staking_implementation = staking_implementation;
     let set_origin = EtnaInbox::setOriginCall { _s: U48::from(S) }.abi_encode();
 
     // The final Unzen proof forwards S's checkpoint through the still open forwarder.
@@ -222,7 +247,7 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     let recorded = view(&p, f.inbox, EtnaInbox::etnaStartCall {}, None).await?;
     assert_eq!((recorded.height_.to::<u64>(), recorded.blockHash_), (S, hash));
     assert_eq!(f.checkpoint().await?, (S, hash));
-    // Written once (START-10-5c), and the forwarder is closed at every height (START-10-5).
+    // Written once, and the forwarder is closed at every height.
     assert_reverts(&p, user, f.inbox, set_origin, EtnaInbox::StartAlreadyWritten::SELECTOR).await?;
     for number in [S, S + 1] {
         let error = forward(&f, unzen, (number, hash, root)).await.expect_err("forwarder closed");
@@ -252,7 +277,7 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     assert_eq!(doc.initial_height, (S + 1).to_string());
 
     // The first landing reads no Unzen state: a reverting cutoff getter and an unproven Unzen
-    // proposal do not stop it (LAND-6.1-8a moved into the start write).
+    // proposal do not stop it, the start write having checked both.
     transact(
         &p,
         f.admin,
@@ -261,10 +286,41 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     )
     .await?;
     transact(&p, f.admin, unzen, unproven.abi_encode()).await?;
-    let landed = land_first(&f).await?;
+    // The lander's first batch from S: genuine certified blocks S + 1 and S + 2, signed by the
+    // origin fallback keys, and both proxies' implementation proofs at S.
+    f.parent_header = start;
+    let mut chain = FixtureChain::new(&f).await?;
+    chain.extend(&f, S + 2).await?;
+    let request = chain.prepare(&f, S + 2, SidecarMode::Eip7594).await?;
+    let batch = &request.batch;
+    let witnessed = |witness: &Option<abci::AccountWitness>| witness.as_ref().map(|w| w.address);
+    assert_eq!(witnessed(&batch.start_signal_service_witness), Some(signal_service));
+    assert_eq!(witnessed(&batch.start_staking_witness), Some(f.params.staking));
+    assert_eq!(batch.input.parentHeight, U256::from(S));
+    f.expect_statement(batch.statement_hash).await?;
+    let landed = land(&f, &request).await?;
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("Landed")?;
     assert_eq!(event.data.parentHeight, U256::from(S));
-    assert_eq!(f.checkpoint().await?, (S + 1, B256::repeat_byte(0x51)));
+    assert_eq!(event.data.lastHeight, U256::from(S + 2));
+    assert_eq!(f.checkpoint().await?, (S + 2, chain.headers[2].hash_slow()));
     f.l2.stop().await?;
     f.anvil.stop().await
+}
+
+/// Signs `request` with the dummy proof from the dev account and lands it; requires success.
+async fn land(f: &ContractFixture, request: &lander::ProofRequest) -> Result<TransactionReceipt> {
+    let transport = RpcTransactionTransport::new(
+        f.anvil.provider.clone(),
+        dev_signer(),
+        FeeCaps {
+            max_fee_per_gas: 20_000_000_000,
+            max_priority_fee_per_gas: 1_000_000_000,
+            max_fee_per_blob_gas: 20_000_000_000,
+        },
+    )?;
+    let signed = transport.sign(request, &Bytes::from_static(&[0])).await?;
+    transport.broadcast(&signed).await?;
+    let landed = receipt(&f.anvil.provider, signed.hash).await?;
+    ensure!(landed.status(), "the first landing from S reverted: {}", signed.hash);
+    Ok(landed)
 }

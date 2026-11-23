@@ -2,8 +2,8 @@
 //! chain. Once a proposal anchors at a final L1 block that carries the bump, the app sets
 //! terminal private trust and the supervisor durably stops Comet and its signer.
 //!
-//! The fake lander advances only `lastCheckpoint`; committee bootstrap is immutable and runtime
-//! activation needs no publication, so settlement never overwrites the planted generation.
+//! The fake lander advances only `lastCheckpoint`, and every signing set is decided per block
+//! with no publication, so settlement never overwrites the planted generation.
 
 use std::time::{Duration, Instant};
 

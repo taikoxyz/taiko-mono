@@ -14,18 +14,22 @@ use support::recovery::{
     Commands, Liveness, recover_and_finalize, recover_with_lists, snapshot, wait_checkpoint,
     wait_committed,
 };
-use test_harness::{ContractConsensus, mine_l1_blocks, set_interval_mining};
+use test_harness::{
+    CmtClient, ContractConsensus, Staking, mine_l1_blocks, set_interval_mining, staker,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn governance_recovery_command_produces_and_lands() -> Result<()> {
-    checkpoint_roundtrip(8, false, false).await
+    checkpoint_roundtrip(true, false, false).await
 }
 
+/// The recovery blanks the pending forced inclusion entry, which stays pending until its delay
+/// elapses, and the recovered generation, signed by the origin fallback keys, lands.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<()> {
-    checkpoint_roundtrip(6, true, false).await
+async fn governance_recovery_blanks_fi_and_lands() -> Result<()> {
+    checkpoint_roundtrip(false, true, false).await
 }
 
 /// Imports a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
@@ -34,10 +38,15 @@ async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn checkpoint_import_recovered_fixed_and_landed_points_continue_stock() -> Result<()> {
-    checkpoint_roundtrip(8, false, true).await
+    checkpoint_roundtrip(true, false, true).await
 }
 
-async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool) -> Result<()> {
+/// Lands c = 6, stops the original validator, recovers at c and runs generation one on fresh
+/// stores until it lands. With `history`, it also keeps the original blocks 1 to 6, builds an
+/// unpromoted candidate on c and, without an import, joins a full node after the landing.
+/// `clear_fi` blanks the pending forced inclusion entry instead of letting the recovered
+/// generation include it; `with_import` imports the recovered generation's checkpoints.
+async fn checkpoint_roundtrip(history: bool, clear_fi: bool, with_import: bool) -> Result<()> {
     test_harness::init_tracing();
     let f = ContractFixture::deploy_config(1, 120).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
@@ -65,7 +74,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             mine_l1_blocks(&f.anvil.provider, 3).await?;
             c.wait_for_height(9).await?;
             let mut old_blocks = vec![];
-            if epoch_len == 8 {
+            if history {
                 for height in 1..=6 {
                     old_blocks.push(c.cmt.envelope(height).await?.block);
                 }
@@ -130,7 +139,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 old_head.hash,
                 "prepare leaves old canonical suffix intact"
             );
-            if epoch_len == 8 {
+            if history {
                 build_unpromoted_origin_candidate(&f, old_head.hash).await?;
             }
             // The operator's restart on fresh stores: install, then app, supervisor and lander.
@@ -179,7 +188,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 assert!(height >= 7);
                 let trial = c.cmt.envelope(height).await?;
                 eprintln!(
-                    "actual FI trial: L={epoch_len} height={height} anchor={}",
+                    "actual FI trial: height={height} anchor={}",
                     abci::rules::decode_extra_data(&trial.block.header.extra_data)?.anchor
                 );
                 assert_eq!(
@@ -241,7 +250,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 );
             }
             eprintln!(
-                "first recovered witness: L={epoch_len} height=7 R={} consumed={}",
+                "first recovered witness: height=7 R={} consumed={}",
                 origin.l1_number,
                 envelope.anchor.as_ref().unwrap().l1_header.number()
             );
@@ -295,7 +304,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 assert_eq!(fs::read(old_wal_path)?, old_wal);
                 return Ok(());
             }
-            if epoch_len == 8 {
+            if history {
                 support::recovery::full_node::join_after_landing(&f, &c, &old_blocks).await?;
             }
             node.stop().await?;
@@ -398,6 +407,88 @@ async fn build_unpromoted_origin_candidate(
         origin.height
     );
     Ok(())
+}
+
+/// Every generation starts on its origin record's fallback keys. The one validator's key is both
+/// the fallback key and, through a bond of two minStakes under a `minTotalStake` of two
+/// minStakes, the candidate's one member at its stake's power, which signs from X + 3, X being the
+/// registration's block. The original lander lands past that switch, the validator stops and
+/// governance recovers at the landed c. Generation one's c + 1 and c + 2 are signed by the origin
+/// record's fallback key at power 1, although c's state holds the usable candidate, and c + 1
+/// decides the candidate again for c + 3.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn recovery_generation_starts_on_origin_fallback_keys() -> Result<()> {
+    test_harness::init_tracing();
+    let f = ContractFixture::deploy_config(1, 120).await?;
+    set_interval_mining(&f.anvil.provider, 1).await?;
+    let staking = Staking::new(vec![f.l2.provider.clone()], f.params.staking).await?;
+    let params = staking.params().await?;
+    let stake = params.min_stake * alloy_primitives::U256::from(2);
+    // Before consensus starts, so every anchor of both generations proves the minimum.
+    f.set_min_total_stake(stake).await?;
+    mine_l1_blocks(&f.anvil.provider, 3).await?;
+    let mut c = ContractConsensus::start_native(
+        f.anvil.http.clone(),
+        &f.l2,
+        f.params.clone(),
+        vec![f.signer_storage.path().join("0")],
+    )
+    .await?;
+    let mut commands = Commands::new(&f, &c)?;
+    let result: Result<()> = async {
+        let bond = staking.register(&staker(1), &f.keys[0], stake).await?;
+        let x = bond.block;
+        let fallback = f.fallback_keys.validator_set();
+        let candidate = vec![(f.keys[0].pubkey(), params.power(stake)?)];
+        c.wait_for_height(x + 4).await?;
+        assert_eq!(set_at(&c.cmt, x + 2).await?, fallback, "the fallback key signs X + 2");
+        assert_eq!(set_at(&c.cmt, x + 3).await?, candidate, "the candidate signs X + 3");
+
+        let mut lander = commands.old_lander(&f, &c.cmt)?;
+        wait_checkpoint(&f, &mut lander, x + 3).await?;
+        lander.stop().await?;
+        let (origin, _) = f.checkpoint().await?;
+        c.stop_node(0).await?;
+        recover_and_finalize(&f, 0, origin).await?;
+        commands.origin = origin;
+        commands.lander = false;
+        let plan = commands.prepare_command(1).await?;
+        let installed = commands.install_command(&plan, "candidate-origin").await?;
+        let mut node = commands.start_recovered(&installed, "candidate-origin").await?;
+        wait_committed(&c.cmt, origin + 4, &mut node).await?;
+        assert_eq!(c.cmt.abci_status().await?.generation, 1);
+        for height in [origin + 1, origin + 2] {
+            assert_eq!(
+                set_at(&c.cmt, height).await?,
+                fallback,
+                "the origin record's fallback key signs {height}"
+            );
+        }
+        assert_eq!(set_at(&c.cmt, origin + 3).await?, candidate, "the candidate signs c + 3");
+        // c + 1's block-start call stored the snapshot that decided c + 3, with the bond that c's
+        // state holds.
+        let (height, total, _) = staking.snapshot(alloy_eips::BlockId::number(origin + 1)).await?;
+        assert_eq!(height, alloy_primitives::U256::from(origin + 1), "the snapshot of c + 1");
+        assert_eq!(total, stake, "the total stake in the snapshot of c + 1");
+        eprintln!("candidate before the recovery at c = {origin}, X = {x}");
+        node.stop().await?;
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        commands.diagnostics();
+    }
+    c.stop().await?;
+    result
+}
+
+/// The set that signs `height` as `cmt` reports it, sorted.
+async fn set_at(cmt: &CmtClient, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
+    let mut set: Vec<_> =
+        cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
+    set.sort();
+    Ok(set)
 }
 
 #[tokio::test(flavor = "multi_thread")]

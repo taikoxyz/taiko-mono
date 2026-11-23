@@ -235,6 +235,13 @@ impl ContractConsensus {
         }
         Ok(())
     }
+    /// Public JSON-RPC providers of every validator's EL, `first` (validator 0's) first, as the
+    /// [`Staking`](crate::Staking) driver sends to them.
+    pub fn execution_providers(&self, first: &StandaloneReth) -> Vec<alloy_provider::RootProvider> {
+        std::iter::once(first.provider.clone())
+            .chain(self.extra_el.iter().map(|el| el.provider.clone()))
+            .collect()
+    }
     /// Private durable application store for a validator.
     pub fn app_dir(&self, i: usize) -> PathBuf {
         self.tmp.path().join(format!("app-{i}"))

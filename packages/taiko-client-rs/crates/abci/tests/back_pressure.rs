@@ -1,5 +1,5 @@
 //! Docker scenario: freezing the L1 checkpoint stops the chain at direct U=12;
-//! resuming checkpoint updates restores progress without changing epoch scheduling.
+//! resuming checkpoint updates restores progress.
 
 use std::{
     collections::BTreeSet,

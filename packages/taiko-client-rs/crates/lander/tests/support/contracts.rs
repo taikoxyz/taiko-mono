@@ -358,6 +358,20 @@ impl ContractFixture {
         Ok((saved, blob, fee))
     }
 
+    /// The DAO's `setMinTotalStake(value)` on the real Inbox, from its owner; returns the L1 block
+    /// that holds it.
+    pub async fn set_min_total_stake(&self, value: U256) -> Result<u64> {
+        let p = &self.anvil.provider;
+        let owner = view(p, self.inbox, EtnaInbox::ownerCall {}, None).await?;
+        let call = EtnaInbox::setMinTotalStakeCall { _value: value };
+        let receipt = transact(p, owner, self.inbox, call.abi_encode()).await?;
+        ensure!(
+            view(p, self.inbox, EtnaInbox::minTotalStakeCall {}, None).await? == value,
+            "setMinTotalStake did not store {value}"
+        );
+        receipt.block_number.context("setMinTotalStake receipt without a block")
+    }
+
     /// Require the verifier to receive this exact V10 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(

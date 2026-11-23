@@ -24,10 +24,11 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     let devnet = Devnet::start(DevnetSpec::default()).await?;
     devnet.wait_for_height(0, 1, Duration::from_secs(60)).await?;
 
-    // Check the native validator set before the first epoch switch.
+    // The one fallback key signs at power 1: the planted minTotalStake of 2^256 − 1 makes no
+    // candidate usable.
     let status = devnet.cmt_status(0).await?;
     let key = devnet.keys()[0].pubkey();
-    assert_eq!(status.validators, vec![CmtValidator { pubkey: key, power: 7_600_000_000_000_000 }]);
+    assert_eq!(status.validators, vec![CmtValidator { pubkey: key, power: 1 }]);
 
     // Two EIP-1559 transfers into reth 0's pool; the EL selects them when the app builds.
     let l2 = devnet.l2_provider(0);
@@ -72,9 +73,9 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         l2.get_block_by_number(BlockNumberOrTag::Number(0)).await?.context("no L2 block 0")?;
     let mut prev_timestamp = genesis.header.timestamp;
     let mut prev_anchor = devnet.genesis().l1_0;
-    // The one validator keeps its key and power, so no rotation returns an update (COMM-4.3-13)
-    // and the validator state after h is the genesis one advanced h times.
-    let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 7_600_000_000_000_000)])?;
+    // Every block decides the same fallback key set, so no FinalizeBlock returns an update and
+    // the validator state after h is the genesis one advanced h times.
+    let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 1)])?;
     for h in 1..=head {
         let block =
             l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("missing block")?;

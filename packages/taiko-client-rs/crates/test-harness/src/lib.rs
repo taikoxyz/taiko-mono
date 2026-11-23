@@ -13,7 +13,9 @@
 //! `lastCheckpoint` behind the chain; the signing sets need no publication, while paused
 //! settlement still exercises back-pressure.
 //! Scenarios plant calldata forced inclusion entries with their admission events
-//! ([`Planter::plant_forced_transaction`]).
+//! ([`Planter::plant_forced_transaction`]), plant a lower `minTotalStake`, and register, top up
+//! or exit bonds on the L2 `EtnaStaking` predeploy from the stakers the genesis premints
+//! ([`Staking`], [`Devnet::staking`]).
 //!
 //! Awaiting [`Devnet::stop`] stops each Comet/app pair before removing every container. Dropping
 //! a [`Devnet`] force-cleans the owned resources. Both remove the containers and network and
@@ -36,6 +38,7 @@ mod l2;
 mod lander;
 mod planter;
 mod signer;
+mod staking;
 mod wait;
 
 pub use anvil::StandaloneAnvil;
@@ -50,6 +53,10 @@ pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter};
 pub use signer::{
     init_signer_domains_log, init_signer_state, signer_binary, signer_domains_log, signer_hrs,
     supervisor_command, test_comet_manifest,
+};
+pub use staking::{
+    Bond, IEtnaStaking, Registration, STAKER_KEYS, Staking, StakingParams, registration_preimage,
+    staker,
 };
 pub use wait::{Fatal, wait_until};
 

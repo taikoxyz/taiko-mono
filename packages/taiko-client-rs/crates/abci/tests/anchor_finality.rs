@@ -1,9 +1,10 @@
-//! Docker scenario: no block anchors above anvil's `finalized`, and an epoch boundary does not
-//! wait for L1: with L1 paused, the chain enters the next epoch on anchors L1 already finalized.
+//! Docker scenario: no block anchors above anvil's `finalized`, and the chain does not wait for
+//! L1: with L1 paused, it keeps producing past a target height on anchors L1 already finalized,
+//! each block's signing set decided from the anchor it inherits.
 //!
-//! A legal independent unsettled limit `U = 18` leaves room across `L = 20`, so the fake
+//! A legal unsettled limit `U = 18` leaves room for the blocks past the pause, so the fake
 //! lander's `lastCheckpoint`, frozen with L1 and trailing the head by a few blocks, does not stop
-//! the chain before it passes the boundary.
+//! the chain before it passes the target.
 
 use std::time::{Duration, Instant};
 
@@ -12,17 +13,18 @@ use test_harness::{Devnet, DevnetSpec, anchor_of, finalized_number, wait_until};
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
+async fn a_paused_l1_does_not_stop_the_chain() -> anyhow::Result<()> {
     let started = Instant::now();
     let spec = DevnetSpec { unsettled_limit: 18, ..Default::default() };
     let devnet = Devnet::start(spec.clone()).await?;
-    // The height the removed 20-block epoch schedule switched at; nothing switches there now.
-    let boundary = 21;
+    // The height the chain must pass while L1 is paused.
+    let target = 21;
     let l1 = devnet.l1();
     let l2 = devnet.l2_provider(0);
 
-    // Pause L1 before the epoch boundary; switching requires only the embedded snapshot.
-    let pause_at = boundary - 7;
+    // Pause L1 before the target; each block decides its successor's successor from the anchor
+    // it inherits and its own L2 state.
+    let pause_at = target - 7;
     wait_until("the pause point", Duration::from_secs(90), Duration::from_millis(250), || async {
         Ok((devnet.cmt(0).latest_height().await? >= pause_at).then_some(()))
     })
@@ -36,16 +38,16 @@ async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
         status.head,
         started.elapsed()
     );
-    ensure!(status.head < boundary, "the chain reached the boundary before L1 paused");
+    ensure!(status.head < target, "the chain reached the target before L1 paused");
     let limit = devnet.params().unsettled_limit;
     ensure!(
-        status.last_checkpoint_height + limit > boundary,
-        "back-pressure would stop the chain at {} before the boundary {boundary}",
+        status.last_checkpoint_height + limit > target,
+        "back-pressure would stop the chain at {} before the target {target}",
         status.last_checkpoint_height + limit
     );
 
-    // The chain keeps producing on the frozen anchor through the boundary.
-    let past = boundary + 1;
+    // The chain keeps producing on the frozen anchor past the target.
+    let past = target + 1;
     devnet.wait_for_height(0, past, Duration::from_secs(40)).await?;
     assert_eq!(finalized_number(l1).await?, frozen, "L1 finalized moved while paused");
     for h in 1..=past {
@@ -53,7 +55,7 @@ async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
         assert!(anchor <= frozen, "block {h}: anchor {anchor} above L1 finalized {frozen}");
     }
     let status = devnet.abci_status(0).await?;
-    assert!(status.head >= past, "the chain passed the boundary: {status:?}");
+    assert!(status.head >= past, "the chain passed the target: {status:?}");
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.l1_resume().await?;

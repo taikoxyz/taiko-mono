@@ -1,4 +1,5 @@
-//! Actual four-validator native consensus, direct fees, FI, landing and restart acceptance.
+//! Actual four-validator native consensus, direct fees, FI, landing and restart acceptance, and
+//! landing across the switches between the candidate and the fallback keys.
 mod support;
 #[path = "support/trust_timeout.rs"]
 mod trust_timeout;
@@ -21,7 +22,8 @@ use support::{
     fixtures::limits,
 };
 use test_harness::{
-    ContractConsensus, dev_signer, mine_l1_blocks, set_interval_mining, wait_until,
+    ContractConsensus, Registration, Staking, dev_signer, mine_l1_blocks, set_interval_mining,
+    staker, wait_until,
 };
 
 async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofRequest, B256)> {
@@ -115,7 +117,7 @@ async fn recover_landed_execution(
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> Result<()> {
+async fn four_validator_native_consensus_fees_fi_landing_and_restart() -> Result<()> {
     test_harness::init_tracing();
     let f = ContractFixture::deploy_validators(4).await?;
     let p = &f.anvil.provider;
@@ -166,7 +168,7 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     c.wait_for_height(fi_height + 1).await?;
     assert_eq!(c.cmt.envelope(fi_height).await?.block.transactions[0].as_ref(), raw);
     c.wait_for_height(18.max(fi_height + 1)).await?;
-    // This fixture's L2 has no `EtnaStaking` account, so no candidate is ever usable and the
+    // `minTotalStake` is 2^256 − 1 and no bond is registered, so no candidate is usable and the
     // origin fallback keys, which the anchors keep proving, sign every height.
     assert_eq!(c.cmt.validators(Some(15)).await?, c.cmt.validators(Some(1)).await?);
     let trust_path = c.app_dir(0).join("checkpoint-trust.sock");
@@ -301,4 +303,84 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &recovery).await?;
     f.l2.stop().await?;
     f.anvil.stop().await
+}
+
+/// The four fallback keys also register bonds of two minStakes each, owned by the four harness
+/// stakers, after the DAO lowered `minTotalStake` to seven minStakes: the candidate, the same keys
+/// at their stakes' power, signs from X + 3, X being the last registration's block, through one
+/// update list that re-weights every key. The lander lands a batch across that switch; one bond
+/// then exits in block E, the fallback keys sign again from E + 3, and the next batch, which
+/// rebuilds the landed checkpoint's candidate sets from `/validators`, lands across the switch
+/// back.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn four_validator_landing_across_candidate_and_fallback_switches() -> Result<()> {
+    test_harness::init_tracing();
+    let f = ContractFixture::deploy_validators(4).await?;
+    let p = &f.anvil.provider;
+    set_interval_mining(p, 1).await?;
+    // Before consensus starts, so every anchor proves the lowered minimum: none of the blocks
+    // before X has the four bonds in its snapshot.
+    let staking_params = {
+        let staking = Staking::new(vec![f.l2.provider.clone()], f.params.staking).await?;
+        staking.params().await?
+    };
+    let stake = staking_params.min_stake * U256::from(2);
+    let minimum = staking_params.min_stake * U256::from(7);
+    f.set_min_total_stake(minimum).await?;
+    mine_l1_blocks(p, 3).await?;
+    let dirs = (0..4).map(|i| f.signer_storage.path().join(i.to_string())).collect();
+    let c = ContractConsensus::start(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?;
+    let result = async {
+        let staking = Staking::new(c.execution_providers(&f.l2), f.params.staking).await?;
+        let registrations: Vec<_> = (0..4)
+            .map(|i| Registration { owner: staker(i), key: &f.keys[i], amount: stake })
+            .collect();
+        let bonds = staking.register_all(&registrations).await?;
+        let x = bonds.iter().map(|bond| bond.block).max().context("no bond")?;
+        c.wait_for_height(x + 4).await?;
+        let fallback = f.fallback_keys.validator_set();
+        let power = staking_params.power(stake)?;
+        let mut candidate: Vec<_> = f.keys.iter().map(|key| (key.pubkey(), power)).collect();
+        candidate.sort();
+        assert_eq!(set_at(&c, x + 2).await?, fallback, "the fallback keys sign X + 2");
+        assert_eq!(set_at(&c, x + 3).await?, candidate, "the candidate signs X + 3");
+
+        let (first, _) = land(&f, &c).await?;
+        let first_height = first.batch.input.lastHeight.to::<u64>();
+        ensure!(first_height >= x + 3, "the first batch ends at {first_height}, before X + 3");
+        mine_l1_blocks(p, 3).await?;
+
+        let e = staking.request_exit(&staker(0), bonds[0].id).await?;
+        c.wait_for_height(e + 4).await?;
+        assert_eq!(set_at(&c, e + 2).await?, candidate, "the candidate signs E + 2");
+        assert_eq!(set_at(&c, e + 3).await?, fallback, "the fallback keys sign E + 3");
+        let (second, _) = land(&f, &c).await?;
+        assert_eq!(second.batch.input.parentHeight, first.batch.input.lastHeight);
+        let second_height = second.batch.input.lastHeight.to::<u64>();
+        ensure!(second_height >= e + 3, "the second batch ends at {second_height}, before E + 3");
+        eprintln!(
+            "landed (0, {first_height}] across the switch at X + 3 = {} and ({first_height}, \
+             {second_height}] across the switch back at E + 3 = {}",
+            x + 3,
+            e + 3
+        );
+        Ok::<_, anyhow::Error>(())
+    }
+    .await;
+    if result.is_err() {
+        f.anvil.dump_logs();
+    }
+    c.stop().await?;
+    result?;
+    f.l2.stop().await?;
+    f.anvil.stop().await
+}
+
+/// The set that signs `height` as the first validator's CometBFT reports it, sorted.
+async fn set_at(c: &ContractConsensus, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
+    let mut set: Vec<_> =
+        c.cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
+    set.sort();
+    Ok(set)
 }

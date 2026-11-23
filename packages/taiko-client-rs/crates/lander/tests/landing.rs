@@ -104,9 +104,12 @@ async fn assert_landed(
     Ok(receipt)
 }
 
+/// Consecutive batches each rebuild the landed checkpoint's signing sets and decide every later
+/// height's set from that height's staking read and anchor: with `minTotalStake` at 2^256 − 1
+/// and no bond, the origin fallback keys sign every height, so every batch's sets stay theirs.
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
+async fn lander_actual_contract_blob_landing_in_consecutive_batches() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
@@ -115,16 +118,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
-    // Land at the height the removed epoch schedule derived its first switch at.
-    let derivation_height = 12;
-    mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-    chain.extend(&fixture, derivation_height).await?;
-    let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
-    fixture.expect_statement(derivation.batch.statement_hash).await?;
-    assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
-    // A later prefix past the removed schedule's first epoch start lands in one batch, still
-    // signed by the origin fallback keys: no candidate is ever usable.
-    for last in [18, 24] {
+    // The next batches start from a landed checkpoint above the generation's first two blocks.
+    for last in [12, 18, 24] {
         mine_l1_blocks(p, 3).await?;
         chain.extend(&fixture, last).await?;
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;

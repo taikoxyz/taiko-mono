@@ -5,6 +5,7 @@ use super::recovery::{
 };
 use crate::contracts_support::ContractFixture;
 use abci::{Engine, ExecutionBlock, PayloadVerdict, RpcEngine};
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
@@ -14,7 +15,10 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use test_harness::{CmtClient, ContractConsensus, mine_l1_blocks, set_interval_mining};
+use test_harness::{
+    CmtClient, ContractConsensus, Registration, Staking, mine_l1_blocks, set_interval_mining,
+    staker,
+};
 use url::Url;
 
 fn url(p: u16) -> Url {
@@ -107,13 +111,30 @@ async fn checkpoint_import_latest_full_node_restarts_forced_skips_and_retries() 
 }
 
 /// An older checkpoint s, the height after the stock snapshot, below a later target s + 6,
-/// exported with the archived validator-state preimage for s - 1 (DATA-5.4-3, SYNC-9-5c). The
-/// import leaves the key, HRS, domains log and WAL unchanged (DATA-5.4-7); the supervisor on
-/// `ready` proposes in a later round, and the chain lands its block.
+/// exported with the archived validator-state preimage for s - 1, the state the package must
+/// carry once the source has pruned it. Four validators run, their keys the Inbox's fallback key
+/// list, which signs every height at power 1: no bond is registered and `minTotalStake` is
+/// 2^256 − 1. Validator 0 stops and imports while the other three keep the quorum. The import
+/// leaves the key, HRS, domains log and WAL unchanged, as it never imports signer state; the
+/// supervisor on `ready` proposes in a later round, and the chain lands its block.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn registered_checkpoint_older_signs_proposes_and_lands() -> Result<()> {
-    scenario(Scenario::RegisteredOlder).await
+async fn checkpoint_import_older_validator_signs_proposes_and_lands() -> Result<()> {
+    scenario(Scenario::Older).await
+}
+
+/// An import across a switch between the candidate and the fallback keys. The four fallback keys
+/// also register bonds of two minStakes each after the DAO lowered `minTotalStake` to seven
+/// minStakes, so the candidate, the same keys at their stakes' power, signs from X + 3, X being
+/// the last registration's block. The checkpoint s, past X + 3, lands across that switch, and its
+/// package carries the s - 1 preimage whose sets, the candidate's, sign s and s + 1; the import
+/// decides s + 2 from s's state. The DAO then sets `minTotalStake` to 2^256 − 1, so H, the first
+/// block whose anchor proves it, hands H + 2 back to the fallback keys. The imported full node
+/// follows from s + 1 across that switch with the source's sets and validator states.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn checkpoint_import_across_a_candidate_and_fallback_switch() -> Result<()> {
+    scenario(Scenario::AcrossSwitch).await
 }
 
 /// s = o (DATA-5.4-1): the import installs the original genesis and no app state, and plain
@@ -127,19 +148,27 @@ async fn checkpoint_import_fixed_origin_runs_original_stock_init_chain() -> Resu
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Scenario {
     Latest,
-    RegisteredOlder,
+    Older,
+    AcrossSwitch,
     FixedOrigin,
 }
 
 async fn scenario(kind: Scenario) -> Result<()> {
     test_harness::init_tracing();
-    let registered = kind == Scenario::RegisteredOlder;
-    let count = if registered { 4 } else { 1 };
+    // Four validators keep a quorum while validator 0 stops.
+    let count = if matches!(kind, Scenario::Older | Scenario::AcrossSwitch) { 4 } else { 1 };
     // U = 6 holds the latest source at checkpoint + 6. `latest` releases it only up to s, so
     // both FI entries come due after s.
     let unsettled = if kind == Scenario::Latest { 6 } else { 120 };
     let f = ContractFixture::deploy_config(count, unsettled).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
+    if kind == Scenario::AcrossSwitch {
+        // Before consensus starts, so every anchor proves the lowered minimum.
+        let staking = Staking::new(vec![f.l2.provider.clone()], f.params.staking).await?;
+        let min_stake = staking.params().await?.min_stake;
+        f.set_min_total_stake(min_stake * U256::from(MIN_TOTAL_STAKE_IN_MIN_STAKES)).await?;
+        mine_l1_blocks(&f.anvil.provider, 3).await?;
+    }
     let dirs = (0..count).map(|i| f.signer_storage.path().join(i.to_string())).collect();
     let mut c =
         ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
@@ -147,7 +176,8 @@ async fn scenario(kind: Scenario) -> Result<()> {
     let commands = Commands::new(&f, &c)?;
     let result = match kind {
         Scenario::Latest => latest(&f, &mut c, &commands).await,
-        Scenario::RegisteredOlder => registered_older(&f, &mut c, &commands).await,
+        Scenario::Older => older(&f, &mut c, &commands).await,
+        Scenario::AcrossSwitch => across_switch(&f, &mut c, &commands).await,
         Scenario::FixedOrigin => fixed_origin(&f, &c, &commands).await,
     };
     if result.is_err() {
@@ -208,11 +238,7 @@ async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Comma
     forced::replay(f, c, commands, &x, &b, s).await
 }
 
-async fn registered_older(
-    f: &ContractFixture,
-    c: &mut ContractConsensus,
-    commands: &Commands,
-) -> Result<()> {
+async fn older(f: &ContractFixture, c: &mut ContractConsensus, commands: &Commands) -> Result<()> {
     let base = commands.dir.path().canonicalize()?;
     let stock = base.join("stock-state");
     let s = capture_stock_state(c, 5, &stock).await? + 1;
@@ -294,7 +320,133 @@ async fn registered_older(
     for (path, bytes) in signer_files.iter().zip(&before) {
         ensure!(fs::read(path)? == *bytes, "checkpoint import changed {}", path.display());
     }
-    registered_follow(f, c, commands, &x, &root, s, target, &original).await
+    older_follow(f, c, commands, &x, &root, s, target, &original).await
+}
+
+/// The planted `minTotalStake` of the switch scenario, in minStakes: the four bonds of two
+/// minStakes reach it, three do not.
+const MIN_TOTAL_STAKE_IN_MIN_STAKES: u64 = 7;
+
+/// See [`checkpoint_import_across_a_candidate_and_fallback_switch`].
+async fn across_switch(
+    f: &ContractFixture,
+    c: &mut ContractConsensus,
+    commands: &Commands,
+) -> Result<()> {
+    let base = commands.dir.path().canonicalize()?;
+    let staking = Staking::new(c.execution_providers(&f.l2), f.params.staking).await?;
+    let params = staking.params().await?;
+    let stake = params.min_stake * U256::from(2);
+    let registrations: Vec<_> = (0..f.keys.len())
+        .map(|i| Registration { owner: staker(i), key: &f.keys[i], amount: stake })
+        .collect();
+    let bonds = staking.register_all(&registrations).await?;
+    let x = bonds.iter().map(|bond| bond.block).max().context("no bond")?;
+    let fallback = f.fallback_keys.validator_set();
+    let power = params.power(stake)?;
+    let mut candidate: Vec<_> = f.keys.iter().map(|key| (key.pubkey(), power)).collect();
+    candidate.sort();
+
+    // The stock snapshot is past X + 3, so the candidate signs s and s + 1.
+    let stock = base.join("stock-state");
+    let s = capture_stock_state(c, x + 4, &stock).await? + 1;
+    c.wait_for_height(s + 2).await?;
+    ensure!(set_at(&c.cmt, x + 2).await? == fallback, "the fallback keys sign X + 2");
+    for height in [x + 3, s, s + 1] {
+        ensure!(set_at(&c.cmt, height).await? == candidate, "the candidate signs {height}");
+    }
+    // The landing (0, s] crosses the switch at X + 3.
+    land(f, c, commands, s).await?;
+
+    // The DAO hands the chain back to the fallback keys, past s.
+    let from = c.cmt.latest_height().await?;
+    let l1 = f.set_min_total_stake(U256::MAX).await?;
+    let h = first_anchored_at(f, c, from, l1).await?;
+    c.wait_for_height(h + 3).await?;
+    ensure!(set_at(&c.cmt, h + 1).await? == candidate, "the candidate signs H + 1");
+    ensure!(set_at(&c.cmt, h + 2).await? == fallback, "the fallback keys sign H + 2");
+
+    let blocks = source_blocks(&c.cmt, s).await?;
+    let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
+    let export = Export {
+        s,
+        comet_genesis: &genesis,
+        recovery_bootstrap: None,
+        validator_state: None,
+        stock: Some(&stock),
+    };
+    let x_ =
+        import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.cmt, export).await?;
+    let root = base.join("import");
+    let ready = import(f, commands, &x_, &root, "import").await?;
+    ensure!(ready == json!({"phase": "ready", "generation": 0, "execution_floor": s}), "{ready}");
+
+    // The imported full node follows from s + 1 across the switch at H + 2.
+    let rpc = CmtClient::new(url(x_.rpc));
+    let mut node = Node::start(f, commands, &x_, &root, "across").await?;
+    let mut comet = full_node(&x_, &root, "across-comet")?;
+    wait_committed(&rpc, h + 3, &mut comet).await?;
+    trusted(&rpc, &mut comet, &mut node, 0, Some(s), s).await?;
+    let reader = &c.peers[1];
+    for height in [s + 1, s + 2, h + 1, h + 2] {
+        ensure!(rpc.envelope(height).await? == reader.envelope(height).await?, "block {height}");
+    }
+    // The set changed at H + 2, so the imported Comet stores it there in full.
+    ensure!(
+        rpc.validators(Some(h + 2)).await? == reader.validators(Some(h + 2)).await?,
+        "the imported node's set that signs H + 2"
+    );
+    // The imported app derives the source's validator states on both sides of the switch: after
+    // s + 1, the candidate's sets from the preimage and s's state, and after H + 2, the fallback
+    // keys' sets.
+    for height in [s + 1, h + 2] {
+        let val_state = |dir: PathBuf| match abci::Store::new(dir).load_val_state(height)? {
+            abci::store::Record::Valid(state) => Ok(state),
+            other => Err(anyhow::anyhow!("no validator state at {height}: {other:?}")),
+        };
+        ensure!(
+            val_state(root.join("ready/app"))? == val_state(c.app_dir(1))?,
+            "the imported node's validator state after {height}"
+        );
+    }
+    eprintln!("across_switch_import x={x} s={s} h={h}");
+    handover(&rpc, &mut comet).await?;
+    comet.stop().await?;
+    node.stop().await
+}
+
+/// The set that signs `height` as `cmt` reports it, sorted.
+async fn set_at(cmt: &CmtClient, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
+    let mut set: Vec<_> =
+        cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
+    set.sort();
+    Ok(set)
+}
+
+/// The first height above `from` whose anchor, carried or inherited, is L1 block `l1` or later;
+/// waits for it to be committed.
+async fn first_anchored_at(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    from: u64,
+    l1: u64,
+) -> Result<u64> {
+    tokio::time::timeout(Duration::from_secs(120), async {
+        let mut h = from + 1;
+        loop {
+            c.wait_for_height(h + 1).await?;
+            if let Ok(anchor) = test_harness::anchor_of(&f.l2.provider, h).await {
+                if anchor >= l1 {
+                    return Ok::<_, anyhow::Error>(h);
+                }
+                h += 1;
+            } else {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+    })
+    .await
+    .with_context(|| format!("no block above {from} anchored at L1 {l1} or later"))?
 }
 
 /// s = o (DATA-5.4-1): no app state is installed, and InitChain starts from the original genesis.
@@ -790,7 +942,7 @@ async fn handover(rpc: &CmtClient, comet: &mut Process) -> Result<()> {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn registered_follow(
+async fn older_follow(
     f: &ContractFixture,
     c: &ContractConsensus,
     commands: &Commands,
@@ -808,7 +960,7 @@ async fn registered_follow(
     let ready = root.join("ready");
     let chain = c.chain_id()?;
     let hrs = test_harness::signer_hrs(&dir, &chain);
-    let mut node = Node::start(f, commands, x, root, "registered").await?;
+    let mut node = Node::start(f, commands, x, root, "older").await?;
     ensure!(fs::read(&hrs)? == original.0);
     // The same chain_id keeps its one HRS state: the imported stores run the same signer
     // configuration as before the import (DATA-5.4-7, RECOV-8.2-1).
@@ -817,7 +969,7 @@ async fn registered_follow(
     command
         .env("ETNA_SIGNER_BIN", binary("ETNA_SIGNER_BIN", "etna-signer")?)
         .env("ETNA_COMET_BIN", binary("ETNA_COMET_BIN", "cometbft")?);
-    let mut supervisor = Process::spawn_command(command, x.base.join("registered-supervisor.log"))?;
+    let mut supervisor = Process::spawn_command(command, x.base.join("older-supervisor.log"))?;
     let rpc = CmtClient::new(url(x.rpc));
     let reader = &c.peers[1];
     let address = f.keys[0].address();
@@ -845,7 +997,7 @@ async fn registered_follow(
     .await
     .with_context(|| {
         format!(
-            "no new registered proposal after HRS {old_height}: {} / {}",
+            "no new proposal of the imported validator after HRS {old_height}: {} / {}",
             supervisor.output(),
             node.app.output()
         )
@@ -899,7 +1051,7 @@ async fn registered_follow(
     );
     ensure!(fs::read(c.comet_home(0).join("data/cs.wal/wal"))? == original.1);
     eprintln!(
-        "registered_import s={s} target={target} source_hrs={old_height} imported_proposer={new_height} hrs={hrs} landed={landed} hash={hash}"
+        "older_import s={s} target={target} source_hrs={old_height} imported_proposer={new_height} hrs={hrs} landed={landed} hash={hash}"
     );
     supervisor.stop().await?;
     node.stop().await

@@ -40,6 +40,8 @@ pub struct RpcData {
     /// The validator-state preimage after each height, indexed by height; `/val_state/<height>`
     /// answers it at any committed height, as the app does.
     pub val_states: Vec<Vec<u8>>,
+    /// The one set that signs every height, which `/validators` answers at each.
+    pub validators: Vec<(abci::key::ConsensusKey, u64)>,
 }
 
 /// One local fixture endpoint supports both public L2 and CometBFT read APIs.
@@ -132,6 +134,22 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
                 }
             })
         }
+        // Every structural block keeps the genesis state root, so each block's staking read is the
+        // genesis proof of the account and slots asked for.
+        "eth_getProof" => proof(params).ok(),
+        "validators" => {
+            let height = params["height"].as_str().and_then(|h| h.parse::<usize>().ok());
+            height.filter(|h| (1..=data.blocks.len() + 1).contains(h)).map(|height| {
+                let validators: Vec<_> = data
+                    .validators
+                    .iter()
+                    .map(|(key, power)| {
+                        json!({"pub_key": abci::key::CometPublicKey(*key), "voting_power": power.to_string()})
+                    })
+                    .collect();
+                json!({"block_height": height.to_string(), "total": validators.len().to_string(), "validators": validators})
+            })
+        }
         "abci_query" => {
             let path = params["path"].as_str().unwrap_or_default();
             let answer = path
@@ -152,6 +170,33 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32602,"message":"fixture method or history unavailable"}})
         }
     }).into_response()
+}
+
+/// The EIP-1186 answer of `eth_getProof(address, slots, block)` under the genesis state root,
+/// whatever the block.
+fn proof(params: &Value) -> Result<Value> {
+    let address: alloy_primitives::Address =
+        params[0].as_str().context("eth_getProof address")?.parse()?;
+    let slots = params[1]
+        .as_array()
+        .context("eth_getProof slots")?
+        .iter()
+        .map(|slot| Ok(slot.as_str().context("slot")?.parse()?))
+        .collect::<Result<Vec<alloy_primitives::B256>>>()?;
+    let witness = test_harness::EtnaGenesis::build()?.account_witness(address, &slots)?;
+    Ok(json!({
+        "address": witness.address,
+        "balance": format!("{:#x}", witness.balance),
+        "codeHash": witness.code_hash,
+        "nonce": format!("{:#x}", witness.nonce),
+        "storageHash": witness.storage_root,
+        "accountProof": witness.account_proof,
+        "storageProof": witness.storage.iter().map(|proof| json!({
+            "key": proof.slot,
+            "value": format!("{:#x}", proof.value),
+            "proof": proof.proof,
+        })).collect::<Vec<_>>(),
+    }))
 }
 
 /// Paths and endpoints supplied to the actual compiled client executable.

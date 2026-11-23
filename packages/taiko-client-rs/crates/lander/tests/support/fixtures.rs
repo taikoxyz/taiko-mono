@@ -2,6 +2,10 @@
 //!
 //! The EL headers are structural fixtures, not an EVM execution proof. Every host rule and
 //! certificate is checked before these fixtures are submitted to the accepting test verifier.
+//! Each structural block keeps its base's state root, the real L2 state at the generation's start
+//! o (the genesis, or S on a switching network): the lander's per-block staking read at any of
+//! them is the real EL's proof at o, where no bond is registered, so no candidate is usable and
+//! the origin fallback keys sign every height.
 
 use async_trait::async_trait;
 use std::{collections::BTreeMap, sync::Arc};
@@ -26,7 +30,9 @@ use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
     committee::Validators,
     l1::{LandingSource, RpcLandingSource},
-    validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
+    validate::{
+        EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure_at_origin,
+    },
 };
 use sha2::{Digest, Sha256};
 use tendermint::{
@@ -52,25 +58,33 @@ pub fn limits() -> Limits {
 }
 
 /// The decided chain survives checkpoint advances so later fixtures preserve exact history.
+/// Heights count from the generation's start o: `blocks[i]` is height o + 1 + i, and
+/// `headers[i]`, `anchors[i]` and `val_states[i]` belong to height o + i.
 #[derive(Clone)]
 pub struct FixtureChain {
     pub chain_id: String,
     pub keys: Vec<test_harness::ValidatorKey>,
+    /// The generation's start o, whose real EL header is `headers[0]`.
+    pub origin: u64,
+    /// The timestamp of o − 1, the first block's grandparent: 0 at a genesis start.
+    pub origin_parent_timestamp: u64,
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
     pub anchors: Vec<AnchorState>,
-    /// The genesis set, which signs every height.
+    /// The origin fallback key set, which signs every height.
     pub validators: Validators,
     /// Exact admitted transaction bytes by queue index, carried whenever the anchor proves
     /// that entry pending; inclusion at position zero consumes it.
     pub forced_transactions: BTreeMap<u64, Bytes>,
-    /// The validator state after each height, indexed by height: the genesis state at 0, then
-    /// one advance per block by an empty update list, which abci's app returns while the genesis
-    /// set keeps signing, as `/val_state/<height>` serves them.
+    /// The validator state after each height from o on: the genesis state at o, then one
+    /// advance per block by an empty update list, which abci's app returns while the origin set
+    /// keeps signing, as `/val_state/<height>` serves them.
     pub val_states: Vec<ValState>,
 }
 
 impl FixtureChain {
+    /// A chain at the fixture's start: its `genesis` record and `parent_header`, the real L2 header
+    /// at o.
     pub async fn new(fixture: &ContractFixture) -> Result<Self> {
         let source = RpcL1Source::new(fixture.anvil.provider.clone());
         let header = source.header(fixture.genesis.l1_0).await?;
@@ -82,7 +96,25 @@ impl FixtureChain {
         )?;
         let members = fixture.fallback_keys.validator_set();
         let validators = Validators::from_powers(&members)?;
-        let genesis = ValState::genesis(0, &members)?;
+        let origin = fixture.genesis.genesis_height;
+        ensure!(
+            fixture.parent_header.number == origin,
+            "the base header is not the start {origin}"
+        );
+        let genesis = ValState::genesis(origin, &members)?;
+        let origin_parent_timestamp = match origin.checked_sub(1) {
+            Some(below) => {
+                fixture
+                    .l2
+                    .provider
+                    .get_block_by_number(below.into())
+                    .await?
+                    .context("the start's parent")?
+                    .header
+                    .timestamp
+            }
+            None => 0,
+        };
         Ok(Self {
             chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
                 l1_chain_id: fixture.params.l1_chain_id,
@@ -91,6 +123,8 @@ impl FixtureChain {
                 generation: 0,
             })?,
             keys: fixture.keys.clone(),
+            origin,
+            origin_parent_timestamp,
             blocks: Vec::new(),
             headers: vec![fixture.parent_header.clone()],
             anchors: vec![anchor],
@@ -100,15 +134,26 @@ impl FixtureChain {
         })
     }
 
-    /// Append structurally valid blocks against actual finalized Inbox/registry state.
+    /// The decided height of the last block.
+    pub fn head(&self) -> u64 {
+        self.origin + self.blocks.len() as u64
+    }
+
+    /// The index of height `height` in `headers`, `anchors` and `val_states`.
+    fn index(&self, height: u64) -> usize {
+        usize::try_from(height - self.origin).expect("a fixture height")
+    }
+
+    /// Append structurally valid blocks up to `last` against actual finalized Inbox state.
     pub async fn extend(&mut self, fixture: &ContractFixture, last: u64) -> Result<()> {
         let source = RpcL1Source::new(fixture.anvil.provider.clone());
-        while self.blocks.len() < usize::try_from(last)? {
-            let height = u64::try_from(self.blocks.len())? + 1;
-            let parent = self.headers.last().expect("genesis header");
-            let parent_anchor = self.anchors.last().expect("genesis anchor");
+        while self.head() < last {
+            let height = self.head() + 1;
+            let first = height == self.origin + 1;
+            let parent = self.headers.last().expect("start header");
+            let parent_anchor = self.anchors.last().expect("start anchor");
             let raw = source.header(source.finalized_number().await?).await?;
-            let needs_anchor = height == 1 || raw.number() != parent_anchor.number;
+            let needs_anchor = first || raw.number() != parent_anchor.number;
             let witness = if needs_anchor {
                 Some(AnchorWitness {
                     inbox: source
@@ -155,7 +200,7 @@ impl FixtureChain {
                 base_fee: parent.base_fee_per_gas.expect("base fee"),
                 difficulty: parent.difficulty,
                 grandparent_timestamp: if self.headers.len() == 1 {
-                    0
+                    self.origin_parent_timestamp
                 } else {
                     self.headers[self.headers.len() - 2].timestamp
                 },
@@ -186,7 +231,8 @@ impl FixtureChain {
                 gas_limit: expected.gas_limit,
                 base_fee_per_gas: Some(expected.base_fee),
                 mix_hash: expected.mix_hash,
-                state_root: B256::from(U256::from(height + 0x1000)),
+                // The start's state: see the module docs.
+                state_root: self.headers[0].state_root,
                 withdrawals_root: Some(EMPTY_ROOT_HASH),
                 blob_gas_used: Some(0),
                 excess_blob_gas: Some(0),
@@ -210,7 +256,13 @@ impl FixtureChain {
                 &self.keys,
             );
             verify_commit(&pair.commit, &pair.block.header, &self.validators, &self.chain_id)?;
-            verify_structure(&pair, self.blocks.last(), height, parent.hash_slow())?;
+            verify_structure_at_origin(
+                &pair,
+                self.blocks.last(),
+                height,
+                parent.hash_slow(),
+                self.origin,
+            )?;
             let signers = self.validators.entries();
             let facts = verify_envelope(
                 envelope,
@@ -220,7 +272,7 @@ impl FixtureChain {
                     proposer: pair.block.header.proposer_address,
                     signers: &signers,
                     // The same set signs every height, and every LastCommit is complete.
-                    parent_signers: if height == 1 { &[] } else { &signers },
+                    parent_signers: if first { &[] } else { &signers },
                     miss_bitmap: 0,
                     parent: &parent_info,
                     parent_anchor,
@@ -267,6 +319,7 @@ impl FixtureChain {
         let p = &fixture.anvil.provider;
         let source = RpcL1Source::new(p.clone());
         let state = source.header(p.get_block_number().await?).await?;
+        ensure!(last > self.origin && last <= self.head(), "fixture batch range");
         let pin = Some(BlockId::hash_canonical(state.hash()));
         let checkpoint = view(p, fixture.inbox, EtnaInbox::lastCheckpointCall {}, pin).await?;
         let inbox_witness = source
@@ -292,11 +345,11 @@ impl FixtureChain {
             recovery_witness: None,
             generation: 0,
             checkpoint_height: checkpoint.height.to(),
-            checkpoint_comet_hash: if checkpoint.height.is_zero() {
+            checkpoint_comet_hash: if checkpoint.height.to::<u64>() == self.origin {
                 B256::ZERO
             } else {
                 B256::from_slice(
-                    self.blocks[checkpoint.height.to::<usize>() - 1]
+                    self.blocks[self.index(checkpoint.height.to()) - 1]
                         .commit
                         .block_id
                         .hash
@@ -311,16 +364,18 @@ impl FixtureChain {
             l1_header: state,
             inbox_witness,
         };
-        ensure!(last <= self.blocks.len() as u64, "fixture batch range");
+        let end = self.index(last);
         let chain = Arc::new(Self {
             chain_id: self.chain_id.clone(),
             keys: self.keys.clone(),
-            blocks: self.blocks[..last as usize].to_vec(),
-            headers: self.headers[..=last as usize].to_vec(),
-            anchors: self.anchors[..=last as usize].to_vec(),
+            origin: self.origin,
+            origin_parent_timestamp: self.origin_parent_timestamp,
+            blocks: self.blocks[..end].to_vec(),
+            headers: self.headers[..=end].to_vec(),
+            anchors: self.anchors[..=end].to_vec(),
             validators: self.validators.clone(),
             forced_transactions: self.forced_transactions.clone(),
-            val_states: self.val_states[..=last as usize].to_vec(),
+            val_states: self.val_states[..=end].to_vec(),
         });
         let adapter = Arc::new(FixtureLanding {
             chain: chain.clone(),
@@ -391,7 +446,7 @@ pub fn signed_pair(
         evidence: Some(EvidenceList { evidence: vec![] }),
         last_commit: block.last_commit.clone().map(Into::into),
     };
-    if height == 1 {
+    if previous.is_none() {
         raw.last_commit = Some(Commit::default().into());
         raw.header.as_mut().unwrap().last_block_id =
             Some(tendermint_proto::v0_38::types::BlockId {
@@ -441,22 +496,21 @@ pub fn signed_pair(
 #[async_trait]
 impl lander::comet::CometSource for FixtureChain {
     async fn status(&self) -> lander::error::Result<lander::comet::CometStatus> {
-        Ok(lander::comet::CometStatus {
-            chain_id: self.chain_id.clone(),
-            height: self.blocks.len() as u64,
-        })
+        Ok(lander::comet::CometStatus { chain_id: self.chain_id.clone(), height: self.head() })
     }
     async fn block(&self, height: u64) -> lander::error::Result<CertifiedBlock> {
-        self.blocks
-            .get(height as usize - 1)
+        height
+            .checked_sub(self.origin + 1)
+            .and_then(|index| self.blocks.get(usize::try_from(index).ok()?))
             .cloned()
             .ok_or_else(|| lander::error::LanderError::Unavailable("fixture block".into()))
     }
     /// As the app answers `/val_state/<height>`: any retained height.
     async fn val_state(&self, height: u64) -> lander::error::Result<Vec<u8>> {
-        usize::try_from(height)
-            .ok()
-            .and_then(|height| self.val_states.get(height))
+        height
+            .checked_sub(self.origin)
+            .and_then(|index| usize::try_from(index).ok())
+            .and_then(|index| self.val_states.get(index))
             .map(ValState::encode)
             .ok_or_else(|| {
                 lander::error::LanderError::Temporary(format!(
@@ -469,8 +523,9 @@ impl lander::comet::CometSource for FixtureChain {
         &self,
         height: u64,
     ) -> lander::error::Result<Vec<(abci::key::ConsensusKey, u64)>> {
-        self.blocks
-            .get(height as usize - 1)
+        height
+            .checked_sub(self.origin + 1)
+            .and_then(|index| self.blocks.get(usize::try_from(index).ok()?))
             .map(|_| self.validators.validators().iter().map(|v| (v.pub_key, v.power())).collect())
             .ok_or_else(|| lander::error::LanderError::Unavailable("fixture validators".into()))
     }
@@ -489,16 +544,28 @@ impl LandingSource for FixtureLanding {
         &self,
         snapshot: &LandingSnapshot,
     ) -> lander::error::Result<lander::l1::ParentContext> {
-        let height = snapshot.checkpoint_height as usize;
+        let index = self.chain.index(snapshot.checkpoint_height);
         Ok(lander::l1::ParentContext {
-            header: self.chain.headers[height].clone(),
-            grandparent_timestamp: height
+            header: self.chain.headers[index].clone(),
+            grandparent_timestamp: index
                 .checked_sub(1)
-                .map_or(0, |h| self.chain.headers[h].timestamp),
+                .map_or(self.chain.origin_parent_timestamp, |h| self.chain.headers[h].timestamp),
         })
     }
+    /// The start S is the real EL's block, so its proxies' implementation proofs are the EL's.
+    async fn start_proxy_witness(
+        &self,
+        snapshot: &LandingSnapshot,
+        proxy: alloy_primitives::Address,
+    ) -> lander::error::Result<Option<abci::AccountWitness>> {
+        self.rpc.start_proxy_witness(snapshot, proxy).await
+    }
+    /// The structural blocks' headers; below the start, the real EL's.
     async fn execution_header(&self, number: u64) -> lander::error::Result<Header> {
-        self.chain.headers.get(number as usize).cloned().ok_or_else(|| {
+        if number < self.chain.origin {
+            return self.rpc.execution_header(number).await;
+        }
+        self.chain.headers.get(self.chain.index(number)).cloned().ok_or_else(|| {
             lander::LanderError::Unavailable(format!("required execution history height {number}"))
         })
     }
@@ -524,12 +591,14 @@ impl LandingSource for FixtureLanding {
     ) -> lander::error::Result<abci::fallback::FallbackKeys> {
         self.rpc.fallback_keys(hash, at, at_number, from_block).await
     }
+    /// Every structural block keeps the start's state root (see the module docs), so the real
+    /// EL's proof at the start proves each block's staking words.
     async fn staking_witness(
         &self,
-        block_hash: B256,
+        _block_hash: B256,
         slots: &[B256],
     ) -> lander::error::Result<abci::AccountWitness> {
-        self.rpc.staking_witness(block_hash, slots).await
+        self.rpc.staking_witness(self.chain.headers[0].hash_slow(), slots).await
     }
     async fn reference(
         &self,

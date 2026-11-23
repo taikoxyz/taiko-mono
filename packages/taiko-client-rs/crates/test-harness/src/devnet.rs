@@ -28,6 +28,7 @@ use crate::{
     lander::Lander,
     planter::Planter,
     signer::SignerNode,
+    staking::Staking,
     wait::{Fatal, wait_until},
 };
 
@@ -202,6 +203,12 @@ impl Devnet {
     /// A provider for alethia-reth `i`.
     pub fn l2_provider(&self, i: usize) -> RootProvider {
         connect_http_with_timeout(self.l2_http(i), DEFAULT_HTTP_TIMEOUT)
+    }
+
+    /// The staking driver over every EL of this devnet, reading from EL 0 (see [`Staking`]).
+    pub async fn staking(&self) -> Result<Staking> {
+        let els = (0..self.reth.len()).map(|i| self.l2_provider(i)).collect();
+        Staking::new(els, self.params.staking).await
     }
 
     /// Returns a real Engine client after the validator app has stopped.
