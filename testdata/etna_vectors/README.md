@@ -4,7 +4,8 @@
 must agree on byte for byte: storage layout, ABI encodings and hashes, signature and key formats,
 and the accept/reject cases of every boundary rule. Every implementation reads this one file
 instead of carrying its own copies of the literals. Section numbers below refer to the Etna
-specification; appendix A is the encodings and appendix B the L1 storage layout.
+specification; appendix A is the encodings and appendix B the storage layout (the Inbox on L1,
+the staking contract on L2).
 
 Schema version is `"10"`; clients refuse any other value. All integers are decimal strings, so
 values above 2^53 survive every JSON parser. Hex values are `0x`-prefixed. Clients must decode every
@@ -20,7 +21,9 @@ proxy and U), the delayed top-up activation (`activate_top_up`, `top_up_activate
 exclusions, the committee snapshot in statements and `LandInput`, and the Inbox slot names
 `genesis_committee_record_hash` (278), `genesis_cutoff` (279) and `active_committee_snapshot`
 (284). `land_statements[].inputs.committee_config_hash` and
-`layout.inbox.slots.committee_config_hash` are now `config_hash`.
+`layout.inbox.slots.committee_config_hash` are now `config_hash`. Added in schema 10:
+`fallback_keys`, `staking_layout`, `miss_bitmap`, `candidate` and `on_block_start` (see
+[Staking and the fallback key set](#staking-and-the-fallback-key-set)).
 
 `governance_abi` encodes calldata, each entry labelled with its `contract` (`inbox` or `staking`):
 the Inbox's nonce/deadline-bound recovery `recover(expectedGeneration, expectedC,
@@ -87,6 +90,11 @@ The `0x06` envelope is unchanged; extraData is 29 bytes and ends with the block'
 | `packed_words`        | B             | Every packed storage word (Inbox slots 272, 281, 282 and 293, the second word of a slot-280 entry and the first word of a slot-285 record; the staking contract's key-to-seat value `[holdsSeat 8 bits, seat 8 bits]` and the second word of a snapshot seat record `[ckPrefix 8 bits, power 64 bits]`) with an ordinary and an all-max item (ckPrefix 3, holdsSeat 1, seat 127, every other field all ones). Slot 272 packs `[genesisHeight, L1_0]`; slot 293 packs four 48-bit fields, so its bits from 192 up are zero.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `origin_words`        | 8.4, B        | Slot-290 origins `(startHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash)`, four full words each; the fourth is the value of slot 278 when the record is written. The items are encoding-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `layout`              | A, B          | For the Inbox: the named slots (269 the config hash, 278 the fallback key hash, 279 `minTotalStake`, 293 the rules schedule), the reserved slots (283, 284, 286–289 and 291), the packing table, the initialized status (3), the anchor witness slots in proof order (268, 270, 271, 278, 279, 281, 293) and the mapping slots of forced inclusion entries, landings and four-word origins.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `fallback_keys`       | 4.3, A        | The DAO's fallback key lists under `ETNA_FALLBACK_KEYS_V1` (Ki is the key of private key i): `accepted` lists with their preimage (3 + 2n words), `fallbackKeysHash`, `FallbackKeysUpdated` event (topic0, the hash as topic 1, the list as data) and the validators they sign as (each key's secp256k1eth address, power 1): [K1] and [K1, K2] (the spec's hashes), [K3, K9] (prefix 0x02 before 0x03 although K9's X is smaller) and the 128 keys of private keys 1–128 (an 8,288-byte preimage, 258 words of event data); `rejected` lists with the condition each breaks: `count` (empty, 129 keys), `order` ([K2, K1], [K1, K1], [K9, K3]) or `key` (prefix 0x04, X = p, X = 5).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `staking_layout`      | 4.1, 4.2, B   | The staking contract's words that nodes and guests read: the ERC-7201 base T of `taiko.etna.staking`, `snapshotHeight` at T, `snapshotTotalStake` at T + 1, the key-to-seat mapping at T + 2 with the elements of K1, K2 and keys a1–a4, snapshot seat records 0, 5 and 127 at T + 3 + 2s and T + 4 + 2s, how key-to-seat values decode (`seat` is null for no seat), record second words `[ckPrefix 8 bits, power 64 bits]`, the proxy's EIP-1967 implementation slot and `exitHeight`'s no-exit value 2^48 − 1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `miss_bitmap`         | 3.4, 4.2      | The missBitmap a block sets from the validators of the set that signs its parent. See the notes below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `candidate`           | 4.3, B        | Whether the candidate decided at H is usable and the set that signs H + 2. See the notes below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `on_block_start`      | 4.1, 4.2      | `onBlockStart` on a fresh staking contract and the state it leaves. See the notes below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `appendix_a_examples` | A             | Every literal hash and byte string of the spec's appendix A vectors, recomputed: `enc_a_10_f` and `enc_a_10_h` (extraData), `enc_a_10b_a` (mixHash), `enc_a_10c_a` and `enc_a_10c_b` (the missBitmap bit order), `enc_a_10d_a` and `enc_a_10d_b` (the block-start calldata and selector), `enc_a_23b_a`, `enc_a_23c_a`, `enc_a_23c_b` and `enc_a_23d_f` (blobs), `enc_a_29a_n`, `enc_a_29a_o` and `enc_a_29a_p` (validator-set arithmetic on sets with given priorities, members from `val_state_chains.keys`: the rescaled and centred priorities, the final set and its proposer, and for 29a.p the update with the new member's starting priority −19; computed with `valset_model.py` and checked against stock CometBFT v0.40.0), `enc_a_36_a` and `enc_a_36_f` (the config hash of L2 chain id 167000, staking `0x1111…11` and U = 151,200, and its rejected dynamic-string twin), `enc_a_36a_a`, `enc_a_36a_b` and `enc_a_36a_g` (the fallback key hashes of [K1] and [K1, K2], K1 and K2 the keys of private keys 1 and 2, and the rejected dynamic-string twin of the first) and `enc_a_45_g`, and `dynamic_tag_rejects`: for each domain-tagged hash, the preimage with its tag encoded as a dynamic string and the hash it gives instead. 29a.l and 29b.g are `validator_states` and `app_hashes`. |
 
 ### Validator-state chains
@@ -191,6 +199,47 @@ calldata of the zero-parts-hash conflict; `governance_abi.slash_double_sign` rep
   two's-complement pattern: a negative second takes ten bytes (−1 is
   `ff ff ff ff ff ff ff ff ff 01`).
 
+### Staking and the fallback key set
+
+- `miss_bitmap`: each case lists the validators of the set that signs the parent, candidate members
+  or fallback keys, with `ck_addr`, `block_id_flag` in the block's LastCommit (1 absent, 2 commit,
+  3 nil) and `key_seat_word`, the key-to-seat value of that address in the parent's post-state. A
+  validator is missing unless its flag is 2. A word gives seat s only when holdsSeat (bits 0–7) is
+  1, seat (bits 8–15) is below 128 and every higher bit is 0; bit s is 1 exactly when a missing
+  validator has seat s. A block with `first_block_of_generation` has no LastCommit and sets 0,
+  whatever its validators show. The cases: every validator committed; an absent validator in seat
+  5, a nil one in seat 0, seat 127; the fallback key set signing the parent, with a missing key that
+  no bond uses (word 0) and one that is also the key of a bond in seat 7; a key whose bond left its
+  seat in the parent (word 0); words that are not well formed (0x0502, 0x8001, 0x10501); two
+  addresses that map to seat 3, one missing; seat 100, set whatever n_max is (`onBlockStart` then
+  ignores it); and a generation's first block.
+- `candidate`: H = 100, the members are keys a1–a3 and the fallback key set is [K1, K2]. `records`
+  lists the nonzero snapshot seat records; every other record is zero. The candidate is usable
+  exactly when `min_total_stake` (M) is not 2^256 − 1, `snapshot_height_word`, the whole word at T,
+  equals H, the records form a valid set (1 to 128 members, valid and distinct keys, no bit of word
+  2 above `power`, every power at least 1, their exact sum at most MAX = (2^63 − 1) / 8) and
+  `snapshot_total_stake` ≥ M. Only `usable` and `signers` are normative: the members in seat order
+  at their stored powers when usable, otherwise the fallback keys at power 1, each with its
+  secp256k1eth address. `reason` is a diagnostic label for the first condition broken, in the order
+  `min_total_stake_max`, `snapshot_height`, `no_members`, `stray_bits`, `invalid_key`,
+  `duplicate_key`, `zero_power`, `power_sum` and `below_min_total_stake`. Each unusable case breaks
+  one condition, except `zero_prefix`, whose zero word 2 is both ckPrefix 0 and power 0.
+- `on_block_start`: `deployment` holds the staking parameters every case starts from (those of the
+  top-level `deployment`) and `overrides` the ones a case changes; m is `min_stake`. Bond i
+  registers the key of `private_key` 0x100 + i with `amount` and takes `seat`, the lowest empty
+  seat. After the registrations, the `prior_calls` run in order, one block each, before the call in
+  block `block_number`; no case takes a penalty before its call. `expect` is the state the call
+  leaves: `miss_counts` of the seats held when the call starts (every other seat's count is 0),
+  every bond's effStake, the bonds whose seats the call `released`, the `penalty_total` it sends to
+  `slashSink`, the nonzero `records` (all others are zero), `snapshot_total_stake`,
+  `snapshot_height` (the block number) and `last_generation`. The cases: a miss count rising to 3
+  and one reset to 0; a bit of an empty seat; a zero bitmap; bitmap 4, which counts only seat 2;
+  bit 100 with n_max 64; with missLimit 10, the penalty on 10m (m) and on 10m + 1 (m + 1, rounded
+  up) and one miss short of it; a penalty that leaves a bond below m and releases its seat;
+  missLimit 1; missSlashBps 10,000, which takes the whole stake; seats 0, 2 and 5 left after three
+  releases in the same call; no seat with every bit set; vp_unit = m, where 2.5m gives power 2; and
+  n_max 64 with every seat held, records 64–127 zero.
+
 ## Regenerating
 
 Run from the repository root, with Foundry's `cast`, Go and the workspace's dependencies
@@ -219,7 +268,7 @@ the root module, are run with `go run` (a `GOFLAGS` in the environment, such as 
 
 Regeneration is deterministic: two runs produce identical bytes. The structural tests need only
 the Python standard library (plus `valset_model.py` and a Keccak-256 of their own for the
-validator-state chains) and run in the protocol CI:
+validator-state chains and the staking sections) and run in the protocol CI:
 
 ```bash
 python3 -m unittest discover -s testdata/etna_vectors -p 'test_vectors.py' -v
@@ -230,5 +279,7 @@ python3 -m unittest discover -s testdata/etna_vectors -p 'test_vectors.py' -v
 - Contracts (`packages/protocol`; `foundry.toml` grants read access to this directory):
   `test/shared/etna/LibEtnaVectors.sol` loads the file for the Etna Solidity tests, and the key,
   vote and staking tests check their own sections.
+- `fallback_keys`, `staking_layout` and `on_block_start` pin what the Inbox and the staking
+  contract must do; `miss_bitmap` and `candidate` pin the node's and the guests' own rules.
 - The Etna node and guests read the same file. The L1 contracts hold no validator-state hash, so
   `validator_states`, `app_hashes` and `val_state_chains` serve the node.

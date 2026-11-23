@@ -8,13 +8,13 @@ dependencies installed (the output is formatted with the repository root's
     python3 -I testdata/etna_vectors/generate.py
 
 Every ABI encoding, hash and storage slot below is computed by `cast` (`abi-encode`, including
-`--packed` for extraData, `keccak`, `index`, `format-bytes32-string`, `sig`, `calldata`,
-`wallet address`), independently of the Solidity contracts and of taiko-client-rs, which both read
-the output. The secp256k1 public keys come from a small pure-Python helper and are cross-checked
-against `cast wallet address`; key decompression follows appendix A and is checked against the
-curve equation. Proof-of-possession signatures for the L2 staking contract's registration digest
-come from `cast wallet sign --no-hash`, are checked with `cast wallet verify` and a pure-Python
-ecrecover, and each digest is checked against cast's own EIP-712 hashing
+`--packed` for extraData, `keccak`, `index`, `index-erc7201`, `format-bytes32-string`, `sig`,
+`calldata`, `wallet address`), independently of the Solidity contracts and of taiko-client-rs,
+which both read the output. The secp256k1 public keys come from a small pure-Python helper and
+are cross-checked against `cast wallet address`; key decompression follows appendix A and is
+checked against the curve equation. Proof-of-possession signatures for the L2 staking contract's
+registration digest come from `cast wallet sign --no-hash`, are checked with `cast wallet verify`
+and a pure-Python ecrecover, and each digest is checked against cast's own EIP-712 hashing
 (`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
 from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
 separate Python encoder written from appendix A, and each signature must recover to the key's
@@ -27,10 +27,12 @@ over `cast keccak` signing hashes (EIP-7702 tuples must equal `cast wallet sign-
 classified again from its bytes, an ineligible case must break only the rule it is labelled with,
 and the written file is checked against go-ethereum v1.15.5 (`ficheck/`, run with `go run`).
 Every literal hash and byte string that the spec's appendix A vectors list is recomputed
-(`appendix_a_examples`), and generation stops if one differs. Only the inputs, the packing table
-and the storage slot numbers are written by hand, following the Etna spec's appendix A (encodings)
-and appendix B (storage layout). All integers are decimal strings so that every value survives
-JSON parsing exactly.
+(`appendix_a_examples`), and generation stops if one differs. The staking contract's block-start
+call, the missBitmap a block sets and the candidate decision (spec 3.4, 4.1-4.3) are small Python
+models written from the spec, and `test_vectors.py` decides every case again with models of its
+own. Only the inputs, the packing table and the storage slot numbers are written by hand,
+following the Etna spec's appendix A (encodings) and appendix B (storage layout). All integers
+are decimal strings so that every value survives JSON parsing exactly.
 """
 
 import base64
@@ -173,12 +175,13 @@ def dec(value):
 
 
 def decimals(value):
-    """`value` with every integer, at any depth, as a decimal string (booleans stay booleans)."""
+    """`value` with every integer, at any depth, as a decimal string (booleans stay booleans and
+    `None` stays null)."""
     if isinstance(value, dict):
         return {k: decimals(v) for k, v in value.items()}
     if isinstance(value, list):
         return [decimals(v) for v in value]
-    if isinstance(value, (bool, str)):
+    if value is None or isinstance(value, (bool, str)):
         return value
     return dec(value)
 
@@ -2546,6 +2549,528 @@ def layout():
     return decimals({"inbox": inbox})
 
 
+# --- L2 staking: fallback keys, storage words, missBitmap, candidate, block-start call ----------
+
+MAX_FALLBACK_KEYS = 128  # a fallback key list holds 1 to 128 keys
+FALLBACK_KEYS_UPDATED = "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])"
+STAKING_NAMESPACE = "taiko.etna.staking"
+# T, the namespace's ERC-7201 base slot, as appendix B lists it.
+STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E00
+SNAPSHOT_RECORDS = 128  # snapshot seat records, one per seat number 0..127 whatever n_max is
+EIP1967_IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+U64_MAX = 2**64 - 1
+# CometBFT's BlockIDFlag values in a LastCommit; only COMMIT is a precommit for the parent block.
+BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL = 1, 2, 3
+
+
+@functools.cache
+def scalar_key(k):
+    """`consensus_key` of private key k: its ckPrefix, ckX and ckAddr (`cast wallet address`)."""
+    key = consensus_key(f"k{k}", k)
+    assert (key["ck_prefix"], key["ck_x"]) == fallback_key(k), k
+    return key
+
+
+def compressed(key):
+    """The 33-byte value ckPrefix || ckX of a key (ckPrefix, ckX)."""
+    prefix, x = key
+    return bytes([prefix]) + bytes.fromhex(x[2:])
+
+
+def ascending_scalars(n):
+    """The private keys 1..n, ordered by the 33-byte value of their compressed public keys."""
+    return sorted(range(1, n + 1), key=lambda k: compressed(fallback_key(k)))
+
+
+def fallback_keys_rejection(keys):
+    """Why setFallbackKeys rejects a list, or None: `count` outside 1 to 128 entries, `order`
+    unless every 33-byte value is above the one before it (so a repeat too), `key` for an entry
+    that is not a valid compressed public key."""
+    if not 1 <= len(keys) <= MAX_FALLBACK_KEYS:
+        return "count"
+    values = [compressed(key) for key in keys]
+    if any(a >= b for a, b in zip(values, values[1:])):
+        return "order"
+    if any(decompress(value) is None for value in values):
+        return "key"
+    return None
+
+
+def fallback_keys():
+    """The fallback key lists setFallbackKeys accepts, each with its preimage and hash, its
+    FallbackKeysUpdated event (the hash as topic 1, the list as data) and the validators it signs
+    as (one per key, power 1, at the key's secp256k1eth address), and the lists it rejects."""
+    k3, k9 = fallback_key(3), fallback_key(9)
+    assert k3 == (2, "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9")
+    assert k9 == (3, "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe")
+    # By X alone K9 comes first; as 33-byte values K3, whose prefix is 0x02, does.
+    assert int(k9[1], 16) < int(k3[1], 16) and compressed(k3) < compressed(k9)
+    topic0 = keccak(FALLBACK_KEYS_UPDATED)
+    assert topic0 == SPEC_TOPICS["fallback_keys_updated"]
+    largest = ascending_scalars(MAX_FALLBACK_KEYS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, largest))
+    accepted = []
+    for name, scalars in (
+        ("one_key", (1,)),
+        ("two_keys", (1, 2)),
+        ("prefix_then_x", (3, 9)),
+        ("max_keys", largest),
+    ):
+        keys = [fallback_key(k) for k in scalars]
+        assert fallback_keys_rejection(keys) is None, name
+        preimage = fallback_keys_preimage(keys)
+        digest = keccak(preimage)
+        # The event data is the list alone: its offset, then the preimage's words after the tag
+        # and the offset.
+        data = abi_encode("f((uint8,bytes32)[])", fallback_keys_arg(keys))
+        assert data == concat(word(32), "0x" + preimage[2 + 128 :]), name
+        accepted.append(
+            {
+                "name": name,
+                "keys": fallback_keys_json(keys),
+                "preimage": preimage,
+                "hash": digest,
+                "event": {"topic0": topic0, "topic1": digest, "data": data},
+                "validators": [{"ck_addr": scalar_key(k)["ck_addr"], "power": 1} for k in scalars],
+            }
+        )
+    hashes = {case["name"]: case["hash"] for case in accepted}
+    assert hashes["one_key"] == APPENDIX_LITERALS["enc_a_36a_a"][1]
+    assert hashes["two_keys"] == APPENDIX_LITERALS["enc_a_36a_b"][1]
+    assert hashes["prefix_then_x"].startswith("0x5890") and hashes["prefix_then_x"].endswith("333b")
+    assert len(accepted[-1]["preimage"]) == 2 + 2 * 8_288
+    assert len(accepted[-1]["event"]["data"]) == 2 + 64 * 258
+    assert smallest_off_curve_x() == 5
+    rejected = []
+    for name, keys, reason in (
+        ("empty", [], "count"),
+        ("too_many", [fallback_key(k) for k in ascending_scalars(MAX_FALLBACK_KEYS + 1)], "count"),
+        ("descending", [K2, K1], "order"),
+        ("duplicate", [K1, K1], "order"),
+        ("x_alone", [k9, k3], "order"),
+        ("prefix_04", [(4, K1[1])], "key"),
+        ("x_not_below_p", [(2, word(SECP_P))], "key"),
+        ("off_curve", [(2, word(smallest_off_curve_x()))], "key"),
+    ):
+        assert fallback_keys_rejection(keys) == reason, name
+        rejected.append({"name": name, "keys": fallback_keys_json(keys), "reason": reason})
+    return decimals({"tag": "ETNA_FALLBACK_KEYS_V1", "accepted": accepted, "rejected": rejected})
+
+
+def staking_base():
+    """T: `cast index-erc7201 taiko.etna.staking`, which must equal
+    keccak256(abi.encode(uint256(keccak256(id)) - 1)) & ~0xff and appendix B's value."""
+    base = int(cast("index-erc7201", STAKING_NAMESPACE), 16)
+    inner = int(keccak_text(STAKING_NAMESPACE), 16) - 1
+    assert base == int(keccak(abi_encode("f(uint256)", inner)), 16) & ~0xFF
+    assert base == STAKING_BASE
+    return base
+
+
+def key_seat_of(value):
+    """The seat a key-to-seat value gives: s for holdsSeat = 1 (bits 0-7), seat = s below 128
+    (bits 8-15) and every bit from bit 16 up zero; None for any other value."""
+    holds_seat, seat = value & 0xFF, value >> 8 & 0xFF
+    if holds_seat == 1 and seat < SNAPSHOT_RECORDS and value >> 16 == 0:
+        return seat
+    return None
+
+
+def record_word2(ck_prefix, power):
+    """Word 2 of a snapshot seat record: ckPrefix in bits 0-7, power in bits 8-71."""
+    return pack(("ck_prefix", "power"), (ck_prefix, power))
+
+
+# Key-to-seat values and the seat each gives: seats 5, 0 and 127; 0, the value of a key that holds
+# no seat; 0x0500, holdsSeat 0 with the seat kept, which a released key must not keep; and the
+# values that are not well formed: holdsSeat 2, seat 128 and bit 16 set.
+KEY_SEAT_WORDS = (
+    (0x0501, 5),
+    (0x0001, 0),
+    (0x7F01, 127),
+    (0x0000, None),
+    (0x0500, None),
+    (0x0502, None),
+    (0x8001, None),
+    (0x10501, None),
+)
+
+
+def staking_layout(key_list):
+    """The words of the L2 staking contract that nodes and guests read (appendix B): snapshotHeight
+    at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2 and record s at
+    T + 3 + 2s and T + 4 + 2s, with the key-to-seat elements of K1, K2 and keys a1-a4 (`cast
+    index`), how key-to-seat values decode, record second words, the proxy's EIP-1967
+    implementation slot and the no-exit value of exitHeight."""
+    base = staking_base()
+    addresses = [scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]]
+    addresses += [key["ck_addr"] for key in key_list[:4]]
+    key_seat_slots = [
+        {"ck_addr": a, "slot": cast("index", "address", a, word(base + 2))} for a in addresses
+    ]
+    assert key_seat_slots[0] == {
+        "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        "slot": "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27",
+    }
+    record_slots = [
+        {"seat": s, "word1": word(base + 3 + 2 * s), "word2": word(base + 4 + 2 * s)}
+        for s in (0, 5, SNAPSHOT_RECORDS - 1)
+    ]
+    assert record_slots[-1]["word1"] == (
+        "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+    )
+    key_seat_words = []
+    for value, seat in KEY_SEAT_WORDS:
+        assert key_seat_of(value) == seat, hex(value)
+        key_seat_words.append({"word": word(value), "seat": seat})
+    words2 = [
+        {"ck_prefix": prefix, "power": power, "word": record_word2(prefix, power)}
+        for prefix, power in ((2, 250_000), (3, U64_MAX))
+    ]
+    assert words2[0]["word"] == word(0x3D09002)
+    implementation = word(int(keccak_text("eip1967.proxy.implementation"), 16) - 1)
+    assert implementation == EIP1967_IMPLEMENTATION_SLOT
+    return decimals(
+        {
+            "namespace": STAKING_NAMESPACE,
+            "base": word(base),
+            "snapshot_height_slot": word(base),
+            "snapshot_total_stake_slot": word(base + 1),
+            "key_seat_slot": word(base + 2),
+            "record_slots": record_slots,
+            "key_seat_slots": key_seat_slots,
+            "key_seat_words": key_seat_words,
+            "record_word2": words2,
+            "implementation_slot": implementation,
+            "no_exit": NO_EXIT,
+        }
+    )
+
+
+def miss_bitmap_of(first_block, validators):
+    """The missBitmap block H sets (spec 3.4 rule 6): 0 for the first block of a generation;
+    otherwise bit s is 1 exactly when a validator of the set that signs the parent is missing from
+    H's LastCommit (any flag but commit) and its key-to-seat value in the parent's post-state gives
+    seat s."""
+    if first_block:
+        return 0
+    bitmap = 0
+    for _, flag, value in validators:
+        seat = key_seat_of(value)
+        if flag != BLOCK_ID_FLAG_COMMIT and seat is not None:
+            bitmap |= 1 << seat
+    return bitmap
+
+
+def miss_bitmap(key_list):
+    """missBitmap cases: the validators of the set that signs the parent, each with its address,
+    its flag in the block's LastCommit and its key-to-seat value in the parent's post-state."""
+    a1, a2, a3, a4 = (key["ck_addr"] for key in key_list[:4])
+    # The fallback keys K1 and K2, for the cases where the fallback key set signs the parent.
+    f1, f2 = scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]
+    absent, commit, nil = BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL
+    cases = (
+        ("all_commit", False, ((a1, commit, 0x0001), (a2, commit, 0x0101), (a3, commit, 0x0201)),
+         0),
+        ("absent_seat_5", False,
+         ((a1, commit, 0x0001), (a2, absent, 0x0501), (a3, commit, 0x0201)), 1 << 5),
+        ("nil_seat_0", False, ((a1, nil, 0x0001), (a2, commit, 0x0101)), 1 << 0),
+        ("seat_127", False, ((a1, commit, 0x0001), (a2, absent, 0x7F01)), 1 << 127),
+        # K1 is the key of no bond, so it maps to 0.
+        ("fallback_key_without_bond", False, ((f1, absent, 0), (f2, commit, 0)), 0),
+        # K1 is also the key of a bond that holds seat 7.
+        ("fallback_key_with_seated_bond", False, ((f1, absent, 0x0701), (f2, commit, 0)), 1 << 7),
+        # a1's bond vacated seat 4 in the parent and a bond whose key is not in the set took it.
+        ("vacated_in_parent", False, ((a1, absent, 0), (a2, commit, 0x0101)), 0),
+        ("malformed_words", False,
+         ((a1, absent, 0x0502), (a2, absent, 0x8001), (a3, nil, 0x10501), (a4, commit, 0x0001)),
+         0),
+        ("two_addresses_one_seat", False, ((a1, absent, 0x0301), (a2, commit, 0x0301)), 1 << 3),
+        # n_max 64 does not matter: the bit is set, and onBlockStart then ignores it.
+        ("seat_100", False, ((a1, absent, 0x6401), (a2, commit, 0x0001)), 1 << 100),
+        # The first block of a generation has no LastCommit.
+        ("first_block", True, ((a1, absent, 0x0001), (a2, commit, 0x0101)), 0),
+    )
+    out = []
+    for name, first_block, validators, expected in cases:
+        bitmap = miss_bitmap_of(first_block, validators)
+        assert bitmap == expected, name
+        out.append(
+            {
+                "name": name,
+                "first_block_of_generation": first_block,
+                "validators": [
+                    {"ck_addr": addr, "block_id_flag": flag, "key_seat_word": word(value)}
+                    for addr, flag, value in validators
+                ],
+                "miss_bitmap": bitmap,
+            }
+        )
+    return decimals({"cases": out})
+
+
+CANDIDATE_HEIGHT = 100
+
+
+def candidate_unusable(height, height_word, total, records, threshold):
+    """Why the candidate decided at H (spec 4.3) is not usable, or None, naming the first failing
+    condition in this order: `min_total_stake_max` (the threshold M is 2^256 - 1),
+    `snapshot_height` (the whole word at T is not H), `no_members`, `stray_bits` (a record's
+    word 2 has a bit above power), `invalid_key`, `duplicate_key`, `zero_power`, `power_sum` (the
+    exact sum exceeds MAX) and `below_min_total_stake` (snapshotTotalStake < M)."""
+    members = [(w1, w2) for _, (w1, w2) in sorted(records.items()) if w1 or w2]
+    keys = [bytes([w2 & 0xFF]) + w1.to_bytes(32, "big") for w1, w2 in members]
+    powers = [w2 >> 8 & U64_MAX for _, w2 in members]
+    if threshold == WORD_MOD - 1:
+        return "min_total_stake_max"
+    if height_word != height:
+        return "snapshot_height"
+    if not members:
+        return "no_members"
+    if any(w2 >> 72 for _, w2 in members):
+        return "stray_bits"
+    if any(decompress(key) is None for key in keys):
+        return "invalid_key"
+    if len(set(keys)) != len(keys):
+        return "duplicate_key"
+    if min(powers) == 0:
+        return "zero_power"
+    if sum(powers) > MAX_TOTAL_VOTING_POWER:
+        return "power_sum"
+    if total < threshold:
+        return "below_min_total_stake"
+    return None
+
+
+def candidate(key_list):
+    """Candidate decisions at H = 100: the word at T, snapshotTotalStake, the nonzero snapshot
+    seat records, the M that H's anchor proves and the fallback key set [K1, K2], and the set that
+    signs H + 2: the members in seat order at their stored powers when the candidate is usable,
+    otherwise the fallback keys at power 1. Members are keys a1-a3."""
+    vp_unit = DEPLOYMENT["vp_unit"]
+
+    def record(key, power):
+        return int(key["ck_x"], 16), int(key["ck_prefix"]) | power << 8
+
+    a1, a2, a3 = key_list[:3]
+    three = {0: record(a1, 100_000), 2: record(a2, 250_000), 5: record(a3, 400_000)}
+    three_total = 750_000 * vp_unit
+    low = 100_000 * vp_unit  # a threshold every usable total below reaches
+    h = CANDIDATE_HEIGHT
+    half = MAX_TOTAL_VOTING_POWER // 2 + 1  # two members at this power sum to MAX + 1
+
+    def seat_2(word1, word2):
+        return {**three, 2: (word1, word2)}
+
+    x2, word2_2 = three[2]
+    cases = (
+        # name, the word at T, snapshotTotalStake, records, M, why it is not usable
+        ("usable_three", h, three_total, three, low, None),
+        ("equal_threshold", h, three_total, three, three_total, None),
+        ("below_threshold", h, three_total, three, three_total + 1, "below_min_total_stake"),
+        ("threshold_max", h, WORD_MOD - 1, three, WORD_MOD - 1, "min_total_stake_max"),
+        ("stale_height", h - 1, three_total, three, low, "snapshot_height"),
+        ("height_high_bits", h | 1 << 48, three_total, three, low, "snapshot_height"),
+        ("stray_bits", h, three_total, seat_2(x2, word2_2 | 1 << 72), low, "stray_bits"),
+        # Word 2 zero is ckPrefix 0, an invalid key (and power 0).
+        ("zero_prefix", h, three_total, seat_2(x2, 0), low, "invalid_key"),
+        ("zero_power", h, three_total, seat_2(x2, 0x02), low, "zero_power"),
+        ("off_curve_key", h, three_total, seat_2(smallest_off_curve_x(), word2_2), low,
+         "invalid_key"),
+        ("duplicate_key", h, three_total, {**three, 2: record(a1, 250_000)}, low,
+         "duplicate_key"),
+        ("power_sum", h, 2 * half * vp_unit, {0: record(a1, half), 2: record(a2, half)}, low,
+         "power_sum"),
+        # A record at a seat at or above any n_max below 101 is a member like any other.
+        ("record_at_seat_100", h, 350_000 * vp_unit,
+         {0: record(a1, 100_000), 100: record(a2, 250_000)}, low, None),
+        ("empty", h, 0, {}, 0, "no_members"),
+    )
+    assert 2 * half == MAX_TOTAL_VOTING_POWER + 1
+    fallback_scalars = (1, 2)
+    fallback = [fallback_key(k) for k in fallback_scalars]
+    out = []
+    for name, height_word, total, records, threshold, expected in cases:
+        reason = candidate_unusable(h, height_word, total, records, threshold)
+        assert reason == expected, (name, reason)
+        if reason is None:
+            signers = []
+            for _, (w1, w2) in sorted(records.items()):
+                prefix, power = w2 & 0xFF, w2 >> 8
+                x, y = decompress(bytes([prefix]) + w1.to_bytes(32, "big"))
+                signers.append(
+                    {"ck_prefix": prefix, "ck_x": word(x), "ck_addr": address_of(x, y),
+                     "power": power}
+                )
+        else:
+            signers = [
+                {**{f: scalar_key(k)[f] for f in ("ck_prefix", "ck_x", "ck_addr")}, "power": 1}
+                for k in fallback_scalars
+            ]
+        out.append(
+            {
+                "name": name,
+                "height": h,
+                "snapshot_height_word": word(height_word),
+                "snapshot_total_stake": total,
+                "records": [
+                    {"seat": seat, "word1": word(w1), "word2": word(w2)}
+                    for seat, (w1, w2) in sorted(records.items())
+                    if w1 or w2
+                ],
+                "min_total_stake": threshold,
+                "fallback_keys": fallback_keys_json(fallback),
+                "usable": reason is None,
+                "reason": reason,
+                "signers": signers,
+            }
+        )
+    return decimals({"cases": out})
+
+
+BLOCK_START_FIELDS = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+BLOCK_START_KEY = 0x100  # bond i of a block-start case registers the key of private key 0x100 + i
+BLOCK_START_NUMBER = 1000
+BLOCK_START_GENERATION = 1
+
+
+def check_staking_params(params):
+    """The staking contract's deployment bounds (spec 11) on the fields a block-start case sets."""
+    assert params["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER)
+    assert params["min_stake"] >= params["vp_unit"]
+    assert params["n_max"] * params["min_stake"] >= TAIKO_SUPPLY
+    assert 1 <= params["n_max"] <= 128 and 1 <= params["miss_limit"] <= 65_535
+    assert 0 < params["miss_slash_bps"] <= 10_000
+
+
+def block_start_run(params, amounts, prior_bitmaps, bitmap):
+    """A fresh staking contract (spec 4.1, 4.2): each amount registers a bond, which takes the
+    lowest empty seat; then each prior call and the call run onBlockStart: count a miss for each
+    occupied seat whose bit is 1 and reset the count of the others; then for each seat whose count
+    reached missLimit deduct ceil(effStake * missSlashBps / 10000), reset the count and release
+    the seat if effStake fell below minStake. Returns the registrations' seats, the seats held when
+    the call starts, the miss counts, the effStakes, the bonds the call released, its penalty and
+    the seats held after it (the records follow from them)."""
+    seat_bond, eff, misses, seats = {}, [], [0] * SNAPSHOT_RECORDS, []
+    for amount in amounts:
+        assert amount >= params["min_stake"]
+        seat = next(s for s in range(params["n_max"]) if s not in seat_bond)
+        seat_bond[seat], misses[seat] = len(eff), 0
+        eff.append(amount)
+        seats.append(seat)
+
+    def call(bits):
+        for seat in seat_bond:
+            misses[seat] = misses[seat] + 1 if bits >> seat & 1 else 0
+        penalty, released = 0, []
+        for seat in sorted(seat_bond):
+            if misses[seat] < params["miss_limit"]:
+                continue
+            bond = seat_bond[seat]
+            cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
+            eff[bond] -= cut
+            penalty += cut
+            misses[seat] = 0
+            if eff[bond] < params["min_stake"]:
+                del seat_bond[seat]
+                released.append(bond)
+        return penalty, released
+
+    for bits in prior_bitmaps:
+        assert call(bits) == (0, []), "a case's penalties happen only in its call"
+    held = sorted(seat_bond)
+    penalty, released = call(bitmap)
+    return seats, held, misses, eff, released, penalty, seat_bond
+
+
+def on_block_start():
+    """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit,
+    n_max, missLimit and missSlashBps unless a case overrides them: registrations, earlier
+    block-start calls, then the call in block 1000, with the miss counts, effStakes, released
+    bonds, penalty, records, total, height and generation it leaves. m is minStake."""
+    m = DEPLOYMENT["min_stake"]
+    base = {field: DEPLOYMENT[field] for field in BLOCK_START_FIELDS}
+    n_max_64 = {"n_max": 64, "min_stake": 2 * m}  # ceil(10^27 / 64) = 2m
+    cases = (
+        # name, overrides, registration amounts, prior calls' missBitmaps, the call's missBitmap
+        ("count_up", {}, (m,) * 4, (8, 8), 8),
+        ("count_reset", {}, (m,) * 4, (8, 8), 0),
+        ("empty_seat_bit", {}, (m,), (1,), 1 << 9 | 1),
+        ("zero_bitmap", {}, (m,) * 3, (7, 7), 0),
+        ("bitmap_4", {}, (m,) * 3, (), 4),
+        ("n_max_64_bit_100", n_max_64, (2 * m,), (), 1 << 100 | 1),
+        ("ceil_exact", {"miss_limit": 10}, (10 * m,), (1,) * 9, 1),
+        ("ceil_round_up", {"miss_limit": 10}, (10 * m + 1,), (1,) * 9, 1),
+        ("below_limit", {"miss_limit": 10}, (10 * m,), (1,) * 8, 1),
+        ("release_below_min", {"miss_limit": 10}, (m, m), (1,) * 9, 1),
+        ("miss_limit_1", {"miss_limit": 1}, (2 * m,), (), 1),
+        ("full_bps", {"miss_limit": 1, "miss_slash_bps": 10_000}, (3 * m, m), (), 1),
+        # Seats 1, 3 and 4 fall below minStake in step 2, leaving seats 0, 2 and 5.
+        ("three_seats", {"miss_limit": 1}, (m, m, 2 * m, m, m, 3 * m), (), 0b11010),
+        ("no_seats", {}, (), (), 2**128 - 1),
+        ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), 0),
+        ("n_max_64_records", n_max_64, (2 * m,) * 64, (), 0),
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, range(BLOCK_START_KEY, BLOCK_START_KEY + 64)))
+    out = []
+    for name, overrides, amounts, priors, bitmap in cases:
+        params = {**base, **overrides}
+        check_staking_params(params)
+        seats, held, misses, eff, released, penalty, seat_bond = block_start_run(
+            params, amounts, priors, bitmap
+        )
+        keys = [scalar_key(BLOCK_START_KEY + i) for i in range(len(amounts))]
+        records = []
+        for seat in sorted(seat_bond):
+            key = keys[seat_bond[seat]]
+            power = eff[seat_bond[seat]] // params["vp_unit"]
+            records.append(
+                {"seat": seat, "word1": key["ck_x"], "word2": record_word2(key["ck_prefix"], power)}
+            )
+        out.append(
+            {
+                "name": name,
+                "overrides": overrides,
+                "setup": {
+                    "registrations": [
+                        {"bond_id": i, "private_key": keys[i]["private_key"], "amount": amount,
+                         "seat": seats[i]}
+                        for i, amount in enumerate(amounts)
+                    ],
+                    "prior_calls": [
+                        {"generation": BLOCK_START_GENERATION, "miss_bitmap": bits}
+                        for bits in priors
+                    ],
+                },
+                "call": {
+                    "block_number": BLOCK_START_NUMBER,
+                    "generation": BLOCK_START_GENERATION,
+                    "miss_bitmap": bitmap,
+                    "calldata": on_block_start_calldata(BLOCK_START_GENERATION, bitmap),
+                },
+                "expect": {
+                    "miss_counts": [{"seat": s, "count": misses[s]} for s in held],
+                    "eff_stakes": [{"bond_id": i, "eff_stake": e} for i, e in enumerate(eff)],
+                    "released": released,
+                    "penalty_total": penalty,
+                    "records": records,
+                    "snapshot_total_stake": sum(eff[bond] for bond in seat_bond.values()),
+                    "snapshot_height": BLOCK_START_NUMBER,
+                    "last_generation": BLOCK_START_GENERATION,
+                },
+            }
+        )
+    expect = {case["name"]: case["expect"] for case in out}
+    assert expect["ceil_exact"]["penalty_total"] == m
+    assert expect["ceil_round_up"]["penalty_total"] == m + 1
+    assert [r["seat"] for r in expect["three_seats"]["records"]] == [0, 2, 5]
+    assert [int(r["word2"], 16) >> 8 for r in expect["power_floor"]["records"]] == [2, 1, 1]
+    assert expect["release_below_min"]["released"] == [0] == expect["full_bps"]["released"]
+    return decimals({"deployment": base, "cases": out})
+
+
 # The Etna start used by the start ABI and event vectors: S = 1000 with the hash and stateRoot that
 # setOrigin(S) copies from the Unzen Inbox's final proof and the SignalService checkpoint at S.
 START = (1000, word(0x51), word(0x52))
@@ -3400,6 +3925,11 @@ def main():
         "packed_words": packed_words(),
         "origin_words": origin_words(),
         "layout": layout(),
+        "fallback_keys": fallback_keys(),
+        "staking_layout": staking_layout(key_list),
+        "miss_bitmap": miss_bitmap(key_list),
+        "candidate": candidate(key_list),
+        "on_block_start": on_block_start(),
         "governance_abi": governance_abi(digests, vote_vectors["slash_abi"]),
         "forfeitures": forfeitures(),
         "governance_events": governance_events(cfg),

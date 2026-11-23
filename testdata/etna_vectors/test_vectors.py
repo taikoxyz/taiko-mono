@@ -10,7 +10,10 @@ and words and check what can be checked without keccak: word order and count, fi
 packing offsets, the 48-byte chain id, key compression and decompression, signature recovery to the
 registered point, and the shape of each case. The validator-state chains are the exception: they
 are replayed with `valset_model.py` and every hash is recomputed with a Keccak-256 written here
-(hashlib's when the Python build has one).
+(hashlib's when the Python build has one). So are the staking sections: the fallback key hashes,
+the staking contract's slots and the validator addresses use that Keccak-256, and every
+missBitmap, candidate and block-start case is decided again by models written here, separately
+from `generate.py`'s.
 """
 
 import base64
@@ -733,6 +736,165 @@ SPEC_TOPICS = {
     "forfeited": "0xfa0800b34e880af94586f918c482b017b7cb8d550255ba57a432bc218dbdfc6b",
 }
 ON_BLOCK_START_SELECTOR = "0xea987592"
+
+
+# --- L2 staking: fallback keys, storage words, miss bitmap, candidate, block-start call -----------
+
+# The compressed public keys of the private keys 3 and 9: K3's prefix is 0x02 and K9's 0x03, and
+# K9's X is the smaller, so [K3, K9] is ascending as 33-byte values but not by X alone.
+K3 = {"ck_prefix": "2", "ck_x": "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"}
+K9 = {"ck_prefix": "3", "ck_x": "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe"}
+# The staking contract's ERC-7201 base slot T, the word T + 257 (word 1 of snapshot seat record
+# 127), the key-to-seat element of K1's address, and the EIP-1967 implementation slot.
+STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E00
+STAKING_RECORD_127_WORD1 = "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+K1_ADDR = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+K1_KEY_SEAT_SLOT = "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27"
+IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+PREFIX_THEN_X_HASH = "0x5890fcdf8ee020d53fbf91c780a078701c0cecd248bbf4322f5feccf57bc333b"
+MAX_POWER_SUM = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower
+U64_MAX = 2**64 - 1
+U256_MAX = 2**256 - 1
+BLOCK_ID_FLAG_COMMIT = "2"
+
+
+def key_bytes(key):
+    """The 33-byte value ckPrefix || ckX of a {ck_prefix, ck_x} key."""
+    return bytes([int(key["ck_prefix"])]) + hexbytes(key["ck_x"])
+
+
+def scalar_key(k):
+    """The compressed public key of private key k, as {ck_prefix, ck_x}."""
+    x, y = ec_mul(SECP_G, k)
+    return {"ck_prefix": str(2 + y % 2), "ck_x": uint(x)}
+
+
+def ascending_scalar_keys(n):
+    """The keys of private keys 1..n in ascending order of their 33-byte values."""
+    return sorted((scalar_key(k) for k in range(1, n + 1)), key=key_bytes)
+
+
+def fallback_list_failures(keys):
+    """The setFallbackKeys conditions a list breaks: 1 to 128 entries, strictly ascending as
+    33-byte values (so no repeats), every key a valid compressed public key."""
+    raw = [key_bytes(key) for key in keys]
+    failures = []
+    if len(raw) < 1 or len(raw) > 128:
+        failures.append("count")
+    if raw != sorted(set(raw)):
+        failures.append("order")
+    if any(decompress(r) is None for r in raw):
+        failures.append("key")
+    return failures
+
+
+def seat_from_word(value):
+    """The seat a key-to-seat value gives: holdsSeat (bits 0-7) must be 1, seat (bits 8-15) below
+    128 and every higher bit zero; anything else is no seat."""
+    if value >> 16 != 0 or value & 0xFF != 1 or value >> 8 >= 128:
+        return None
+    return value >> 8
+
+
+def record_member(record):
+    """(33-byte key, power, stray high bits) of a snapshot seat record."""
+    word1, word2 = int(record["word1"], 16), int(record["word2"], 16)
+    return bytes([word2 & 0xFF]) + word1.to_bytes(32, "big"), word2 >> 8 & U64_MAX, word2 >> 72
+
+
+def candidate_failures(case):
+    """Which of the candidate conditions the case breaks, in a fixed order: the threshold is not
+    the largest uint256, the whole word at T equals H, the set has members, no record word 2 has
+    bits above `power`, every key is valid and distinct, every power is at least 1, their exact
+    sum is at most MAX, and the snapshot total reaches the threshold."""
+    members = [record_member(r) for r in case["records"]]
+    keys = [key for key, _, _ in members]
+    powers = [power for _, power, _ in members]
+    threshold = int(case["min_total_stake"])
+    checks = (
+        ("min_total_stake_max", threshold == U256_MAX),
+        ("snapshot_height", int(case["snapshot_height_word"], 16) != int(case["height"])),
+        ("no_members", not members),
+        ("stray_bits", any(stray for _, _, stray in members)),
+        ("invalid_key", any(decompress(key) is None for key in keys)),
+        ("duplicate_key", len(set(keys)) < len(keys)),
+        ("zero_power", any(power == 0 for power in powers)),
+        ("power_sum", sum(powers) > MAX_POWER_SUM),
+        ("below_min_total_stake", int(case["snapshot_total_stake"]) < threshold),
+    )
+    return [name for name, failed in checks if failed]
+
+
+def signer(key, power):
+    """A signer entry: the key, its secp256k1eth address and its power."""
+    return {
+        "ck_prefix": str(key[0]),
+        "ck_x": "0x" + key[1:].hex(),
+        "ck_addr": "0x" + eth_address(decompress(key)),
+        "power": str(power),
+    }
+
+
+def replay_block_start(params, case):
+    """The staking contract from a fresh deployment through the case's registrations, prior calls
+    and call (spec 4.1 and 4.2), in plain lists: a registration takes the lowest empty seat; each
+    call counts a miss for an occupied seat whose bit is 1 and resets the count otherwise, then
+    takes ceil(effStake * missSlashBps / 10000) from every seat that reached missLimit, resets its
+    count and releases a bond left below minStake, then writes the 128 records, the total and the
+    height. Returns the registration seats, the seats held when the call starts and the call's
+    effects."""
+    n_max, min_stake = params["n_max"], params["min_stake"]
+    stake, holder, misses = [], [None] * 128, [0] * 128
+    seats = []
+    for reg in case["setup"]["registrations"]:
+        assert int(reg["amount"]) >= min_stake
+        free = [s for s in range(n_max) if holder[s] is None][0]
+        holder[free], misses[free] = len(stake), 0
+        stake.append(int(reg["amount"]))
+        seats.append(free)
+
+    def block_start(bitmap):
+        for s in range(n_max):
+            if holder[s] is not None:
+                misses[s] = misses[s] + 1 if bitmap >> s & 1 else 0
+        taken, released = 0, []
+        for s in range(n_max):
+            bond = holder[s]
+            if bond is None or misses[s] < params["miss_limit"]:
+                continue
+            cut = (stake[bond] * params["miss_slash_bps"] + 9_999) // 10_000
+            stake[bond] -= cut
+            taken += cut
+            misses[s] = 0
+            if stake[bond] < min_stake:
+                holder[s] = None
+                released.append(bond)
+        return taken, released
+
+    for prior in case["setup"]["prior_calls"]:
+        assert block_start(int(prior["miss_bitmap"])) == (0, []), case["name"]
+    held = [s for s in range(128) if holder[s] is not None]
+    taken, released = block_start(int(case["call"]["miss_bitmap"]))
+    keys = [scalar_key(int(reg["private_key"], 16)) for reg in case["setup"]["registrations"]]
+    records = []
+    for s in range(128):
+        bond = holder[s]
+        if bond is not None:
+            power = stake[bond] // params["vp_unit"]
+            assert power <= U64_MAX, case["name"]
+            word2 = int(keys[bond]["ck_prefix"]) | power << 8
+            records.append({"seat": str(s), "word1": keys[bond]["ck_x"], "word2": uint(word2)})
+    expect = {
+        "miss_counts": [{"seat": str(s), "count": str(misses[s])} for s in held],
+        "eff_stakes": [{"bond_id": str(b), "eff_stake": str(v)} for b, v in enumerate(stake)],
+        "released": [str(b) for b in released],
+        "penalty_total": str(taken),
+        "records": records,
+        "snapshot_total_stake": str(sum(stake[b] for b in holder if b is not None)),
+        "snapshot_height": case["call"]["block_number"],
+        "last_generation": case["call"]["generation"],
+    }
+    return seats, expect
 
 
 class VectorsTest(unittest.TestCase):
@@ -2225,6 +2387,432 @@ class VectorsTest(unittest.TestCase):
                 slots = [int(s, 16) for s in item["slots"]]
                 self.assertEqual(len(slots), count, key)
                 self.assertEqual(slots, [slots[0] + w for w in range(count)], key)
+
+    def test_fallback_keys_accept_reject_and_hash(self):
+        family = V["fallback_keys"]
+        self.assertEqual(list(family), ["tag", "accepted", "rejected"])
+        self.assertEqual(family["tag"], "ETNA_FALLBACK_KEYS_V1")
+        # K1, K2, K3 and K9 are the keys of private keys 1, 2, 3 and 9; by X alone K9 would
+        # precede K3, as 33-byte values it follows it.
+        self.assertEqual([scalar_key(k) for k in (1, 2, 3, 9)], [K1, K2, K3, K9])
+        self.assertLess(int(K9["ck_x"], 16), int(K3["ck_x"], 16))
+        self.assertLess(key_bytes(K3), key_bytes(K9))
+        accepted = family["accepted"]
+        self.assertEqual(
+            [(c["name"], c["keys"]) for c in accepted],
+            [
+                ("one_key", [K1]),
+                ("two_keys", [K1, K2]),
+                ("prefix_then_x", [K3, K9]),
+                ("max_keys", ascending_scalar_keys(128)),
+            ],
+        )
+        topic0 = h256(b"FallbackKeysUpdated(bytes32,(uint8,bytes32)[])")
+        self.assertEqual(topic0, SPEC_TOPICS["fallback_keys_updated"])
+        for case in accepted:
+            name, keys = case["name"], case["keys"]
+            self.assertEqual(
+                list(case), ["name", "keys", "preimage", "hash", "event", "validators"], name
+            )
+            self.assertEqual(fallback_list_failures(keys), [], name)
+            # The tag and the offset, then the length and (ckPrefix, ckX) per key: 3 + 2n words.
+            preimage = fallback_keys_preimage(keys)
+            self.assertEqual(hexbytes(case["preimage"]), preimage, name)
+            self.assertEqual(len(preimage), 32 * (3 + 2 * len(keys)), name)
+            self.assertEqual(case["hash"], h256(preimage), name)
+            # FallbackKeysUpdated: the hash is topic 1 and the data is the list alone (its offset,
+            # its length and two words per key).
+            event = case["event"]
+            self.assertEqual(list(event), ["topic0", "topic1", "data"], name)
+            self.assertEqual((event["topic0"], event["topic1"]), (topic0, case["hash"]), name)
+            self.assertEqual(hexbytes(event["data"]), hexbytes(uint(32)) + preimage[64:], name)
+            # The list signs as one validator per key, each at its secp256k1eth address with
+            # power 1.
+            self.assertEqual(
+                case["validators"],
+                [
+                    {"ck_addr": "0x" + eth_address(decompress(key_bytes(key))), "power": "1"}
+                    for key in keys
+                ],
+                name,
+            )
+        hashes = {c["name"]: c["hash"] for c in accepted}
+        self.assertEqual(hashes["one_key"], APPENDIX_A_LITERALS["enc_a_36a_a"])
+        self.assertEqual(hashes["two_keys"], APPENDIX_A_LITERALS["enc_a_36a_b"])
+        self.assertEqual(hashes["prefix_then_x"], PREFIX_THEN_X_HASH)
+        self.assertEqual(by_name(accepted, "one_key")["validators"][0]["ck_addr"], K1_ADDR)
+        largest = by_name(accepted, "max_keys")
+        self.assertEqual(len(hexbytes(largest["preimage"])), 8_288)
+        self.assertEqual(len(words(largest["event"]["data"])), 258)
+
+        # Each rejected list breaks exactly the condition it is labelled with: 1 to 128 entries,
+        # strict ascending order of ckPrefix || ckX (a repeat is out of order), or a valid key.
+        self.assertEqual(min(x for x in range(1, 10) if not has_point(x)), 5)
+        expected = [
+            ("empty", [], "count"),
+            ("too_many", ascending_scalar_keys(129), "count"),
+            ("descending", [K2, K1], "order"),
+            ("duplicate", [K1, K1], "order"),
+            ("x_alone", [K9, K3], "order"),
+            ("prefix_04", [{"ck_prefix": "4", "ck_x": K1["ck_x"]}], "key"),
+            ("x_not_below_p", [{"ck_prefix": "2", "ck_x": uint(SECP_P)}], "key"),
+            ("off_curve", [{"ck_prefix": "2", "ck_x": uint(5)}], "key"),
+        ]
+        rejected = family["rejected"]
+        self.assertEqual([(c["name"], c["keys"], c["reason"]) for c in rejected], expected)
+        for case in rejected:
+            self.assertEqual(list(case), ["name", "keys", "reason"], case["name"])
+            self.assertEqual(fallback_list_failures(case["keys"]), [case["reason"]], case["name"])
+
+    def test_staking_layout_slots_and_words(self):
+        layout = V["staking_layout"]
+        self.assertEqual(
+            list(layout),
+            [
+                "namespace",
+                "base",
+                "snapshot_height_slot",
+                "snapshot_total_stake_slot",
+                "key_seat_slot",
+                "record_slots",
+                "key_seat_slots",
+                "key_seat_words",
+                "record_word2",
+                "implementation_slot",
+                "no_exit",
+            ],
+        )
+        # T = keccak256(abi.encode(uint256(keccak256("taiko.etna.staking")) - 1)) & ~0xff.
+        self.assertEqual(layout["namespace"], "taiko.etna.staking")
+        for impl in (keccak256_python, keccak256):
+            inner = int.from_bytes(impl(layout["namespace"].encode()), "big") - 1
+            base = int.from_bytes(impl(inner.to_bytes(32, "big")), "big") & ~0xFF
+            self.assertEqual(base, STAKING_BASE)
+        base = STAKING_BASE
+        # snapshotHeight at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2.
+        self.assertEqual(
+            [layout[k] for k in ("base", "snapshot_height_slot", "snapshot_total_stake_slot",
+                                 "key_seat_slot")],
+            [uint(base), uint(base), uint(base + 1), uint(base + 2)],
+        )
+        # Snapshot seat record s: ckX at T + 3 + 2s, the packed ckPrefix and power at T + 4 + 2s.
+        records = layout["record_slots"]
+        self.assertEqual([r["seat"] for r in records], ["0", "5", "127"])
+        for record in records:
+            seat = int(record["seat"])
+            self.assertEqual(list(record), ["seat", "word1", "word2"])
+            self.assertEqual(
+                (record["word1"], record["word2"]),
+                (uint(base + 3 + 2 * seat), uint(base + 4 + 2 * seat)),
+            )
+        self.assertEqual(records[-1]["word1"], STAKING_RECORD_127_WORD1)
+        # A key's element is at keccak256(abi.encode(ckAddr, T + 2)): K1's, K2's and those of
+        # keys a1-a4.
+        slots = layout["key_seat_slots"]
+        k2_addr = "0x" + eth_address(decompress(key_bytes(K2)))
+        self.assertEqual(
+            [item["ck_addr"] for item in slots],
+            [K1_ADDR, k2_addr] + [key["ck_addr"] for key in V["keys"][:4]],
+        )
+        self.assertEqual(slots[0]["slot"], K1_KEY_SEAT_SLOT)
+        for item in slots:
+            self.assertEqual(list(item), ["ck_addr", "slot"])
+            self.assertEqual(
+                item["slot"], h256(hexbytes(address(item["ck_addr"])) + hexbytes(uint(base + 2)))
+            )
+        # A key-to-seat value gives seat s only for holdsSeat 1, seat s below 128 and nothing
+        # from bit 16 up; 0x0500 is the value a released key must not keep.
+        self.assertEqual(
+            [(int(item["word"], 16), item["seat"]) for item in layout["key_seat_words"]],
+            [
+                (0x0501, "5"),
+                (0x0001, "0"),
+                (0x7F01, "127"),
+                (0x0000, None),
+                (0x0500, None),
+                (0x0502, None),
+                (0x8001, None),
+                (0x10501, None),
+            ],
+        )
+        for item in layout["key_seat_words"]:
+            self.assertEqual(list(item), ["word", "seat"])
+            self.assertEqual(len(hexbytes(item["word"])), 32)
+            seat = seat_from_word(int(item["word"], 16))
+            self.assertEqual(item["seat"], None if seat is None else str(seat))
+        # Record word 2 packs ckPrefix in bits 0-7 and power in bits 8-71.
+        self.assertEqual(
+            [(item["ck_prefix"], item["power"], int(item["word"], 16))
+             for item in layout["record_word2"]],
+            [("2", "250000", 0x3D09002), ("3", str(U64_MAX), 0xFFFFFFFFFFFFFFFF03)],
+        )
+        for item in layout["record_word2"]:
+            self.assertEqual(list(item), ["ck_prefix", "power", "word"])
+            self.assertEqual(
+                item["word"], uint(int(item["ck_prefix"]) | int(item["power"]) << 8)
+            )
+            self.assertEqual(int(item["word"], 16) >> 72, 0)
+        # The proxy's EIP-1967 implementation slot, keccak256("eip1967.proxy.implementation") - 1,
+        # and exitHeight's no-exit value.
+        for impl in (keccak256_python, keccak256):
+            digest = int.from_bytes(impl(b"eip1967.proxy.implementation"), "big")
+            self.assertEqual(uint(digest - 1), IMPLEMENTATION_SLOT)
+        self.assertEqual(layout["implementation_slot"], IMPLEMENTATION_SLOT)
+        self.assertEqual(layout["no_exit"], str(U48_MAX))
+
+    def test_miss_bitmap_cases(self):
+        family = V["miss_bitmap"]
+        self.assertEqual(list(family), ["cases"])
+        expected = {
+            "all_commit": 0,
+            "absent_seat_5": 1 << 5,
+            "nil_seat_0": 1 << 0,
+            "seat_127": 1 << 127,
+            "fallback_key_without_bond": 0,
+            "fallback_key_with_seated_bond": 1 << 7,
+            "vacated_in_parent": 0,
+            "malformed_words": 0,
+            "two_addresses_one_seat": 1 << 3,
+            "seat_100": 1 << 100,
+            "first_block": 0,
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(expected))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(
+                list(case), ["name", "first_block_of_generation", "validators", "miss_bitmap"]
+            )
+            self.assertEqual(case["first_block_of_generation"], name == "first_block", name)
+            self.assertTrue(case["validators"], name)
+            missing_seats = set()
+            for validator in case["validators"]:
+                self.assertEqual(list(validator), ["ck_addr", "block_id_flag", "key_seat_word"])
+                self.assertEqual(len(hexbytes(validator["ck_addr"])), 20, name)
+                self.assertEqual(len(hexbytes(validator["key_seat_word"])), 32, name)
+                self.assertIn(validator["block_id_flag"], ("1", "2", "3"), name)
+                # Missing is any flag other than commit: absent (1) or nil (3).
+                if validator["block_id_flag"] != BLOCK_ID_FLAG_COMMIT:
+                    missing_seats.add(seat_from_word(int(validator["key_seat_word"], 16)))
+            missing_seats.discard(None)
+            # The first block of a generation has no LastCommit: its bitmap is 0.
+            bitmap = 0
+            if not case["first_block_of_generation"]:
+                bitmap = sum(1 << seat for seat in missing_seats)
+            self.assertEqual(int(case["miss_bitmap"]), bitmap, name)
+            self.assertEqual(bitmap, expected[name], name)
+
+        def missing(name):
+            return [
+                (v["block_id_flag"], int(v["key_seat_word"], 16))
+                for v in by_name(cases, name)["validators"]
+                if v["block_id_flag"] != BLOCK_ID_FLAG_COMMIT
+            ]
+
+        self.assertEqual(missing("all_commit"), [])
+        self.assertEqual(missing("absent_seat_5"), [("1", 0x0501)])
+        self.assertEqual(missing("nil_seat_0"), [("3", 0x0001)])
+        self.assertEqual(missing("seat_127"), [("1", 0x7F01)])
+        self.assertEqual(missing("vacated_in_parent"), [("1", 0)])
+        self.assertEqual(
+            sorted(word for _, word in missing("malformed_words")), [0x0502, 0x8001, 0x10501]
+        )
+        self.assertEqual(missing("seat_100"), [("1", 0x6401)])
+        # A seat two addresses map to is set when either is missing.
+        pair = by_name(cases, "two_addresses_one_seat")["validators"]
+        self.assertEqual(sorted(v["block_id_flag"] for v in pair), ["1", "2"])
+        self.assertEqual({int(v["key_seat_word"], 16) for v in pair}, {0x0301})
+        # While the fallback key set signs the parent, its keys are the validators: K1 and K2.
+        fallback_addrs = [K1_ADDR, "0x" + eth_address(decompress(key_bytes(K2)))]
+        for name, word_value in (("fallback_key_without_bond", 0),
+                                 ("fallback_key_with_seated_bond", 0x0701)):
+            case = by_name(cases, name)
+            self.assertEqual([v["ck_addr"] for v in case["validators"]], fallback_addrs, name)
+            self.assertEqual(missing(name), [("1", word_value)], name)
+        # The first block's commit flags and seats would set a bit in any other block.
+        self.assertTrue(any(seat_from_word(word) is not None for _, word in missing("first_block")))
+
+    def test_candidate_cases(self):
+        family = V["candidate"]
+        self.assertEqual(list(family), ["cases"])
+        expected = {
+            "usable_three": None,
+            "equal_threshold": None,
+            "below_threshold": "below_min_total_stake",
+            "threshold_max": "min_total_stake_max",
+            "stale_height": "snapshot_height",
+            "height_high_bits": "snapshot_height",
+            "stray_bits": "stray_bits",
+            "zero_prefix": "invalid_key",
+            "zero_power": "zero_power",
+            "off_curve_key": "invalid_key",
+            "duplicate_key": "duplicate_key",
+            "power_sum": "power_sum",
+            "record_at_seat_100": None,
+            "empty": "no_members",
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(expected))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(
+                list(case),
+                ["name", "height", "snapshot_height_word", "snapshot_total_stake", "records",
+                 "min_total_stake", "fallback_keys", "usable", "reason", "signers"],
+                name,
+            )
+            self.assertEqual(len(hexbytes(case["snapshot_height_word"])), 32, name)
+            # Only nonzero records are listed, in ascending seat order below 128.
+            seats = [int(r["seat"]) for r in case["records"]]
+            self.assertEqual(seats, sorted(set(seats)), name)
+            self.assertTrue(all(seat < 128 for seat in seats), name)
+            for record in case["records"]:
+                self.assertEqual(list(record), ["seat", "word1", "word2"], name)
+                self.assertEqual(len(hexbytes(record["word1"])), 32, name)
+                self.assertEqual(len(hexbytes(record["word2"])), 32, name)
+                self.assertTrue(int(record["word1"], 16) or int(record["word2"], 16), name)
+            self.assertEqual(fallback_list_failures(case["fallback_keys"]), [], name)
+            failures = candidate_failures(case)
+            self.assertEqual(case["usable"], not failures, name)
+            self.assertEqual(case["reason"], failures[0] if failures else None, name)
+            self.assertEqual(case["reason"], expected[name], name)
+            # Each unusable case breaks one condition only, except that a zero word 2 is both
+            # ckPrefix 0 and power 0.
+            self.assertEqual(len(failures), 2 if name == "zero_prefix" else int(bool(failures)))
+            # A usable candidate signs with its members in seat order at their stored powers,
+            # otherwise the fallback keys sign, each with power 1.
+            if failures:
+                signers = [signer(key_bytes(key), 1) for key in case["fallback_keys"]]
+            else:
+                signers = [signer(key, power) for key, power, _ in map(record_member,
+                                                                       case["records"])]
+            self.assertEqual(case["signers"], signers, name)
+
+        c = {case["name"]: case for case in cases}
+        height = int(c["usable_three"]["height"])
+        self.assertTrue(all(int(case["height"]) == height for case in cases))
+
+        def total_and_threshold(name):
+            return int(c[name]["snapshot_total_stake"]), int(c[name]["min_total_stake"])
+
+        total, threshold = total_and_threshold("equal_threshold")
+        self.assertEqual(total, threshold)
+        total, threshold = total_and_threshold("below_threshold")
+        self.assertEqual(total, threshold - 1)
+        self.assertEqual(total_and_threshold("threshold_max"), (U256_MAX, U256_MAX))
+        self.assertEqual(int(c["stale_height"]["snapshot_height_word"], 16), height - 1)
+        # The word at T with bit 48 set and its low 48 bits equal to H is not H.
+        self.assertEqual(int(c["height_high_bits"]["snapshot_height_word"], 16), height | 1 << 48)
+
+        def words2(name):
+            return [int(r["word2"], 16) for r in c[name]["records"]]
+
+        self.assertTrue(any(w >> 72 == 1 for w in words2("stray_bits")))
+        self.assertIn(0, words2("zero_prefix"))
+        self.assertIn(0x02, words2("zero_power"))
+        self.assertIn(uint(5), [r["word1"] for r in c["off_curve_key"]["records"]])
+        self.assertEqual(
+            sum(power for _, power, _ in map(record_member, c["power_sum"]["records"])),
+            MAX_POWER_SUM + 1,
+        )
+        self.assertIn("100", [r["seat"] for r in c["record_at_seat_100"]["records"]])
+        self.assertEqual(c["empty"]["records"], [])
+
+    def test_on_block_start_cases(self):
+        family = V["on_block_start"]
+        self.assertEqual(list(family), ["deployment", "cases"])
+        fields = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+        self.assertEqual(family["deployment"], {k: V["deployment"][k] for k in fields})
+        base = {k: int(v) for k, v in family["deployment"].items()}
+        m = base["min_stake"]
+        # Per case: the miss counts of the seats held when the call starts (in seat order), the
+        # seats of the records the call writes, the bonds it releases and the penalty it takes.
+        pins = {
+            "count_up": ([0, 0, 0, 3], [0, 1, 2, 3], [], 0),
+            "count_reset": ([0, 0, 0, 0], [0, 1, 2, 3], [], 0),
+            "empty_seat_bit": ([2], [0], [], 0),
+            "zero_bitmap": ([0, 0, 0], [0, 1, 2], [], 0),
+            "bitmap_4": ([0, 0, 1], [0, 1, 2], [], 0),
+            "n_max_64_bit_100": ([1], [0], [], 0),
+            "ceil_exact": ([0], [0], [], m),
+            "ceil_round_up": ([0], [0], [], m + 1),
+            "below_limit": ([9], [0], [], 0),
+            "release_below_min": ([0, 0], [1], [0], m // 10),
+            "miss_limit_1": ([0], [0], [], 2 * m // 10),
+            "full_bps": ([0, 0], [1], [0], 3 * m),
+            "three_seats": ([0] * 6, [0, 2, 5], [1, 3, 4], 3 * m // 10),
+            "no_seats": ([], [], [], 0),
+            "power_floor": ([0, 0, 0], [0, 1, 2], [], 0),
+            "n_max_64_records": ([0] * 64, list(range(64)), [], 0),
+        }
+        cases = family["cases"]
+        self.assertEqual([c["name"] for c in cases], list(pins))
+        for case in cases:
+            name = case["name"]
+            self.assertEqual(list(case), ["name", "overrides", "setup", "call", "expect"], name)
+            self.assertLessEqual(set(case["overrides"]), set(fields), name)
+            params = {**base, **{k: int(v) for k, v in case["overrides"].items()}}
+            # Every case deploys within the staking contract's bounds.
+            self.assertTrue(1 <= params["n_max"] <= 128, name)
+            self.assertGreaterEqual(params["vp_unit"], 867_361_738, name)
+            self.assertGreaterEqual(params["min_stake"], params["vp_unit"], name)
+            self.assertGreaterEqual(params["min_stake"] * params["n_max"], 10**27, name)
+            self.assertTrue(1 <= params["miss_limit"] <= 65_535, name)
+            self.assertTrue(0 < params["miss_slash_bps"] <= 10_000, name)
+            setup, call = case["setup"], case["call"]
+            self.assertEqual(list(setup), ["registrations", "prior_calls"], name)
+            regs = setup["registrations"]
+            self.assertEqual([r["bond_id"] for r in regs], [str(i) for i in range(len(regs))])
+            for reg in regs:
+                self.assertEqual(list(reg), ["bond_id", "private_key", "amount", "seat"], name)
+                self.assertEqual(len(hexbytes(reg["private_key"])), 32, name)
+            self.assertEqual(len({r["private_key"] for r in regs}), len(regs), name)
+            for prior in setup["prior_calls"]:
+                self.assertEqual(list(prior), ["generation", "miss_bitmap"], name)
+            # The call's calldata is the selector and one word each for generation and missBitmap.
+            self.assertEqual(
+                list(call), ["block_number", "generation", "miss_bitmap", "calldata"], name
+            )
+            self.assertEqual(
+                hexbytes(call["calldata"]),
+                hexbytes(ON_BLOCK_START_SELECTOR) + hexbytes(uint(call["generation"]))
+                + hexbytes(uint(call["miss_bitmap"])),
+                name,
+            )
+            self.assertEqual(len(hexbytes(call["calldata"])), 68, name)
+            seats, expect = replay_block_start(params, case)
+            self.assertEqual([r["seat"] for r in regs], [str(s) for s in seats], name)
+            self.assertEqual(list(case["expect"]), list(expect), name)
+            self.assertEqual(case["expect"], expect, name)
+            counts, record_seats, released, penalty = pins[name]
+            got = case["expect"]
+            self.assertEqual([int(c["count"]) for c in got["miss_counts"]], counts, name)
+            self.assertEqual([int(r["seat"]) for r in got["records"]], record_seats, name)
+            self.assertEqual([int(b) for b in got["released"]], released, name)
+            self.assertEqual(int(got["penalty_total"]), penalty, name)
+
+        c = {case["name"]: case for case in cases}
+
+        def eff_stakes(name):
+            return [int(e["eff_stake"]) for e in c[name]["expect"]["eff_stakes"]]
+
+        # ceil(10m / 10) = m and ceil((10m + 1) / 10) = m + 1 both leave 9m.
+        self.assertEqual(eff_stakes("ceil_exact"), [9 * m])
+        self.assertEqual(eff_stakes("ceil_round_up"), [9 * m])
+        self.assertEqual(c["ceil_round_up"]["setup"]["registrations"][0]["amount"], str(10 * m + 1))
+        # A full-rate penalty takes the whole effStake.
+        self.assertEqual(eff_stakes("full_bps")[0], 0)
+        # With vp_unit = m, effStake 2.5m gives power 2.
+        self.assertEqual(c["power_floor"]["overrides"], {"vp_unit": str(m)})
+        self.assertEqual(
+            [int(r["word2"], 16) >> 8 for r in c["power_floor"]["expect"]["records"]], [2, 1, 1]
+        )
+        self.assertEqual(eff_stakes("power_floor")[0], 5 * m // 2)
+        # n_max 64 needs minStake of at least ceil(10^27 / 64) = 2m.
+        for name in ("n_max_64_bit_100", "n_max_64_records"):
+            self.assertEqual(c[name]["overrides"], {"n_max": "64", "min_stake": str(2 * m)}, name)
+        self.assertEqual(int(c["n_max_64_bit_100"]["call"]["miss_bitmap"]) >> 100 & 1, 1)
+        self.assertEqual(int(c["no_seats"]["call"]["miss_bitmap"]), 2**128 - 1)
 
     def test_keys_compress_to_33_bytes(self):
         keys = V["keys"]
