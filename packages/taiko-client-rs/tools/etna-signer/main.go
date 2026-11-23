@@ -1,4 +1,4 @@
-// etna-signer signs with stock FilePV's HRS rules over its own schema-2 signer state, authorizing
+// etna-signer signs with stock FilePV's HRS rules over its own schema-3 signer state, authorizing
 // each signature against the local app trust session and the supervisor's continuity checks
 // (RECOV-8.2-2). It serves one full chain_id from that chain's own state, which init-state created
 // and logged.
@@ -89,7 +89,7 @@ func run() error {
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
 	supervisorSocket := flag.String("supervisor-socket", "", "the supervisor's private channel socket; only the process that started this signer may serve it")
 	chain := flag.String("chain-id", "", "verified full Comet chain ID; the signer serves only this signing domain")
-	key := flag.String("priv-key", "", "existing registered Comet FilePV private key")
+	key := flag.String("priv-key", "", "existing registered or fallback Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
 	domains := flag.String("domains-log", "", "existing domains log listing every initialized chain ID, outside the state directory")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")

@@ -86,10 +86,10 @@ func TestInitStateCreatesZeroHRSAndAppendsChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := readFile(t, l.state(chain)); !bytes.Equal(got, zeroStateBytes(chain)) {
-		t.Fatalf("new state is not the schema-2 zero state: %s", got)
+		t.Fatalf("new state is not the schema-3 zero state: %s", got)
 	}
 	// Byte for byte, as the README shows it for the torn-log repair.
-	want := "{\n  \"schema\": 2,\n  \"chain_id\": \"" + chain + "\",\n  \"height\": \"0\",\n  \"round\": 0,\n  \"step\": 0,\n  \"store_instance\": \"\",\n  \"floor\": \"0\",\n  \"replay\": null\n}"
+	want := "{\n  \"schema\": 3,\n  \"chain_id\": \"" + chain + "\",\n  \"height\": \"0\",\n  \"round\": 0,\n  \"step\": 0,\n  \"store_instance\": \"\",\n  \"floor\": \"0\",\n  \"replay\": null\n}"
 	if got := string(readFile(t, l.state(chain))); got != want {
 		t.Fatalf("zero state %q, want %q", got, want)
 	}
@@ -112,6 +112,52 @@ func TestInitStateCreatesZeroHRSAndAppendsChain(t *testing.T) {
 	}
 	if !bytes.Equal(readFile(t, l.state(chain)), first) || !bytes.Equal(readFile(t, l.key), key) {
 		t.Fatal("a later chain changed an earlier HRS or the key")
+	}
+}
+
+// A schema-2 state, as the signers before this release wrote it, is refused without migration
+// whether it signed or not, and keeps its bytes. The same state at the current schema is served,
+// so the schema alone refuses it.
+func TestSchema2StateIsRefused(t *testing.T) {
+	for _, name := range []string{"unsigned", "signed"} {
+		t.Run(name, func(t *testing.T) {
+			l := newStateLayout(t)
+			if err := initState(chain, l.key, l.state(chain), l.log); err != nil {
+				t.Fatal(err)
+			}
+			state := zeroState(chain)
+			if name == "signed" {
+				pv := privval.NewFilePV(mustNativeKey(t, l.key), l.key, filepath.Join(t.TempDir(), "s.json"))
+				if err := pv.SignVote(chain, &tm.Vote{Type: tm.PrevoteType, Height: 5, Timestamp: time.Unix(100, 0)}); err != nil {
+					t.Fatal(err)
+				}
+				lss := pv.LastSignState
+				state.Height, state.Round, state.Step, state.Signature, state.SignBytes, state.StoreInstance = lss.Height, lss.Round, lss.Step, lss.Signature, lss.SignBytes, testInstance
+			}
+			if err := os.WriteFile(l.state(chain), state.encode(), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, release, err := openSigningState(chain, l.key, l.state(chain), l.log)
+			if err != nil {
+				t.Fatalf("current-schema state refused: %v", err)
+			}
+			release()
+			state.Schema = 2
+			old := state.encode()
+			if err := os.WriteFile(l.state(chain), old, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, release, err = openSigningState(chain, l.key, l.state(chain), l.log); err == nil {
+				release()
+				t.Fatal("schema-2 state accepted")
+			}
+			if !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "schema 2 is not 3") {
+				t.Fatalf("schema-2 state refused for another reason: %v", err)
+			}
+			if !bytes.Equal(readFile(t, l.state(chain)), old) {
+				t.Fatal("the refusal changed the schema-2 state")
+			}
+		})
 	}
 }
 

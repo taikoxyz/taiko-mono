@@ -26,7 +26,7 @@ func serveArgs(key, state, log string) []string {
 	return []string{"--comet-signer-addr", "unix:///nonexistent-comet.sock", "--trust-socket", "/nonexistent-trust.sock", "--supervisor-socket", "/nonexistent-supervisor.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", log}
 }
 
-// writeSignedState writes chain's schema-2 state at path holding the stock last-sign state lss,
+// writeSignedState writes chain's schema-3 state at path holding the stock last-sign state lss,
 // bound to testInstance.
 func writeSignedState(t *testing.T, path string, lss privval.FilePVLastSignState) {
 	t.Helper()
@@ -120,9 +120,9 @@ func TestServeRefusalMatrix(t *testing.T) {
 		}
 		writeSignedState(t, l.state(chain), pv.LastSignState)
 	}
-	// schema2 is a schema-2 state for chain with fields replaced or added.
-	schema2 := func(changes map[string]any) string {
-		fields := map[string]any{"schema": 2, "chain_id": chain, "height": "0", "round": 0, "step": 0, "store_instance": "", "floor": "0", "replay": nil}
+	// schema3 is a schema-3 state for chain with fields replaced or added.
+	schema3 := func(changes map[string]any) string {
+		fields := map[string]any{"schema": 3, "chain_id": chain, "height": "0", "round": 0, "step": 0, "store_instance": "", "floor": "0", "replay": nil}
 		for key, value := range changes {
 			if value == nil {
 				delete(fields, key)
@@ -175,30 +175,31 @@ func TestServeRefusalMatrix(t *testing.T) {
 		// The stock FilePV state of earlier signers, and every other schema, is refused without
 		// migration.
 		{"stock-filepv-state", func(l stateLayout) []string { write(l.state(chain), `{"height":"0","round":0,"step":0}`); return nil }, 3, "no schema"},
-		{"other-schema", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"schema": 3})); return nil }, 3, "schema 3 is not 2"},
+		{"previous-schema", func(l stateLayout) []string { write(l.state(chain), schema3(map[string]any{"schema": 2})); return nil }, 3, "schema 2 is not 3"},
+		{"other-schema", func(l stateLayout) []string { write(l.state(chain), schema3(map[string]any{"schema": 4})); return nil }, 3, "schema 4 is not 3"},
 		{"string-schema", func(l stateLayout) []string {
-			write(l.state(chain), schema2(map[string]any{"schema": "2"}))
+			write(l.state(chain), schema3(map[string]any{"schema": "3"}))
 			return nil
-		}, 3, "is not 2"},
-		{"unknown-field", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"lock": "x"})); return nil }, 3, "unknown signer state field"},
-		{"missing-floor", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"floor": nil})); return nil }, 3, "missing signer state field"},
+		}, 3, "is not 3"},
+		{"unknown-field", func(l stateLayout) []string { write(l.state(chain), schema3(map[string]any{"lock": "x"})); return nil }, 3, "unknown signer state field"},
+		{"missing-floor", func(l stateLayout) []string { write(l.state(chain), schema3(map[string]any{"floor": nil})); return nil }, 3, "missing signer state field"},
 		{"other-chain-id", func(l stateLayout) []string {
-			write(l.state(chain), schema2(map[string]any{"chain_id": "etna-other"}))
+			write(l.state(chain), schema3(map[string]any{"chain_id": "etna-other"}))
 			return nil
 		}, 3, "is for chain"},
 		{"invalid-store-instance", func(l stateLayout) []string {
-			write(l.state(chain), schema2(map[string]any{"store_instance": strings.ToUpper(testInstance)}))
+			write(l.state(chain), schema3(map[string]any{"store_instance": strings.ToUpper(testInstance)}))
 			return nil
 		}, 3, "invalid store instance"},
-		{"unsigned-with-floor", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"floor": "1"})); return nil }, 3, "no floor or replay"},
+		{"unsigned-with-floor", func(l stateLayout) []string { write(l.state(chain), schema3(map[string]any{"floor": "1"})); return nil }, 3, "no floor or replay"},
 		{"hrs-unauthentic", func(l stateLayout) []string {
-			write(l.state(chain), schema2(map[string]any{"height": "9", "step": 3, "store_instance": testInstance}))
+			write(l.state(chain), schema3(map[string]any{"height": "9", "step": 3, "store_instance": testInstance}))
 			return nil
 		}, 3, "unauthentic HRS"},
 		{"hrs-signed-by-another-key", func(l stateLayout) []string { signedFor(l, "other", chain); return nil }, 3, "unauthentic HRS"},
 		{"hrs-signed-for-another-chain", func(l stateLayout) []string { signedFor(l, "own", "etna-other"); return nil }, 3, "domain/height/round mismatch"},
 		{"hrs-ambiguous-duplicate-field", func(l stateLayout) []string {
-			write(l.state(chain), strings.Replace(schema2(nil), `"height":"0"`, `"height":"0","height":"0"`, 1))
+			write(l.state(chain), strings.Replace(schema3(nil), `"height":"0"`, `"height":"0","height":"0"`, 1))
 			return nil
 		}, 3, "duplicate"},
 		{"state-hardlinked", func(l stateLayout) []string {

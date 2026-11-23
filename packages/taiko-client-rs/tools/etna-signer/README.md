@@ -8,12 +8,12 @@ Build the standalone helper with Go 1.27.2 using `just signer` from
 ## Bootstrap a new validator
 
 Keep three private locations outside the Comet home, every Comet mount and the app store:
-the registered key, the HRS state directory and the domains log. Put the domains log on a
-**different volume** from the state directory (its own PVC in Kubernetes): the log is the
-evidence that a state existed, so losing the state volume is detected instead of looking like a
-fresh start. The signer only checks that the two directories differ; separate volumes are the
-operator's duty. Run these commands only for a new identity, before registration and genesis
-creation:
+the registered or fallback key, the HRS state directory and the domains log. Put the domains
+log on a **different volume** from the state directory (its own PVC in Kubernetes): the log is
+the evidence that a state existed, so losing the state volume is detected instead of looking
+like a fresh start. The signer only checks that the two directories differ; separate volumes are
+the operator's duty. Run these commands only for a new identity, before it registers on L2 or
+the DAO sets it as a fallback key, and before genesis creation:
 
 ```sh
 umask 077
@@ -27,6 +27,14 @@ mkdir -p /private/key /private/hrs /private/domains
 Ethereum consensus address). It writes no HRS state. An existing output, including a symlink,
 causes failure without replacing it. Parent directories must already exist. Bootstrap uses
 stock OS-random `secp256k1eth` key generation. It never exports a private key to stdout.
+`publicKey` is the key a validator registers on the L2 staking contract, and its prefix byte
+and 32-byte X are the `FallbackKey` entry `(ckPrefix, ckX)` that the DAO passes to the Inbox's
+`setFallbackKeys` for a fallback key.
+
+A fallback key holder bootstraps every key this way and runs one validator instance per key:
+its own supervisor, signer, Comet, app and EL, reading the holder's own L1 node, online and in
+sync with the chain at all times, also while the candidate signs. One instance never serves a
+second key, and the key's owner lock refuses a second local signer for it.
 
 `init-domains-log` creates the log with only its header line `etna-signer-domains-v1`
 (exclusive create, mode 0600, file and directory fsync); it refuses an existing path or symlink.
@@ -51,21 +59,22 @@ log in one write and fsyncs the log and its directory. It reports success only o
 line is durable. A full `chain_id` gets exactly one signer state, which is never reset or rolled
 back (RECOV-8.2-1). `init-state` creates no Comet store, so it writes no store instance ID.
 
-The signer state is schema 2: stock FilePV's HRS fields (`height`, `round`, `step` and, once
+The signer state is schema 3: stock FilePV's HRS fields (`height`, `round`, `step` and, once
 signed, `signature` and `signbytes`, encoded as stock FilePV encodes them) and, in the same file,
 `schema`, `chain_id`, the bound `store_instance`, the height `floor` and the `replay` binding of
 the last signature (Store binding and the height floor). Every change rewrites the whole file
 atomically. The stock FilePV state of earlier signers has no `schema` and is refused without
-migration, like every other schema (exit 3); a state that never signed may be removed and created
-again with `init-state`, a signed one never.
+migration, like every other schema (exit 3), including the schema-2 state of earlier releases,
+which has the same fields; a state that never signed may be removed and created again with
+`init-state`, a signed one never.
 
 If `init-state` is interrupted after creating the state and before the log line, an unlogged
 state remains, and both `serve` and `init-state` refuse it. Check that the file is byte for byte
-the unsigned schema-2 state, as `init-state` writes it with the two-space indent:
+the unsigned schema-3 state, as `init-state` writes it with the two-space indent:
 
 ```json
 {
-  "schema": 2,
+  "schema": 3,
   "chain_id": "<chain_id>",
   "height": "0",
   "round": 0,
@@ -80,24 +89,28 @@ Then remove it and rerun `init-state`. A state that is not the zero state may ha
 never remove it. Never edit the log by hand. The one documented exception is the repair of a
 torn tail (Repairing a torn domains log).
 
-Create the registration proof for the actual owner, registry and L1 chain:
+A validator that stakes creates the registration proof for the actual owner, the L2 staking
+contract and the L2 chain (here the devnet's staking proxy and chain ID):
 
 ```sh
 ./target/etna-signer/etna-signer pop \
   --priv-key ./private-validator/priv_validator_key.json \
   --owner 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  --registry 0x2222222222222222222222222222222222222222 \
-  --l1-chain-id 1
+  --staking 0x1670010000000000000000000000000000010003 \
+  --l2-chain-id 167001
 ```
 
 Success prints one JSON object with `publicKey` and `signature`, both 0x-prefixed
 hex. The signature is exactly 65 bytes `R || S || V`, with low S and V in {0,1}.
-The EIP-712 domain is name `EtnaStakingRegistry`, version `1`, the full decimal
-uint256 L1 chain ID and verifying registry. Its message is `Register(address
-owner)`. The helper passes `0x1901 || domainSeparator || structHash` to stock
-`secp256k1eth.Sign`, which applies legacy Keccak exactly once. PoP neither reads
-nor writes consensus HRS state and can run offline. Registering on L1 is a separate
-operator/deployment action.
+The EIP-712 domain is name `EtnaStaking`, version `1`, the full decimal uint256 L2
+chain ID and the verifying `EtnaStaking` proxy. Its message is `Register(address
+owner)`, so the proof binds the L2 chain, the staking contract and the owner, which
+must be the address that sends the registration. The helper passes
+`0x1901 || domainSeparator || structHash` to stock `secp256k1eth.Sign`, which
+applies legacy Keccak exactly once. PoP neither reads nor writes consensus HRS
+state and can run offline. Registering on the L2 staking contract, with TAIKO
+bridged to L2, is a separate operator action. A fallback key needs no proof: the
+DAO sets it on the Inbox.
 
 ## Serve one chain_id
 
@@ -159,8 +172,8 @@ before any signature depends on it) and must list the chain ID; the state, which
 for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and its exclusive
 owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence, of a `<state>.inflight`
 marker naming this boot and of the supervisor's `<chain_id>.signer-unsafe` marker beside the
-log; and the signer state, which must be schema 2 for that chain ID, with exactly its fields, and
-either the zero state or an HRS carrying a signature by the registered key over that chain ID's
+log; and the signer state, which must be schema 3 for that chain ID, with exactly its fields, and
+either the zero state or an HRS carrying a signature by the signer's key over that chain ID's
 canonical sign bytes, bound to a store instance, with a floor of at most H + 1. It removes the
 temporary files of state writes a crash interrupted before their rename, and only then serves the
 state. It never creates, initializes or resets HRS. The
@@ -193,9 +206,9 @@ reset:
 | Chain ID not in the log                   | `init-state` never ran for it, or was interrupted before its log line                              |
 | Chain ID logged, state missing            | the state file or the state volume is lost                                                         |
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
-| Old or other schema                       | the stock FilePV state of earlier signers (no `schema`), or a schema other than 2                  |
+| Old or other schema                       | the stock FilePV state of earlier signers (no `schema`), or a schema other than 3                  |
 | Inconsistent continuity                   | another `chain_id`, an invalid store instance, a signed but unbound state, a floor above H + 1     |
-| HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
+| HRS unauthentic                           | a signed state without a valid signature by the signer's key over this chain ID                    |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
 | Died while synchronizing, same boot       | `<state>.inflight` holds this kernel boot's ID, or is not a regular file of at most 128 bytes      |
 | Retained signer-unsafe marker             | `<chain_id>.signer-unsafe` exists beside the domains log (see Supervisor restarts and latches)     |
@@ -204,7 +217,7 @@ reset:
 The domains log detects only absence: a missing log, a chain it does not list, or a logged
 chain whose state is missing. It never detects rollback. It records chain IDs, never heights,
 so an older HRS restored from a backup, with or without the log, is still signed by the
-registered key for a logged chain: it passes every check and is served. Losing both the state
+signer's key for a logged chain: it passes every check and is served. Losing both the state
 and the log volume likewise looks like a fresh deployment. Neither can be detected; both are
 forbidden operational practice: never restore any signing state from a backup (RECOV-8.2-1,
 RECOV-8.2-6).
@@ -253,8 +266,8 @@ start` directly. Container callers must likewise invoke the stock binary directl
 not be used for validator runtime. Its `priv_validator_laddr` is mandatory and selects the
 transport (Signer transport); the supervisor passes each pair's listener to Comet as
 `--priv_validator_laddr`, which beats config.toml and `CMT_*` overrides. Keep the registered
-private key inaccessible to Comet. Node P2P and signer transport identities remain separate
-Ed25519 keys.
+or fallback private key inaccessible to Comet. Node P2P and signer transport identities remain
+separate Ed25519 keys.
 
 Before every Comet start the supervisor checks the Comet executable's digest against the
 deployment manifest (`comet-manifest.json`, or `ETNA_COMET_MANIFEST`) for this platform and
@@ -651,10 +664,11 @@ place. The supervisor adds its plain-text latch there only when it observes the 
 phase. When the app exits on a safety halt instead, observation fails and nothing is latched;
 signing stays refused all the same, because trust control is unavailable.
 
-Stock Comet creates its own disposable, unregistered FilePV in fresh standard local paths
-before replacing it with the mandatory guarded external signer. That dummy never signs for
-a validator. Do not copy registered key/HRS into Comet, clear those standard paths or enable
-a registered local fallback. The installed P2P node key remains a separate private identity.
+Stock Comet creates its own disposable FilePV, neither registered nor a fallback key, in fresh
+standard local paths before replacing it with the mandatory guarded external signer. That dummy
+never signs for a validator. Do not copy the registered or fallback key or its HRS into Comet,
+clear those standard paths or let Comet sign with that key locally. The installed P2P node key
+remains a separate private identity.
 
 Successful or replayed recovery InitChain keeps the signer-established private session.
 Unavailable evidence closes readiness in that same session; contradictions halt. Offline

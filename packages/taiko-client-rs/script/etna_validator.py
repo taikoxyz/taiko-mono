@@ -573,11 +573,11 @@ class Supervisor:
         self.state_dir = Path(os.environ["ETNA_PRIV_STATE_DIR"]).resolve()
         self.state = self.state_dir / (self.chain + ".json")
         self.domains_log = Path(os.environ["ETNA_DOMAINS_LOG"]).resolve()
-        # Comet runs as another UID and must never reach the registered key, the HRS states or
-        # the log, and the app store never holds them.
+        # Comet runs as another UID and must never reach the registered or fallback key, the HRS
+        # states or the log, and the app store never holds them.
         for path in (self.key, self.state_dir, self.domains_log):
             if path.is_relative_to(self.home) or path.is_relative_to(self.store):
-                raise ValueError("registered key, signing state and domains log must be outside the Comet home and app store")
+                raise ValueError("registered or fallback key, signing state and domains log must be outside the Comet home and app store")
         # The supervisor's private run directory holds the signer channel's socket.
         # Its parent is resolved, never the directory itself: prepare_run_dir refuses a symlink.
         run_dir = Path(os.environ.get("ETNA_SUPERVISOR_RUN_DIR", str(self.store / "supervisor")))
@@ -1145,7 +1145,7 @@ class Supervisor:
         """Popen options that run a child as the Comet UID/GID without supplementary groups."""
         configured = self.comet_identity()
         if configured is not None:
-            # The supported image keeps registered FilePV secrets inaccessible to Comet.
+            # The supported image keeps the registered or fallback FilePV key inaccessible to Comet.
             uid, gid = configured
             # A same-identity unprivileged local runner cannot call setgroups. Preserve its
             # existing identity; privileged/different-identity launches still drop all groups.

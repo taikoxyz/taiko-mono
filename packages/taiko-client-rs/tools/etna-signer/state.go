@@ -92,8 +92,8 @@ func ownerLock(path string) (*os.File, error) {
 	return f, nil
 }
 
-// readSignerState reads chain's schema-2 state from its canonical single-link path and
-// authenticates it with the registered public key (parseSignerState).
+// readSignerState reads chain's schema-3 state from its canonical single-link path and
+// authenticates it with the registered or fallback key's public key (parseSignerState).
 func readSignerState(path, chain string, pub crypto.PubKey) (signerState, error) {
 	canonical, e := existingFile(path)
 	if e != nil {
@@ -267,7 +267,7 @@ func initState(chain, key, state, log string) error {
 	return syncDirectory(filepath.Dir(log))
 }
 
-// createZeroState exclusively creates state as chain's unsigned schema-2 state, durably: no
+// createZeroState exclusively creates state as chain's unsigned schema-3 state, durably: no
 // HRS, no store binding, no floor. A failed write removes only the file created here: it is
 // unlogged, so nothing has signed with it.
 func createZeroState(chain, state string) (err error) {
@@ -431,7 +431,7 @@ func initDomainsLogCommand(args []string) error {
 func initStateCommand(args []string) error {
 	flags := flag.NewFlagSet("init-state", flag.ContinueOnError)
 	chain := flags.String("chain-id", "", "full Comet chain ID of the new signing domain")
-	key := flags.String("priv-key", "", "existing registered FilePV key")
+	key := flags.String("priv-key", "", "existing registered or fallback FilePV key")
 	state := flags.String("priv-state", "", "new <state-dir>/<chain-id>.json (must not exist)")
 	log := flags.String("domains-log", "", "existing domains log")
 	if err := flags.Parse(args); err != nil {

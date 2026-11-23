@@ -30,7 +30,7 @@ type cometProcess struct {
 	StoreInstance string
 }
 
-// guardedPV signs for one full chain_id from that chain's schema-2 signer state. It applies stock
+// guardedPV signs for one full chain_id from that chain's schema-3 signer state. It applies stock
 // FilePV's HRS rules exactly (CheckHRS, canonical sign bytes, vote-extension signatures, the
 // same-HRS retry that returns the saved signature for identical bytes and restores the saved
 // timestamp for a timestamp-only difference, and refusal of every other conflict or regression;
@@ -118,7 +118,8 @@ func newGuardedPV(key crypto.PrivKey, chain, path string, state signerState) *gu
 	return &guardedPV{key: key, pub: key.PubKey(), chain: chain, path: path, state: state, syncFile: (*os.File).Sync, syncDir: syncDirectory, logger: log.NewNopLogger()}
 }
 
-// GetPubKey is the registered key; it never waits for trust or continuity (START-10-6).
+// GetPubKey is the registered or fallback key; it never waits for trust or continuity, so Comet
+// reads it while trust is still closed.
 func (p *guardedPV) GetPubKey() (crypto.PubKey, error) {
 	return p.pub, nil
 }

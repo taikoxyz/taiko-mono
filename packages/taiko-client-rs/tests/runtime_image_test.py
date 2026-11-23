@@ -64,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
         "/app/etna-signer", "keygen", "--priv-key", str(key)]))
     pop = json.loads(subprocess.check_output([
         "/app/etna-signer", "pop", "--priv-key", str(key), "--owner", "0x" + "11" * 20,
-        "--registry", "0x" + "22" * 20, "--l1-chain-id", "31337"]))
+        "--staking", "0x" + "22" * 20, "--l2-chain-id", "167001"]))
     assert pop["publicKey"] == public["publicKey"] and len(pop["signature"]) == 132
     subprocess.check_call(["/app/etna-signer", "init-domains-log", "--domains-log", str(log)])
     subprocess.check_call(["/app/etna-signer", "init-state", "--chain-id", chain, "--priv-key", str(key),

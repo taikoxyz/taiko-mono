@@ -47,8 +47,8 @@ func loadNativeKey(path string) (secp256k1eth.PrivKey, error) {
 	return native, nil
 }
 
-// keygen creates a new registered key only. It encodes the stock FilePV key, but never uses
-// Save's replace-existing semantics. HRS state is created per chain_id by init-state.
+// keygen creates a new registered or fallback key only. It encodes the stock FilePV key, but
+// never uses Save's replace-existing semantics. HRS state is created per chain_id by init-state.
 func keygen(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("keygen", flag.ContinueOnError)
 	keyPath := flags.String("priv-key", "", "new FilePV private key path (must not exist)")
@@ -114,28 +114,30 @@ func addressWord(address string) ([]byte, error) {
 	return append(make([]byte, 12), raw...), nil
 }
 
-// registrationPreimage returns 0x1901 || domainSeparator || structHash, matching
-// EtnaStakingRegistry.registerDigest. Stock Sign hashes this exactly once.
-func registrationPreimage(owner, registry, chain string) ([]byte, error) {
+// registrationPreimage returns 0x1901 || domainSeparator || structHash, matching the L2
+// EtnaStaking contract's registerDigest: the EIP-712 domain is name "EtnaStaking", version "1",
+// the L2 chain ID and the staking proxy, so the proof binds the L2 chain, the staking contract
+// and the owner. Stock Sign hashes this exactly once.
+func registrationPreimage(owner, staking, chain string) ([]byte, error) {
 	ownerWord, err := addressWord(owner)
 	if err != nil {
 		return nil, fmt.Errorf("owner: %w", err)
 	}
-	registryWord, err := addressWord(registry)
+	stakingWord, err := addressWord(staking)
 	if err != nil {
-		return nil, fmt.Errorf("registry: %w", err)
+		return nil, fmt.Errorf("staking: %w", err)
 	}
 	if chain == "" || strings.IndexFunc(chain, func(c rune) bool { return c < '0' || c > '9' }) != -1 {
-		return nil, errors.New("L1 chain ID must be a decimal uint256")
+		return nil, errors.New("L2 chain ID must be a decimal uint256")
 	}
 	id, ok := new(big.Int).SetString(chain, 10)
 	if !ok || id.Sign() < 0 || id.BitLen() > 256 {
-		return nil, errors.New("L1 chain ID must be a decimal uint256")
+		return nil, errors.New("L2 chain ID must be a decimal uint256")
 	}
-	domain := append(keccak([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")), keccak([]byte("EtnaStakingRegistry"))...)
+	domain := append(keccak([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")), keccak([]byte("EtnaStaking"))...)
 	domain = append(domain, keccak([]byte("1"))...)
 	domain = append(domain, id.FillBytes(make([]byte, 32))...)
-	domain = append(domain, registryWord...)
+	domain = append(domain, stakingWord...)
 	structure := append(keccak([]byte("Register(address owner)")), ownerWord...)
 	preimage := append([]byte{0x19, 0x01}, keccak(domain)...)
 	return append(preimage, keccak(structure)...), nil
@@ -147,15 +149,15 @@ func pop(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("pop", flag.ContinueOnError)
 	keyPath := flags.String("priv-key", "", "existing native FilePV key")
 	owner := flags.String("owner", "", "registration owner's Ethereum address")
-	registry := flags.String("registry", "", "EtnaStakingRegistry address")
-	chain := flags.String("l1-chain-id", "", "decimal L1 chain ID (uint256)")
+	staking := flags.String("staking", "", "L2 EtnaStaking proxy address")
+	chain := flags.String("l2-chain-id", "", "decimal L2 chain ID (uint256)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if *keyPath == "" || flags.NArg() != 0 {
-		return errors.New("pop requires --priv-key, --owner, --registry and --l1-chain-id")
+		return errors.New("pop requires --priv-key, --owner, --staking and --l2-chain-id")
 	}
-	preimage, err := registrationPreimage(*owner, *registry, *chain)
+	preimage, err := registrationPreimage(*owner, *staking, *chain)
 	if err != nil {
 		return err
 	}

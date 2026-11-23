@@ -13,18 +13,20 @@ import (
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
-// signerStateSchema is the version of a chain's persisted signer state. Schema 2 keeps stock
+// signerStateSchema is the version of a chain's persisted signer state. Schema 3 keeps stock
 // FilePV's HRS fields (height, round, step, signature, signbytes, encoded as stock FilePV
 // encodes them) and adds, in the same file and the same atomic write, the RECOV-8.2-2
 // continuity binding: the chain ID, the store instance the key is bound to, the minimum signable
 // height and the replay binding of the last signature. The stock FilePV state that earlier
 // signers wrote has no schema; it and every other schema are refused without migration.
-const signerStateSchema = 2
+// Schema 3 has the fields of schema 2: the bump refuses every state an earlier release wrote, so
+// a deployment of this release starts from fresh signer states, never from migrated ones.
+const signerStateSchema = 3
 
 // storeInstanceLen is the length of a store instance ID: 128 random bits as lowercase hex.
 const storeInstanceLen = 32
 
-// signerState is one chain_id's durable signer state (schema 2).
+// signerState is one chain_id's durable signer state (schema 3).
 type signerState struct {
 	Schema  int32  `json:"schema"`
 	ChainID string `json:"chain_id"`
@@ -58,7 +60,7 @@ type replayBinding struct {
 	Digest      cmtbytes.HexBytes `json:"wal_sha256"`
 }
 
-// zeroState is chain's unsigned schema-2 state, as init-state creates it.
+// zeroState is chain's unsigned schema-3 state, as init-state creates it.
 func zeroState(chain string) signerState {
 	return signerState{Schema: signerStateSchema, ChainID: chain}
 }
@@ -95,14 +97,14 @@ func validStoreInstance(id string) bool {
 	return true
 }
 
-// stateFields are the keys of a schema-2 state; signature and signbytes appear only once signed.
+// stateFields are the keys of a schema-3 state; signature and signbytes appear only once signed.
 var stateFields = map[string]bool{"schema": true, "chain_id": true, "height": true, "round": true, "step": true, "signature": false, "signbytes": false, "store_instance": true, "floor": true, "replay": true}
 
 // parseSignerState decodes and authenticates chain's state. Unsigned means exactly the zero
-// state, never an arbitrary HRS; a signed HRS must carry the registered key's signature over
-// chain's canonical sign bytes for that height and round. Duplicate, unknown or missing keys, a
-// missing or other schema (no migration), another chain ID, an invalid store instance, a floor
-// above H + 1 and an inconsistent replay binding are all ambiguous.
+// state, never an arbitrary HRS; a signed HRS must carry the signature of the registered or
+// fallback key over chain's canonical sign bytes for that height and round. Duplicate, unknown or
+// missing keys, a missing or other schema (no migration), another chain ID, an invalid store
+// instance, a floor above H + 1 and an inconsistent replay binding are all ambiguous.
 func parseSignerState(raw []byte, chain string, pub crypto.PubKey) (signerState, error) {
 	var s signerState
 	if err := uniqueJSON(json.NewDecoder(bytes.NewReader(raw))); err != nil {
@@ -170,8 +172,9 @@ func parseSignerState(raw []byte, chain string, pub crypto.PubKey) (signerState,
 	return s, nil
 }
 
-// authenticateHRS checks a signed HRS with stock codecs: the registered key's signature over the
-// canonical sign bytes, whose type, chain ID, height and round must match the HRS.
+// authenticateHRS checks a signed HRS with stock codecs: the registered or fallback key's
+// signature over the canonical sign bytes, whose type, chain ID, height and round must match the
+// HRS.
 func authenticateHRS(s signerState, chain string, pub crypto.PubKey) error {
 	if s.Height <= 0 || s.Round < 0 || len(s.Signature) == 0 || len(s.SignBytes) == 0 || !pub.VerifySignature(s.SignBytes, s.Signature) {
 		return errors.New("ambiguous or unauthentic HRS")
