@@ -32,15 +32,22 @@ in the class view. It never enables or restricts an action.
 
 | Check | Actual result | Meaning |
 | --- | --- | --- |
-| Coarse actual VIEW with hidden fault | QuorumSafe failure missed; 3 generated / 1 distinct | Genuine RED demonstrates a check could be hidden. |
-| Same diagnostic with six real truth bits | Exact QuorumSafe, 2 / 2 | Failure remains observable. |
-| Class-filter scaffold without filtering | Exact InputClassSafe at Init → SetM Disabled; 63 / 7 | Wrong-class input detection exercised before filtering. |
+| Coarse VIEW `1a76d934` with hidden fault | QuorumSafe failure missed; 3 generated / 1 distinct | Genuine RED demonstrates a check could be hidden. |
+| v1 VIEW `1a5e6220` with six real truth bits | Exact QuorumSafe, 2 / 2 | Failure remains observable. |
+| Class scaffold `e7d4eb4e` before filtering | Exact InputClassSafe at Init → SetM Disabled; 63 / 7 | Wrong-class input detection exercised before filtering. |
 | Twelve class witnesses | All exact NoPartitionWitness; actual two SetM operands and Lose cardinality read back | All classes are nonempty; queues remained nonzero and give no exhaustion credit. |
 | Full-mode candidate | Exact NoCandidate at generation 0 / height 13 | Candidate activation exists in unfiltered original Free steps. |
 | Eleven final-wrapper projection paths | Independent literal/raw readback passed | Current/saved snapshot and positive-date merges, F-vote merges, and stake-vote separation exercised. |
 | Six same-key faults | Six named original-property failures, six normal and six byte-restored completed baselines | Tests error visibility and restoration on finite private prefixes. |
 | Final safety cover | Twelve timeouts, zero completed classes | Original six-property Free objective remains OPEN. |
 | Ordinary regressions | 817 each on source360 and sourcef556; no failures or skips | Existing tools, source classifiers and compatibility contracts still pass. |
+
+The manifest binds each of those three diagnostics to its own producer receipt,
+wrapper, selected module and config, raw log and result. For the final wrapper
+`13caebfb`, the pair, normal, fault and restored producer inventories identify
+the actual harness and config for each run. Their per-case raw log hashes match
+the independent readers' inputs. The restored inventory and the original normal
+packet have identical bytes across all 15 entries.
 
 The six actual controls change only the origin parent certificate, current
 snapshot, positive exit date, fallback certificate votes, saved snapshot, or
@@ -50,10 +57,12 @@ operational keys. Private finite-prefix completion does not substitute for
 Free exhaustion or protocol liveness.
 
 Each class had its own 45-second limit, 512 MiB, one worker and seed 1. The
-twelve safety limits total 540 seconds (actual measured sum 540.753 seconds), with process teardown overhead outside
-that sum. These are separate searches with overlapping prefixes, not a single
-45-second PASS. Timeout logs contain periodic counts only; no final state count
-is inferred. The archived monolithic v1 result retains its original wrapper,
+twelve safety limits total 540 seconds. The measured case durations sum to
+540.753 seconds and include per-case subprocess termination, wait and timing
+overhead. The searches have overlapping prefixes. The twelve class witness
+runs took 47.732 seconds in total and the full-mode candidate took 1.631
+seconds, for a combined witness time of 49.363 seconds. Timeout logs provide
+periodic counts only. The archived monolithic v1 result retains its original wrapper,
 configuration, log and result bytes.
 
 ## Default regression admission
