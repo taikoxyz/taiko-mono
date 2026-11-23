@@ -65,8 +65,8 @@ pub struct FixtureChain {
     /// that entry pending; inclusion at position zero consumes it.
     pub forced_transactions: BTreeMap<u64, Bytes>,
     /// The validator state after each height, indexed by height: the genesis state at 0, then
-    /// one advance per block by its empty update list, as abci's app applies them, which
-    /// `/val_state/<height>` serves.
+    /// one advance per block by an empty update list, which abci's app returns while the genesis
+    /// set keeps signing, as `/val_state/<height>` serves them.
     pub val_states: Vec<ValState>,
 }
 

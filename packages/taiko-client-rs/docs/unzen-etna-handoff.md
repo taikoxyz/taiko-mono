@@ -11,7 +11,9 @@ Use alethia-reth revision `ad584325c6b1e15f3c163fb25e71c04a78b194e0` or a compat
 Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Run it with
 exactly the client's Etna time ([below](#the-els-etna-time)). Existing L2 history and state stay
 in place. The Etna L2 SignalService implementation and the EIP-4788/2935 code must already be
-present. Until the first landing, every EL behind `--l2.http` must serve proofs of S's state
+present, and so must the `EtnaStaking` proxy at the staking address the configuration hash
+commits, holding the built-in implementation, deployed by an ordinary L2 transaction before the
+fork. Until the first landing, every EL behind `--l2.http` must serve proofs of S's state
 ([below](#ss-state-until-the-first-landing)).
 
 The current built-in Etna parameters are devnet-only. Supply the usual devnet `--chain-config`
@@ -29,9 +31,11 @@ Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shas
 `signal_service_implementation` is the Etna L2 SignalService implementation, not the proxy, and
 `staking_implementation` the `EtnaStaking` implementation, not the proxy. The
 configuration file does not authenticate S. While S is the latest landing checkpoint, the app
-verifies the L2 SignalService proxy's implementation proof at S, S's header timestamp below the
-fork time and its state root against the Inbox's start record, and that S is the last Unzen block
-(SYNC-9-5a). Before every trust grant, whatever the latest checkpoint, it also reads the switching
+verifies the L2 SignalService proxy's implementation proof at S, then the `EtnaStaking` proxy's
+implementation proof at S against `staking_implementation`, S's header timestamp below the fork
+time and its state root against the Inbox's start record, and that S is the last Unzen block
+(SYNC-9-5a). A proof the EL cannot serve yet keeps signing closed; another implementation halts
+the app. Before every trust grant, whatever the latest checkpoint, it also reads the switching
 EtnaInbox's immutable `etnaForkTime()` by `eth_call` at the hash of the own finalized L1 block
 that proved the checkpoint. Signing stays closed if that value is unavailable, and a mismatch with
 `fork_timestamp` halts the app. A nonzero S without a `[switch]` table also keeps signing closed,
@@ -52,17 +56,19 @@ execution engine contradiction does.
 
 ### S's state until the first landing
 
-While the Inbox's latest checkpoint is S, the app proves the L2 SignalService proxy's
-implementation slot at S before it trusts the chain (SYNC-9-5a), and the lander proves it for
-the first proof (PROOF-6.2-46a). Both read it with `eth_getProof` pinned to S's hash from their
-`--l2.http` endpoint (SYNC-9-16). reth answers historical proofs only within
+While the Inbox's latest checkpoint is S, the app proves the L2 SignalService and `EtnaStaking`
+proxies' implementation slots at S before it trusts the chain (SYNC-9-5a), and the lander proves
+both for the first proof (PROOF-6.2-46a). Both read them with `eth_getProof` pinned to S's hash
+from their `--l2.http` endpoint (SYNC-9-16). reth answers historical proofs only within
 `--rpc.eth-proof-window` blocks of its head, 0 by default, so once the L2 head passes S the read
 fails: the app keeps signing closed and the lander waits, both retrying. Until the first landing
 is final in own L1, give each such EL a proof window of at least `unsettled_limit` (U) blocks
 plus a margin and keep S's state, or point `--l2.http` at an archive endpoint. Back-pressure
 keeps the head within U blocks of the checkpoint its anchors show, but the head can pass S + U
 once the first landing executes, before it is final. After the first landing no node needs S's
-state.
+state. The lander's endpoint needs a proof window of at least `unsettled_limit` +
+`maxBatchBlocks` blocks on every network anyway, for the `EtnaStaking` proofs of each batch (see
+the README's lander section).
 
 ## Starting the staged runtime
 
@@ -136,19 +142,22 @@ sender: each authenticates S from its own finalized L1 view before it signs (SYN
 ## First landing
 
 Run the lander with the same switching chain configuration and public L1/L2 endpoints. A
-landing may end at any height above S; global epoch boundaries remain unchanged.
-The initial validators are committee 0 until an actual post-S switch takes effect.
+landing may end at any height above S. Generation 0's origin fallback keys, the CometBFT genesis
+validators, sign S + 1 and S + 2; from then on every block H decides the set that signs H + 2
+under the staking rules, as on a new network.
 
 The lander reads no Unzen state: the start write already required closed, fully proven Unzen
 proposals, so the first landing is built from S like any other once blocks above it are decided.
 
-The first proof request retains and host-verifies an EIP-1186 proof of the L2 SignalService
-proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a), read as
+The first proof request retains and host-verifies EIP-1186 proofs of the L2 SignalService and
+`EtnaStaking` proxies' EIP-1967 implementation slots under S's state root (PROOF-6.2-46a), the
+latter at the staking address the configuration hash commits, read as
 [above](#ss-state-until-the-first-landing). The included DummyProofProvider remains suitable
 only for development deployments; a real backend must verify this witness as well as the
 remaining private inputs.
 
-Lander journal schema 20 includes this witness. Older journals are refused, never rewritten.
+Lander journal schema 21 includes these witnesses (`start_staking_witness` for the staking
+proxy). Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
 original EL block-zero chainspec independently of the Etna start hash at S.

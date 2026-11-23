@@ -38,18 +38,21 @@ asks the app's private control socket before every signature (see
           └── --data-dir: abci-state.json
 ```
 
-- **CometBFT** runs consensus among the current committee (native secp256k1eth keys, voting power derived
-  from stake) and keeps the block store. Its mempool is disabled (`mempool.type = "nop"`): user
+- **CometBFT** runs consensus among the current signing set (native secp256k1eth keys: the members
+  of the L2 `EtnaStaking` candidate snapshot at their stake-derived power, or the DAO's fallback
+  keys at power 1) and keeps the block store. Its mempool is disabled (`mempool.type = "nop"`): user
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
-  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry, and the pending
-  forced inclusion entry's proof), into the CometBFT block. Validators check with their own L1
-  node that the anchored header is canonical and final. `FinalizeBlock`, replay and block sync
-  read no L1 state or admission logs; for a block the node never judged, they confirm its anchor
-  header (see Restarts). At each switch height the app derives the next committee and hands
-  CometBFT the validator updates (spec section 4, Staking and committees). Its state is persisted
-  atomically at every `Commit`.
+  L1 header plus EIP-1186 storage proofs of the Inbox, and the pending forced inclusion entry's
+  proof), into the CometBFT block. Validators check with their own L1 node that the anchored
+  header is canonical and final. `FinalizeBlock`, replay and block sync read no L1 state or
+  admission logs, apart from a fallback key list the node does not hold yet; for a block the node
+  never judged, they confirm its anchor header (see Restarts). After executing each block H,
+  `FinalizeBlock` decides the set that signs H + 2, from the `EtnaStaking` candidate snapshot in
+  H's post-state, which it reads from alethia-reth, or else from the fallback key list H's anchor
+  proves, and hands CometBFT the difference to the set that signs H + 1 as validator updates (spec
+  section 4.3, Committee derivation). Its state is persisted atomically at every `Commit`.
 - **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
   `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number. Fresh Etna starts at L2 block 0 with consensus
   height 1; recovered generations start consensus at retained height c+1.
@@ -72,7 +75,7 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
-`script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
+`script/gen_lander_artifacts.sh` (the Inbox and the other pinned contract artifacts)
 and alethia-reth commit `ad584325c6b1e15f3c163fb25e71c04a78b194e0`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
@@ -100,12 +103,19 @@ newest snapshot at or below it and the update records since (spec SYNC-9-5c). Co
 segments below the checkpoint the committed anchor proves: the Comet block IDs and execution blocks
 below it, and the validator records below the newest snapshot under it, the base the state one
 height below the checkpoint is recomputed from. A crash during an append can leave only a cut or
-zero-filled last record, which the next append truncates. A record whose body fails its hash is
-corrupt until its height is saved again. Any other damaged header is never truncated or read past:
-it and every later height of its segment read as corrupt, never as absent, and the app refuses to
-append to that segment, stopping the node until it is repaired. Do not delete or edit these files
-by hand: without them trust stays closed and the node cannot serve the state at a height to
-`abci-import export`, whose package at s carries the state after s − 1. `fatal-evidence.txt`
+zero-filled last record, which the next append truncates. This assumes a filesystem that orders
+data writes before the size update of an append, such as ext4 in its default `data=ordered` mode,
+XFS, btrfs or ZFS; on one that does not, such as ext4 with `data=writeback`, a crash can leave a
+last header that reads as damage and stops the node. A record whose body fails its hash is corrupt
+until its height is saved again. Any other damaged header is never truncated or read past: every
+height of that segment without a valid record before the damage reads as corrupt, never as
+absent, and the app refuses to append to that segment, which stops the node. Repair it by
+importing a checkpoint into a fresh app directory ([checkpoint import](docs/checkpoint-import.md));
+do not delete, truncate or edit these files by hand: without them trust stays closed and the node
+cannot serve the state at a height to `abci-import export`, whose package at s carries the state
+after s − 1. `abci-state.json` (schema 22) also holds the fallback key lists the node keeps by
+hash (the committed anchor's and a recovery origin's), the set that signed the head
+(`parent_signers`) and where the sets of the next two heights come from (`signers`). `fatal-evidence.txt`
 survives restarts and records the first safety failure, such as an unknown-execution-state Engine
 error (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -181,13 +191,14 @@ the upgraded node can confirm on replay:
 
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
-lands batches ending at any height above S, with committee 0 bootstrap and first-landing switch
-checks. It retains the raw L2 SignalService implementation proof at S for the proof backend. The
-supplied backend still emits dummy proofs; real proving and switch deployment remain separate
-work.
+lands batches ending at any height above S, starting from generation 0's origin fallback keys,
+with first-landing switch checks. It retains the raw L2 SignalService and `EtnaStaking`
+implementation proofs at S for the proof backend. The supplied backend still emits dummy proofs;
+real proving and switch deployment remain separate work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 21; lander journals use schema 20.
+separate work. App state uses schema 22; lander journals use schema 21; checkpoint import
+packages use schema 3.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -255,15 +266,19 @@ proposal. Configure preparation and Comet propose deadlines for the target hardw
 
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
-parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
-snake_case names of `abci::ChainParams` (for example `unsettled_limit = 3600`); absent keys keep their
-built-in values; unknown keys are rejected. `block_gas_limit` stays fixed by the built-in EL
+parameters so far, with the `EtnaStaking` proxy `0x1670010000000000000000000000000000010003` and
+U = 151,200; on other chains, mainnet and Hoodi included, `abci` refuses to start. The
+`--chain-config` TOML uses the snake_case names of `abci::ChainParams` (for example
+`unsettled_limit = 3600`, any value from 1 to 262,144, or `staking`); absent keys keep their
+built-in values; unknown keys, the removed `registry`, `vp_unit`, `min_stake` and `n_max`
+included, are rejected. `block_gas_limit` stays fixed by the built-in EL
 parameters. The required
 `--fee-recipient` overrides the local TOML beneficiary. Full uint256 L1 identity is read from
 `--l1.http`; an explicit `l1_chain_id` TOML value must match, while an omitted value uses the RPC
 identity. L2 IDs are checked without truncation and values above uint64 are explicitly refused.
 All nodes must use the same chain parameters: genesis and every restart check them against the
-Inbox's committee configuration hash. The Inbox address
+Inbox's configuration hash (slot 269, over the L2 chain id, the `EtnaStaking` proxy and U), and a
+built-in staking address that slot 269 does not commit is refused at startup. The Inbox address
 is also required in persisted state and checked again on restart. Fresh `InitChain` requires
 the exact L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL
 header at the Etna start S whose hash and state root match the start hash and the start state
@@ -278,28 +293,48 @@ shows up as EL errors around the fork, not as a trust check failure. Before ever
 the app checks that `fork_timestamp` equals the switching EtnaInbox's immutable
 `etnaForkTime()`, read by `eth_call` at its finalized L1 block's hash, so `--l1.http` must serve
 hash-pinned `eth_call` (SYNC-9-5a). While the Inbox's latest checkpoint is S, trust also needs
-an `eth_getProof` at S's hash from `--l2.http` (SYNC-9-5a, SYNC-9-16). reth's `--rpc.eth-proof-window` is 0 by default, so that proof fails once the head
-passes S and trust stays closed. Until the first landing is final in own L1, keep S's state and
-set a proof window of at least `unsettled_limit` blocks plus a margin, or point `--l2.http` at an
-archive endpoint.
+two `eth_getProof` reads at S's hash from `--l2.http`: the L2 SignalService proxy's and the
+`EtnaStaking` proxy's implementation slots, which must hold the `[switch]` table's
+`signal_service_implementation` and `staking_implementation`. reth's `--rpc.eth-proof-window`
+is 0 by default, so those proofs fail once the head passes S and trust stays closed. Until the
+first landing is final in own L1, keep S's state and set a proof window of at least
+`unsettled_limit` blocks plus a margin, or point `--l2.http` at an archive endpoint.
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness pauses (anchor not final, anchor
-older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
-inclusion event unavailable; spec section 8, Halts and recovery) keep the process running and
-CometBFT rounding; the ABCI query
-`/status` reports the head, epoch, generation and, as `halt_reason`, the cause of the current
-liveness pause. A superseded generation is
+older than `maxAnchorAge`, back-pressure, a fallback key list the own L1 cannot serve
+(`fallback_keys_unavailable`), `EtnaStaking` words the own EL cannot serve
+(`el_state_unavailable`), a due forced inclusion event unavailable; spec section 8, Halts and
+recovery) keep the process running and CometBFT rounding; the ABCI query `/status` reports the
+head, generation, where the next two signing sets come from and, as `halt_reason`, the cause of
+the current liveness pause. A superseded generation is
 permanent. A proposal whose anchor shows a higher Inbox `recoveryGeneration` is refused and trust
 is revoked while the process keeps running. A decided block carrying such an anchor, or a startup
 or signer-session trust check finding a different generation, is a safety halt. Restart only
 under the new generation.
 
+`/status` (field `signers`) and the ABCI query `/signers` report where the sets that sign the
+next two heights come from, as `next` and `after`: the source (`candidate` or `fallback`), the
+reason the fallback keys sign (`generation_origin` for a generation's first two blocks,
+`min_total_stake_max`, `stale_snapshot`, `below_min_total_stake`, `invalid_set`, or `imported`
+for an s + 1 set whose cause a checkpoint import cannot know), the candidate's stored total stake
+and the `minTotalStake` the deciding anchor proves, the candidate's snapshot height or the
+fallback list's hash, and the set size. The Prometheus gauges `abci_signing_source{set}` (0
+candidate, 1 fallback) and `abci_fallback_reason{set,reason}` (1 for the current reason, all 0
+while the candidate signs) cover both sets; `abci_candidate_total_stake` and
+`abci_min_total_stake` (base units, 0 at a generation's origin) follow the `after` set. Alert on
+the fallback keys signing and on the candidate's total stake nearing `minTotalStake`: an exit in
+block X can hand X + 3 to the fallback keys.
+
 ### `lander`
 
-The permissionless lander collects native Comet blocks/certificates, authenticates historical
-committee witnesses and execution/FI rules, and submits `land(input, leaves, proof)` blob
-transactions. `DummyProofProvider` returns exactly `0x00`; use an explicitly compatible dummy
+The permissionless lander collects native Comet blocks/certificates, derives the signing set of
+every height under the staking rules as nodes do (the origin fallback keys for a generation's
+first two blocks, the sets of p and p + 1 from its Comet node's archived `/validators` checked
+against header(p), and each later set from the verified `EtnaStaking` proof of the deciding
+block's post-state and its anchor's `minTotalStake` and fallback key list), checks every block's
+validator hashes, commit and `missBitmap` against them, authenticates execution/FI rules, and
+submits `land(input, leaves, proof)` blob transactions. `DummyProofProvider` returns exactly `0x00`; use an explicitly compatible dummy
 verifier on a disposable devnet. This does not establish validity-proof soundness.
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
@@ -326,8 +361,16 @@ blobs, a fixed constant (LAND-6.1 step 5).
 that batch cap: the lander refuses to start with a higher one, which no batch could reach. Wait
 expiry or consensus pressure can flush an available complete prefix below it. The wait is kept
 in memory from the first backlog this process sees at the current checkpoint; a restart starts
-it again. Batches can cross epoch transitions; batch timing and back-pressure follow spec
-sections 6.3 (Batches) and 6.4 (Back-pressure).
+it again. Batches can cross signing-set changes and switches between the candidate and the
+fallback keys; batch timing and back-pressure follow spec sections 6.3 (Batches) and 6.4
+(Back-pressure).
+
+The proof request of a batch is journaled, so its size is bounded by the journal's 256 MiB: the
+lander refuses to start with a batch cap above 2,275 blocks (set `--max-blocks` to at most 2,275
+unless the Inbox's `maxBatchBlocks` already lowers the cap), ends a batch's selection early when
+the next block's request bytes (its block and commit protobufs plus 48 KiB of staking reads and
+lists) would pass the budget, and refuses, before proving, a request that would journal beyond
+240 MiB. A 300-block worst-case request journals about 40 MB.
 
 `--land-to HEIGHT` runs the lander once: it lands exactly one batch from the latest checkpoint p
 to HEIGHT, with the same selection, leaves and journal as any batch, and exits 0 once that
@@ -338,11 +381,15 @@ passes HEIGHT first, or on a signal. It has no environment variable. A checkpoin
 producer uses it to land the height after its stock snapshot
 ([procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)).
 
-On a switching network, the first landing from S also carries an `eth_getProof` of the L2
-SignalService proxy's implementation slot at S, read from `--l2.http` (PROOF-6.2-46a,
-SYNC-9-16). Until the first landing is final in own L1, that endpoint needs S's state within its
-proof window, at least `unsettled_limit` blocks plus a margin as for `abci` above, or an archive
-endpoint; otherwise the lander waits and retries.
+On every network the lander reads `eth_getProof` of the `EtnaStaking` proxy from `--l2.http`,
+pinned to the exact L2 block hash, at p and at every height in (p, h). Those heights lie up to
+`unsettled_limit` + `maxBatchBlocks` blocks below the L2 head, so give that endpoint a proof
+window (reth's `--rpc.eth-proof-window`, 0 by default) of at least `unsettled_limit` +
+`maxBatchBlocks` blocks plus a margin, or point it at an archive endpoint. A failed read is
+retried, so with a short window the lander waits and retries without landing; a proof that does
+not verify stops it. On a switching network, the first landing from S also carries `eth_getProof`
+reads of the L2 SignalService and `EtnaStaking` proxies' implementation slots at S from the same
+endpoint.
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
@@ -364,7 +411,7 @@ input and statement are spec section 6.1 (land). At startup and for each batch t
 the Inbox's `VERSION`, initialization, L2 chain id, configuration hash and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
 rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 20 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 21 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
@@ -393,8 +440,12 @@ log reports `software upgrade required`, and
 `lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or
 finality waits.
 Use one active lander per signing account and preserve journals across restarts. Keep unpruned
-Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proofs/registry
-snapshots. Governance recovery and old-generation nonce reconciliation are covered in the
+Comet blocks, commits and validator sets: the lander reads the archived `/validators` of p and
+p + 1, and the blocks from the one carrying p's anchor witness up to p, at most as many blocks
+below p as `maxAnchorAge` has seconds (the app never asks CometBFT to prune, and an imported
+node's window covers them). Keep EL ancestry/execution state, the `EtnaStaking` proofs above, and
+L1 headers, proofs and the fallback key lists the anchors prove (`getFallbackKeys()` at the
+anchor's hash or the list's `FallbackKeysUpdated` log; see L1 node requirements). Governance recovery and old-generation nonce reconciliation are covered in the
 [recovery runbook](docs/governance-recovery.md#5-start-the-new-services). Real proving
 and automatic operator nonce repair remain excluded.
 
@@ -405,8 +456,11 @@ stores with one `import` command, published together as `ROOT/ready/{app,comet,e
 `abci`, the EL and stock Comet then run those stores. See the
 [checkpoint import runbook](docs/checkpoint-import.md) for the stopped EL source, original genesis,
 validator-state preimage archive and startup. An import grants no signing readiness. A
-registered validator resumes with its registered key and the same chain_id's HRS after matching
-its own finalized target.
+validator resumes with its registered or fallback key and the same chain_id's HRS after matching
+its own finalized target. `export` reads the `EtnaStaking` proof at s with `eth_getProof` from an
+archive EL and obtains the fallback key list s's anchor proves from its own L1 (by
+`getFallbackKeys()` at the anchor's hash, or the list's log); `export` and `import` bound each
+own-L1 read at 30 s.
 The EL helper derives the original block-zero hash from the operator's `--el-chain` using
 `etna-el-import chain-identity --chain PATH --chain-id N`. Import pins the install and its receipt
 to that identity, independently of the Inbox's Etna start hash H\* at S.
@@ -422,8 +476,12 @@ no command starts, stops or signals a process. Follow the
 [governance recovery runbook](docs/governance-recovery.md) for the exact commands, the signer
 environment of the new generation, the start order and full nodes. Recovery requires usable local
 EL state at c, the block of the retained landing; a node whose EL holds another block there, or
-none, takes the settled one first (runbook, "Take the settled EL state at c"). `abci-recover`
-imports no snapshots and retains the dummy-proof development scope.
+none, takes the settled one first (runbook, "Take the settled EL state at c"). The new
+generation starts on the fallback keys its origin record names: `prepare` obtains that list by
+its hash from the own L1 at R, bounding each L1 read at 30 s rather than the whole fetch, and
+`status` lists those keys, R's `minTotalStake` and, with `--public-key`, whether this node's key
+is one of them. `abci-recover` imports no snapshots and retains the dummy-proof development
+scope.
 
 ### `abci-genesis`
 
@@ -448,29 +506,45 @@ forced inclusion delay and `maxAnchorAge` proven from Inbox slot 282; a zero del
 
 ### Launch acceptance
 
-For launch acceptance (SPEC 4.1/4.4/11 and ACCEPTANCE 4), pin an independent `C_CAP_MIN`,
-conservative per-TAIKO `P_REF` in the same currency, price source, haircut, expiry, review frequency
-and responsible owner in the deployment manifest. With positive and current inputs, compute
-`S_MIN_TOTAL = ceil(3 * C_CAP_MIN * 10^18 / P_REF)`. Check the report's selected effective stake
-against that floor and require `ceil(totalPower / 3) * vp_unit * P_REF >= C_CAP_MIN * 10^18`.
-Pending and unselected funds do not count; each entry and known common controller must be strictly
-below one third of power. This report supports operator review, not a price oracle or consensus
-threshold. Preserve the separate real-two-proof and resource acceptance requirements.
+For launch acceptance (spec sections 4, 10 and 11, and the acceptance checklist's launch gate),
+pin an independent `C_CAP_MIN` (the value of stake controlling enough power to block a commit), a
+conservative per-TAIKO `P_REF` in the same currency, its source, haircut, validity, review
+frequency and responsible owner in the deployment manifest. With positive and current inputs the
+stake floor is `ceil(3 * C_CAP_MIN * 10^18 / P_REF)` TAIKO base units. `minTotalStake` is its
+on-chain form: initialize the Inbox with a value at or above the floor, with a margin for
+rounding (`n_max * vp_unit` base units covers it), so that every candidate reaching it also
+satisfies `ceil(totalPower / 3) * vp_unit * P_REF / 10^18 >= C_CAP_MIN`. Only the effective stake
+of seated bonds counts. A candidate below `minTotalStake` does not sign and the fallback keys do,
+so launch needs no staked committee: the fallback keys sign S + 1 and S + 2 and every block whose
+candidate is not usable. Verify that the deployed `EtnaStaking` has the pinned `minStake`,
+`vp_unit`, `n_max`, `missLimit` and `missSlashBps` and that the configuration hash names its
+proxy. Concentration is monitored, not enforced: each bond and known common controller should
+stay strictly below one third of the signing set's power, and no party should hold one third or
+more of the fallback keys. `C_CAP_MIN` and `P_REF` are a launch gate, not a price oracle; only
+`minTotalStake` is on chain. Preserve the separate real-two-proof and resource acceptance
+requirements.
 
-Owners may `topUp` active entries without free slots; funds become effective only through explicit
-`activateTopUp` after the L1 delay, then affect selection snapshots that include that checkpoint.
-They cannot activate after an exit is set. The DAO's `forfeit` deducts the deployment's explicit
-`forfeitBps` fraction of effective plus pending principal, forces exit and records a lifetime key
-flag, with no forfeiture nonce or registry revocation. The authorization has an inclusive L1
-timestamp deadline and remains usable across landing and recovery. Withdrawal and double-sign
-slashing cover both balances. Exercise the response budget before lawful withdrawal; seven days
-is not automatically enough for governance execution.
+In operation, monitor the actual signing set and the candidate's total stake against
+`minTotalStake` (`/signers` and the signing gauges above), and each fallback key's own validator
+instance and signer, which stay online and in sync at all times (see Run a validator). Owners top
+up a bond with `topUp`, which takes effect at once; a bond that reaches `minStake` takes the lowest
+empty seat. The DAO's `forfeit`, an L1 → L2 governance message to the staking contract, deducts
+the deployment's `forfeitBps` fraction of the bond's remaining principal, sets its exit and a
+lifetime flag, with no forfeiture nonce or revocation; its `validUntil` deadline is compared with
+the L2 block time, and the authorization remains usable across landing and recovery. A forfeiture
+executed above a later recovery's c is discarded with that suffix, so when a recovery is planned,
+execute forfeitures in the new generation. Withdrawal and double-sign slashing cover the whole
+balance. Exercise the response budget before lawful withdrawal: the withdrawal delay counts L2
+blocks, at least U + 2 plus the evidence window.
 
-Recovery binds `expectedRecoveryNonce` and `validUntil` in addition to generation and c;
-the owner may invalidate the nonce explicitly. Recovery does not punish principal itself or
-invalidate forfeiture authorization. Estimate recovery economics before authorization and reassess
-finalized R, including activated top-ups. Economic shortfalls or expired valuation require alerts,
-public disclosure and replenishment, without adding a signing, rotation or recovery veto.
+Recovery binds `expectedRecoveryNonce` and `validUntil` in addition to generation and c; the owner
+may invalidate the nonce explicitly. Before recovery, confirm that the fallback keys the new origin
+record will name are online and check whether the bonds seated in c's L2 state are healthy; if
+they are not, set `minTotalStake` to 2^256 − 1 in the same proposal (the
+[recovery runbook](docs/governance-recovery.md) states both DAO sequences). The new generation's
+first candidate comes from c's L2 state. Economic shortfalls or an expired valuation require
+alerts, public disclosure and replenishment or a new `minTotalStake`, without adding a signing or
+recovery veto.
 
 ## Run a validator
 
@@ -506,7 +580,9 @@ enough of them return or governance recovery replaces them.
    ```
 
    For a brand-new identity, use the bootstrap-only `etna-signer keygen` and
-   `etna-signer pop` commands before registration and genesis creation; see the
+   `etna-signer pop` commands before registering the key with the L2 `EtnaStaking` contract
+   (`pop` signs its registration proof for the staking proxy and L2 chain id) or handing it to the
+   DAO for a fallback key list; see the
    [native signer instructions](tools/etna-signer/README.md). They emit public JSON
    for deployment tooling. Never use keygen to recover an existing validator.
 
@@ -577,6 +653,11 @@ enough of them return or governance recovery replaces them.
    double_sign_check_height = 0
    block_time_tolerance = "1m0s"         # 60 s; "60s" and "1m" are accepted too
    ```
+
+   The supervisor reads `block_time_tolerance` as Comet does, so it accepts any spelling of
+   exactly 60 s (a Go duration string such as `"60000ms"`, or the integer `60000000000` in
+   nanoseconds), but `abci-recover install` accepts only `"1m0s"`, `"60s"` and `"1m"` in a
+   validator template: keep one of those three.
 
    Adaptive sync would run consensus while block sync catches up, and that can sign votes for
    heights already decided, which signer state does not prevent. A nonzero double-sign check
@@ -655,10 +736,10 @@ committing those values to the Inbox.
      bash script/start_etna_validator.sh
    ```
 
-   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one schema-2 signer state
+   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one schema-3 signer state
    per full chain_id (the stock HRS fields plus its store binding and height floor), and refuses
    with exit 3 a missing or malformed domains log, a chain_id the log does not list, a logged
-   chain_id whose state is missing, the stock FilePV state of earlier signers and an unauthentic or
+   chain_id whose state is missing, the stock FilePV and schema-2 states of earlier signers and an unauthentic or
    ambiguous HRS (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
 
    The supervisor serves the signer's private channel at `<run>/signer.sock` in its run directory,
@@ -856,63 +937,33 @@ committing those values to the Inbox.
   supported: alloy's WebSocket client stops reconnecting after a few attempts, so a longer L1
   outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
-  anchored L1 headers are canonical and final. Full nodes also run the background prefetches
-  validators use for committee witnesses, so give them the same L1 proof access.
-  Proposers also need exact-block historical admission logs for pending forced entries.
-- **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
-  historical blocks. A proposal proves Inbox storage at its anchor, the own L1 node's
-  `finalized` block when the anchor moves. At a switch height the proposer also
-  reconstructs the registry entries at the committed parent anchor. The selected registry
-  checkpoint can be older than that anchor. The state window or cached history must cover
-  those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
-  also need the earlier derivation snapshot's entries and the bounded EL ancestor headers.
-- At switch height `S(t)`, the registry snapshot is the later of the committed `D(t)` anchor's
-  L1 block and the current generation's L1 origin (`L1_0`, or R after a recovery), and its
-  proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
-  parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
-  `maxAnchorAge`, a per-deployment value above the L1 finality delay (spec PARAM-11-5): the age
-  the newest finalized L1 block reaches just before the next finalization (1152 s on Ethereum)
-  plus the deployment's allowance for slots missed at an epoch boundary and for import delay.
-  1152 s itself is therefore too low on Ethereum, although the app refuses only values below it
-  (spec START-10-9). At 12 s per L1 block, a 2 h value is 600 blocks, beyond a geth full node's
-  128-block state window. So nodes discover the witness as soon as they commit the anchor (see
-  below). That needs the
-  L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
-  not live when the anchor was adopted, or restarted since, still needs historical state. The own
-  L1 node behind `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its
-  historical proof/state retention to cover the required history.
-- Fully verified committee witnesses acquired locally or received in valid proposals are kept in
-  memory only; nothing is written to the app data directory. Every node discovers the upcoming
-  committee witness in the background under each committed anchor that can still be `D(t)`'s,
-  starting with the live `Commit` of the block adopting it, and keeps it while the anchor stays.
-  Every `PrepareProposal` and `ProcessProposal`, placeholder proposals included, and every live
-  `Commit` start a missing discovery and restart a failed one, from scratch, once its backoff has
-  passed (2 s, doubling per failure under the same anchor up to 60 s, so an L1 that cannot serve
-  the state or rate-limits it sees one attempt per pause). A running discovery is never
-  restarted: a proposer that needs the witness joins it and waits within its own deadline, and
-  the discovery runs on past that deadline. An unreachable, lagging or timed-out own L1 leaves
-  the witness unavailable, a liveness pause; malformed or contradictory replies from it halt the
-  node (spec SYNC-9-7). An anchor can be `D(t)`'s only while `D(t)` passes back-pressure against the
-  anchor's last checkpoint height and stays within `maxAnchorAge` of the anchor at one second per
-  height at least, so this costs about one discovery per adopted anchor (one per L1 epoch) in the
-  last `unsettled_limit` heights before each `D(t)`. An L1 finality stall that holds the anchor
-  through `D(t)`, an anchor freshness stall or an outage therefore does not leave a running node's
-  `S(t)` waiting on pruned state, provided the anchor's state was still served when it was
-  adopted. A restart keeps no
-  witness: the restarted node re-discovers it from its own L1, reading historical `eth_getProof`
-  and registry state at the snapshot block. That block is fixed by the committed `D(t)` anchor (or
-  the generation origin, spec COMM-4.3-11), not by `S(t)`'s own anchor, so it keeps ageing until
-  `S(t)` commits, even when `S(t)` carries a newer anchor. Plan for at least `maxAnchorAge` plus
-  the L1 finality lag of history, growing with any pause between committing `D(t)` and committing
-  `S(t)`, an L1 finality stall longer than `maxAnchorAge` included. A restarted validator still
-  needs that historical state on its own L1 (spec SYNC-9-16) to propose `S(t)`; otherwise it can
-  only accept a peer's valid `S(t)` proposal, which needs some peer that still holds the witness.
-  If every validator restarts, `S(t)` waits for an L1 node that has that history. Size the
-  retained state and reth's `--rpc.eth-proof-window` (which limits historical proof access
-  independently of retained state) for the longest pause you want a restart to survive, as well as
-  for the history validators and landers need otherwise. Full nodes importing an older checkpoint
-  can also need historical `eth_getProof` calls to reconstruct an inherited anchor and committee
-  snapshots; retain that state and configure the proof window for the selected import history.
+  anchored L1 headers are canonical and final, and obtains the fallback key lists the anchors
+  prove (below). Proposers also need exact-block historical admission logs for pending forced
+  entries.
+- **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) of
+  the Inbox at its own `finalized` block, which a proposal proves when its anchor moves.
+- **Fallback key lists.** Every node, the lander, `abci-genesis`, `abci-recover prepare` and
+  checkpoint import obtain each fallback key list that an anchor or an origin record proves by
+  its hash (spec SYNC-9-16): first `getFallbackKeys()` by `eth_call` at the anchor's L1 block
+  hash, which needs that block's state, and failing that the Inbox's `FallbackKeysUpdated` log
+  indexed by that hash, scanned backward from the anchor block in `eth_getLogs` queries of at
+  most 10,000 blocks. A list is used only when it hashes to the proven `fallbackKeysHash`. An
+  anchor can be up to `maxAnchorAge` old, a recovery's R older, and a list may have been set long
+  before either, so the own L1 node must keep the state of those blocks or the Inbox's logs back
+  to the list's `setFallbackKeys` call (or the Inbox's initialization). `maxAnchorAge` is a
+  per-deployment value above the L1 finality delay (spec PARAM-11-5): the age the newest
+  finalized L1 block reaches just before the next finalization (1152 s on Ethereum) plus the
+  deployment's allowance for slots missed at an epoch boundary and for import delay. 1152 s
+  itself is therefore too low on Ethereum, although the app refuses only values below it. At
+  12 s per L1 block a 2 h value is 600 blocks, beyond a geth full node's 128-block state window,
+  so an L1 node that keeps only recent state needs the log path. Each read of a list fetch has a
+  deadline of at least 30 s (`--l1.timeout` when longer), enough for one 10,000-block query, and
+  the L1 HTTP transport allows it. A list the node cannot obtain, through a missing list or a
+  failed read, is a node-local liveness pause, never a rejection or a halt: `ProcessProposal`
+  waits, `PrepareProposal` proposes a placeholder, a cold `FinalizeBlock` waits, and the reason
+  `fallback_keys_unavailable` is logged with its cause. The app keeps the committed anchor's list
+  and a recovery origin's list in its state, and fetches a newer list when a proposal's anchor
+  first proves its hash, so a decided block finds it at hand.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
   enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
@@ -1073,6 +1124,15 @@ committing those values to the Inbox.
 
 ### Execution layer state history
 
+- **Staking reads.** `FinalizeBlock(H)` reads the `EtnaStaking` candidate snapshot
+  (`snapshotHeight` and `snapshotTotalStake`, then the 128 seat records when they can matter) from
+  H's post-state, after the forkchoice update that makes H the head, and the key-to-seat word of
+  each validator missing from a block's LastCommit from the parent's post-state. Each read is one
+  `eth_getStorageAt` batch on alethia-reth's `--l2.http` pinned to the exact block hash
+  (`{blockHash, requireCanonical: true}`), never a tag, so the EL must serve the state of its head
+  and the block below it. An EL error or an unknown block is a liveness pause
+  (`el_state_unavailable`); a malformed reply is a safety halt. A staking address that holds no
+  account reads as zero words, so the fallback keys sign.
 - Cold replay judges each decided block from its authenticated parent. Inclusion and ineligible-byte
   skips need no singleton build. A due eligible entry absent from position zero requires a
   historical singleton and therefore the parent's execution state. Landers need the same history
@@ -1114,9 +1174,13 @@ rejection or overflow, and bind cursor advancement/output. A candidate beyond an
 or under another parent context needs a suitable collection path.
 
 A future guest must bind the V1 statement, cut leaves, execution-only public payload, native
-certificates and authenticated committee ancestry. The beneficiary is proposer-selected; full
-execution must establish its fee credit. Prove the terminal active committee cutoff, FI behavior
-and L1 reference ancestry. No real guest is implemented; the dummy verifier cannot establish
+certificates and the signing set of every height under the staking rules: the origin fallback
+keys, header(p) with the sets of p and p + 1, the `EtnaStaking` words of each deciding post-state,
+read through its execution witness, every fallback key list a decision used, and each block's
+`missBitmap`. The beneficiary is proposer-selected; full execution must establish its fee credit.
+Prove FI behavior and L1 reference ancestry. The lander's proof request carries these inputs
+(about 40 MB for a 300-block batch, up to the 240 MiB journal bound), so a proof service must
+accept requests of that size. No real guest is implemented; the dummy verifier cannot establish
 these claims, so this version is restricted to disposable development chains.
 
 ## Development
@@ -1129,10 +1193,13 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 ### Tests
 
-The [340 formal client vectors](crates/abci/tests/fixtures/etna_conformance/README.md)
-are regenerated from #22292 at `4f38cfcc8`. They check the historical decoded model
-and retain one documented height-bound divergence; they do not establish conformance
-to the latest Etna specification. Current registry admission vectors belong to the
+The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/README.md) hold
+257 historical model regressions regenerated from #22292 at `4f38cfcc8` and adapted by hand to
+the 29-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
+documented height-bound divergence and establish no conformance to the latest Etna
+specification, and two client-owned families transcribed from the specification at
+`178d7a7a6`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
+`missBitmap` derivation and signing-set decision. Staking contract vectors belong to the
 contract harness.
 
 - `just test-dev` prints and runs native tests and Docker scenarios selected from local changes.
@@ -1145,26 +1212,30 @@ contract harness.
   `cargo test` process, which loads the KZG trusted setup once instead of once per test.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
-  anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
+  anchor finality, restart and lost-state replay, back-pressure, generation
   bump, calldata inclusion, ineligible-byte skips, canonical skips, and unavailable-history
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
-  transactions, cross-epoch batching, four native validators with ordinary and forced
-  transactions, 100% beneficiary fees, FI fees swept to the treasury, epoch transition, dummy
+  transactions, multi-block batching, four native validators with ordinary and forced
+  transactions, 100% beneficiary fees, FI fees swept to the treasury, dummy
   0x00 landing, signer timeout recovery and offline catchup with retained HRS and Comet block
   IDs at or above the committed anchor's checkpoint,
   execution-DA replay, permissionless overlap races,
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
-  pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
+  pressure flushes; runner and store unit tests cover receipt reorgs and journal restarts.
+  Every Docker devnet plants a `minTotalStake` of 2^256 − 1, so its origin fallback keys sign
+  every height; scenarios that stake on L2 and switch between the candidate and the fallback keys
+  need the protocol pin that adds `EtnaStaking`, and the contract-backed lander scenarios target
+  the contracts of the current pin until then.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
   and the recovery test image) and `devnet` (all other scenarios); set
   `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`,
   e.g. `just test restart` runs one scenario. Pull requests
-  skip the L1 finality stall and the L=7 recovery (L=6 and L=8 cover the same recovery path);
+  skip the L1 finality stall;
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and prepares their images and
   native helpers. For example, `just test --test cleanup` only needs the Foundry 1.8.5 image.
@@ -1188,10 +1259,10 @@ contract harness.
   to a unique identifier when supervising a direct cargo/nextest run and retaining an external
   cleanup fallback for SIGKILL.
 
-- `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
-  rules, epoch switch, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
+- `just test-smoke` runs exactly three representative Docker scenarios: single-validator header
+  rules, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
-  None of the four is in the `native` lane, so `TAIKO_CLIENT_RS_TEST_LANE=native just test-smoke`
+  None of the three is in the `native` lane, so `TAIKO_CLIENT_RS_TEST_LANE=native just test-smoke`
   selects no scenario.
 - `just runtime-image-test IMAGE linux/arm64` (or `linux/amd64`) smoke-tests the actual Linux runtime composition, native
   bootstrap, Comet UID isolation and unchanged HRS without a Rust rebuild. Build the

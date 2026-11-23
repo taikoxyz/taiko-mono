@@ -7,10 +7,11 @@
 //! stop it completely and start it again ([`Devnet::app_stop`], [`Devnet::app_start`]). Controlled
 //! shutdown uses [`Devnet::node_stop`]: Comet first, then the app, with bounded forced reaping.
 //! An app-only crash does not guarantee that CometBFT's shutdown finishes. Before
-//! the apps start it plants an initialized Inbox and a staking registry into anvil with
-//! [`Planter`] and builds the CometBFT genesis from that L1 state with `abci::build_genesis`. A
-//! background fake lander advances only `lastCheckpoint` behind the chain; autonomous committee
-//! activation needs no publication, while paused settlement still exercises back-pressure.
+//! the apps start it plants an initialized Inbox, with the origin fallback key list and a
+//! `minTotalStake` of 2^256 − 1, into anvil with [`Planter`] and builds the CometBFT genesis from
+//! that L1 state with `abci::build_genesis`. A background fake lander advances only
+//! `lastCheckpoint` behind the chain; the signing sets need no publication, while paused
+//! settlement still exercises back-pressure.
 //! Scenarios plant calldata forced inclusion entries with their admission events
 //! ([`Planter::plant_forced_transaction`]).
 //!
