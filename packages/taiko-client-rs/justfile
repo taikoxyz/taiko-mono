@@ -70,7 +70,7 @@ unit *ARGS:
 test-dev *ARGS:
   python3 ./tests/test_dev.py "$@"
 
-# Three representative Docker scenarios for local iteration. Use `test` for subsets
+# Four representative Docker scenarios for local iteration. Use `test` for subsets
 # or output arguments; this named tier deliberately accepts no extra filters.
 test-smoke:
   ./tests/entrypoint.sh --smoke

@@ -1225,14 +1225,12 @@ contract harness.
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
   pressure flushes; runner and store unit tests cover receipt reorgs and journal restarts.
-  The test-harness devnets plant a `minTotalStake` of 2^256 − 1, so their origin fallback keys
-  sign every height. The contract-backed scenarios (the lander's landing, recovery, switch and
-  native acceptance tests, `lander_cli`, `governance_recovery` and the checkpoint-import tests)
-  deploy the contracts of the current protocol pin and register validators with
-  `etna-signer pop --registry`, which the signer now refuses, so they fail at fixture setup until
-  the pin that adds `EtnaStaking` rewrites that fixture; two of the three smoke scenarios are
-  among them. Scenarios that stake on L2 and switch between the candidate and the fallback keys
-  come with that pin.
+  The test-harness devnets plant a `minTotalStake` of 2^256 − 1, and the contract-backed fixtures
+  initialize the real Inbox with it, so their origin fallback keys sign every height unless a
+  scenario lowers it. The staking scenarios do: they register bonds on the L2 `EtnaStaking`
+  predeploy from the harness genesis's premint and cover the candidate taking over, missed
+  signatures, exits, the maximum `minTotalStake`, both DAO recovery sequences, and landing and
+  checkpoint import across a switch.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
@@ -1263,10 +1261,11 @@ contract harness.
   to a unique identifier when supervising a direct cargo/nextest run and retaining an external
   cleanup fallback for SIGKILL.
 
-- `just test-smoke` runs exactly three representative Docker scenarios: single-validator header
-  rules, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
+- `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
+  rules, the candidate taking over from the fallback keys once L2 bonds reach `minTotalStake`,
+  the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
-  None of the three is in the `native` lane, so `TAIKO_CLIENT_RS_TEST_LANE=native just test-smoke`
+  None of the four is in the `native` lane, so `TAIKO_CLIENT_RS_TEST_LANE=native just test-smoke`
   selects no scenario.
 - `just runtime-image-test IMAGE linux/arm64` (or `linux/amd64`) smoke-tests the actual Linux runtime composition, native
   bootstrap, Comet UID isolation and unchanged HRS without a Rust rebuild. Build the

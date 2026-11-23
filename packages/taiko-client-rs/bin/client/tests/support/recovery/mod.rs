@@ -486,26 +486,35 @@ pub async fn recover_with_lists(
     fi_to_clear: Vec<U256>,
 ) -> Result<()> {
     let p = &f.anvil.provider;
+    let (owner, call) = recover_call(f, generation, c, fi_to_clear).await?;
+    transact(p, owner, f.inbox, call).await?;
+    mine_l1_blocks(p, 3).await?;
+    Ok(())
+}
+
+/// The Inbox owner and its `recover` calldata from `generation` at the landed checkpoint `c`,
+/// clearing `fi_to_clear`, valid for an hour, with the current recovery nonce and no ruleset.
+pub async fn recover_call(
+    f: &ContractFixture,
+    generation: u64,
+    c: u64,
+    fi_to_clear: Vec<U256>,
+) -> Result<(alloy_primitives::Address, Vec<u8>)> {
+    let p = &f.anvil.provider;
     let nonce = view(p, f.inbox, EtnaInbox::recoveryNonceCall {}, None).await?;
     let now =
         p.get_block_by_number(BlockNumberOrTag::Latest).await?.context("L1 head")?.header.timestamp;
-    transact(
-        p,
-        view(p, f.inbox, EtnaInbox::ownerCall {}, None).await?,
-        f.inbox,
-        EtnaInbox::recoverCall {
-            _expectedGeneration: U48::from(generation),
-            _expectedC: U256::from(c),
-            _expectedRecoveryNonce: nonce,
-            _validUntil: U256::from(now + 3600),
-            _fiToClear: fi_to_clear,
-            _rules: U48::ZERO,
-        }
-        .abi_encode(),
-    )
-    .await?;
-    mine_l1_blocks(p, 3).await?;
-    Ok(())
+    let owner = view(p, f.inbox, EtnaInbox::ownerCall {}, None).await?;
+    let call = EtnaInbox::recoverCall {
+        _expectedGeneration: U48::from(generation),
+        _expectedC: U256::from(c),
+        _expectedRecoveryNonce: nonce,
+        _validUntil: U256::from(now + 3600),
+        _fiToClear: fi_to_clear,
+        _rules: U48::ZERO,
+    }
+    .abi_encode();
+    Ok((owner, call))
 }
 
 pub async fn wait_checkpoint(

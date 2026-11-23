@@ -5,18 +5,22 @@ mod support {
     pub mod checkpoint_import;
     pub mod recovery;
 }
-use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718};
+use abci::fallback::FallbackKeys;
+use alloy::sol_types::SolCall;
+use alloy_eips::{BlockId, BlockNumberOrTag, eip2718::Encodable2718};
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
-use contracts_support::ContractFixture;
+use contracts_support::{
+    ContractFixture,
+    contracts::{EtnaInbox, transact_in_one_block, view},
+};
 use std::fs;
 use support::recovery::{
-    Commands, Liveness, recover_and_finalize, recover_with_lists, snapshot, wait_checkpoint,
-    wait_committed,
+    Commands, Liveness, recover_and_finalize, recover_call, recover_with_lists, snapshot,
+    wait_checkpoint, wait_committed,
 };
-use test_harness::{
-    CmtClient, ContractConsensus, Staking, mine_l1_blocks, set_interval_mining, staker,
-};
+use test_harness::{ContractConsensus, Staking, mine_l1_blocks, set_interval_mining, staker};
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
@@ -424,7 +428,7 @@ async fn recovery_generation_starts_on_origin_fallback_keys() -> Result<()> {
     set_interval_mining(&f.anvil.provider, 1).await?;
     let staking = Staking::new(vec![f.l2.provider.clone()], f.params.staking).await?;
     let params = staking.params().await?;
-    let stake = params.min_stake * alloy_primitives::U256::from(2);
+    let stake = params.min_stake * U256::from(2);
     // Before consensus starts, so every anchor of both generations proves the minimum.
     f.set_min_total_stake(stake).await?;
     mine_l1_blocks(&f.anvil.provider, 3).await?;
@@ -442,12 +446,14 @@ async fn recovery_generation_starts_on_origin_fallback_keys() -> Result<()> {
         let fallback = f.fallback_keys.validator_set();
         let candidate = vec![(f.keys[0].pubkey(), params.power(stake)?)];
         c.wait_for_height(x + 4).await?;
-        assert_eq!(set_at(&c.cmt, x + 2).await?, fallback, "the fallback key signs X + 2");
-        assert_eq!(set_at(&c.cmt, x + 3).await?, candidate, "the candidate signs X + 3");
+        assert_eq!(c.cmt.signing_set(x + 2).await?, fallback, "the fallback key signs X + 2");
+        assert_eq!(c.cmt.signing_set(x + 3).await?, candidate, "the candidate signs X + 3");
 
         let mut lander = commands.old_lander(&f, &c.cmt)?;
         wait_checkpoint(&f, &mut lander, x + 3).await?;
         lander.stop().await?;
+        // A landing broadcast before the stop is mined before c is read.
+        mine_l1_blocks(&f.anvil.provider, 3).await?;
         let (origin, _) = f.checkpoint().await?;
         c.stop_node(0).await?;
         recover_and_finalize(&f, 0, origin).await?;
@@ -460,16 +466,16 @@ async fn recovery_generation_starts_on_origin_fallback_keys() -> Result<()> {
         assert_eq!(c.cmt.abci_status().await?.generation, 1);
         for height in [origin + 1, origin + 2] {
             assert_eq!(
-                set_at(&c.cmt, height).await?,
+                c.cmt.signing_set(height).await?,
                 fallback,
                 "the origin record's fallback key signs {height}"
             );
         }
-        assert_eq!(set_at(&c.cmt, origin + 3).await?, candidate, "the candidate signs c + 3");
+        assert_eq!(c.cmt.signing_set(origin + 3).await?, candidate, "the candidate signs c + 3");
         // c + 1's block-start call stored the snapshot that decided c + 3, with the bond that c's
         // state holds.
-        let (height, total, _) = staking.snapshot(alloy_eips::BlockId::number(origin + 1)).await?;
-        assert_eq!(height, alloy_primitives::U256::from(origin + 1), "the snapshot of c + 1");
+        let (height, total, _) = staking.snapshot(BlockId::number(origin + 1)).await?;
+        assert_eq!(height, U256::from(origin + 1), "the snapshot of c + 1");
         assert_eq!(total, stake, "the total stake in the snapshot of c + 1");
         eprintln!("candidate before the recovery at c = {origin}, X = {x}");
         node.stop().await?;
@@ -483,12 +489,158 @@ async fn recovery_generation_starts_on_origin_fallback_keys() -> Result<()> {
     result
 }
 
-/// The set that signs `height` as `cmt` reports it, sorted.
-async fn set_at(cmt: &CmtClient, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
-    let mut set: Vec<_> =
-        cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
-    set.sort();
-    Ok(set)
+/// The first DAO recovery sequence: `setMinTotalStake(2^256 − 1)` and `recover` in one proposal,
+/// executed in one L1 block. Before it, the one validator's key, the fallback key, is also the
+/// candidate's one member: a bond of one minStake, below the `minTotalStake` of two minStakes,
+/// leaves the fallback key signing until its owner tops it up by another minStake in block T, and
+/// the candidate signs from T + 3. After the recovery at the landed c, generation one's c + 1 and
+/// c + 2 are signed by the origin record's fallback key at power 1, and so is every later height:
+/// the snapshot of c + 1 still holds the bond, but every anchor of generation one proves
+/// 2^256 − 1, so no candidate is usable.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn recovery_with_maximum_min_total_stake_stays_on_origin_fallback_keys() -> Result<()> {
+    test_harness::init_tracing();
+    let f = ContractFixture::deploy_config(1, 120).await?;
+    let p = &f.anvil.provider;
+    set_interval_mining(p, 1).await?;
+    let staking = Staking::new(vec![f.l2.provider.clone()], f.params.staking).await?;
+    let params = staking.params().await?;
+    let stake = params.min_stake * U256::from(2);
+    // Before consensus starts, so every anchor of generation zero proves the minimum.
+    f.set_min_total_stake(stake).await?;
+    mine_l1_blocks(p, 3).await?;
+    let mut c = ContractConsensus::start_native(
+        f.anvil.http.clone(),
+        &f.l2,
+        f.params.clone(),
+        vec![f.signer_storage.path().join("0")],
+    )
+    .await?;
+    let mut commands = Commands::new(&f, &c)?;
+    let result: Result<()> = async {
+        let fallback = f.fallback_keys.validator_set();
+        let bond = staking.register(&staker(1), &f.keys[0], params.min_stake).await?;
+        c.wait_for_height(bond.block + 4).await?;
+        assert_eq!(
+            c.cmt.signing_set(bond.block + 3).await?,
+            fallback,
+            "a bond below the minimum leaves the fallback key signing"
+        );
+        let t = staking.top_up(&staker(1), bond.id, params.min_stake).await?;
+        c.wait_for_height(t + 4).await?;
+        let candidate = vec![(f.keys[0].pubkey(), params.power(stake)?)];
+        assert_eq!(c.cmt.signing_set(t + 2).await?, fallback, "the fallback key signs T + 2");
+        assert_eq!(c.cmt.signing_set(t + 3).await?, candidate, "the topped-up bond signs T + 3");
+
+        let mut lander = commands.old_lander(&f, &c.cmt)?;
+        wait_checkpoint(&f, &mut lander, t + 3).await?;
+        lander.stop().await?;
+        // A landing broadcast before the stop is mined before c is read.
+        mine_l1_blocks(p, 3).await?;
+        let (origin, _) = f.checkpoint().await?;
+        c.stop_node(0).await?;
+        let (owner, recover) = recover_call(&f, 0, origin, vec![]).await?;
+        let maximum = EtnaInbox::setMinTotalStakeCall { _value: U256::MAX }.abi_encode();
+        let proposal =
+            transact_in_one_block(p, &[(owner, f.inbox, maximum), (owner, f.inbox, recover)])
+                .await?;
+        mine_l1_blocks(p, 3).await?;
+        eprintln!(
+            "candidate from T + 3 = {}; proposal in L1 block {proposal}; c = {origin}",
+            t + 3
+        );
+        commands.origin = origin;
+        commands.lander = false;
+        let plan = commands.prepare_command(1).await?;
+        let installed = commands.install_command(&plan, "maximum").await?;
+        let mut node = commands.start_recovered(&installed, "maximum").await?;
+        wait_committed(&c.cmt, origin + 5, &mut node).await?;
+        assert_eq!(c.cmt.abci_status().await?.generation, 1);
+        for height in origin + 1..=origin + 4 {
+            assert_eq!(
+                c.cmt.signing_set(height).await?,
+                fallback,
+                "the fallback key signs {height}"
+            );
+        }
+        let (height, total, _) = staking.snapshot(BlockId::number(origin + 1)).await?;
+        assert_eq!(height, U256::from(origin + 1), "the snapshot of c + 1");
+        assert_eq!(total, stake, "the snapshot of c + 1 still holds the bond");
+        let signers = c.cmt.abci_signers().await?;
+        assert_eq!(signers.after.fallback_reason, Some(abci::FallbackReason::MinTotalStakeMax));
+        node.stop().await?;
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        commands.diagnostics();
+    }
+    c.stop().await?;
+    result
+}
+
+/// The second DAO recovery sequence: `setFallbackKeys` with a replacement list, then `recover`.
+/// Two validators run generation zero, each key in the fallback key list at power 1. The DAO
+/// replaces the list with validator 1's key alone and recovers at the landed c, so generation
+/// one's origin record names the new list. Validator 1, that key's own instance, recovers onto
+/// fresh stores and signs c + 1, c + 2 and every later height alone at power 1; validator 0, whose
+/// key the list no longer holds, stays stopped.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn recovery_after_replacing_fallback_keys_starts_on_the_new_keys() -> Result<()> {
+    test_harness::init_tracing();
+    let f = ContractFixture::deploy_config(2, 120).await?;
+    let p = &f.anvil.provider;
+    set_interval_mining(p, 1).await?;
+    let dirs = (0..2).map(|i| f.signer_storage.path().join(i.to_string())).collect();
+    let mut c =
+        ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
+            .await?;
+    let mut commands = Commands::for_node(&f, &c, 1)?;
+    let result: Result<()> = async {
+        c.wait_for_height(6).await?;
+        let original = f.fallback_keys.validator_set();
+        assert_eq!(c.cmt.signing_set(6).await?, original, "both fallback keys sign 6");
+        let mut lander = commands.old_lander(&f, &c.cmt)?;
+        wait_checkpoint(&f, &mut lander, 6).await?;
+        lander.stop().await?;
+        // A landing broadcast before the stop is mined before c is read.
+        mine_l1_blocks(p, 3).await?;
+        let (origin, _) = f.checkpoint().await?;
+        c.stop_node(0).await?;
+        c.stop_node(1).await?;
+        let replacement = FallbackKeys::new(vec![f.keys[1].pubkey()])?;
+        f.set_fallback_keys(&replacement).await?;
+        recover_and_finalize(&f, 0, origin).await?;
+        commands.origin = origin;
+        commands.lander = false;
+        let plan = commands.prepare_command(1).await?;
+        let installed = commands.install_command(&plan, "replaced").await?;
+        let mut node = commands.start_recovered(&installed, "replaced").await?;
+        // Validator 1's installed home keeps its RPC address.
+        let rpc = &c.peers[1];
+        wait_committed(rpc, origin + 5, &mut node).await?;
+        assert_eq!(rpc.abci_status().await?.generation, 1);
+        let replaced = replacement.validator_set();
+        for height in origin + 1..=origin + 4 {
+            assert_eq!(rpc.signing_set(height).await?, replaced, "the new list signs {height}");
+        }
+        assert_eq!(
+            view(p, f.inbox, EtnaInbox::fallbackKeysHashCall {}, None).await?,
+            replacement.hash(),
+            "the Inbox's list after the proposal"
+        );
+        eprintln!("replaced the fallback keys and recovered at c = {origin}");
+        node.stop().await?;
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        commands.diagnostics();
+    }
+    c.stop().await?;
+    result
 }
 
 #[tokio::test(flavor = "multi_thread")]

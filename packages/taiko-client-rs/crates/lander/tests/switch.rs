@@ -109,8 +109,10 @@ async fn now(p: &RootProvider) -> Result<u64> {
 }
 
 /// Builds S on the EL's genesis through the Engine API, with no transaction, and makes it
-/// canonical. Its state holds the genesis's L2 SignalService and `EtnaStaking` proxies, each with
-/// its implementation; its timestamp, the anchor's, is before `ETNA_FORK_TIME`.
+/// canonical. The fixture's EL runs Etna from genesis, so S is an Etna-built stand-in for the last
+/// Unzen block: the scenario needs only its hash, its state root and its pre-fork timestamp, the
+/// anchor's. Its state holds the genesis's L2 SignalService and `EtnaStaking` proxies, each with
+/// its implementation.
 async fn build_start(f: &ContractFixture) -> Result<Header> {
     let source = RpcL1Source::new(f.anvil.provider.clone());
     let number = source.finalized_number().await?;

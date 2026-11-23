@@ -343,8 +343,8 @@ async fn four_validator_landing_across_candidate_and_fallback_switches() -> Resu
         let power = staking_params.power(stake)?;
         let mut candidate: Vec<_> = f.keys.iter().map(|key| (key.pubkey(), power)).collect();
         candidate.sort();
-        assert_eq!(set_at(&c, x + 2).await?, fallback, "the fallback keys sign X + 2");
-        assert_eq!(set_at(&c, x + 3).await?, candidate, "the candidate signs X + 3");
+        assert_eq!(c.cmt.signing_set(x + 2).await?, fallback, "the fallback keys sign X + 2");
+        assert_eq!(c.cmt.signing_set(x + 3).await?, candidate, "the candidate signs X + 3");
 
         let (first, _) = land(&f, &c).await?;
         let first_height = first.batch.input.lastHeight.to::<u64>();
@@ -353,8 +353,8 @@ async fn four_validator_landing_across_candidate_and_fallback_switches() -> Resu
 
         let e = staking.request_exit(&staker(0), bonds[0].id).await?;
         c.wait_for_height(e + 4).await?;
-        assert_eq!(set_at(&c, e + 2).await?, candidate, "the candidate signs E + 2");
-        assert_eq!(set_at(&c, e + 3).await?, fallback, "the fallback keys sign E + 3");
+        assert_eq!(c.cmt.signing_set(e + 2).await?, candidate, "the candidate signs E + 2");
+        assert_eq!(c.cmt.signing_set(e + 3).await?, fallback, "the fallback keys sign E + 3");
         let (second, _) = land(&f, &c).await?;
         assert_eq!(second.batch.input.parentHeight, first.batch.input.lastHeight);
         let second_height = second.batch.input.lastHeight.to::<u64>();
@@ -375,12 +375,4 @@ async fn four_validator_landing_across_candidate_and_fallback_switches() -> Resu
     result?;
     f.l2.stop().await?;
     f.anvil.stop().await
-}
-
-/// The set that signs `height` as the first validator's CometBFT reports it, sorted.
-async fn set_at(c: &ContractConsensus, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
-    let mut set: Vec<_> =
-        c.cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
-    set.sort();
-    Ok(set)
 }

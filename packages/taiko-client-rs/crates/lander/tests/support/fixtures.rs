@@ -379,7 +379,13 @@ impl FixtureChain {
         });
         let adapter = Arc::new(FixtureLanding {
             chain: chain.clone(),
-            rpc: RpcLandingSource::new(p.clone(), p.clone(), fixture.params.clone()),
+            // anvil for the L1 reads, and the fixture's EL, whose real start the structural
+            // blocks extend, for the staking, start-proxy and below-start header reads.
+            rpc: RpcLandingSource::new(
+                p.clone(),
+                fixture.l2.provider.clone(),
+                fixture.params.clone(),
+            ),
         });
         use lander::{batch::BatchSource, l1::LandingSource};
         let max_batch_blocks = adapter.deployment(&snapshot).await?.max_batch_blocks;

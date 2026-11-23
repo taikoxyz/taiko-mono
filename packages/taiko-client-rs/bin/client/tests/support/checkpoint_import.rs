@@ -16,8 +16,8 @@ use std::{
     time::Duration,
 };
 use test_harness::{
-    CmtClient, ContractConsensus, Registration, Staking, mine_l1_blocks, set_interval_mining,
-    staker,
+    CmtClient, ContractConsensus, Registration, Staking, first_anchored_at, mine_l1_blocks,
+    set_interval_mining, staker,
 };
 use url::Url;
 
@@ -123,14 +123,17 @@ async fn checkpoint_import_older_validator_signs_proposes_and_lands() -> Result<
     scenario(Scenario::Older).await
 }
 
-/// An import across a switch between the candidate and the fallback keys. The four fallback keys
-/// also register bonds of two minStakes each after the DAO lowered `minTotalStake` to seven
-/// minStakes, so the candidate, the same keys at their stakes' power, signs from X + 3, X being
-/// the last registration's block. The checkpoint s, past X + 3, lands across that switch, and its
-/// package carries the s - 1 preimage whose sets, the candidate's, sign s and s + 1; the import
-/// decides s + 2 from s's state. The DAO then sets `minTotalStake` to 2^256 − 1, so H, the first
-/// block whose anchor proves it, hands H + 2 back to the fallback keys. The imported full node
-/// follows from s + 1 across that switch with the source's sets and validator states.
+/// An import across a switch between the candidate and the fallback keys. Fallback keys 1 to 3
+/// also register bonds of two minStakes each after the DAO lowered `minTotalStake` to five
+/// minStakes, so the candidate, those three keys at their stakes' power, signs from X + 3, X
+/// being the last registration's block. Key 0 registers nothing: validator 0, whose store the
+/// stock snapshot copies while it stops and restarts, holds no seat, so its downtime costs no
+/// stake and the candidate's powers stay fixed. The checkpoint s, past X + 3, lands across that
+/// switch, and its package carries the s - 1 preimage whose sets, the candidate's, sign s and
+/// s + 1; the import decides s + 2 from s's state. The DAO then sets `minTotalStake` to
+/// 2^256 − 1, so H, the first block whose anchor proves it, hands H + 2 back to the four fallback
+/// keys. The imported full node follows from s + 1 across that switch with the source's sets and
+/// validator states.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn checkpoint_import_across_a_candidate_and_fallback_switch() -> Result<()> {
@@ -323,9 +326,12 @@ async fn older(f: &ContractFixture, c: &mut ContractConsensus, commands: &Comman
     older_follow(f, c, commands, &x, &root, s, target, &original).await
 }
 
-/// The planted `minTotalStake` of the switch scenario, in minStakes: the four bonds of two
-/// minStakes reach it, three do not.
-const MIN_TOTAL_STAKE_IN_MIN_STAKES: u64 = 7;
+/// The planted `minTotalStake` of the switch scenario, in minStakes: the three bonds of two
+/// minStakes reach it, two do not.
+const MIN_TOTAL_STAKE_IN_MIN_STAKES: u64 = 5;
+
+/// The validators whose keys register bonds in the switch scenario; validator 0 holds no seat.
+const BONDED: std::ops::Range<usize> = 1..4;
 
 /// See [`checkpoint_import_across_a_candidate_and_fallback_switch`].
 async fn across_switch(
@@ -337,23 +343,23 @@ async fn across_switch(
     let staking = Staking::new(c.execution_providers(&f.l2), f.params.staking).await?;
     let params = staking.params().await?;
     let stake = params.min_stake * U256::from(2);
-    let registrations: Vec<_> = (0..f.keys.len())
-        .map(|i| Registration { owner: staker(i), key: &f.keys[i], amount: stake })
-        .collect();
+    let registrations: Vec<_> =
+        BONDED.map(|i| Registration { owner: staker(i), key: &f.keys[i], amount: stake }).collect();
     let bonds = staking.register_all(&registrations).await?;
     let x = bonds.iter().map(|bond| bond.block).max().context("no bond")?;
     let fallback = f.fallback_keys.validator_set();
     let power = params.power(stake)?;
-    let mut candidate: Vec<_> = f.keys.iter().map(|key| (key.pubkey(), power)).collect();
+    let mut candidate: Vec<_> = f.keys[BONDED].iter().map(|key| (key.pubkey(), power)).collect();
     candidate.sort();
 
-    // The stock snapshot is past X + 3, so the candidate signs s and s + 1.
+    // The stock snapshot is past X + 3, so the candidate signs s and s + 1. Validator 0, which
+    // stops and restarts for it, is in neither set while the candidate signs.
     let stock = base.join("stock-state");
     let s = capture_stock_state(c, x + 4, &stock).await? + 1;
     c.wait_for_height(s + 2).await?;
-    ensure!(set_at(&c.cmt, x + 2).await? == fallback, "the fallback keys sign X + 2");
+    ensure!(c.cmt.signing_set(x + 2).await? == fallback, "the fallback keys sign X + 2");
     for height in [x + 3, s, s + 1] {
-        ensure!(set_at(&c.cmt, height).await? == candidate, "the candidate signs {height}");
+        ensure!(c.cmt.signing_set(height).await? == candidate, "the candidate signs {height}");
     }
     // The landing (0, s] crosses the switch at X + 3.
     land(f, c, commands, s).await?;
@@ -361,10 +367,10 @@ async fn across_switch(
     // The DAO hands the chain back to the fallback keys, past s.
     let from = c.cmt.latest_height().await?;
     let l1 = f.set_min_total_stake(U256::MAX).await?;
-    let h = first_anchored_at(f, c, from, l1).await?;
+    let h = first_anchored_at(&c.cmt, &f.l2.provider, from, l1, Duration::from_secs(120)).await?;
     c.wait_for_height(h + 3).await?;
-    ensure!(set_at(&c.cmt, h + 1).await? == candidate, "the candidate signs H + 1");
-    ensure!(set_at(&c.cmt, h + 2).await? == fallback, "the fallback keys sign H + 2");
+    ensure!(c.cmt.signing_set(h + 1).await? == candidate, "the candidate signs H + 1");
+    ensure!(c.cmt.signing_set(h + 2).await? == fallback, "the fallback keys sign H + 2");
 
     let blocks = source_blocks(&c.cmt, s).await?;
     let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
@@ -375,16 +381,16 @@ async fn across_switch(
         validator_state: None,
         stock: Some(&stock),
     };
-    let x_ =
+    let package =
         import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.cmt, export).await?;
     let root = base.join("import");
-    let ready = import(f, commands, &x_, &root, "import").await?;
+    let ready = import(f, commands, &package, &root, "import").await?;
     ensure!(ready == json!({"phase": "ready", "generation": 0, "execution_floor": s}), "{ready}");
 
     // The imported full node follows from s + 1 across the switch at H + 2.
-    let rpc = CmtClient::new(url(x_.rpc));
-    let mut node = Node::start(f, commands, &x_, &root, "across").await?;
-    let mut comet = full_node(&x_, &root, "across-comet")?;
+    let rpc = CmtClient::new(url(package.rpc));
+    let mut node = Node::start(f, commands, &package, &root, "across").await?;
+    let mut comet = full_node(&package, &root, "across-comet")?;
     wait_committed(&rpc, h + 3, &mut comet).await?;
     trusted(&rpc, &mut comet, &mut node, 0, Some(s), s).await?;
     let reader = &c.peers[1];
@@ -413,40 +419,6 @@ async fn across_switch(
     handover(&rpc, &mut comet).await?;
     comet.stop().await?;
     node.stop().await
-}
-
-/// The set that signs `height` as `cmt` reports it, sorted.
-async fn set_at(cmt: &CmtClient, height: u64) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
-    let mut set: Vec<_> =
-        cmt.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
-    set.sort();
-    Ok(set)
-}
-
-/// The first height above `from` whose anchor, carried or inherited, is L1 block `l1` or later;
-/// waits for it to be committed.
-async fn first_anchored_at(
-    f: &ContractFixture,
-    c: &ContractConsensus,
-    from: u64,
-    l1: u64,
-) -> Result<u64> {
-    tokio::time::timeout(Duration::from_secs(120), async {
-        let mut h = from + 1;
-        loop {
-            c.wait_for_height(h + 1).await?;
-            if let Ok(anchor) = test_harness::anchor_of(&f.l2.provider, h).await {
-                if anchor >= l1 {
-                    return Ok::<_, anyhow::Error>(h);
-                }
-                h += 1;
-            } else {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
-    })
-    .await
-    .with_context(|| format!("no block above {from} anchored at L1 {l1} or later"))?
 }
 
 /// s = o (DATA-5.4-1): no app state is installed, and InitChain starts from the original genesis.

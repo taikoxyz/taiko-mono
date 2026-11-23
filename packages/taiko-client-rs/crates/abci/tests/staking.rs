@@ -8,15 +8,16 @@
 //!   holds the four bonds, X being the block of the last registration; the candidate, each member
 //!   at its stake's power, signs X + 3;
 //! - a candidate member offline for `missLimit` consecutive blocks loses `missSlashBps` of its
-//!   stake in the block-start call that counts its last miss, keeps its seat and signs two blocks
-//!   later at its lower power;
+//!   stake in the block-start call that counts its last miss, keeps its seat and is in the set of
+//!   two blocks later at its lower power;
 //! - an exit in block E drops the snapshot of E + 1 below the minimum, so the fallback keys sign E
 //!   + 3, and every fallback key's instance precommits again;
 //! - a `minTotalStake` of 2^256 − 1 hands H + 2 to the fallback keys, H being the first block whose
 //!   anchor proves it.
 //!
 //! Keys 2 and 3 are both fallback keys and candidate members: every switch re-weights them in the
-//! one update list that removes the other source's other keys and adds its own.
+//! one update list that removes the other source's other keys and adds its own. The expected
+//! update lists are written out, not computed by the client's own rule.
 
 use std::{
     collections::BTreeSet,
@@ -24,13 +25,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{FallbackReason, committee::validator_updates, key::ConsensusKey, rules::ExtraData};
+use abci::{FallbackReason, key::ConsensusKey, rules::ExtraData};
 use alloy_eips::BlockId;
 use alloy_primitives::U256;
 use anyhow::{Context, Result, ensure};
 use test_harness::{
     Bond, Devnet, DevnetSpec, InboxValues, Registration, Staking, StakingParams, extra_data_of,
-    staker, wait_until,
+    first_anchored_at, staker, wait_until,
 };
 
 /// Validators started, each with its own instance.
@@ -75,7 +76,11 @@ async fn fallback_keys_sign_from_genesis_then_candidate_takes_over_at_h_plus_2()
     let t = take_over().await?;
     // The candidate keeps signing: X + 2 decided it again from the same four bonds.
     t.devnet.wait_for_height(0, t.x + 5, WAIT).await?;
-    assert_eq!(set_at(&t.devnet, t.x + 4).await?, t.candidate, "the set that signs X + 4");
+    assert_eq!(
+        t.devnet.cmt(0).signing_set(t.x + 4).await?,
+        t.candidate,
+        "the set that signs X + 4"
+    );
     let signers = t.devnet.cmt(0).abci_signers().await?;
     assert_eq!(signers.after.source, abci::committee::SignerSource::Candidate, "{signers:?}");
     assert_eq!(signers.after.total_stake, Some(t.stake * U256::from(4)), "{signers:?}");
@@ -88,7 +93,7 @@ async fn fallback_keys_sign_from_genesis_then_candidate_takes_over_at_h_plus_2()
 /// A candidate member that stops signing is missing from every LastCommit; the block-start call
 /// of the block whose `missBitmap` carries its seat's `missLimit`-th consecutive miss deducts
 /// `missSlashBps` of its stake, rounded up. With two minStakes it keeps its seat, and the set that
-/// block decides holds it at its lower power.
+/// block decides holds it at its lower power, although it signs nothing.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn misses_penalize_after_miss_limit() -> Result<()> {
@@ -153,8 +158,8 @@ async fn misses_penalize_after_miss_limit() -> Result<()> {
         .iter()
         .map(|&(member, power)| (member, if member == key { lower } else { power }))
         .collect();
-    assert_eq!(set_at(&t.devnet, p + 1).await?, t.candidate, "the set that signs P + 1");
-    assert_eq!(set_at(&t.devnet, p + 2).await?, reweighted, "the set that signs P + 2");
+    assert_eq!(t.devnet.cmt(0).signing_set(p + 1).await?, t.candidate, "the set that signs P + 1");
+    assert_eq!(t.devnet.cmt(0).signing_set(p + 2).await?, reweighted, "the set that signs P + 2");
     assert_eq!(updates_at(&t.devnet, p).await?, vec![(key, lower)], "the updates of P");
 
     t.devnet.stop().await?;
@@ -183,11 +188,11 @@ async fn exit_below_min_total_stake_returns_to_fallback() -> Result<()> {
     assert_eq!(members.len(), 3, "the members in the snapshot of E + 1");
     assert!(total < t.minimum);
 
-    assert_eq!(set_at(&t.devnet, e + 2).await?, t.candidate, "the set that signs E + 2");
-    assert_eq!(set_at(&t.devnet, e + 3).await?, t.fallback, "the set that signs E + 3");
+    assert_eq!(t.devnet.cmt(0).signing_set(e + 2).await?, t.candidate, "the set that signs E + 2");
+    assert_eq!(t.devnet.cmt(0).signing_set(e + 3).await?, t.fallback, "the set that signs E + 3");
     assert_eq!(
         updates_at(&t.devnet, e + 1).await?,
-        validator_updates(&t.candidate, &t.fallback),
+        switch_updates(&t.devnet, None),
         "the mode switch's one update list at E + 1"
     );
     let signers = t.devnet.cmt(0).abci_signers().await?;
@@ -209,15 +214,15 @@ async fn max_min_total_stake_forces_fallback() -> Result<()> {
     let t = take_over().await?;
     let from = t.devnet.cmt(0).latest_height().await?;
     let l1 = plant_min_total_stake(&t.devnet, U256::MAX).await?;
-    let h = first_anchored_at(&t.devnet, from, l1).await?;
+    let h = first_anchored_at(t.devnet.cmt(0), &t.devnet.l2_provider(0), from, l1, WAIT).await?;
     eprintln!("minTotalStake 2^256 - 1 in L1 block {l1}, first anchored at L2 {h}");
     t.devnet.wait_for_height(0, h + 3, WAIT).await?;
 
-    assert_eq!(set_at(&t.devnet, h + 1).await?, t.candidate, "the set that signs H + 1");
-    assert_eq!(set_at(&t.devnet, h + 2).await?, t.fallback, "the set that signs H + 2");
+    assert_eq!(t.devnet.cmt(0).signing_set(h + 1).await?, t.candidate, "the set that signs H + 1");
+    assert_eq!(t.devnet.cmt(0).signing_set(h + 2).await?, t.fallback, "the set that signs H + 2");
     assert_eq!(
         updates_at(&t.devnet, h).await?,
-        validator_updates(&t.candidate, &t.fallback),
+        switch_updates(&t.devnet, None),
         "the mode switch's one update list at H"
     );
     // The bonds are untouched: only the DAO's threshold moved.
@@ -249,7 +254,11 @@ async fn take_over() -> Result<Takeover> {
     fallback.sort();
     devnet.wait_for_height(0, 3, WAIT).await?;
     for h in [1, 2] {
-        assert_eq!(set_at(&devnet, h).await?, fallback, "the origin fallback keys sign {h}");
+        assert_eq!(
+            devnet.cmt(0).signing_set(h).await?,
+            fallback,
+            "the origin fallback keys sign {h}"
+        );
         let addresses = addresses(&devnet, FALLBACK_KEYS);
         let signed = devnet.cmt(0).commit_signers(h).await?;
         ensure!(
@@ -268,7 +277,7 @@ async fn take_over() -> Result<Takeover> {
     }
     let from = devnet.cmt(0).latest_height().await?;
     let l1 = plant_min_total_stake(&devnet, minimum).await?;
-    let proved = first_anchored_at(&devnet, from, l1).await?;
+    let proved = first_anchored_at(devnet.cmt(0), &devnet.l2_provider(0), from, l1, WAIT).await?;
     eprintln!("minTotalStake {minimum} in L1 block {l1}, first anchored at L2 {proved}");
 
     let registrations: Vec<_> = CANDIDATE_KEYS
@@ -296,17 +305,17 @@ async fn take_over() -> Result<Takeover> {
     assert_eq!(snapshot, candidate, "the members of the snapshot of X + 1");
 
     for h in 1..=x + 2 {
-        assert_eq!(set_at(&devnet, h).await?, fallback, "the fallback keys sign {h}");
+        assert_eq!(devnet.cmt(0).signing_set(h).await?, fallback, "the fallback keys sign {h}");
     }
     for h in 1..=x {
         assert_eq!(updates_at(&devnet, h).await?, vec![], "no update at {h}");
     }
     assert_eq!(
         updates_at(&devnet, x + 1).await?,
-        validator_updates(&fallback, &candidate),
+        switch_updates(&devnet, Some(power)),
         "the mode switch's one update list at X + 1"
     );
-    assert_eq!(set_at(&devnet, x + 3).await?, candidate, "the candidate signs X + 3");
+    assert_eq!(devnet.cmt(0).signing_set(x + 3).await?, candidate, "the candidate signs X + 3");
     let addresses = addresses(&devnet, CANDIDATE_KEYS);
     let signed = devnet.cmt(0).commit_signers(x + 3).await?;
     ensure!(
@@ -354,22 +363,6 @@ async fn plant_min_total_stake(devnet: &Devnet, value: U256) -> Result<u64> {
         .context("the minTotalStake write was a no-op")
 }
 
-/// The first height above `from` whose anchor, carried or inherited, is L1 block `l1` or later;
-/// waits for it to be committed.
-async fn first_anchored_at(devnet: &Devnet, from: u64, l1: u64) -> Result<u64> {
-    let deadline = Instant::now() + WAIT;
-    let mut h = from + 1;
-    loop {
-        devnet
-            .wait_for_height(0, h + 1, deadline.saturating_duration_since(Instant::now()))
-            .await?;
-        if extra_at(devnet, h).await?.anchor >= l1 {
-            return Ok(h);
-        }
-        h += 1;
-    }
-}
-
 /// The `extraData` of L2 block `h` on EL 0, once it serves the block.
 async fn extra_at(devnet: &Devnet, h: u64) -> Result<ExtraData> {
     let l2 = devnet.l2_provider(0);
@@ -385,12 +378,26 @@ async fn seat_missed(devnet: &Devnet, h: u64, seat: u8) -> Result<bool> {
     Ok((extra_at(devnet, h).await?.miss_bitmap >> seat) & 1 == 1)
 }
 
-/// The set that signs `h` as CometBFT node 0 reports it, sorted.
-async fn set_at(devnet: &Devnet, h: u64) -> Result<Vec<(ConsensusKey, u64)>> {
-    let mut set: Vec<_> =
-        devnet.cmt(0).validators(Some(h)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
-    set.sort();
-    Ok(set)
+/// The one update list of a mode switch, written out: to the candidate at `power`, the fallback
+/// keys outside it leave at power 0 and every candidate key comes in at `power`, the two shared
+/// keys re-weighted; back to the fallback keys (`None`), the candidate keys outside the list leave
+/// and every fallback key comes in at power 1, the shared ones re-weighted. Sorted by key.
+fn switch_updates(devnet: &Devnet, to_candidate: Option<u64>) -> Vec<(ConsensusKey, u64)> {
+    let mut updates: Vec<_> = devnet
+        .keys()
+        .iter()
+        .enumerate()
+        .map(|(k, key)| {
+            let power = match to_candidate {
+                Some(power) if CANDIDATE_KEYS.contains(&k) => power,
+                None if FALLBACK_KEYS.contains(&k) => 1,
+                _ => 0,
+            };
+            (key.pubkey(), power)
+        })
+        .collect();
+    updates.sort();
+    updates
 }
 
 /// The validator updates `FinalizeBlock(h)` returned, sorted.

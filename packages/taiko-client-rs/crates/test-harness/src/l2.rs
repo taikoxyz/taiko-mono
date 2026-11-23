@@ -1,5 +1,10 @@
 //! L2 (alethia-reth) helpers: transfers and the `extraData` of committed blocks.
 
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
+
 use abci::rules::{ExtraData, decode_extra_data};
 use alloy::{
     consensus::{SignableTransaction, TxEip1559, TxEnvelope},
@@ -9,6 +14,8 @@ use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, TxKind, U256, b256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result};
+
+use crate::{cometbft::CmtClient, wait::wait_until};
 
 /// Private key of anvil's first dev account (`0xf39F…2266`), which the alethia-reth devnet
 /// genesis funds.
@@ -80,4 +87,37 @@ pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<ExtraData> {
 /// The anchor L1 block number in the `extraData` of L2 block `h`.
 pub async fn anchor_of(l2: &RootProvider, h: u64) -> Result<u64> {
     Ok(extra_data_of(l2, h).await?.anchor)
+}
+
+/// The first height above `from` whose anchor, carried or inherited, is L1 block `l1` or later:
+/// heights are read in order once `cmt` has committed their successor, from `l2`. Fails after
+/// `timeout`, naming the height it stopped at and the last error, if any.
+pub async fn first_anchored_at(
+    cmt: &CmtClient,
+    l2: &RootProvider,
+    from: u64,
+    l1: u64,
+    timeout: Duration,
+) -> Result<u64> {
+    let next = AtomicU64::new(from + 1);
+    let next = &next;
+    wait_until(
+        &format!("a block above {from} anchored at L1 block {l1} or later"),
+        timeout,
+        Duration::from_millis(250),
+        || async move {
+            let h = next.load(Ordering::Relaxed);
+            if cmt.latest_height().await? <= h {
+                return Ok(None);
+            }
+            let anchor = anchor_of(l2, h).await?;
+            if anchor >= l1 {
+                return Ok(Some(h));
+            }
+            next.store(h + 1, Ordering::Relaxed);
+            Ok(None)
+        },
+    )
+    .await
+    .with_context(|| format!("stopped at height {}", next.load(Ordering::Relaxed)))
 }

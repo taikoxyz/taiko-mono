@@ -186,6 +186,14 @@ impl CmtClient {
             .collect()
     }
 
+    /// The set that signs `height`, each key with its power, sorted by key.
+    pub async fn signing_set(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>> {
+        let mut set: Vec<_> =
+            self.validators(Some(height)).await?.into_iter().map(|v| (v.pubkey, v.power)).collect();
+        set.sort();
+        Ok(set)
+    }
+
     /// Every validator `/validators` reports at `height` (the latest when `None`), page by
     /// page, in CometBFT order with its power and proposer priority. CometBFT stores a set in
     /// full only at genesis, at each height a changed set first signs and every 100,000

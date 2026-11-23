@@ -104,6 +104,7 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
     let data = state.data.read().await;
     let method = request["method"].as_str().unwrap_or_default();
     let params = &request["params"];
+    let id = request.get("id").cloned().unwrap_or(Value::Null);
     let result = match method {
         "eth_chainId" => Some(json!(format!("0x{:x}", 167001))),
         "eth_getBlockByNumber" => {
@@ -136,7 +137,16 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
         }
         // Every structural block keeps the genesis state root, so each block's staking read is the
         // genesis proof of the account and slots asked for.
-        "eth_getProof" => proof(params).ok(),
+        "eth_getProof" => match proof(params) {
+            Ok(proof) => Some(proof),
+            Err(error) => {
+                let message = format!("fixture eth_getProof: {error:#}");
+                return Json(
+                    json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":message}}),
+                )
+                .into_response();
+            }
+        },
         "validators" => {
             let height = params["height"].as_str().and_then(|h| h.parse::<usize>().ok());
             height.filter(|h| (1..=data.blocks.len() + 1).contains(h)).map(|height| {
@@ -163,7 +173,6 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
         }
         _ => None,
     };
-    let id = request.get("id").cloned().unwrap_or(Value::Null);
     Json(match result {
         Some(result) => json!({"jsonrpc":"2.0","id":id,"result":result}),
         None => {
@@ -183,7 +192,10 @@ fn proof(params: &Value) -> Result<Value> {
         .iter()
         .map(|slot| Ok(slot.as_str().context("slot")?.parse()?))
         .collect::<Result<Vec<alloy_primitives::B256>>>()?;
-    let witness = test_harness::EtnaGenesis::build()?.account_witness(address, &slots)?;
+    static GENESIS: std::sync::OnceLock<test_harness::EtnaGenesis> = std::sync::OnceLock::new();
+    let genesis =
+        GENESIS.get_or_init(|| test_harness::EtnaGenesis::build().expect("the harness genesis"));
+    let witness = genesis.account_witness(address, &slots)?;
     Ok(json!({
         "address": witness.address,
         "balance": format!("{:#x}", witness.balance),

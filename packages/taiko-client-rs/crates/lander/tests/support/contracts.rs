@@ -50,8 +50,9 @@ pub struct ContractFixture {
     pub genesis: GenesisRecord,
     pub parent_header: Header,
     /// Generation 0's origin fallback key list, the signer-generated keys: `init` stores it and
-    /// its hash (slot 278). With `minTotalStake` at its maximum and no L2 staking contract, these
-    /// keys sign every block, each at power 1.
+    /// its hash (slot 278). While `minTotalStake` stays at its maximum, as `init` sets it, these
+    /// keys sign every block, each at power 1; a scenario that lowers it lets bonds on the L2
+    /// `EtnaStaking` predeploy sign instead.
     pub fallback_keys: FallbackKeys,
     pub keys: Vec<ValidatorKey>,
     pub signer_storage: tempfile::TempDir,
@@ -372,6 +373,27 @@ impl ContractFixture {
         receipt.block_number.context("setMinTotalStake receipt without a block")
     }
 
+    /// The DAO's `setFallbackKeys(keys)` on the real Inbox, from its owner; returns the L1 block
+    /// that holds it.
+    pub async fn set_fallback_keys(&self, keys: &FallbackKeys) -> Result<u64> {
+        let p = &self.anvil.provider;
+        let owner = view(p, self.inbox, EtnaInbox::ownerCall {}, None).await?;
+        let call = EtnaInbox::setFallbackKeysCall {
+            _keys: keys
+                .keys()
+                .iter()
+                .map(|key| IEtnaInbox::FallbackKey { ckPrefix: key.prefix(), ckX: key.x() })
+                .collect(),
+        };
+        let receipt = transact(p, owner, self.inbox, call.abi_encode()).await?;
+        ensure!(
+            view(p, self.inbox, EtnaInbox::fallbackKeysHashCall {}, None).await? == keys.hash(),
+            "setFallbackKeys did not store {}",
+            keys.hash()
+        );
+        receipt.block_number.context("setFallbackKeys receipt without a block")
+    }
+
     /// Require the verifier to receive this exact V10 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
@@ -384,6 +406,47 @@ impl ContractFixture {
         .await
         .map(drop)
     }
+}
+
+/// Submits `calls`, each `(sender, to, input)` from an unlocked anvil account, in order and all in
+/// one L1 block, as one governance proposal executes its actions; returns that block. Gas is
+/// estimated for each call against the state before any of them. Interval mining pauses for the
+/// block and resumes at one block per second, the mode the recovery scenarios run anvil in.
+pub async fn transact_in_one_block(
+    provider: &RootProvider,
+    calls: &[(Address, Address, Vec<u8>)],
+) -> Result<u64> {
+    let mut requests = Vec::with_capacity(calls.len());
+    for (sender, to, input) in calls {
+        let mut request =
+            TransactionRequest::default().from(*sender).to(*to).input(input.clone().into());
+        let estimate = provider.estimate_gas(request.clone()).await?;
+        request.gas = Some(estimate.saturating_add(estimate / 5));
+        requests.push(request);
+    }
+    test_harness::set_interval_mining(provider, 0).await?;
+    let sent = async {
+        let mut hashes = Vec::with_capacity(requests.len());
+        for request in requests {
+            hashes.push(*provider.send_transaction(request).await?.tx_hash());
+        }
+        mine_l1_blocks(provider, 1).await?;
+        Ok::<_, anyhow::Error>(hashes)
+    }
+    .await;
+    test_harness::set_interval_mining(provider, 1).await?;
+    let mut block = None;
+    for hash in sent? {
+        let mined = receipt(provider, hash).await?;
+        ensure!(mined.status(), "proposal action {hash} reverted");
+        let number = mined.block_number.context("proposal action receipt without a block")?;
+        ensure!(
+            block.is_none_or(|b| b == number),
+            "proposal actions span blocks {block:?}, {number}"
+        );
+        block = Some(number);
+    }
+    block.context("an empty proposal")
 }
 
 /// Submit one call from an unlocked ephemeral anvil account; production landing uses local signing.
