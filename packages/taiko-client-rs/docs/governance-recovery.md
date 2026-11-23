@@ -21,7 +21,13 @@ builds the same genesis (RECOV-8.4-7..9):
 - InitChain returns `app_hash` = appHash of ELHash(c) and the genesis validator state
   (CONS-3.1-8), and the EL state must match c's authenticated hash and state root;
 - the validators are the keys of the fallback key list whose hash the new origin record holds,
-  each at power 1, obtained by that hash from the node's own L1.
+  each at power 1, obtained by that hash from the node's own L1. The record holds the hash in
+  the Inbox's slot 278 when `recover` executes, so these origin keys sign c+1 and c+2 whatever
+  list the DAO sets later.
+
+From c+3 on, each block's signers are decided as in any generation: the L2 staking contract's
+candidate when it is usable under the `minTotalStake` its deciding block's anchor proves,
+otherwise the fallback key set that anchor names.
 
 The first block uses stock genesis's empty LastBlockID/LastCommit (RECOV-8.4-10). The FI cursor
 starts at the authenticated origin head (RECOV-8.4-11). Every anchor and L1 root the new
@@ -34,6 +40,37 @@ makes, against its own L1 and EL.
 The Etna start is written once and never corrected (START-10-5c): a recovery at c = S starts
 from the start record itself, and every generation's witness must show the same start, hash and
 state root as the deployment proof at `L1_0`.
+
+## The governance proposal
+
+The DAO's recovery proposal decides who signs the new generation. It follows one of two
+sequences:
+
+- **At least 1/3 of the committee's voting power is offline.** In one proposal, the DAO calls
+  `setMinTotalStake` with `2^256 - 1` and then `recover`. Every anchor of the new generation is
+  at or after R, so no candidate is usable and the fallback key set signs from c+1 on. While it
+  signs, the DAO forfeits the offline bonds through L1 → L2 governance messages, which releases
+  their seats, and then lowers `minTotalStake` again: once a usable candidate's total stake
+  reaches it, the candidate signs again, the whole set changing at once. With any lower value,
+  the candidate that c's L2 state gives, offline members included, signs c+3 whenever it is
+  usable.
+- **At least 1/3 of the fallback key set is offline while it signs.** The DAO first replaces
+  the keys with `setFallbackKeys` and then calls `recover`. The new origin record holds the new
+  keys' hash, so the new keys sign c+1 and c+2 and every later block that the fallback key set
+  signs.
+
+Before scheduling and executing either proposal, the DAO confirms that the keys slot 278 will
+hold when `recover` executes are online: more than 2/3 of them each have a validator instance of
+their own, in sync with the chain and with its signer running, and no party holds 1/3 or more of
+them.
+
+`status` shows what the plan fixes ([step 3](#3-install-the-new-stores)): the
+`fallback_keys_hash` and `origin_keys` that sign c+1 and c+2, the `min_total_stake` that the
+proof at R holds (`2^256 - 1` after the first sequence), and, with `--public-key`, whether this
+node's key is an origin key. The holder of an origin key runs its validator on the new
+generation, which needs more than 2/3 of the origin keys to sign c+1 and c+2. A validator whose
+key is not an origin key installs and starts the same way; it signs once its key is in a later
+block's signing set.
 
 ## Before you start
 
@@ -75,19 +112,28 @@ taiko-client abci-recover prepare --l1.http http://127.0.0.1:8545 --l2.http http
 
 `prepare` checks the L1 and L2 chain IDs, authenticates generation N, c, R and the
 `fallbackKeysHash` of the new origin record on own finalized L1 (RECOV-8.2-4), obtains the list
-with that hash, checks the EL state at c, rechecks own finality and
-the current generation, and only then writes the plan with mode 0600. A newer generation on own
-L1 fails with `superseded`. The plan holds the deployment parameters, the canonical witness, the
-origin and the exact genesis bytes; it holds no endpoint, path or credential.
+with that hash, checks the EL state at c, rechecks own finality and the current generation, and
+only then writes the plan with mode 0600. A newer generation on own L1 fails with `superseded`.
+The plan holds the deployment parameters, the canonical witness, the origin and the exact
+genesis bytes; it holds no endpoint, path or credential.
+
+The list comes from `getFallbackKeys()` at R. When that call returns another list or fails, as
+on an L1 without archive state at R, it comes from the `FallbackKeysUpdated` log with that hash,
+found by a scan back from R in queries of at most 10,000 blocks. Each L1 read has a 30 s
+deadline and the acquisition as a whole none, so a list stored long before R can take many
+queries. A read that misses its deadline fails `prepare` as missing history, and no plan is
+written.
 
 An EL that holds another block at c than the retained landing, or none, fails `prepare` as a
 missing prerequisite that names c and the landing's EL hash at c, and no plan is written. That
 is no invalid evidence: take the settled EL state at c first
 ([Take the settled EL state at c](#take-the-settled-el-state-at-c)).
 
-`prepare` prints the same summary as `status`. Compare `genesis_hash` with the other operators
-(ACC §2.2): every honest node of the generation has the same genesis. A later checkpoint never
-changes the genesis or the origin, only `observed_checkpoint_height`.
+`prepare` prints the same summary as `status` without a home or key. Compare `genesis_hash`
+with the other operators (ACC §2.2): every honest node of the generation has the same genesis.
+Check that `fallback_keys_hash` and `origin_keys` are the list the DAO's proposal left in slot
+278, and `min_total_stake` the value it left in slot 279. A later checkpoint never changes the
+genesis or the origin, only `observed_checkpoint_height`.
 
 ## 3. Install the new stores
 
@@ -116,10 +162,12 @@ The packaged image runs Comet as `ETNA_COMET_UID=10001`. Hand it the new home, f
 `chown -R 10001:10001 /var/lib/taiko/comet-g1`. Then confirm the install:
 
 ```sh
-taiko-client abci-recover status --plan /var/lib/taiko/recovery/plan-g1.json --home /var/lib/taiko/comet-g1 --json
+taiko-client abci-recover status --plan /var/lib/taiko/recovery/plan-g1.json --home /var/lib/taiko/comet-g1 --public-key 0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5 --json
 ```
 
-This illustrative report uses c=6, R=100 and a later authenticated checkpoint at 12.
+`--public-key` is this node's registered key, the `publicKey` that `etna-signer keygen` printed.
+This illustrative report uses c=6, R=100, two origin keys and a later authenticated checkpoint
+at 12.
 
 ```json
 {
@@ -129,13 +177,22 @@ This illustrative report uses c=6, R=100 and a later authenticated checkpoint at
   "recovery_l1_block": 100,
   "genesis_time": "2026-11-08T00:00:00Z",
   "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
-  "validators": 2,
+  "fallback_keys_hash": "0xbd6806e914fa7e29c76343f854f99a4c6471b6feeb453d2b2fc6574d94379a4a",
+  "origin_keys": [
+    "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+    "0x02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+  ],
+  "min_total_stake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "observed_checkpoint_height": 12,
-  "installed": true
+  "installed": true,
+  "local_key_is_origin_key": true
 }
 ```
 
 `status` reads only the plan and the home's `genesis.json`; it never queries a running service.
+`local_key_is_origin_key` says whether `--public-key` is one of `origin_keys`, and is `null`
+without it. `min_total_stake` is the value at R, shown for comparison only: each block of the
+new generation reads it from its own anchor.
 
 ## 4. Signer state for the new chain_id
 
@@ -203,7 +260,7 @@ account path.
 
 A recovery generation with c above 0 starts at `initial_height = c+1`. A crash between CometBFT
 saving its first block and saving that block's state stops the stock handshake (CONS-3.1-9).
-Never wipe the stores or let the committee propose that height again; follow
+Never wipe the stores or let the validators propose that height again; follow
 [First-block repair](first-block-repair.md).
 
 ## Take the settled EL state at c

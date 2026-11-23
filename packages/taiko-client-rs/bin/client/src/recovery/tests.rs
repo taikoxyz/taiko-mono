@@ -713,7 +713,7 @@ async fn status_is_offline_and_reports_install_state() {
     let source = Source::new();
     let plan = fixture_plan(&source).await;
     let x = inputs(VALIDATOR_TEMPLATE);
-    let s = status(&plan, None).unwrap();
+    let s = status(&plan, None, None).unwrap();
     assert_eq!(
         (s.generation, s.origin_height, s.recovery_l1_block, s.observed_checkpoint_height),
         (1, 6, R, 12)
@@ -724,14 +724,56 @@ async fn status_is_offline_and_reports_install_state() {
         (s.chain_id.as_str(), s.genesis_time.as_str()),
         (&*doc.chain_id, &*doc.genesis_time)
     );
-    assert_eq!(s.validators, source.fixture.fallback_keys.keys().len());
     assert_eq!(s.installed, None);
-    assert_eq!(status(&plan, Some(&x.home)).unwrap().installed, Some(false));
+    assert_eq!(status(&plan, Some(&x.home), None).unwrap().installed, Some(false));
     assert!(!x.home.exists(), "status never writes");
     x.install(&plan).unwrap();
-    assert_eq!(status(&plan, Some(&x.home)).unwrap().installed, Some(true));
+    assert_eq!(status(&plan, Some(&x.home), None).unwrap().installed, Some(true));
     std::fs::write(x.home.join("config/genesis.json"), b"{}").unwrap();
-    assert!(matches!(status(&plan, Some(&x.home)), Err(RecoveryCommandError::PlanMismatch)));
+    assert!(matches!(status(&plan, Some(&x.home), None), Err(RecoveryCommandError::PlanMismatch)));
+}
+
+/// The report names who signs the new generation's first two blocks: the origin record's
+/// `fallbackKeysHash` and the keys of the list with that hash, in order. It shows the
+/// `minTotalStake` that the proof at R holds, for display only, and, given this node's
+/// public key, whether that key is one of the origin keys.
+#[tokio::test]
+async fn status_lists_origin_keys_and_marks_the_local_key() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    let keys = source.fixture.fallback_keys.keys().to_vec();
+    let s = status(&plan, None, None).unwrap();
+    assert_eq!(s.fallback_keys_hash, plan.origin.fallback_keys_hash);
+    assert_eq!(s.fallback_keys_hash, source.fixture.fallback_keys.hash());
+    assert_eq!(s.origin_keys, keys);
+    let witness: RecoveryWitness = alloy_rlp::decode_exact(&plan.witness).unwrap();
+    let slot = abci::l1::layout::inbox::slot(abci::l1::layout::inbox::MIN_TOTAL_STAKE);
+    let at_r = witness.recovery_inbox.storage.iter().find(|word| word.slot == slot).unwrap();
+    assert_eq!(s.min_total_stake, at_r.value);
+    // The fixture's Inbox holds 2^256 - 1 there, which the text report names as such.
+    assert_eq!(at_r.value, U256::MAX);
+    assert!(s.to_string().contains("minTotalStake at R: 2^256-1"), "{s}");
+    assert_eq!(s.local_key_is_origin_key, None);
+    for key in &keys {
+        assert_eq!(status(&plan, None, Some(*key)).unwrap().local_key_is_origin_key, Some(true));
+    }
+    // The secp256k1 generator, whose private key is 1, is not in the fixture's list.
+    let other = abci::key::ConsensusKey::from_slice(&alloy_primitives::hex!(
+        "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    ))
+    .unwrap();
+    assert!(!keys.contains(&other));
+    assert_eq!(status(&plan, None, Some(other)).unwrap().local_key_is_origin_key, Some(false));
+    // The text summary lists every origin key on its own line and says what the local key is.
+    let text = status(&plan, None, Some(keys[1])).unwrap().to_string();
+    assert!(text.contains(&s.fallback_keys_hash.to_string()), "{text}");
+    for key in &keys {
+        assert!(text.lines().any(|line| line.trim() == key.to_string()), "{text}");
+    }
+    assert!(text.contains("local key is an origin key"), "{text}");
+    let text = status(&plan, None, Some(other)).unwrap().to_string();
+    assert!(text.contains("local key is not an origin key"), "{text}");
+    assert!(s.to_string().contains("local key unchecked"));
 }
 
 #[test]
@@ -856,9 +898,18 @@ fn recovery_runbook_commands_parse_exactly() {
         [
             RecoveryAction::Prepare { .. },
             RecoveryAction::Install { .. },
-            RecoveryAction::Status { home: Some(_), json: true, .. }
+            RecoveryAction::Status { home: Some(_), public_key: Some(_), json: true, .. }
         ]
     ));
+    // `--public-key` takes only a valid compressed secp256k1 key.
+    let words: Vec<_> = commands[2].split_whitespace().collect();
+    let key = words[words.iter().position(|word| *word == "--public-key").unwrap() + 1];
+    for bad in
+        [&key[..key.len() - 2], &format!("0x{}", "00".repeat(33)), &format!("0x04{}", &key[4..])]
+    {
+        let command = commands[2].replace(key, bad);
+        assert!(Cli::try_parse_from(command.split_whitespace()).is_err(), "{bad}");
+    }
 }
 
 #[tokio::test]
@@ -867,7 +918,11 @@ async fn recovery_runbook_status_json_matches_actual_output() {
     let plan = fixture_plan(&source).await;
     let x = inputs(VALIDATOR_TEMPLATE);
     x.install(&plan).unwrap();
-    let mut actual = serde_json::to_value(status(&plan, Some(&x.home)).unwrap()).unwrap();
+    // The runbook's command passes the fixture's first origin key.
+    let local = source.fixture.fallback_keys.keys()[0];
+    assert!(runbook_blocks("sh")[2].contains(&format!("--public-key {local} ")));
+    let mut actual =
+        serde_json::to_value(status(&plan, Some(&x.home), Some(local)).unwrap()).unwrap();
     let example: serde_json::Value = serde_json::from_str(runbook_blocks("json")[0]).unwrap();
     // Illustrative values that depend on the real deployment and R.
     for field in ["chain_id", "genesis_hash", "genesis_time", "recovery_l1_block"] {

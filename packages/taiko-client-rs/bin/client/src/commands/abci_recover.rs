@@ -12,6 +12,7 @@ use crate::{
         status::{RecoveryStatus, status},
     },
 };
+use abci::key::ConsensusKey;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -69,10 +70,23 @@ pub enum RecoveryAction {
         /// Comet home to check for this plan's genesis.
         #[arg(long)]
         home: Option<PathBuf>,
+        /// This node's registered consensus public key, the 0x-prefixed compressed key that
+        /// `etna-signer keygen` printed, to check whether it is one of the plan's origin keys.
+        #[arg(long = "public-key", value_parser = parse_public_key)]
+        public_key: Option<ConsensusKey>,
         /// Print the summary as JSON.
         #[arg(long)]
         json: bool,
     },
+}
+
+/// Parses a 0x-prefixed compressed SEC1 secp256k1 public key.
+fn parse_public_key(value: &str) -> std::result::Result<ConsensusKey, String> {
+    value
+        .parse::<alloy_primitives::FixedBytes<33>>()
+        .ok()
+        .and_then(|bytes| ConsensusKey::try_from(bytes).ok())
+        .ok_or_else(|| "expected a 0x-prefixed compressed secp256k1 public key".into())
 }
 impl AbciRecoverSubCommand {
     /// Runs the selected one-shot action.
@@ -108,21 +122,21 @@ impl AbciRecoverSubCommand {
                 .map_err(|_| RecoveryCommandError::Missing("EL JWT configuration"))?;
                 let plan = prepare(&params, *generation, l1, &engine).await?;
                 plan.write_new(out)?;
-                print(&status(&plan, None)?, *json)
+                print(&status(&plan, None, None)?, *json)
             }
             RecoveryAction::Install { plan, comet_config, node_key, home, app_dir } => {
                 install(&RecoveryPlan::load(plan)?, comet_config, node_key, home, app_dir)?;
                 println!("Installed the plan's Comet home and app directory");
                 Ok(())
             }
-            RecoveryAction::Status { plan, home, json } => {
-                print(&status(&RecoveryPlan::load(plan)?, home.as_deref())?, *json)
+            RecoveryAction::Status { plan, home, public_key, json } => {
+                print(&status(&RecoveryPlan::load(plan)?, home.as_deref(), *public_key)?, *json)
             }
         }
     }
 }
 
-/// Prints one summary line, or the JSON report.
+/// Prints the text report, or the JSON report on one line.
 fn print(report: &RecoveryStatus, json: bool) -> Result<()> {
     if json {
         println!(
@@ -130,17 +144,7 @@ fn print(report: &RecoveryStatus, json: bool) -> Result<()> {
             serde_json::to_string(report).map_err(|_| RecoveryCommandError::Parse("status"))?
         );
     } else {
-        println!(
-            "Recovery plan: generation {}, chain_id {}, c={}, R={}, genesis_hash {}, {} validators, observed checkpoint {}, installed {}",
-            report.generation,
-            report.chain_id,
-            report.origin_height,
-            report.recovery_l1_block,
-            report.genesis_hash,
-            report.validators,
-            report.observed_checkpoint_height,
-            report.installed.map_or("unchecked", |installed| if installed { "yes" } else { "no" }),
-        );
+        println!("{report}");
     }
     Ok(())
 }
