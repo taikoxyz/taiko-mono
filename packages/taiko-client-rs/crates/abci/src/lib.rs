@@ -64,9 +64,9 @@ mod proptests;
 /// protocol encodes.
 pub use etna_core::params::UINT48_MAX;
 /// The deployment signing domain, the validated secp256k1eth consensus identities, the
-/// `EtnaStaking` storage layout and the stock CometBFT v0.40.0 validator-state arithmetic,
-/// from the portable Etna rules.
-pub use etna_core::{domain, key, staking, valstate};
+/// `missBitmap` rule, the `EtnaStaking` storage layout and the stock CometBFT v0.40.0
+/// validator-state arithmetic, from the portable Etna rules.
+pub use etna_core::{domain, key, miss, staking, valstate};
 
 pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
 pub use config::{ChainParams, ChainParamsExt, ConfigError, ParamsError, SwitchConfig};

@@ -85,6 +85,7 @@ pub(crate) fn request() -> ProofRequest {
             anchors: vec![],
             reference_headers: vec![],
             leaves: vec![],
+            commit_heights: vec![1],
             input: LandInput {
                 parentHeight: U256::ZERO,
                 lastCometHash: B256::repeat_byte(7),

@@ -6,7 +6,7 @@ use abci::{
     AnchorState, ChainParams, EtnaEnvelope, GenesisRecord, ParentInfo, app::ChainContext, rules,
     valstate::ValEntry,
 };
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
@@ -315,6 +315,12 @@ pub struct EnvelopeContext<'a> {
     pub proposer: tendermint::account::Id,
     /// The set that signs the block, in CometBFT order.
     pub signers: &'a [ValEntry],
+    /// The set that signs the parent, in CometBFT order: the validators the block's LastCommit
+    /// lists. Empty at a generation's first block, which has no LastCommit.
+    pub parent_signers: &'a [ValEntry],
+    /// The `missBitmap` the block's LastCommit gives ([`missing_validators`]) with the
+    /// key-to-seat words of the parent's post-state; 0 at a generation's first block.
+    pub miss_bitmap: u128,
     /// Execution facts of the authenticated parent.
     pub parent: &'a ParentInfo,
     /// Exact historic anchor consumed by that parent.
@@ -332,10 +338,37 @@ pub struct EnvelopeContext<'a> {
     pub forced_cursor: u64,
 }
 
+/// The validators of `parent_signers`, the set that signs the parent, that `last_commit`, the
+/// block's LastCommit, lists without a commit for the parent block (an absent or nil entry), in
+/// CometBFT order ([`abci::miss::missing_addresses`]): as in stock CometBFT, its i-th entry is the
+/// i-th validator's. The caller has verified `last_commit` against `parent_signers`, so the two
+/// have one entry per validator; another count is a [`ValidationError::Certificate`].
+pub fn missing_validators(
+    last_commit: &Commit,
+    parent_signers: &Validators,
+) -> Result<Vec<Address>, ValidationError> {
+    let addresses = parent_signers
+        .validators()
+        .iter()
+        .map(|validator| Address::from_slice(validator.address.as_bytes()))
+        .collect::<Vec<_>>();
+    let committed = last_commit
+        .signatures
+        .iter()
+        .map(|sig| matches!(sig, CommitSig::BlockIdFlagCommit { .. }))
+        .collect::<Vec<_>>();
+    abci::miss::missing_addresses(&addresses, &committed).ok_or_else(|| {
+        ValidationError::Certificate(format!(
+            "LastCommit lists {} entries for the {} validators that sign the parent",
+            committed.len(),
+            addresses.len()
+        ))
+    })
+}
+
 /// Validates the envelope with the ABCI app's own block rules ([`abci::app::validate_block`])
-/// on the authenticated parent and chain context. The `missBitmap` check compares the header's
-/// own bitmap with itself: the lander does not derive the bitmap from the block's LastCommit
-/// yet, so the set that signs the parent stays empty here.
+/// on the authenticated parent and chain context, its `extraData` `missBitmap` against
+/// [`EnvelopeContext::miss_bitmap`].
 ///
 /// The forced inclusion rule runs last, on the parent's cursor and the block's anchor: it
 /// verifies the entry proof and checks the block's first transaction, or the carried skip
@@ -352,11 +385,8 @@ pub fn verify_envelope(
         anchor: context.parent_anchor,
         forced_cursor: context.forced_cursor,
         signers: context.signers,
-        parent_signers: &[],
+        parent_signers: context.parent_signers,
     };
-    // A header whose extraData does not decode fails validation before the bitmap is compared.
-    let miss_bitmap = rules::decode_extra_data(&envelope.block.header.extra_data)
-        .map_or(0, |extra| extra.miss_bitmap);
     let validated = abci::app::validate_block(
         &chain,
         context.params,
@@ -364,7 +394,7 @@ pub fn verify_envelope(
         envelope.block.header.number,
         context.bft_time_secs,
         context.proposer,
-        miss_bitmap,
+        context.miss_bitmap,
     )
     .map_err(|e| match e {
         abci::app::Rejection::Rule(rules::RuleViolation::UnsupportedRuleset { rules }) => {
@@ -480,6 +510,27 @@ mod tests {
                 .is_err()
             );
         }
+    }
+
+    #[test]
+    fn missing_validators_are_the_absent_and_nil_entries_in_set_order() {
+        let (_, committee, keys) = committee(&[5, 4, 3, 2]);
+        let mut block = pair(1, B256::ZERO, &committee, &keys, None);
+        let address = |index: usize| {
+            Address::from_slice(committee.validators.validators()[index].address.as_bytes())
+        };
+        assert!(missing_validators(&block.commit, &committee.validators).unwrap().is_empty());
+        block.commit.signatures[3] = CommitSig::BlockIdFlagAbsent;
+        block.commit.signatures[1] = nil_vote(&block, &committee, &keys, 1);
+        assert_eq!(
+            missing_validators(&block.commit, &committee.validators).unwrap(),
+            [address(1), address(3)]
+        );
+        block.commit.signatures.pop();
+        assert!(matches!(
+            missing_validators(&block.commit, &committee.validators),
+            Err(ValidationError::Certificate(message)) if message.contains("3 entries for the 4")
+        ));
     }
 
     #[test]
@@ -735,6 +786,9 @@ mod tests {
             bft_time_secs: 101,
             proposer: fixture.blocks[&1].block.header.proposer_address,
             signers: &signers,
+            // Block 1 has no LastCommit.
+            parent_signers: &[],
+            miss_bitmap: 0,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
@@ -777,6 +831,9 @@ mod tests {
             bft_time_secs: 101,
             proposer,
             signers: &signers,
+            // Block 1 has no LastCommit.
+            parent_signers: &[],
+            miss_bitmap: 0,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,

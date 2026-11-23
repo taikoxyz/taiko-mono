@@ -7,7 +7,7 @@ use abci::{
 use tendermint::{Hash, account::Id};
 
 /// Native validator metadata in the exact ordered certificate slot.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Validator {
     /// Ethereum address derived from the authorized compressed key.
     pub address: Id,
@@ -23,7 +23,10 @@ impl Validator {
     }
 }
 /// Authenticated native validators; unlike evidence wire sets this retains a checked commitment.
-#[derive(Clone, Debug)]
+///
+/// Two sets are equal exactly when they hold the same keys at the same powers: the members stay
+/// in CometBFT's canonical order, so equality compares (key, power) multisets.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Validators {
     /// Validators in descending power and ascending Ethereum-address order.
     members: Vec<Validator>,

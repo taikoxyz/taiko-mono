@@ -350,6 +350,11 @@ pub struct PreparedBatch {
     /// Ordered cut leaves of every height strictly inside the immutable range (p, h), one per
     /// height (ENC-A-31); empty for a single-block landing.
     pub leaves: Vec<B256>,
+    /// The heights whose commits the proof verifies, ascending: every x in (p, h) whose
+    /// successor is signed by another set than x, the sets compared as (key, power) multisets,
+    /// then h. Every other block is an ancestor of the next commit height through its
+    /// `last_block_id` link, signed by the same set.
+    pub commit_heights: Vec<u64>,
     /// Sidecar and ordered versioned blob hashes binding the V6 payload.
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V1 public statement hash.

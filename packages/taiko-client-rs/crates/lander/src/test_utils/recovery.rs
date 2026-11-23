@@ -54,6 +54,11 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     for e in 0..=((tip + 1) / length).max(epoch + 2) {
         f.committees.insert(e, origin_set.clone());
     }
+    // Every anchor proves a minimum total stake of 2^256 − 1 and the origin list's hash, so
+    // the origin keys sign c + 1 and c + 2 and every set decided later.
+    for height in 7..=tip + 2 {
+        f.signing_sets.insert(height, origin_set.clone());
+    }
     f.val_states = replay_val_states((6, &origin_set.members), tip);
     f.fallback_lists.insert(keys.hash(), keys.clone());
     let state_at = |height: u64, hash: B256, comet: B256| {

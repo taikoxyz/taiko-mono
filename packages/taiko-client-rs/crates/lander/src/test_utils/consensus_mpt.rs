@@ -1,6 +1,7 @@
-//! Genuine trie/proof fixtures for immutable batch assembly, signed by the generation's origin
-//! fallback keys, each at power 1, at every height, over L2 post-states whose staking proxy holds
-//! scripted staking words.
+//! Genuine trie/proof fixtures for immutable batch assembly over L2 post-states whose staking
+//! proxy holds scripted staking words. Each height is signed by the set 4.3 gives it from those
+//! words and the anchors' fallback key hash and minimum total stake ([`SigningPlan`]); by default
+//! that is the generation's origin fallback keys, each at power 1, at every height.
 
 use super::consensus::{
     FixtureCommittee, SigningKey, fallback_keys, pair_with_envelope, parameters,
@@ -9,6 +10,7 @@ use crate::{
     comet::{CometSource, CometStatus},
     error::{LanderError, Result},
     l1::{Deployment, LandingSource, ParentContext},
+    native::CommitSig,
     types::{CertifiedBlock, LandingSnapshot},
 };
 use abci::{
@@ -189,6 +191,70 @@ pub struct Fixture {
     /// [`StakingScript`] words of that height. Each EL header's state root is its height's root,
     /// so a staking proof of a height verifies under that header.
     pub l2_states: BTreeMap<u64, State>,
+    /// The set that signs each height from the generation's first block to two above the tip, as
+    /// the fixture's chain decided it under 4.3 ([`SigningPlan`]).
+    pub signing_sets: BTreeMap<u64, FixtureCommittee>,
+    /// Answers that replace the Comet node's `/validators` answer at their heights.
+    pub validator_answers: BTreeMap<u64, Vec<(ConsensusKey, u64)>>,
+    /// Every key a fixture set may hold: the origin keys, then the plan's further keys.
+    pub signing_keys: Vec<SigningKey>,
+}
+
+/// A precommit that a block's LastCommit lacks, by the validator's position in the CometBFT order
+/// of the set that signs the parent.
+#[derive(Clone, Copy, Debug)]
+pub enum Missing {
+    /// No precommit: a `BLOCK_ID_FLAG_ABSENT` entry.
+    Absent(usize),
+    /// A precommit for nil: a signed `BLOCK_ID_FLAG_NIL` entry.
+    Nil(usize),
+}
+
+/// A [`SigningPlan`]'s staking words of each height's L2 post-state, given the height and the
+/// origin list.
+pub type PlannedStaking = Box<dyn Fn(u64, &FallbackKeys) -> Vec<(B256, U256)>>;
+
+/// A [`SigningPlan`]'s `(fallbackKeysHash, minTotalStake)` of each L1 block's Inbox state, given
+/// the block's number and the origin list.
+pub type PlannedAnchorWords = Box<dyn Fn(u64, &FallbackKeys) -> (B256, U256)>;
+
+/// How a fixture chain's signing sets evolve under 4.3. The origin list signs the first two
+/// blocks; at every later height H the fixture decides the set that signs H + 2 from H's staking
+/// words and H's anchor, as nodes do, and signs with it. The default plan keeps the origin keys
+/// signing every height: every anchor proves a minimum total stake of 2^256 − 1.
+pub struct SigningPlan {
+    /// The origin fallback keys: seeds 1 to this count.
+    pub origin_keys: u8,
+    /// Seeds of further keys a candidate or a fallback list may hold.
+    pub extra_keys: Vec<u8>,
+    /// The staking words of each height's L2 post-state, given the origin list.
+    pub staking: PlannedStaking,
+    /// The words `(fallbackKeysHash, minTotalStake)` of slots 278 and 279 in the Inbox state of
+    /// each L1 block, by its number, given the origin list.
+    pub anchor_words: PlannedAnchorWords,
+    /// Further fallback key lists the L1 serves.
+    pub lists: Vec<FallbackKeys>,
+    /// The precommits each height's LastCommit lacks.
+    pub missing: Box<dyn Fn(u64) -> Vec<Missing>>,
+}
+
+impl Default for SigningPlan {
+    /// Two origin keys, the [`staking_words`] script and [`fallback_words`] at every L1 block.
+    fn default() -> Self {
+        Self {
+            origin_keys: 2,
+            extra_keys: Vec::new(),
+            staking: Box::new(staking_words),
+            anchor_words: Box::new(|_, origin| fallback_words(origin)),
+            lists: Vec::new(),
+            missing: Box::new(|_| Vec::new()),
+        }
+    }
+}
+
+/// The signing key of seed `seed`, the fixtures' key convention.
+pub fn seed_key(seed: u8) -> SigningKey {
+    SigningKey::from_slice(&[seed; 32]).unwrap()
 }
 
 /// The `EtnaStaking` words a fixture's L2 post-state holds after a height, given the height and
@@ -197,21 +263,32 @@ pub type StakingScript = fn(u64, &FallbackKeys) -> Vec<(B256, U256)>;
 
 /// The default [`StakingScript`]: after `height`, a candidate snapshot taken at `height` with a
 /// total stake of `1000 + height`, whose seat `i` holds origin key `i` at power `i + 1`, and each
-/// origin key's live key-to-seat word naming its seat. Every fixture anchor proves a minimum total
-/// stake of 2^256 − 1, so the candidate never signs and the origin keys sign every height.
+/// origin key's live key-to-seat word naming its seat. Unless a [`SigningPlan`] lowers it, every
+/// fixture anchor proves a minimum total stake of 2^256 − 1, so the candidate never signs and the
+/// origin keys sign every height.
 pub fn staking_words(height: u64, keys: &FallbackKeys) -> Vec<(B256, U256)> {
+    let members = (1..).zip(keys.keys()).map(|(power, key)| (*key, power)).collect::<Vec<_>>();
+    candidate_words(U256::from(height), U256::from(1000 + height), &members)
+}
+
+/// The staking words of a candidate snapshot whose `snapshotHeight` is `snapshot_height` and
+/// `snapshotTotalStake` `total`, whose seat `i` holds the key of `members[i]` at its power, each of
+/// those keys' live key-to-seat word naming its seat.
+pub fn candidate_words(
+    snapshot_height: U256,
+    total: U256,
+    members: &[(ConsensusKey, u64)],
+) -> Vec<(B256, U256)> {
     use abci::staking::{
         key_to_seat_slot, record_slots, snapshot_height_slot, snapshot_total_stake_slot,
     };
-    let mut words = vec![
-        (snapshot_height_slot(), U256::from(height)),
-        (snapshot_total_stake_slot(), U256::from(1000 + height)),
-    ];
-    for (seat, key) in (0u8..).zip(keys.keys()) {
+    let mut words =
+        vec![(snapshot_height_slot(), snapshot_height), (snapshot_total_stake_slot(), total)];
+    for (seat, (key, power)) in (0u8..).zip(members) {
         let [x, packed] = record_slots(seat);
         words.extend([
             (x, U256::from_be_bytes(key.x().0)),
-            (packed, U256::from(key.prefix()) | U256::from(u64::from(seat) + 1) << 8),
+            (packed, U256::from(key.prefix()) | U256::from(*power) << 8),
             (key_to_seat_slot(key.address()), U256::from(1) | U256::from(seat) << 8),
         ]);
     }
@@ -280,8 +357,20 @@ fn state_with_queue(
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
+    state_with_words(params, fallback, fallback_words(fallback), endpoint, genesis, queue)
+}
+
+/// As [`state_with_queue`], with slots 278 and 279 holding `words`, `(fallbackKeysHash,
+/// minTotalStake)`, while generation 0's origin record keeps the hash of `origin`.
+fn state_with_words(
+    params: &ChainParams,
+    origin: &FallbackKeys,
+    (fallback_keys_hash, min_total_stake): (B256, U256),
+    endpoint: (u64, B256, B256),
+    genesis: &GenesisRecord,
+    queue: &Queue,
+) -> State {
     let (height, hash, comet_hash) = endpoint;
-    let (fallback_keys_hash, min_total_stake) = fallback_words(fallback);
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
@@ -303,12 +392,12 @@ fn state_with_queue(
             U256::from(queue.head) | U256::from(queue.tail) << 48,
         ),
     ]);
-    let origin = inbox::origin_slots(0);
+    let record = inbox::origin_slots(0);
     slots.extend([
-        (origin[0], U256::ZERO),
-        (origin[1], U256::from(genesis.l1_0)),
-        (origin[2], U256::from(genesis.l1_0)),
-        (origin[3], fallback_keys_hash.into()),
+        (record[0], U256::ZERO),
+        (record[1], U256::from(genesis.l1_0)),
+        (record[2], U256::from(genesis.l1_0)),
+        (record[3], origin.hash().into()),
     ]);
     let landing = inbox::landing_record_slots(height);
     slots.extend([
@@ -660,8 +749,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -674,8 +762,7 @@ impl Fixture {
             EpochFixture { length: epoch_len, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -689,8 +776,7 @@ impl Fixture {
             EpochFixture { length: 12, advances: true, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -706,8 +792,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &plan,
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -723,8 +808,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: Some(hash) },
             7_200,
             &ForcedPlan::default(),
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -740,8 +824,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             max_anchor_age,
             &ForcedPlan::default(),
-            2,
-            staking_words,
+            SigningPlan::default(),
         )
     }
 
@@ -756,14 +839,22 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
-            count,
-            staking_words,
+            SigningPlan { origin_keys: count, ..SigningPlan::default() },
         )
     }
 
     /// As [`Fixture::new`], with the L2 post-state after each height holding the staking words
     /// `script` gives for it.
     pub fn with_staking_script(checkpoint: u64, tip: u64, script: StakingScript) -> Self {
+        Self::with_plan(
+            checkpoint,
+            tip,
+            SigningPlan { staking: Box::new(script), ..SigningPlan::default() },
+        )
+    }
+
+    /// As [`Fixture::new`], with the signing sets of every height following `signing`.
+    pub fn with_plan(checkpoint: u64, tip: u64, signing: SigningPlan) -> Self {
         Self::build(
             checkpoint,
             tip,
@@ -772,15 +863,14 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
-            2,
-            script,
+            signing,
         )
     }
 
     /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age` and
-    /// the forced inclusion entries and blocks of `plan`, signed by `origin_keys` origin fallback
-    /// keys; each block carries one transaction with `bytes` of calldata (zeros if `zeros`)
-    /// unless zero, and each height's L2 post-state holds the staking words `staking` gives.
+    /// the forced inclusion entries and blocks of `plan`, signed at each height by the set
+    /// `signing` gives it under 4.3; each block carries one transaction with `bytes` of calldata
+    /// (zeros if `zeros`) unless zero.
     #[allow(clippy::too_many_arguments)]
     fn build(
         checkpoint: u64,
@@ -790,8 +880,7 @@ impl Fixture {
         epochs: EpochFixture,
         max_anchor_age: u64,
         plan: &ForcedPlan,
-        origin_keys: u8,
-        staking: StakingScript,
+        signing: SigningPlan,
     ) -> Self {
         let epoch_len = epochs.length;
         assert!(checkpoint == 0 || checkpoint >= 6);
@@ -808,15 +897,32 @@ impl Fixture {
         };
         let mut params = parameters();
         params.unsettled_limit = 18;
-        let keys = (1..=origin_keys)
-            .map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap())
+        let origin = (1..=signing.origin_keys).map(seed_key).collect::<Vec<_>>();
+        // Generation 0's origin fallback keys, which sign its first two blocks, each at power 1.
+        let origin_keys = fallback_keys(&origin);
+        let keys = origin
+            .into_iter()
+            .chain(signing.extra_keys.iter().copied().map(seed_key))
             .collect::<Vec<_>>();
-        // The keys are generation 0's origin fallback keys, so the set that signs every height
-        // holds them all, each at power 1.
-        let origin_keys = fallback_keys(&keys);
-        let l2_states = (0..=tip)
-            .map(|height| (height, l2_state(&params, staking(height, &origin_keys))))
+        let staking_values = (0..=tip)
+            .map(|height| {
+                (
+                    height,
+                    (signing.staking)(height, &origin_keys).into_iter().collect::<BTreeMap<_, _>>(),
+                )
+            })
             .collect::<BTreeMap<_, _>>();
+        let l2_states = staking_values
+            .iter()
+            .map(|(height, words)| {
+                (
+                    *height,
+                    l2_state(&params, words.iter().map(|(slot, word)| (*slot, *word)).collect()),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let mut lists = BTreeMap::from([(origin_keys.hash(), origin_keys.clone())]);
+        lists.extend(signing.lists.iter().map(|list| (list.hash(), list.clone())));
         let genesis_header = Header {
             number: 0,
             state_root: l2_states[&0].root,
@@ -835,18 +941,23 @@ impl Fixture {
             max_anchor_age,
         };
         let committees = BTreeMap::from([(0, FixtureCommittee::fallback(&origin_keys))]);
-        let val_states = replay_val_states((0, &committees[&0].members), tip);
+        let mut signing_sets =
+            BTreeMap::from([(1, committees[&0].clone()), (2, committees[&0].clone())]);
+        let mut val_states =
+            BTreeMap::from([(0, ValState::genesis(0, &committees[&0].members).unwrap())]);
         let planted = plan.planted();
-        let genesis_state = state_with_queue(
+        let words = |number: u64| (signing.anchor_words)(number, &origin_keys);
+        let genesis_state = state_with_words(
             &params,
             &origin_keys,
+            words(10),
             (0, genesis.genesis_hash, B256::ZERO),
             &genesis,
             &plan.queue(&planted, 10, 0),
         );
         let raw10 = l1_header(10, &genesis_state, B256::repeat_byte(9));
-        let words = fallback_words(&origin_keys);
-        let anchor10 = anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0), words);
+        let anchor10 =
+            anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0), words(10));
         let mut cursor = 0;
         let mut states = BTreeMap::from([(10, genesis_state)]);
         let mut l1_headers = BTreeMap::from([(10, raw10)]);
@@ -875,9 +986,10 @@ impl Fixture {
                 epoch_len - 6
             };
             if !l1_headers.contains_key(&number) {
-                let state = state_with_queue(
+                let state = state_with_words(
                     &params,
                     &origin_keys,
+                    words(number),
                     (
                         cp,
                         epochs.checkpoint_hash.unwrap_or_else(|| headers[&cp].hash_slow()),
@@ -899,7 +1011,7 @@ impl Fixture {
             let forced = height == 1;
             let changing = anchors[&(height - 1)].number != number;
             let raw = &l1_headers[&number];
-            let a = anchor(raw, cp, cp_hash, &plan.queue(&planted, number, cp), words);
+            let a = anchor(raw, cp, cp_hash, &plan.queue(&planted, number, cp), words(number));
             let witness = (forced || changing).then(|| AnchorWitness {
                 l1_header: raw.clone(),
                 inbox: states[&number].witness(params.inbox, &inbox::anchor_slots()),
@@ -923,6 +1035,32 @@ impl Fixture {
                     !plan.consume_at.contains(&height),
                 "plan consumes at height {height} without a pending entry"
             );
+            // The precommits the LastCommit lacks are taken out of the parent's `/commit`, which
+            // the block carries as its LastCommit; each missing validator's key-to-seat word in
+            // the parent's post-state sets its seat's bit.
+            let mut missing = Vec::new();
+            if height > 1 {
+                let set = &signing_sets[&(height - 1)];
+                let previous = blocks.get_mut(&(height - 1)).unwrap();
+                for entry in (signing.missing)(height) {
+                    let (index, sig) = match entry {
+                        Missing::Absent(index) => (index, CommitSig::BlockIdFlagAbsent),
+                        Missing::Nil(index) => {
+                            (index, super::consensus::nil_vote(previous, set, &keys, index))
+                        }
+                    };
+                    previous.commit.signatures[index] = sig;
+                    let validator = &set.validators.validators()[index];
+                    missing.push(Address::from_slice(validator.address.as_bytes()));
+                }
+            }
+            let seat_words = &staking_values[&(height - 1)];
+            let miss_bitmap = abci::miss::miss_bitmap(&missing, |address| {
+                seat_words
+                    .get(&abci::staking::key_to_seat_slot(address))
+                    .copied()
+                    .unwrap_or_default()
+            });
             let expected = rules::expected_header(&HeaderInputs {
                 height,
                 beneficiary: super::consensus::BATCH_RECIPIENT,
@@ -930,7 +1068,7 @@ impl Fixture {
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
                 generation: 0,
-                miss_bitmap: 0,
+                miss_bitmap,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
                     params.l2_chain_id,
@@ -989,7 +1127,7 @@ impl Fixture {
                     anchor: witness,
                     forced: witness_forced,
                 },
-                &committees[&0],
+                &signing_sets[&height],
                 &keys,
                 blocks.get(&(height - 1)),
             );
@@ -997,11 +1135,28 @@ impl Fixture {
                 pair.block.header.time =
                     tendermint::Time::from_unix_timestamp((1261 + height) as i64, 0).unwrap();
             }
-            pair.block.header.next_validators_hash = committees[&0].validators.hash();
+            pair.block.header.next_validators_hash = signing_sets[&(height + 1)].validators.hash();
             // CONS-3.1-8: the app_hash the app returned for the parent, appHash of its EL hash
             // and the validator state after it.
             pair.block.header.app_hash = app_hash(parent.hash, &val_states[&(height - 1)]);
-            super::consensus::resign(&mut pair, &committees[&0], &keys);
+            super::consensus::resign(&mut pair, &signing_sets[&height], &keys);
+            // The set that signs height + 2, decided at height from its post-state's snapshot
+            // and its anchor, and the validator state FinalizeBlock(height) leaves.
+            let values = &staking_values[&height];
+            let snapshot = abci::staking::snapshot_slots()
+                .map(|slot| values.get(&slot).copied().unwrap_or_default());
+            let decided = abci::committee::decide(
+                height,
+                &abci::staking::StakingWords::from_snapshot_values(&snapshot).unwrap(),
+                a.inbox.min_total_stake,
+                &lists[&a.inbox.fallback_keys_hash],
+            );
+            let updates = abci::committee::validator_updates(
+                &signing_sets[&(height + 1)].members,
+                &decided.members,
+            );
+            val_states.insert(height, val_states[&(height - 1)].advance(&updates).unwrap());
+            signing_sets.insert(height + 2, FixtureCommittee::new(decided.members));
             parent = ParentInfo {
                 number: height,
                 hash: el.hash_slow(),
@@ -1025,9 +1180,10 @@ impl Fixture {
             states.insert(number, root_state.clone());
         }
         let snapshot_queue = plan.queue(&planted, snapshot_number, checkpoint);
-        let snapshot_state = state_with_queue(
+        let snapshot_state = state_with_words(
             &params,
             &origin_keys,
+            words(snapshot_number),
             (
                 checkpoint,
                 headers[&checkpoint].hash_slow(),
@@ -1074,7 +1230,7 @@ impl Fixture {
             anchors,
             headers,
             l1_headers,
-            fallback_lists: BTreeMap::from([(origin_keys.hash(), origin_keys.clone())]),
+            fallback_lists: lists,
             origin_keys,
             mismatch_statement: AtomicBool::new(false),
             starting_proof_mutation: None,
@@ -1084,6 +1240,9 @@ impl Fixture {
             fallback_reads: AtomicUsize::new(0),
             states,
             l2_states,
+            signing_sets,
+            validator_answers: BTreeMap::new(),
+            signing_keys: keys,
         }
     }
 }
@@ -1116,14 +1275,16 @@ impl CometSource for Fixture {
             LanderError::Temporary(format!("the app rejects the validator state query at {height}"))
         })
     }
-    /// As stock CometBFT answers `/validators` at a decided height: the set whose hash the
-    /// height's header names as `validators_hash`.
+    /// As stock CometBFT answers `/validators` at a decided height or the one above the tip: the
+    /// set that signs it, in CometBFT order, unless [`Fixture::validator_answers`] replaces the
+    /// answer.
     async fn archive_validators(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>> {
-        let block = self.block(height).await?;
-        self.committees
-            .values()
-            .find(|committee| committee.validators.hash() == block.block.header.validators_hash)
-            .map(|committee| committee.members.clone())
+        if let Some(answer) = self.validator_answers.get(&height) {
+            return Ok(answer.clone());
+        }
+        self.signing_sets
+            .get(&height)
+            .map(|set| set.validators.validators().iter().map(|v| (v.pub_key, v.power())).collect())
             .ok_or_else(|| LanderError::Unavailable(format!("validators of height {height}")))
     }
 }

@@ -219,6 +219,9 @@ impl FixtureChain {
                     bft_time_secs: time,
                     proposer: pair.block.header.proposer_address,
                     signers: &signers,
+                    // The same set signs every height, and every LastCommit is complete.
+                    parent_signers: if height == 1 { &[] } else { &signers },
+                    miss_bitmap: 0,
                     parent: &parent_info,
                     parent_anchor,
                     generation: 0,

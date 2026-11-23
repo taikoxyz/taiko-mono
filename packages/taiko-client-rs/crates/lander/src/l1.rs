@@ -889,7 +889,7 @@ pub fn snapshot_origin(snapshot: &LandingSnapshot) -> Result<OriginRecord> {
 /// The slots of one staking read at an L2 height: the candidate snapshot's words in
 /// [`staking::snapshot_slots`] order, then the live key-to-seat word of each address of
 /// `missing`, in its order.
-pub fn staking_slots(missing: &[Address]) -> Vec<B256> {
+pub(crate) fn staking_slots(missing: &[Address]) -> Vec<B256> {
     staking::snapshot_slots()
         .into_iter()
         .chain(missing.iter().map(|address| staking::key_to_seat_slot(*address)))
@@ -908,7 +908,7 @@ pub fn staking_slots(missing: &[Address]) -> Vec<B256> {
 /// `eth_getProof` answers for an absent account. A witness that names another account or another
 /// slot list, claims a word the proofs do not give, or whose account or storage proofs do not
 /// verify, is [`LanderError::Safety`]: the caller authenticated the root.
-pub fn verify_staking_witness(
+pub(crate) fn verify_staking_witness(
     state_root: B256,
     staking: Address,
     witness: &AccountWitness,
@@ -952,7 +952,7 @@ pub fn verify_staking_witness(
 /// number `at_number`, the block that stored it or a later one ([`LandingSource::fallback_keys`],
 /// whose log scan reaches block 0). A list the L1 cannot give is [`LanderError::Temporary`]; one
 /// that hashes elsewhere is refused as `Safety`.
-pub async fn obtain_fallback_list<L: LandingSource + ?Sized>(
+pub(crate) async fn obtain_fallback_list<L: LandingSource + ?Sized>(
     l1: &L,
     hash: B256,
     at: B256,

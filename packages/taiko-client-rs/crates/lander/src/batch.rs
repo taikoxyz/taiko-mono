@@ -102,7 +102,7 @@ struct PublishablePrefix {
     payload: Option<Vec<u8>>,
 }
 
-/// Fully authenticated starting checkpoint and the set that signs the batch.
+/// Fully authenticated starting checkpoint p and the sets that sign p and p + 1.
 struct BatchStart {
     /// Parent header and ancestry-derived base-fee timestamp.
     parent: ParentContext,
@@ -114,9 +114,15 @@ struct BatchStart {
     anchor_witness: Option<abci::AnchorWitness>,
     /// Certified checkpoint block, absent at the fixed generation origin.
     previous: Option<CertifiedBlock>,
-    /// The generation's initial set, which signs every height until per-height set decisions
-    /// land.
-    validators: Validators,
+    /// The set that signs p, which p + 1's LastCommit lists: above the generation's start o, the
+    /// set header(p)'s `validators_hash` commits; absent at o, whose successor has no LastCommit.
+    parent_signers: Option<Validators>,
+    /// The set that signs p + 1: the origin list while p + 1 is at most o + 2, otherwise the set
+    /// header(p)'s `next_validators_hash` commits.
+    signers: Validators,
+    /// The keys of the fallback key list whose hash the generation's origin record holds, each at
+    /// power 1: the set that signs o + 1 and o + 2.
+    origin: Validators,
 }
 
 /// Immutable checkpoint identity; advancing the operational L1 head does not change it.
@@ -182,13 +188,24 @@ struct TipAnchor {
     anchor: AnchorState,
 }
 
-/// Constant-space forward authentication state of proof preparation.
+/// Constant-space forward authentication state of proof preparation, after the parent x.
+///
+/// The set that signs x + 2 is not held here: it is decided at x while x + 1 is authenticated
+/// ([`BatchBuilder::decide_at_parent`]), because the one staking read of x's post-state also
+/// proves the seats of the validators x + 1's LastCommit misses.
 struct ForwardState {
     /// Exact authenticated committed parent inputs.
     parent: ParentInfo,
-    /// The set that signs every block of the batch, and its parent certificate.
-    validators: Validators,
-    /// Current authenticated L1 anchor.
+    /// The parent's EL state root, under which its staking words are proven.
+    parent_state_root: B256,
+    /// The set that signs the parent x, which x + 1's LastCommit lists; absent at the
+    /// generation's start o.
+    parent_signers: Option<Validators>,
+    /// The set that signs x + 1.
+    signers: Validators,
+    /// The origin list's set, which signs o + 2 whatever o's state holds.
+    origin: Validators,
+    /// Current authenticated L1 anchor: the parent's.
     anchor: AnchorState,
     /// Previous certified block used to check last_commit and BFT parent links.
     previous: Option<CertifiedBlock>,
@@ -204,12 +221,28 @@ impl ForwardState {
     fn new(start: &BatchStart, snapshot: &LandingSnapshot) -> Result<Self> {
         Ok(Self {
             parent: parent_info(&start.parent)?,
-            validators: start.validators.clone(),
+            parent_state_root: start.parent.header.state_root,
+            parent_signers: start.parent_signers.clone(),
+            signers: start.signers.clone(),
+            origin: start.origin.clone(),
             anchor: start.anchor.clone(),
             previous: start.previous.clone(),
             forced_cursor: snapshot.forced_inclusion_head,
         })
     }
+}
+
+/// What authenticating a batch's blocks establishes for its proof request.
+struct AuthenticatedBlocks {
+    /// Each block's own anchor, in block order.
+    anchors: Vec<AnchorState>,
+    /// One cut leaf for every height strictly inside (p, h).
+    leaves: Vec<B256>,
+    /// The heights whose commits a proof verifies, ascending: every x in (p, h) whose successor
+    /// is signed by another set, as (key, power) multisets, and h.
+    commit_heights: Vec<u64>,
+    /// The forward state after the terminal block h.
+    end: ForwardState,
 }
 
 /// Boundary used by the runner to prepare jobs and authenticate competing checkpoint progress.
@@ -547,14 +580,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok((prefix.blocks, payload))
     }
 
-    /// The generation's initial set, which signs every height until per-height set decisions
-    /// land: the keys of the fallback key list whose hash the generation's origin record holds,
+    /// The set that signs the generation's first two blocks o + 1 and o + 2, whatever o's state
+    /// holds: the keys of the fallback key list whose hash the generation's origin record holds,
     /// each at power 1, the record as the snapshot authenticates it
     /// ([`crate::l1::snapshot_origin`]). The batch's starting proof proves the same record under
     /// its reference header ([`BatchBuilder::starting_inbox`]). The list is obtained by its hash
     /// ([`BatchBuilder::fallback_list`]) at R for a recovery generation, and at the checkpoint's
     /// anchor `anchor`, a block at or after `L1_0`, at generation zero.
-    async fn initial_set(
+    async fn origin_set(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
@@ -662,8 +695,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(())
     }
 
-    /// Hash-check the checkpoint's EL parent link, its anchor, the initial signing set and the
-    /// checkpoint BFT certificate.
+    /// Hash-check the checkpoint's EL parent link, its anchor, the sets that sign p and p + 1 and
+    /// the checkpoint BFT certificate.
     ///
     /// Above the generation's start, the checkpoint p's anchor comes from the anchor witness of
     /// the block that carried it ([`BatchBuilder::checkpoint_anchor_witness`]), checked against
@@ -672,6 +705,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// p + 1's own anchor, whose block rules check p + 1's `extraData` and
     /// `parentBeaconBlockRoot` against it. At the start the origin anchor only precedes the
     /// generation's first block, which carries its own.
+    ///
+    /// At the start o the origin list signs o + 1 and no set signs o, as o + 1 has no LastCommit.
+    /// Above it, the set that signs p is the Comet node's `/validators` answer at p, accepted
+    /// only when it hashes to header(p)'s `validators_hash`, and p's commit must verify against
+    /// it; the set that signs p + 1 is the origin list while p + 1 is at most o + 2, otherwise
+    /// the answer at p + 1, accepted only when it hashes to header(p)'s `next_validators_hash`
+    /// ([`BatchBuilder::archived_set`]). header(p) is the checkpoint's own Comet header, whose
+    /// hash the snapshot's landing record holds.
     async fn reconstruct_checkpoint(
         &self,
         snapshot: &LandingSnapshot,
@@ -717,13 +758,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 ));
             }
             self.check_proving_anchor_canonicality(&anchor).await?;
-            let validators = self.initial_set(snapshot, &anchor).await?;
+            let origin = self.origin_set(snapshot, &anchor).await?;
             return Ok(BatchStart {
                 parent,
                 anchor,
                 anchor_witness: None,
                 previous: None,
-                validators,
+                parent_signers: None,
+                signers: origin.clone(),
+                origin,
             });
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
@@ -753,16 +796,24 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             self.params.inbox,
         )?;
         self.check_proving_anchor_canonicality(&anchor).await?;
-        let validators = self.initial_set(snapshot, &anchor).await?;
+        let origin = self.origin_set(snapshot, &anchor).await?;
+        let p = snapshot.checkpoint_height;
+        let header = &pair.block.header;
+        let parent_signers = self.archived_set(p, header.validators_hash, "validator", p).await?;
         verify_commit(
             &pair.commit,
-            &pair.block.header,
-            &validators,
+            header,
+            &parent_signers,
             &rules::chain_id_for(&self.params, snapshot.generation)
                 .map_err(|e| LanderError::Configuration(e.to_string()))?,
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if pair.block.header.next_validators_hash != validators.hash() {
+        let signers = if p < snapshot.origin_height() + 2 {
+            origin.clone()
+        } else {
+            self.archived_set(p + 1, header.next_validators_hash, "next validator", p).await?
+        };
+        if header.next_validators_hash != signers.hash() {
             return Err(LanderError::Safety("checkpoint next validator hash disagrees".into()));
         }
         Ok(BatchStart {
@@ -770,8 +821,37 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             anchor,
             anchor_witness: Some(witness),
             previous: Some(pair),
-            validators,
+            parent_signers: Some(parent_signers),
+            signers,
+            origin,
         })
+    }
+
+    /// The set that signs `height`, from the Comet node's `/validators` answer at `height`
+    /// ([`CometSource::archive_validators`]), accepted only when it hashes to `expected`, the
+    /// `what` hash of the checkpoint `checkpoint`'s authenticated Comet header. An answer that
+    /// hashes elsewhere, or holds no valid set, is `Safety`; a failed read keeps the source's
+    /// class.
+    async fn archived_set(
+        &self,
+        height: u64,
+        expected: tendermint::Hash,
+        what: &str,
+        checkpoint: u64,
+    ) -> Result<Validators> {
+        let members = self.comet.archive_validators(height).await?;
+        let contradicts = |found: String| {
+            LanderError::Safety(format!(
+                "the Comet node's validators of height {height} ({found}) disagree with the {what} \
+                 hash {expected} of checkpoint {checkpoint}"
+            ))
+        };
+        let set =
+            Validators::from_powers(&members).map_err(|error| contradicts(error.to_string()))?;
+        if set.hash() != expected {
+            return Err(contradicts(format!("hash {}", set.hash())));
+        }
+        Ok(set)
     }
 
     /// The anchor witness the checkpoint p uses, p being above its generation's start: the one
@@ -810,10 +890,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         )))
     }
 
-    /// Verify one successor against the set that signs the batch.
+    /// Verify the successor x + 1 of the parent x in `state` against the sets 4.3 gives, then
+    /// advance `state` past it.
     ///
-    /// Both the carried parent certificate and the current certificate must verify before
-    /// execution facts can advance.
+    /// x + 1's LastCommit must verify against the set that signs x and its commit against the
+    /// set that signs x + 1, before any read its contents select. The set that signs x + 2 and
+    /// x + 1's `missBitmap` are then decided at x ([`BatchBuilder::decide_at_parent`]); the block
+    /// rules check that `missBitmap`, and header(x + 1)'s `next_validators_hash` must commit the
+    /// set that signs x + 2 (its `validators_hash` the commit check covers).
     async fn authenticate_block(
         &self,
         snapshot: &LandingSnapshot,
@@ -843,21 +927,36 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             snapshot.origin_height(),
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if let (Some(last), Some(previous)) = (&pair.block.last_commit, state.previous.as_ref()) {
-            verify_commit(last, &previous.block.header, &state.validators, &chain_id)
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-        }
-        verify_commit(&pair.commit, &pair.block.header, &state.validators, &chain_id)
+        // The structure check admits no LastCommit only at the generation's first block, and
+        // every later parent has its signing set.
+        let missing = match (&pair.block.last_commit, &state.previous, &state.parent_signers) {
+            (None, None, _) => Vec::new(),
+            (Some(last), Some(previous), Some(parent_signers)) => {
+                verify_commit(last, &previous.block.header, parent_signers, &chain_id)
+                    .and_then(|()| crate::validate::missing_validators(last, parent_signers))
+                    .map_err(|e| LanderError::Safety(e.to_string()))?
+            }
+            _ => {
+                return Err(LanderError::Safety(format!(
+                    "block {height}'s LastCommit has no set that signs its parent"
+                )));
+            }
+        };
+        verify_commit(&pair.commit, &pair.block.header, &state.signers, &chain_id)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let (miss_bitmap, next_signers) = self.decide_at_parent(snapshot, state, &missing).await?;
         let bft_secs = u64::try_from(pair.block.header.time.unix_timestamp())
             .map_err(|_| LanderError::Safety("negative BFT block timestamp".into()))?;
-        let signers = state.validators.entries();
+        let signers = state.signers.entries();
+        let parent_signers = state.parent_signers.as_ref().map(Validators::entries);
         let facts = verify_envelope(
             envelope,
             EnvelopeContext {
                 bft_time_secs: bft_secs,
                 proposer: pair.block.header.proposer_address,
                 signers: &signers,
+                parent_signers: parent_signers.as_deref().unwrap_or_default(),
+                miss_bitmap,
                 parent: &state.parent,
                 parent_anchor: &state.anchor,
                 generation: snapshot.generation,
@@ -961,34 +1060,87 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         } else {
             state.forced_cursor
         };
-        if pair.block.header.next_validators_hash != state.validators.hash() {
+        if pair.block.header.next_validators_hash != next_signers.hash() {
             return Err(LanderError::Safety(format!(
                 "next validator hash disagrees at height {height}"
             )));
         }
         state.parent = facts.parent;
+        state.parent_state_root = facts.envelope.block.header.state_root;
         state.anchor = facts.anchor;
         state.previous = Some(pair.clone());
         state.forced_cursor = forced_cursor;
+        state.parent_signers = Some(std::mem::replace(&mut state.signers, next_signers));
         Ok(())
     }
 
-    /// Retain only the selected proof prefix's per-block anchors and cut leaves after shared
-    /// verification: one leaf for every height strictly inside (p, h), none for the terminal
-    /// block (ENC-A-31), with the forward state after its last block (its forced inclusion
-    /// cursor).
+    /// The `missBitmap` of x + 1, whose LastCommit misses the validators `missing`, and the set
+    /// that signs x + 2, both decided at the parent x in `state`.
+    ///
+    /// At the generation's start o, x + 1 has no LastCommit, so its `missBitmap` is 0, and the
+    /// origin list signs o + 2: nothing of o's state or anchor is read. Above o, one staking read
+    /// of x's post-state, pinned to x's hash ([`LandingSource::staking_witness`]), proves under
+    /// x's state root the candidate snapshot and each missing validator's key-to-seat word
+    /// ([`crate::l1::verify_staking_witness`]). Those words give the `missBitmap`
+    /// ([`abci::miss::miss_bitmap`]); the snapshot, the minimum total stake x's anchor proves and
+    /// the fallback key list whose hash that anchor proves ([`BatchBuilder::fallback_list`]) give
+    /// the set ([`abci::committee::decide`]). At x = p, x's EL header is p's, and its anchor the
+    /// one p's anchor witness proves. A failed read waits as `Temporary`; a proof that does not
+    /// verify is `Safety`.
+    async fn decide_at_parent(
+        &self,
+        snapshot: &LandingSnapshot,
+        state: &ForwardState,
+        missing: &[Address],
+    ) -> Result<(u128, Validators)> {
+        let x = state.parent.number;
+        if x == snapshot.origin_height() {
+            return Ok((0, state.origin.clone()));
+        }
+        let slots = crate::l1::staking_slots(missing);
+        let witness = self.l1.staking_witness(state.parent.hash, &slots).await?;
+        let (words, seats) = crate::l1::verify_staking_witness(
+            state.parent_state_root,
+            self.params.staking,
+            &witness,
+            x,
+            missing,
+        )?;
+        // The verified witness holds the key-to-seat word of every missing validator.
+        let miss_bitmap = abci::miss::miss_bitmap(missing, |address| seats[&address]);
+        let anchor = &state.anchor;
+        let fallback =
+            self.fallback_list(anchor.inbox.fallback_keys_hash, anchor.hash, anchor.number).await?;
+        let decided =
+            abci::committee::decide(x, &words, anchor.inbox.min_total_stake, &fallback).members;
+        let next = Validators::from_powers(&decided).map_err(|error| {
+            LanderError::Safety(format!("the set decided at {x} has no validator set: {error}"))
+        })?;
+        Ok((miss_bitmap, next))
+    }
+
+    /// Retain only the selected proof prefix's per-block anchors, cut leaves and commit heights
+    /// after shared verification: one leaf for every height strictly inside (p, h), none for the
+    /// terminal block, and the forward state after its last block (its forced inclusion cursor).
+    /// A height x of the prefix is a commit height when it is the terminal block or the set that
+    /// signs x + 1 differs from the one that signs x.
     async fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
         start: &BatchStart,
         blocks: &[CertifiedBlock],
-    ) -> Result<(Vec<AnchorState>, Vec<B256>, ForwardState)> {
+    ) -> Result<AuthenticatedBlocks> {
         let mut state = ForwardState::new(start, snapshot)?;
         let mut anchors = Vec::new();
         let mut leaves = Vec::new();
+        let mut commit_heights = Vec::new();
         for (index, pair) in blocks.iter().enumerate() {
+            let signers = state.signers.clone();
             self.authenticate_block(snapshot, &mut state, pair).await?;
             anchors.push(state.anchor.clone());
+            if index + 1 == blocks.len() || state.signers != signers {
+                commit_heights.push(state.parent.number);
+            }
             if index + 1 < blocks.len() {
                 leaves.push(statement::cut_leaf(
                     state.parent.number,
@@ -998,7 +1150,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 ));
             }
         }
-        Ok((anchors, leaves, state))
+        Ok(AuthenticatedBlocks { anchors, leaves, commit_heights, end: state })
     }
 
     /// The authenticated anchor the decided `tip` consumes, used only for back-pressure urgency.
@@ -1126,7 +1278,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             Some(selected) => selected.prefix,
             None => self.publishable_prefix(&snapshot, status.height).await?,
         };
-        let (anchors, leaves, end) =
+        let AuthenticatedBlocks { anchors, leaves, commit_heights, end } =
             self.authenticate_blocks(&snapshot, &start, &prefix.blocks).await?;
         if prefix.blocks.is_empty() {
             return Ok(None);
@@ -1191,6 +1343,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 reference_headers: headers.iter().map(|header| header.raw().clone()).collect(),
                 input,
                 leaves,
+                commit_heights,
                 blobs,
                 statement_hash: hash,
             },
@@ -1395,6 +1548,8 @@ mod tests {
         canonical_failure: AtomicBool,
         snapshot_reorg: AtomicBool,
         parent_changed: AtomicBool,
+        /// The L2 block hashes of the staking reads, in order.
+        staking_reads: std::sync::Mutex<Vec<alloy_primitives::B256>>,
     }
 
     impl TrackingSource {
@@ -1414,6 +1569,7 @@ mod tests {
                 canonical_failure: AtomicBool::new(false),
                 snapshot_reorg: AtomicBool::new(false),
                 parent_changed: AtomicBool::new(false),
+                staking_reads: std::sync::Mutex::new(Vec::new()),
             })
         }
 
@@ -1514,6 +1670,7 @@ mod tests {
             block_hash: B256,
             slots: &[B256],
         ) -> Result<abci::AccountWitness> {
+            self.staking_reads.lock().unwrap().push(block_hash);
             self.fixture().staking_witness(block_hash, slots).await
         }
 
@@ -1787,8 +1944,9 @@ mod tests {
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
     }
 
-    /// The start a checkpoint retains holds the generation's initial set, whatever descendants
-    /// an observation read: generation zero's origin keys, each at power 1.
+    /// The start a checkpoint retains holds the origin list's set and the sets that sign p and
+    /// p + 1, whatever descendants an observation read: here generation zero's origin keys, each
+    /// at power 1, which sign every height of the default fixture.
     #[tokio::test]
     async fn the_retained_start_holds_the_initial_set() {
         let source = TrackingSource::new(Fixture::new(18, 30));
@@ -1797,7 +1955,10 @@ mod tests {
         b.validate_checkpoint(&snapshot).await.unwrap();
         b.observe(&snapshot).await.unwrap();
         let start = b.checkpoint(&snapshot).await.unwrap();
-        assert_eq!(start.validators.hash(), source.fixture().committees[&0].validators.hash());
+        let origin = &source.fixture().committees[&0].validators;
+        assert_eq!(&start.origin, origin);
+        assert_eq!(start.parent_signers.as_ref(), Some(origin));
+        assert_eq!(&start.signers, origin);
         assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
     }
 
@@ -1812,8 +1973,8 @@ mod tests {
         let source = TrackingSource::new(fixture);
         let snapshot = source.fixture().snapshot.clone();
         let start = source.builder(1).checkpoint(&snapshot).await.unwrap();
-        assert_eq!(start.validators.hash(), expected.hash());
-        assert_eq!(start.validators.total_voting_power(), 2);
+        assert_eq!(start.origin.hash(), expected.hash());
+        assert_eq!(start.origin.total_voting_power(), 2);
     }
 
     /// The batch takes generation zero's origin hash from origin word 4, never from slot 278:
@@ -1844,7 +2005,7 @@ mod tests {
         );
         let anchor = fixture.anchors[&18].clone();
         let source = TrackingSource::new(fixture);
-        let validators = source.builder(1).initial_set(&snapshot, &anchor).await.unwrap();
+        let validators = source.builder(1).origin_set(&snapshot, &anchor).await.unwrap();
         let expected = Validators::from_powers(&origin.validator_set()).unwrap();
         assert_eq!(validators.hash(), expected.hash());
     }
@@ -1860,10 +2021,10 @@ mod tests {
         let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
         let expected = Validators::from_powers(&keys.validator_set()).unwrap();
         let start = b.checkpoint(&snapshot).await.unwrap();
-        assert_eq!(start.validators.hash(), expected.hash());
+        assert_eq!(start.origin.hash(), expected.hash());
         *b.checkpoint_cache.lock().await = None;
         let rebuilt = b.checkpoint(&snapshot).await.unwrap();
-        assert_eq!(rebuilt.validators.hash(), expected.hash());
+        assert_eq!(rebuilt.origin.hash(), expected.hash());
         assert_eq!(source.fixture().fallback_reads.load(Ordering::SeqCst), 1);
     }
 
@@ -2907,7 +3068,8 @@ mod tests {
         );
     }
     /// Rewrites one block's envelope, then reseals it and relinks every later block so the
-    /// tampered history stays a consistently linked, genuinely signed chain.
+    /// tampered history stays a consistently linked, genuinely signed chain. The fixture's EL
+    /// keeps the rewritten header, at the same state root.
     fn alter_envelope(
         fixture: &mut Fixture,
         height: u64,
@@ -2919,16 +3081,14 @@ mod tests {
         pair.block.header.app_hash = envelope.block.header.parent_hash.to_vec().try_into().unwrap();
         pair.block.data[0] = envelope.encode().to_vec();
         pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        fixture.headers.insert(height, envelope.block.header);
         reseal_from(fixture, height);
     }
 
     /// Re-signs block `height` after a change to it, then relinks and re-signs every later block,
-    /// each carrying its predecessor's new `/commit` as its `last_commit`.
+    /// each carrying its predecessor's new `/commit` as its `last_commit` and signed by the set
+    /// that signs its height.
     fn reseal_from(fixture: &mut Fixture, height: u64) {
-        let keys = vec![
-            crate::test_utils::consensus::SigningKey::from_slice(&[1; 32]).unwrap(),
-            crate::test_utils::consensus::SigningKey::from_slice(&[2; 32]).unwrap(),
-        ];
         let last = *fixture.blocks.keys().next_back().unwrap();
         for h in height..=last {
             if h > height {
@@ -2939,7 +3099,11 @@ mod tests {
                 pair.block.last_commit = Some(previous);
             }
             let pair = fixture.blocks.get_mut(&h).unwrap();
-            crate::test_utils::consensus::resign(pair, &fixture.committees[&0], &keys);
+            crate::test_utils::consensus::resign(
+                pair,
+                &fixture.signing_sets[&h],
+                &fixture.signing_keys,
+            );
         }
     }
 
@@ -2962,8 +3126,8 @@ mod tests {
         }
     }
 
-    /// The checkpoint's next-set hash must name the initial set, which also signs the next
-    /// height; another set there is refused.
+    /// The checkpoint's next-set hash must name the set that signs p + 1, here the origin keys
+    /// the Comet node archived for it; a header naming another set is refused.
     #[tokio::test]
     async fn checkpoint_next_validator_hash_must_name_the_initial_set() {
         let mut fixture = Fixture::with_epoch(24, 30, 0, 24);
@@ -3505,6 +3669,645 @@ mod tests {
             builder(fixture.clone(), limits(6)).validate_checkpoint(&fixture.snapshot).await,
             Err(LanderError::Safety(_))
         ));
+    }
+    /// Per-height signing sets under 4.3: each block is signed by the set the chain decided two
+    /// blocks earlier, the proof origin p's sets come from p's own header and post-state, and
+    /// each block's `missBitmap` is the one its LastCommit and its parent's seats give.
+    mod signing_sets {
+        use super::*;
+        use crate::test_utils::{
+            consensus::{fallback_keys, public_key},
+            consensus_mpt::{
+                Missing, PlannedAnchorWords, SigningPlan, candidate_words, recovery, seed_key,
+                staking_words,
+            },
+        };
+        use abci::{fallback::FallbackKeys, key::ConsensusKey, staking};
+
+        /// The key of seed `seed`.
+        fn key(seed: u8) -> ConsensusKey {
+            public_key(&seed_key(seed))
+        }
+
+        /// Slots 278 and 279 of every L1 state: the origin list's hash, and the minimum total
+        /// stake `minimum` gives the state's block number.
+        fn anchor_minimum(minimum: impl Fn(u64) -> U256 + 'static) -> PlannedAnchorWords {
+            Box::new(move |number, origin| (origin.hash(), minimum(number)))
+        }
+
+        /// A minimum total stake of 1000 at L1 11, which anchors heights 7 to 22, and 2^256 − 1
+        /// at every other L1 block.
+        fn usable_at_11(number: u64) -> U256 {
+            if number == 11 { U256::from(1000) } else { U256::MAX }
+        }
+
+        /// The validator set of `members`.
+        fn set(members: &[(ConsensusKey, u64)]) -> Validators {
+            Validators::from_powers(members).unwrap()
+        }
+
+        /// The default fixture candidate over the origin list `origin`: its key `i` at power
+        /// `i + 1`.
+        fn default_candidate(origin: &FallbackKeys) -> Vec<(ConsensusKey, u64)> {
+            (1..).zip(origin.keys()).map(|(power, key)| (*key, power)).collect()
+        }
+
+        /// The candidate after `height` whose seat `i` holds origin key `i` at power
+        /// `i + 1 + height`.
+        fn growing_members(height: u64, origin: &FallbackKeys) -> Vec<(ConsensusKey, u64)> {
+            (1..).zip(origin.keys()).map(|(power, key)| (*key, power + height)).collect()
+        }
+
+        /// The staking words of [`growing_members`], taken at `height`.
+        fn growing_candidate(height: u64, origin: &FallbackKeys) -> Vec<(B256, U256)> {
+            let members = growing_members(height, origin);
+            candidate_words(U256::from(height), U256::from(1000 + height), &members)
+        }
+
+        /// The candidate snapshot `words` hold.
+        fn snapshot_of(words: &[(B256, U256)]) -> staking::StakingWords {
+            let words = words.iter().copied().collect::<BTreeMap<_, _>>();
+            let values =
+                staking::snapshot_slots().map(|slot| words.get(&slot).copied().unwrap_or_default());
+            staking::StakingWords::from_snapshot_values(&values).unwrap()
+        }
+
+        /// The batch above `fixture`'s checkpoint, of at most `blocks` blocks.
+        async fn batch(fixture: &Arc<Fixture>, blocks: usize) -> Result<PreparedBatch> {
+            let request =
+                builder(fixture.clone(), limits(blocks)).prepare(fixture.snapshot.clone()).await?;
+            Ok(request.expect("blocks above the checkpoint").batch)
+        }
+
+        /// The forward state after the blocks above `fixture`'s checkpoint up to `to`.
+        async fn forward_to(fixture: &Arc<Fixture>, to: u64) -> Result<ForwardState> {
+            let b = builder(fixture.clone(), limits(20));
+            let snapshot = &fixture.snapshot;
+            let start = b.checkpoint(snapshot).await?;
+            let mut state = ForwardState::new(&start, snapshot)?;
+            for height in snapshot.checkpoint_height + 1..=to {
+                b.authenticate_block(snapshot, &mut state, &fixture.blocks[&height]).await?;
+            }
+            Ok(state)
+        }
+
+        /// The `missBitmap` in block `height`'s `extraData`.
+        fn header_bitmap(fixture: &Fixture, height: u64) -> u128 {
+            rules::decode_extra_data(&fixture.headers[&height].extra_data).unwrap().miss_bitmap
+        }
+
+        /// The candidate signs 9 to 24, decided at 7 to 22 under L1 11's minimum total stake of
+        /// 1000; the origin keys sign before and after, decided under the 2^256 − 1 of L1 10 and
+        /// L1 12. Both switches are commit heights of the batch (6, 24]: 8 inside it, and its end
+        /// 24, whose header names the origin keys as the next set. The batch (6, 8] ends on the
+        /// first switch. A header naming the set the chain did not switch to is refused.
+        #[tokio::test]
+        async fn mode_switch_inside_a_batch_and_at_its_end() {
+            let plan = || SigningPlan {
+                anchor_words: anchor_minimum(usable_at_11),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(6, 24, plan());
+            let origin = fixture.committees[&0].validators.clone();
+            let candidate = set(&default_candidate(&fixture.origin_keys));
+            assert_ne!(origin, candidate);
+            for (height, expected) in
+                [(8, &origin), (9, &candidate), (24, &candidate), (25, &origin)]
+            {
+                assert_eq!(&fixture.signing_sets[&height].validators, expected, "height {height}");
+            }
+            let fixture = Arc::new(fixture);
+            let whole = batch(&fixture, 18).await.unwrap();
+            assert_eq!(whole.input.lastHeight, U256::from(24));
+            assert_eq!(whole.commit_heights, [8, 24]);
+            let first = batch(&fixture, 2).await.unwrap();
+            assert_eq!(first.input.lastHeight, U256::from(8));
+            assert_eq!(first.commit_heights, [8]);
+
+            for height in [8, 24] {
+                let mut forged = Fixture::with_plan(6, 24, plan());
+                let unswitched = forged.signing_sets[&height].validators.hash();
+                forged.blocks.get_mut(&height).unwrap().block.header.next_validators_hash =
+                    unswitched;
+                reseal_from(&mut forged, height);
+                let error = batch(&Arc::new(forged), 18).await.unwrap_err();
+                let reason = format!("next validator hash disagrees at height {height}");
+                assert!(
+                    matches!(&error, LanderError::Safety(message) if message.contains(&reason)),
+                    "{error}"
+                );
+            }
+        }
+
+        /// Under a minimum total stake of 0 at every anchor, a candidate whose powers grow with
+        /// the height signs every height from 3 on, each with a set of its own, so every height
+        /// of a batch is a commit height; only the origin keys sign both 1 and 2.
+        #[tokio::test]
+        async fn power_change_at_every_height() {
+            let plan = || SigningPlan {
+                anchor_words: anchor_minimum(|_| U256::ZERO),
+                staking: Box::new(growing_candidate),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(18, 24, plan());
+            for height in 3..=26 {
+                let expected = growing_members(height - 2, &fixture.origin_keys);
+                assert_eq!(fixture.signing_sets[&height].members, expected, "height {height}");
+            }
+            let deep = batch(&Arc::new(fixture), 6).await.unwrap();
+            assert_eq!(deep.commit_heights, (19..=24).collect::<Vec<_>>());
+            let first = batch(&Arc::new(Fixture::with_plan(0, 6, plan())), 6).await.unwrap();
+            assert_eq!(first.commit_heights, [2, 3, 4, 5, 6]);
+        }
+
+        /// The decider's candidate cases driven through the lander: the snapshot of height 19
+        /// decides, under L1 11's minimum total stake M, the set that signs 21, and the lander
+        /// derives it from the staking proof of 19's post-state as the fixture's chain did. Every
+        /// other height L1 11 anchors falls back, its total stake below M.
+        #[tokio::test]
+        async fn candidate_cases_table() {
+            /// One candidate at height 19 under the minimum total stake `minimum`, and the
+            /// members it signs 21 with, if it is usable.
+            struct Case {
+                name: &'static str,
+                minimum: U256,
+                snapshot_height: U256,
+                total: U256,
+                records: Vec<(u8, [U256; 2])>,
+                signs: Option<Vec<(ConsensusKey, u64)>>,
+            }
+            let m = U256::from(1_000_000);
+            let max = abci::committee::MAX_TOTAL_POWER;
+            let (k1, k2) = (key(1), key(2));
+            let record = |key: ConsensusKey, power: u64| {
+                [U256::from_be_bytes(key.x().0), U256::from(key.prefix()) | U256::from(power) << 8]
+            };
+            // A snapshot of 19 with a total stake of M, under M.
+            let case = |name, records, signs| Case {
+                name,
+                minimum: m,
+                snapshot_height: U256::from(19),
+                total: m,
+                records,
+                signs,
+            };
+            let k1_at_5 = || vec![(0, record(k1, 5))];
+            let cases = [
+                case("usable at the minimum", k1_at_5(), Some(vec![(k1, 5)])),
+                Case {
+                    total: m - U256::from(1),
+                    ..case("total below the minimum", k1_at_5(), None)
+                },
+                Case {
+                    snapshot_height: U256::from(18),
+                    ..case("snapshot of the height below", k1_at_5(), None)
+                },
+                Case {
+                    snapshot_height: U256::from((1u64 << 48) | 19),
+                    ..case("snapshot height with bit 48 set", k1_at_5(), None)
+                },
+                Case {
+                    minimum: U256::MAX,
+                    total: U256::MAX,
+                    ..case("maximal minimum, maximal total", k1_at_5(), None)
+                },
+                Case {
+                    minimum: U256::MAX - U256::from(1),
+                    total: U256::MAX,
+                    ..case(
+                        "minimum below the maximum, maximal total",
+                        k1_at_5(),
+                        Some(vec![(k1, 5)]),
+                    )
+                },
+                case("record in seat 70", vec![(70, record(k1, 5))], Some(vec![(k1, 5)])),
+                case("power 250,000", vec![(0, record(k1, 250_000))], Some(vec![(k1, 250_000)])),
+                case(
+                    "unused bit 72 in the second word",
+                    vec![(0, {
+                        let [x, packed] = record(k1, 250_000);
+                        [x, packed | U256::from(1) << 72]
+                    })],
+                    None,
+                ),
+                case(
+                    "key word without prefix or power",
+                    vec![(0, [record(k1, 5)[0], U256::ZERO])],
+                    None,
+                ),
+                case("zero power", vec![(0, record(k1, 0))], None),
+                case("repeated key", vec![(0, record(k1, 5)), (1, record(k1, 6))], None),
+                case(
+                    "prefix 4",
+                    vec![(0, [record(k1, 5)[0], U256::from(4) | U256::from(5) << 8])],
+                    None,
+                ),
+                case("no member", vec![], None),
+                case(
+                    "powers summing to the maximum",
+                    vec![(0, record(k1, max - 1)), (1, record(k2, 1))],
+                    Some(vec![(k1, max - 1), (k2, 1)]),
+                ),
+                case(
+                    "powers summing above the maximum",
+                    vec![(0, record(k1, max)), (1, record(k2, 1))],
+                    None,
+                ),
+            ];
+            for Case { name, minimum, snapshot_height, total, records, signs } in cases {
+                let mut words = vec![
+                    (staking::snapshot_height_slot(), snapshot_height),
+                    (staking::snapshot_total_stake_slot(), total),
+                ];
+                for (seat, pair) in records {
+                    words.extend(staking::record_slots(seat).into_iter().zip(pair));
+                }
+                let plan =
+                    SigningPlan {
+                        anchor_words: anchor_minimum(move |number| {
+                            if number == 11 { minimum } else { U256::MAX }
+                        }),
+                        staking: Box::new(move |height, origin| {
+                            if height == 19 { words.clone() } else { staking_words(height, origin) }
+                        }),
+                        ..SigningPlan::default()
+                    };
+                let fixture = Fixture::with_plan(18, 24, plan);
+                let origin = fixture.committees[&0].validators.clone();
+                let decided = signs.as_deref().map_or(origin, set);
+                assert_eq!(fixture.signing_sets[&21].validators, decided, "{name}");
+                let fixture = Arc::new(fixture);
+                let state = forward_to(&fixture, 20).await.unwrap();
+                assert_eq!(state.signers, decided, "{name}");
+                let heights = batch(&fixture, 6).await.unwrap().commit_heights;
+                let changes = if signs.is_some() { vec![20, 21, 24] } else { vec![24] };
+                assert_eq!(heights, changes, "{name}");
+            }
+        }
+
+        /// At p = o the origin list signs o + 1 and o + 2, whatever o's state and anchor hold:
+        /// generation 0's anchors here prove a minimum total stake of 0, under which o's own
+        /// snapshot is usable, yet the candidate signs only from 3 on. No staking read is made
+        /// at o, and a recovery generation's start c reads nothing at c either.
+        #[tokio::test]
+        async fn p_equal_o_uses_the_origin_list() {
+            let plan = SigningPlan {
+                anchor_words: anchor_minimum(|_| U256::ZERO),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(0, 6, plan);
+            let origin = fixture.committees[&0].validators.clone();
+            let at_o = snapshot_of(&staking_words(0, &fixture.origin_keys));
+            assert!(abci::committee::usable_candidate(0, &at_o, U256::ZERO).is_some());
+            assert_eq!(fixture.signing_sets[&2].validators, origin);
+            let candidate = set(&default_candidate(&fixture.origin_keys));
+            assert_eq!(fixture.signing_sets[&3].validators, candidate);
+            let source = TrackingSource::new(fixture);
+            let b = source.builder(6);
+            let snapshot = source.fixture().snapshot.clone();
+            let start = b.checkpoint(&snapshot).await.unwrap();
+            assert!(start.parent_signers.is_none());
+            assert_eq!(start.signers, origin);
+            let request = b.prepare(snapshot).await.unwrap().unwrap();
+            assert_eq!(request.batch.commit_heights, [2, 6]);
+            let fixture = source.fixture();
+            let reads =
+                (1..=5).map(|height| fixture.headers[&height].hash_slow()).collect::<Vec<_>>();
+            assert_eq!(*source.staking_reads.lock().unwrap(), reads);
+
+            let source = TrackingSource::new(recovery::fixture(8, 6, 12).await);
+            let b = source.builder(12);
+            let snapshot = source.fixture().snapshot.clone();
+            let start = b.checkpoint(&snapshot).await.unwrap();
+            assert!(start.parent_signers.is_none());
+            assert_eq!(start.signers, set(&recovery::origin_keys().validator_set()));
+            let request = b.prepare(snapshot).await.unwrap().unwrap();
+            assert_eq!(request.batch.input.lastHeight, U256::from(12));
+            assert_eq!(request.batch.commit_heights, [12]);
+            let fixture = source.fixture();
+            let reads =
+                (7..=11).map(|height| fixture.headers[&height].hash_slow()).collect::<Vec<_>>();
+            assert_eq!(*source.staking_reads.lock().unwrap(), reads);
+        }
+
+        /// At p = o + 1 the set that signs p is the Comet node's answer at p, checked against
+        /// header(p), but the set that signs p + 1 = o + 2 is the origin list: the node's answer
+        /// at p + 1, another set here, is never read.
+        #[tokio::test]
+        async fn p_equal_o_plus_1_takes_p_plus_1_from_the_origin() {
+            let origin = set(&recovery::origin_keys().validator_set());
+            let other = vec![(key(9), 1)];
+            let mut recovered = recovery::fixture(8, 7, 12).await;
+            recovered.validator_answers.insert(8, other.clone());
+            let recovered = Arc::new(recovered);
+            let b = builder(recovered.clone(), limits(12));
+            let start = b.checkpoint(&recovered.snapshot).await.unwrap();
+            assert_eq!(start.parent_signers.as_ref(), Some(&origin));
+            assert_eq!(start.signers, origin);
+            assert!(b.prepare(recovered.snapshot.clone()).await.unwrap().is_some());
+
+            let mut recovered = recovery::fixture(8, 7, 12).await;
+            recovered.validator_answers.insert(7, other);
+            let recovered = Arc::new(recovered);
+            let error = builder(recovered.clone(), limits(12))
+                .validate_checkpoint(&recovered.snapshot)
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(&error, LanderError::Safety(message) if message.contains("validators of height 7")),
+                "{error}"
+            );
+        }
+
+        /// Deep in a generation the sets that sign p and p + 1 are the Comet node's answers at p
+        /// and p + 1, checked against header(p): with powers growing every height they are the
+        /// candidates decided at p − 2 and p − 1, neither of them the origin list. p + 1's
+        /// LastCommit verifies against the first and its commit against the second.
+        #[tokio::test]
+        async fn p_deep_in_a_generation_uses_validators_of_p_and_p_plus_1() {
+            let plan = SigningPlan {
+                anchor_words: anchor_minimum(|_| U256::ZERO),
+                staking: Box::new(growing_candidate),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(18, 24, plan);
+            let at_p = set(&growing_members(16, &fixture.origin_keys));
+            let at_p1 = set(&growing_members(17, &fixture.origin_keys));
+            let at_p2 = set(&growing_members(18, &fixture.origin_keys));
+            let origin = fixture.committees[&0].validators.clone();
+            assert!(at_p != origin && at_p1 != origin && at_p != at_p1);
+            let fixture = Arc::new(fixture);
+            let start =
+                builder(fixture.clone(), limits(6)).checkpoint(&fixture.snapshot).await.unwrap();
+            assert_eq!(start.parent_signers.as_ref(), Some(&at_p));
+            assert_eq!(start.signers, at_p1);
+            assert_eq!(start.origin, origin);
+            let state = forward_to(&fixture, 19).await.unwrap();
+            assert_eq!(state.parent_signers, Some(at_p1));
+            assert_eq!(state.signers, at_p2);
+        }
+
+        /// A Comet node's `/validators` answer at p or p + 1 that does not hash to header(p)'s
+        /// `validators_hash` or `next_validators_hash` is refused as `Safety`: another key, the
+        /// right keys with one power changed, or no member at all.
+        #[tokio::test]
+        async fn validators_answer_with_another_hash_is_safety() {
+            let mut repowered = Fixture::new(18, 24).signing_sets[&18].members.clone();
+            repowered[0].1 += 1;
+            for (height, what) in
+                [(18, "with the validator hash"), (19, "with the next validator hash")]
+            {
+                for answer in [vec![(key(9), 1)], repowered.clone(), vec![]] {
+                    let mut fixture = Fixture::new(18, 24);
+                    fixture.validator_answers.insert(height, answer);
+                    let fixture = Arc::new(fixture);
+                    let error = builder(fixture.clone(), limits(6))
+                        .validate_checkpoint(&fixture.snapshot)
+                        .await
+                        .unwrap_err();
+                    let named = format!("validators of height {height}");
+                    assert!(
+                        matches!(&error, LanderError::Safety(message) if message.contains(&named) && message.contains(what)),
+                        "{error}"
+                    );
+                }
+            }
+        }
+
+        /// The set that signs p + 2 is decided at p from the staking proof of p's post-state,
+        /// read at p's hash and verified under p's EL state root, and from the minimum total
+        /// stake and fallback key list p's anchor (L1 11 for p = 18) proves: its usable candidate,
+        /// otherwise that list's keys at power 1, the origin list's or a later one, as for a total
+        /// stake below the minimum or a snapshot of p − 1. A proof of another state is refused.
+        #[tokio::test]
+        async fn p_staking_usable_candidate_fallback_and_stale_snapshot() {
+            #[derive(Clone, Copy, Debug)]
+            enum Signs {
+                Candidate,
+                Origin,
+                Later,
+            }
+            let later = fallback_keys(&[0x41, 0x42, 0x43].map(seed_key));
+            let plan = |minimum: u64, list: Option<B256>, stale: bool| SigningPlan {
+                extra_keys: vec![0x41, 0x42, 0x43],
+                lists: vec![later.clone()],
+                anchor_words: Box::new(move |number, origin| {
+                    if number == 11 {
+                        (list.unwrap_or_else(|| origin.hash()), U256::from(minimum))
+                    } else {
+                        (origin.hash(), U256::MAX)
+                    }
+                }),
+                staking: Box::new(move |height, origin| {
+                    let taken = if stale && height == 18 { 17 } else { height };
+                    let members = default_candidate(origin);
+                    candidate_words(U256::from(taken), U256::from(1000 + height), &members)
+                }),
+                ..SigningPlan::default()
+            };
+            for (minimum, list, stale, signs) in [
+                (1000, None, false, Signs::Candidate),
+                (1_000_000, None, false, Signs::Origin),
+                (1000, None, true, Signs::Origin),
+                (1_000_000, Some(later.hash()), false, Signs::Later),
+            ] {
+                let source =
+                    TrackingSource::new(Fixture::with_plan(18, 24, plan(minimum, list, stale)));
+                let fixture = source.fixture();
+                let expected = match signs {
+                    Signs::Candidate => set(&default_candidate(&fixture.origin_keys)),
+                    Signs::Origin => fixture.committees[&0].validators.clone(),
+                    Signs::Later => set(&later.validator_set()),
+                };
+                assert_eq!(fixture.signing_sets[&20].validators, expected, "{signs:?}");
+                let b = source.builder(6);
+                let snapshot = fixture.snapshot.clone();
+                let start = b.checkpoint(&snapshot).await.unwrap();
+                let mut state = ForwardState::new(&start, &snapshot).unwrap();
+                b.authenticate_block(&snapshot, &mut state, &fixture.blocks[&19]).await.unwrap();
+                assert_eq!(state.signers, expected, "{signs:?}");
+                assert_eq!(
+                    *source.staking_reads.lock().unwrap(),
+                    [fixture.headers[&18].hash_slow()],
+                    "{signs:?}"
+                );
+                assert!(b.prepare(snapshot).await.unwrap().is_some(), "{signs:?}");
+            }
+
+            let mut fixture = Fixture::with_plan(18, 24, plan(1000, None, false));
+            let below = fixture.l2_states[&17].clone();
+            fixture.l2_states.insert(18, below);
+            let fixture = Arc::new(fixture);
+            let error = batch(&fixture, 6).await.unwrap_err();
+            assert!(
+                matches!(&error, LanderError::Safety(message) if message.contains("staking proof at L2 18")),
+                "{error}"
+            );
+        }
+
+        /// Each block's `missBitmap` must be the one its LastCommit gives: an absent precommit
+        /// in 21's LastCommit and a nil one in 22's, each by an origin key the parent's
+        /// post-state seats, set that seat's bit, and a header carrying another bitmap is refused
+        /// as `Safety`, inside the batch and at its end.
+        #[tokio::test]
+        async fn wrong_miss_bitmap_is_a_safety_error() {
+            let plan = || SigningPlan {
+                origin_keys: 4,
+                missing: Box::new(|height| match height {
+                    21 => vec![Missing::Absent(1)],
+                    22 => vec![Missing::Nil(2)],
+                    _ => vec![],
+                }),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(18, 22, plan());
+            // The default script seats origin key i in seat i at every height.
+            let seat = |height: u64, index: usize| {
+                let validator = &fixture.signing_sets[&(height - 1)].validators.validators()[index];
+                fixture.origin_keys.keys().iter().position(|key| *key == validator.pub_key).unwrap()
+            };
+            let (at_21, at_22) = (1u128 << seat(21, 1), 1u128 << seat(22, 2));
+            assert_eq!(header_bitmap(&fixture, 21), at_21);
+            assert_eq!(header_bitmap(&fixture, 22), at_22);
+            let last = fixture.blocks[&22].block.last_commit.as_ref().unwrap();
+            assert!(matches!(last.signatures[2], crate::native::CommitSig::BlockIdFlagNil { .. }));
+            assert!(batch(&Arc::new(fixture), 4).await.is_ok());
+
+            for (height, expected, wrong) in
+                [(21, at_21, 0), (22, at_22, 0), (22, at_22, at_22 | 1 << 127)]
+            {
+                let mut forged = Fixture::with_plan(18, 22, plan());
+                alter_envelope(&mut forged, height, |envelope| {
+                    let header = &mut envelope.block.header;
+                    let mut extra = rules::decode_extra_data(&header.extra_data).unwrap();
+                    extra.miss_bitmap = wrong;
+                    header.extra_data = rules::encode_extra_data(&extra).unwrap();
+                });
+                // Block 22 no longer links to an altered 21, so that batch ends at 21.
+                let error = batch(&Arc::new(forged), (height - 18) as usize).await.unwrap_err();
+                let violation =
+                    rules::RuleViolation::MissBitmap { expected, got: wrong }.to_string();
+                assert!(
+                    matches!(&error, LanderError::Safety(message) if message.contains(&violation)),
+                    "{error}"
+                );
+            }
+        }
+
+        /// p + 1's `missBitmap` is taken over the set that signs p, the Comet node's answer at
+        /// p, in its CometBFT order, with the seats of p's post-state: the candidate signs 18 and
+        /// the origin keys 19 (17's total stake is below the minimum), the seats rotate every
+        /// height, and the second validator of 18's set, of power 3, is absent from 19's
+        /// LastCommit.
+        #[tokio::test]
+        async fn miss_bitmap_of_p_plus_1_uses_the_set_of_p() {
+            /// The default candidate, with a total stake of 0 at 17 and origin key `i` seated in
+            /// seat `(i + height) mod 4`.
+            fn rotating(height: u64, origin: &FallbackKeys) -> Vec<(B256, U256)> {
+                let total = if height == 17 { 0 } else { 1000 + height };
+                let members = default_candidate(origin);
+                let mut words = candidate_words(U256::from(height), U256::from(total), &members);
+                for (i, key) in (0u64..).zip(origin.keys()) {
+                    let seat = U256::from((i + height) % 4);
+                    words.push((
+                        staking::key_to_seat_slot(key.address()),
+                        U256::from(1) | seat << 8,
+                    ));
+                }
+                words
+            }
+            let plan_fixture = || {
+                Fixture::with_plan(
+                    18,
+                    24,
+                    SigningPlan {
+                        origin_keys: 4,
+                        anchor_words: anchor_minimum(usable_at_11),
+                        staking: Box::new(rotating),
+                        missing: Box::new(|height| {
+                            if height == 19 { vec![Missing::Absent(1)] } else { vec![] }
+                        }),
+                        ..SigningPlan::default()
+                    },
+                )
+            };
+            let fixture = plan_fixture();
+            let candidate = set(&default_candidate(&fixture.origin_keys));
+            assert_eq!(fixture.signing_sets[&18].validators, candidate);
+            assert_eq!(fixture.signing_sets[&19].validators, fixture.committees[&0].validators);
+            let absent = &candidate.validators()[1];
+            assert_eq!(absent.power(), 3);
+            let index = (0u64..)
+                .zip(fixture.origin_keys.keys())
+                .find_map(|(i, key)| (*key == absent.pub_key).then_some(i))
+                .unwrap();
+            let at_p = 1u128 << ((index + 18) % 4);
+            assert_eq!(header_bitmap(&fixture, 19), at_p);
+            // The second validator of 19's own set, the origin keys in address order.
+            let second = &fixture.committees[&0].validators.validators()[1];
+            let second = (0u64..)
+                .zip(fixture.origin_keys.keys())
+                .find_map(|(i, key)| (*key == second.pub_key).then_some(i))
+                .unwrap();
+            let whole = batch(&Arc::new(fixture), 6).await.unwrap();
+            assert_eq!(whole.input.lastHeight, U256::from(24));
+
+            // The bitmap the seats of 19's post-state give, and the one the second validator of
+            // 19's own set gives, are refused.
+            for wrong in [1u128 << ((index + 19) % 4), 1u128 << ((second + 18) % 4)] {
+                assert_ne!(wrong, at_p);
+                let mut forged = plan_fixture();
+                alter_envelope(&mut forged, 19, |envelope| {
+                    let header = &mut envelope.block.header;
+                    let mut extra = rules::decode_extra_data(&header.extra_data).unwrap();
+                    extra.miss_bitmap = wrong;
+                    header.extra_data = rules::encode_extra_data(&extra).unwrap();
+                });
+                // Block 20 no longer links to the altered 19: a one-block batch.
+                let error = batch(&Arc::new(forged), 1).await.unwrap_err();
+                let violation =
+                    rules::RuleViolation::MissBitmap { expected: at_p, got: wrong }.to_string();
+                assert!(
+                    matches!(&error, LanderError::Safety(message) if message.contains(&violation)),
+                    "{error}"
+                );
+            }
+        }
+
+        /// Only a change of keys or powers is a commit height: the candidate holds the origin
+        /// keys at power 1, as the fallback key set does, but for the first key at power 2 in
+        /// 20's snapshot, and 19's total stake is below the minimum. The switch to the fallback
+        /// keys at 21 and back at 22 changes no key or power and adds no commit height; the power
+        /// change at 22 and back at 23 adds 21 and 22.
+        #[tokio::test]
+        async fn commit_heights_include_only_set_changes() {
+            /// Origin keys at power 1, the first at 2 at height 20, with a total stake of 0 at 19.
+            fn flat(height: u64, origin: &FallbackKeys) -> Vec<(B256, U256)> {
+                let total = if height == 19 { 0 } else { 1000 + height };
+                let members = (0..)
+                    .zip(origin.keys())
+                    .map(|(i, key)| (*key, if i == 0 && height == 20 { 2 } else { 1 }))
+                    .collect::<Vec<_>>();
+                candidate_words(U256::from(height), U256::from(total), &members)
+            }
+            let plan = SigningPlan {
+                anchor_words: anchor_minimum(usable_at_11),
+                staking: Box::new(flat),
+                ..SigningPlan::default()
+            };
+            let fixture = Fixture::with_plan(18, 24, plan);
+            let origin = fixture.committees[&0].validators.clone();
+            for height in [19, 20, 21, 23, 24, 25] {
+                assert_eq!(fixture.signing_sets[&height].validators, origin, "height {height}");
+            }
+            assert_ne!(fixture.signing_sets[&22].validators, origin);
+            let at_19 = snapshot_of(&flat(19, &fixture.origin_keys));
+            assert!(abci::committee::usable_candidate(19, &at_19, U256::from(1000)).is_none());
+            let at_20 = snapshot_of(&flat(20, &fixture.origin_keys));
+            assert!(abci::committee::usable_candidate(20, &at_20, U256::from(1000)).is_some());
+            let heights = batch(&Arc::new(fixture), 6).await.unwrap().commit_heights;
+            assert_eq!(heights, [21, 22, 24]);
+        }
     }
 }
 
