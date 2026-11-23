@@ -456,6 +456,12 @@ def check_etna_config(config, alloc, predeploys, l1_inbox, l1_taiko_token):
                              "getConstantAddress(" + prefix + str(config["chainId"]) + ", "
                              + str(suffix) + ") = " + expected + ", where the EL and the "
                              "clients expect it")
+    # The staking token is the BridgedTaikoToken proxy. A bridged token may refuse transfers to
+    # its own address, so the constructor refuses it as the slash sink.
+    token = address(config["contractAddresses"]["BridgedTaikoToken"])
+    if params["slashSink"] == token:
+        raise ValueError("predeploy config: etna.slashSink must not be the staking token, the "
+                         "BridgedTaikoToken proxy " + token)
     if not devnet and not has_code(params["stakingOwner"], alloc, predeploys):
         raise ValueError("predeploy config: etna.stakingOwner " + params["stakingOwner"]
                          + " holds no code in the genesis; outside a devnet it must be the DAO's "

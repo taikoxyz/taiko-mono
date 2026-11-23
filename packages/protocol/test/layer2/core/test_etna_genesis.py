@@ -611,6 +611,17 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         self.predeploys = self.fixture.predeploys(staking={"slashSink": self.fixture.word(0)})
         self._assert_refused("EtnaStakingImpl slashSink is " + self.fixture.word(0) + ", not "
                              + self.fixture.address_word(self.fixture.SLASH_SINK))
+        # A slash sink that is the staking token, which the constructor also refuses.
+        token = self.addresses["BridgedTaikoToken"]
+        self.setUp()
+        self._etna(slashSink=token)
+        self._assert_refused("predeploy config: etna.slashSink must not be the staking token, the "
+                             "BridgedTaikoToken proxy " + token.lower())
+        self.setUp()
+        self.predeploys = self.fixture.predeploys(
+            staking={"slashSink": self.fixture.address_word(token)})
+        self._assert_refused("EtnaStakingImpl slashSink is " + self.fixture.address_word(token)
+                             + ", not " + self.fixture.address_word(self.fixture.SLASH_SINK))
 
     def test_refuses_etna_immutables_other_than_the_configuration(self):
         # Every immutable of both Etna implementations is pinned, also to values the constructor

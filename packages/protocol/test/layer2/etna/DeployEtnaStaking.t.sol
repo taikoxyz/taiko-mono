@@ -117,6 +117,13 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
         // `init` would make a zero owner the deployer contract itself.
         vm.expectRevert(EtnaStakingDeployer.ZeroOwner.selector);
         new EtnaStakingDeployer(cfg, address(0));
+        // The factory reverts without data when the constructor refuses the configuration.
+        IEtnaStaking.Config memory sinkIsToken = _config();
+        sinkIsToken.slashSink = sinkIsToken.token;
+        vm.expectRevert(IEtnaStaking.SlashSinkIsToken.selector);
+        new EtnaStakingDeployer(sinkIsToken, STAKING_OWNER);
+        vm.expectRevert(DeployEtnaStaking.DeploymentFailed.selector);
+        _script.deploy(sinkIsToken, STAKING_OWNER, _SALT, _UNSETTLED_LIMIT, _EVIDENCE_WINDOW);
 
         _setEnvironment();
         vm.setEnv("L2_CHAIN_ID", vm.toString(block.chainid + 1));

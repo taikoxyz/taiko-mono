@@ -115,8 +115,8 @@ contract DeployEtnaStaking is Script {
     /// `withdrawalDelay` is below U + 2 + `_evidenceWindowBlocks` (these three are
     /// `LibEtnaStakingEnv.checkWithdrawalDelay`'s) or the deployer already exists. The factory
     /// reverts without data when a constructor reverts, so `DeploymentFailed` also covers a
-    /// configuration that `EtnaStaking`'s constructor refuses with `InvalidConfig`, and a missing
-    /// factory.
+    /// configuration that `EtnaStaking`'s constructor refuses with `InvalidConfig` or
+    /// `SlashSinkIsToken`, and a missing factory.
     /// @param _config The `EtnaStaking` configuration.
     /// @param _owner The proxy's owner, the DAO's execution address on L2.
     /// @param _salt The factory salt.

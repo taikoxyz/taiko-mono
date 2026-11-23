@@ -104,6 +104,13 @@ export function checkEtnaConfig(config: Config): EtnaParams {
             `contractAddresses.${name}`,
         );
     }
+    // The staking token is the BridgedTaikoToken proxy. A bridged token may refuse transfers to
+    // its own address, so the constructor refuses it as the slash sink.
+    if (params.slashSink === params.addresses.BridgedTaikoToken) {
+        throw new Error(
+            "genesis config: etna.slashSink must not be the staking token, the BridgedTaikoToken proxy",
+        );
+    }
     if (!Number.isInteger(config.l1ChainId) || config.l1ChainId <= 0) {
         throw new Error(
             "genesis config: l1ChainId must be a positive integer on an Etna network",

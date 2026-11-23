@@ -52,7 +52,8 @@ interface IEtnaStaking {
         /// 10,000 (zero is allowed).
         uint256 slashBountyBps;
         /// @notice The receiver of every slashed stake minus the bounty, of every missed-signature
-        /// penalty and of every forfeiture penalty; nonzero.
+        /// penalty and of every forfeiture penalty; nonzero and not `token`, since a bridged token
+        /// may refuse transfers to its own address, which would make every such transfer revert.
         address slashSink;
         /// @notice The responsibility-forfeiture rate in basis points, in [1, 10,000].
         uint256 forfeitBps;
@@ -440,6 +441,8 @@ interface IEtnaStaking {
 
     /// @notice A constructor parameter is zero or out of bounds.
     error InvalidConfig();
+    /// @notice The constructor's slash sink is the staking token.
+    error SlashSinkIsToken();
     /// @notice The stake is below `minStake`.
     error StakeTooLow();
     /// @notice The consensus key was registered before.

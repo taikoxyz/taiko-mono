@@ -153,7 +153,8 @@ the L1 chain id and `inbox`, the Etna Inbox proxy, which the double-sign chain d
 `vpUnit` at least 867,361,738 and `minStake` at least `vpUnit` with `minStake × nMax` ≥ 10^27,
 TAIKO's fixed supply; `nMax` in [1, 128]; `missLimit` in [1, 65,535]; `missSlashBps` and
 `forfeitBps` in [1, 10,000]; `slashBountyBps` below 10,000; `withdrawalDelay` in [1, 2^48) L2
-blocks; and a non-zero `slashSink`.
+blocks; and a non-zero `slashSink` other than `token` (`SlashSinkIsToken`), since a bridged token may
+refuse transfers to its own address, which would make every slash, forfeiture and penalty revert.
 
 - Seats: a bond holds one of the `nMax` seats exactly while it is issued, unwithdrawn, has no exit
   and has effStake ≥ `minStake`. It takes the lowest empty seat in the call that makes it meet these

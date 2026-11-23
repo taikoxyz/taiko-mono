@@ -151,6 +151,16 @@ contract EtnaStakingConstructorTest is EtnaStakingTestBase {
         _assertInvalidConfig(cfg, "l1 chain id");
     }
 
+    /// @dev A bridged token may refuse transfers to its own address, which would make every
+    /// slash, forfeiture and penalty transfer revert, and with it every block-start call that
+    /// penalizes a bond.
+    function test_constructor_RevertWhen_SlashSinkIsToken() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.slashSink = cfg.token;
+        vm.expectRevert(IEtnaStaking.SlashSinkIsToken.selector);
+        new EtnaStaking(cfg);
+    }
+
     // ---------------------------------------------------------------
     // init
     // ---------------------------------------------------------------

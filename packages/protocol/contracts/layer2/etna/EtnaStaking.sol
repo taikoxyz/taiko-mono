@@ -165,15 +165,17 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
 
     /// @notice Sets the staking contract's immutable parameters.
     /// @param _config The configuration: nonzero token, inbox, slash sink and L1 chain id;
-    /// 1 <= nMax <= 128; vpUnit >= 867,361,738; minStake >= vpUnit and minStake * nMax >= 10^27;
-    /// 1 <= missLimit <= 65,535; 0 < missSlashBps <= 10,000; slashBountyBps < 10,000;
-    /// 0 < forfeitBps <= 10,000; and 0 < withdrawalDelay < 2^48.
+    /// a slash sink other than the token; 1 <= nMax <= 128; vpUnit >= 867,361,738;
+    /// minStake >= vpUnit and minStake * nMax >= 10^27; 1 <= missLimit <= 65,535;
+    /// 0 < missSlashBps <= 10,000; slashBountyBps < 10,000; 0 < forfeitBps <= 10,000; and
+    /// 0 < withdrawalDelay < 2^48.
     constructor(Config memory _config) {
         require(
             _config.token != address(0) && _config.inbox != address(0)
                 && _config.slashSink != address(0) && _config.l1ChainId != 0,
             InvalidConfig()
         );
+        require(_config.slashSink != _config.token, SlashSinkIsToken());
         require(_config.nMax != 0 && _config.nMax <= MAX_SEATS, InvalidConfig());
         require(_config.vpUnit >= _MIN_VP_UNIT, InvalidConfig());
         require(_config.minStake >= _config.vpUnit, InvalidConfig());
