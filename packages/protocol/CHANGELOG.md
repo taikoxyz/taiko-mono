@@ -2,66 +2,61 @@
 
 ## Unreleased
 
-- Etna (BREAKING, spec #22425 at 178d7a7a6): staking moves to L2. The L1 `EtnaStakingRegistry` and
-  `IEtnaStakingRegistry`, `LibEntriesTree`, committees, epochs, committee 0 and its genesis cutoff,
-  the stored committee snapshot (slot 284, now reserved and never read or written), recovery
-  exclusions and the recovery capacity F are removed, with `stakingRegistry()`,
-  `activeCommitteeSnapshot()`, `genesisCommitteeRecordHash()`, `genesisCutoff()`,
-  `recoveryCapacity()`, `recoverySnapshot()`, `IEtnaInbox.CommitteeConfig` and the errors that
-  served them (`CommitteeSnapshotRegressed`, `ExclusionsNotSorted`, `InvalidCommitteeConfig`,
-  `InvalidEpochLength`, `InvalidGenesisCutoff`, `InvalidRecoveryCapacity`,
-  `RecoveryCapacityExceeded`, `RegistryLocked`, `RegistryMismatch`, `UnissuedExclusion` and
-  `ZeroCommitteeRecord`). `LibEtnaKeys` moves to `contracts/shared/etna` and `LibCometVote` to
-  `contracts/layer2/etna/libs`.
-- Etna (BREAKING, spec #22425 at 178d7a7a6): the new L2 `EtnaStaking` (`IEtnaStaking`) holds bonds of
-  bridged TAIKO in at most 128 seats: a bond takes the lowest empty seat while it is unwithdrawn,
-  has no exit and holds at least `minStake`. `register`, `topUp`, `requestExit`, `withdraw`,
-  `slashDoubleSign` (same selector; the chain domain binds the immutable L1 chain id and
-  `block.chainid`) and the owner's `forfeit` take bond ids as the registry's did, with no delayed
-  activation (`activateTopUp`) or exit confirmation (`confirmExit`). The system caller's
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the Etna contracts are added. On L1, `EtnaInbox`
+  (`IEtnaInbox`), its first implementation `EtnaInboxBootstrap` and `LibEtnaForcedInclusion`; on L2,
+  `EtnaStaking` (`IEtnaStaking`), `EtnaStakingDeployer` and `LibCometVote`
+  (`contracts/layer2/etna/libs`); and `LibEtnaKeys` (`contracts/shared/etna`), which both use.
+  Staking is on L2: `EtnaStaking` holds the bonds and writes the candidate snapshot, and the Inbox
+  holds the DAO fallback key set and `minTotalStake`. Inbox slot 284 is reserved and never read or
+  written.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): `EtnaStaking` holds bonds of bridged TAIKO in at most
+  128 seats: a bond takes the lowest empty seat while it is unwithdrawn, has no exit and holds at
+  least `minStake`. `register`, `topUp`, `requestExit`, `withdraw`, `slashDoubleSign` (selector
+  `0xd61617a4`; the chain domain binds the immutable L1 chain id and `block.chainid`) and the
+  owner's `forfeit` take bond ids, and a top-up or an exit takes effect in its own call, with no
+  separate activation or confirmation. The system caller's
   `onBlockStart(uint48 generation, uint128 missBitmap)` runs at the start of every Etna block: it
   counts consecutive misses, penalizes a seat at `missLimit` by `missSlashBps` of its stake, paying
   all penalties to `slashSink` in one transfer, and writes the candidate snapshot (128 seat
   records, `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
   `taiko.etna.staking`. The proof of possession signs an EIP-712 domain named `EtnaStaking`, on the
   L2 chain and the staking proxy. `forfeit(bondId, incidentId, validUntil)`, `forfeited(bondId)` and
-  `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by bond id alone, and
+  `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by the bond id, and
   `slashDoubleSign` checks both signers through the lifetime key lookup `bondForKey` without
-  decompressing the stored key.
+  decompressing the stored key. The constructor checks every immutable and refuses a `slashSink`
+  equal to `token` (`SlashSinkIsToken`), since a bridged token may refuse transfers to its own
+  address, which would make every slash, forfeiture and penalty revert.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the Inbox holds the DAO fallback key set and
   `minTotalStake`. Slot 278 is `fallbackKeysHash` and slot 279 `minTotalStake`, and the list itself
   is the dynamic array at slot 275. `setFallbackKeys(FallbackKey[])` (1 to 128 keys, strictly
   ascending by `ckPrefix ‖ ckX`, `InvalidFallbackKeys`), `setMinTotalStake(uint256)`,
   `getFallbackKeys()`, `fallbackKeysHash()`, `minTotalStake()`,
-  `FallbackKeysUpdated(bytes32 indexed, FallbackKey[])` and `MinTotalStakeUpdated(uint256)` are new.
-  `InitParams` takes `fallbackKeys` and `minTotalStake` instead of the epoch length, the genesis
-  cutoff, the committee record hash and the committee config, and `init` emits both events, in the
-  setters' order.
-- Etna (BREAKING, spec #22425 at 178d7a7a6): `configHash()` (slot 269, formerly
-  `committeeConfigHash()`) is keccak256 of the four words `bytes32("ETNA_CONFIG_V1")`, the L2 chain
-  id, the `EtnaStaking` proxy and U. `IEtnaInbox.Config` replaces `stakingRegistry` and
-  `recoveryCapacity` with `etnaStaking` and `unsettledLimit` (U in [1, 262,144],
-  `InvalidUnsettledLimit`), both with views, and `EtnaInitialized(configHash, etnaStaking,
-  unsettledLimit)` replaces the committee fields.
+  `FallbackKeysUpdated(bytes32 indexed, FallbackKey[])` and `MinTotalStakeUpdated(uint256)` manage
+  them. `InitParams` carries the initial `fallbackKeys` and `minTotalStake`, and `init` emits both
+  events, in the setters' order.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): `configHash()` (slot 269) is keccak256 of the four
+  words `bytes32("ETNA_CONFIG_V1")`, the L2 chain id, the `EtnaStaking` proxy and U.
+  `IEtnaInbox.Config` holds `etnaStaking` and `unsettledLimit` (U in [1, 262,144],
+  `InvalidUnsettledLimit`), both immutables with views, and `EtnaInitialized(configHash,
+  etnaStaking, unsettledLimit)` reports them.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the landing statement has 19 words (608 bytes) and
-  `LandInput` seven fields, without the committee snapshot (`land` selector `0x5185fd7a`), and
-  `maxBatchBlocks` may reach 12,952. `Landed(parentHeight, checkpointHeight, lastHeight, cutHash,
-  version)` drops the snapshot, and `Recovered(newGeneration, checkpointHeight, l1BlockNumber,
-  l1Timestamp, fallbackKeysHash, fiToClear)` carries the new origin's fallback key hash instead of
-  exclusions.
-- Etna (BREAKING, spec #22425 at 178d7a7a6): `recover(expectedGeneration, expectedC,
-  expectedRecoveryNonce, validUntil, fiToClear, rules)` takes six arguments, and a slot 290 origin
-  (`IEtnaInbox.Origin`) has four words, the fourth the slot 278 value when the record is written:
-  the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
+  `LandInput` seven fields (`land` selector `0x5185fd7a`), and `maxBatchBlocks` may reach 12,952.
+  `Landed(parentHeight, checkpointHeight, lastHeight, cutHash, version)` reports a landing, and
+  `Recovered(newGeneration, checkpointHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash,
+  fiToClear)` a recovery, with the new origin's fallback key hash.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the owner's `recover(expectedGeneration, expectedC,
+  expectedRecoveryNonce, validUntil, fiToClear, rules)` starts a new generation, and a slot 290
+  origin (`IEtnaInbox.Origin`) has four words, the fourth the slot 278 value when the record is
+  written: the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
   take `expectedGeneration` first and revert `GenerationMismatch` for any other generation.
-- Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors move to schema 10. The registry,
-  committee selection and committee config families and every epoch are gone: `val_state_chains`
-  has no `epoch_length` and its updates no `epoch`, since FinalizeBlock may return validator updates
-  at any height, and its largest set is 128 members. `extra_data` grows from 13 to 29 bytes,
-  `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case adds its
-  `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). `config` replaces
-  `committee_config`, and `fallback_keys`, `staking_layout`, `miss_bitmap`, `candidate` and
-  `on_block_start` are new.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors in `testdata/etna_vectors` are
+  schema 10. In `val_state_chains`, validator updates come at any height FinalizeBlock returns them,
+  and the largest set has 128 members. `extra_data` is 29 bytes,
+  `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case carries its
+  `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). Among the
+  families, `config` pins the config hash, `fallback_keys` the fallback key set, `staking_layout`
+  the staking storage, `on_block_start` the block-start call, and `miss_bitmap` and `candidate` the
+  nodes' and guests' missBitmap and candidate rules.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): a new network's genesis predeploys `EtnaStaking` at
   `getConstantAddress(chainId, 10003)` and its token, `BridgedTaikoToken`, at
   `getConstantAddress(chainId, 7)` (each implementation under the prefix "0"), configured by the
@@ -74,10 +69,10 @@
   addresses `predict` gives. `BuildEtnaReadinessL2Message` also requires `ETNA_STAKING`,
   `ETNA_STAKING_IMPL`, `ETNA_STAKING_OWNER`, `ETNA_UNSETTLED_LIMIT` and `EVIDENCE_WINDOW_BLOCKS` and
   checks the deployment's proxy and implementation code, owner and withdrawal bound.
-  `DeployEtnaDevnet` and `DeployEtnaSwitch` drop `deployRegistry()` and read `ETNA_STAKING`, and
-  `init` reads `ETNA_FALLBACK_KEYS` and `ETNA_MIN_TOTAL_STAKE`.
+  `DeployEtnaDevnet` and `DeployEtnaSwitch` read `ETNA_STAKING`, and `init` reads
+  `ETNA_FALLBACK_KEYS` and `ETNA_MIN_TOTAL_STAKE`.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the reference and default `minStake` is 7,812,500
-  TAIKO, so that 128 seats cover TAIKO's 10^27 supply, replacing the registry's 7,600,000.
+  TAIKO, so that 128 seats cover TAIKO's 10^27 supply.
   `withdrawalDelay` counts L2 blocks and must be at least U + 2 + the evidence window, which
   `DeployEtnaStaking`, the readiness builder and the genesis tooling check.
 - Etna (BREAKING, spec on main 360262975, #22422): `SignalService` takes a fourth constructor argument,
@@ -110,9 +105,8 @@
 - Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's
   `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
   state root from the SignalService checkpoint at S (`NotSwitching`, `ProposalsNotClosed`,
-  `UnzenNotFinalized`, `UnzenStartMismatch`). `IEtnaInbox.Config` has no `originWriter`, and `land`
-  reads no Unzen state. The Unzen checkpoint forwarder `saveCheckpoint` reverts `ForwardingClosed`
-  at every height once the start is written.
+  `UnzenNotFinalized`, `UnzenStartMismatch`), and `land` reads no Unzen state. The Unzen checkpoint
+  forwarder `saveCheckpoint` reverts `ForwardingClosed` at every height once the start is written.
 - Etna (BREAKING): double-sign evidence keeps stock CometBFT's encoding of present all-zero BlockID
   hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
   a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,

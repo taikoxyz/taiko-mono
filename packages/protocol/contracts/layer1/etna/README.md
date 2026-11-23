@@ -276,9 +276,11 @@ checked against c's slot 285 record. L1 never decodes the statement's preimage.
   ([ckPrefix, power]) whatever `nMax` is. On a switching network they also check the proxy's
   EIP-1967 implementation slot at S. The rest of the namespace, from T + 259 on, is the contract's
   own.
-- Packed words in both contracts lay out their fields from the least-significant bit: `ckPrefix`,
-  `holdsSeat` and `seat` take 8 bits, `power` 64 and every other field 48, and a wider value
-  reverts.
+- Packed words lay out their fields from the least-significant bit. Every field of an Inbox packed
+  word takes 48 bits. Of the `EtnaStaking` words above, the key-to-seat element packs `holdsSeat`
+  and `seat` in 8 bits each and record word 2 packs `ckPrefix` in 8 bits and `power` in 64. A value
+  too wide for one of these fields reverts. `EtnaStaking`'s own state, from T + 259 on, uses other
+  widths.
 - The machine-readable layout is the `layout` section of `testdata/etna_vectors/vectors.json` for
   the Inbox (every slot, mapping derivation and packing table) and its `staking_layout` section for
   `EtnaStaking`; `EtnaVectors.t.sol` and `EtnaStakingVectors.t.sol` check the contracts against
