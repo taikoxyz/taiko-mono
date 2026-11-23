@@ -139,6 +139,9 @@ where
     let mut state = fixed
         .origin_state(package.genesis.chain_id.clone(), origin_parent, origin_anchor)
         .map_err(candidate)?;
+    // The generation's genesis app_hash, which InitChain returns and header(o + 1) carries: the
+    // origin's EL hash with the validator state CometBFT builds from the genesis.
+    let genesis_app_hash = abci::valstate::app_hash(origin_hash, state.val_state.hash());
     // Source errors have no authority to assert a protocol contradiction; only checks against
     // own-finalized L1 and data authenticated by it can produce a terminal Safety classification.
     let mut blocks = blocks
@@ -217,6 +220,8 @@ where
     // absent when s is the window's first block.
     let mut terminal_root = None;
     let mut anchor_below = None;
+    // Header(s)'s app_hash, which must be the genesis app_hash at s = o + 1.
+    let mut terminal_app_hash = None;
     // The validator state after s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
     let mut val_state_before = None;
     let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
@@ -347,6 +352,7 @@ where
             terminal = Some(pair.commit.block_id);
             terminal_root = Some(env.block.header.state_root);
             anchor_below = latest_anchor.clone();
+            terminal_app_hash = Some(pair.block.header.app_hash.clone());
         }
         parent = env.block.header;
         latest_anchor = Some(anchor);
@@ -382,6 +388,12 @@ where
     // Header(s)'s next_validators_hash fixed the set that signs s + 1; where it comes from is
     // read from the origin record or the anchor of s - 1, which decided it.
     let next = next_signers(&fixed, landing.height, anchor_below.as_ref(), &before.next)?;
+    // The set checks compare keys and powers only. At s = o + 1 the whole validator state after o
+    // is the genesis one, so header(s) must carry the genesis app_hash.
+    let app_hash = terminal_app_hash.expect("the terminal block has a header");
+    if landing.height - 1 == origin && app_hash.as_bytes() != genesis_app_hash.as_slice() {
+        return Err(safety("header(o + 1)'s app_hash is not the generation's genesis app_hash"));
+    }
     super::window::verify_complete_window(
         w,
         &heights,

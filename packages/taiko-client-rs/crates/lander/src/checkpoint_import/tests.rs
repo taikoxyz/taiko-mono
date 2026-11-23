@@ -2418,6 +2418,52 @@ async fn set_for_s_plus_1_other_than_the_origin_keys_at_the_first_block_halts() 
     );
 }
 
+/// Header(o + 1) carries the generation's genesis app_hash, which InitChain returns: the origin's
+/// EL hash with the validator state CometBFT builds from the genesis. At generation zero and for a
+/// recovery, an import at s = o + 1 whose header commits that state imports. A header(o + 1) that
+/// commits the genesis sets with another proposer priority passes the set checks, which compare
+/// keys and powers only, but contradicts the genesis in authenticated facts, and the import halts.
+#[tokio::test]
+async fn first_block_app_hash_other_than_the_genesis_app_hash_halts() {
+    for recovery in [false, true] {
+        for forged in [false, true] {
+            let (mut fx, s, keys) = if recovery {
+                let fx = crate::test_utils::consensus_mpt::recovery::fixture(8, 7, 7).await;
+                (fx, 7, crate::test_utils::consensus_mpt::recovery::origin_keys())
+            } else {
+                let mut fx = Fixture::new(0, 1);
+                fx.advance_import_frontier(1, 0, 0);
+                let keys = fx.origin_keys.clone();
+                (fx, 1, keys)
+            };
+            let mut before = fx.val_states[&(s - 1)].clone();
+            assert_eq!(before, ValState::genesis(s - 1, &keys.validator_set()).unwrap());
+            if forged {
+                before.next.entries[0].priority += 1;
+                commit_terminal(&mut fx, s, &before, true);
+            }
+            let fx = std::sync::Arc::new(fx);
+            let package = if recovery {
+                recovery_package(&fx, s).await
+            } else {
+                import_package(&fx, s).await
+            };
+            let package = ImportPackage { validator_state: before.encode().into(), ..package };
+            let result = import_with(&fx, s, &package).await;
+            let case = format!("recovery {recovery}, forged {forged}");
+            if forged {
+                assert!(
+                    matches!(&result, Err(ImportError::Safety(m)) if m.contains("genesis app_hash")),
+                    "{case}: {:?}",
+                    result.map(|_| ())
+                );
+            } else {
+                assert_eq!(result.unwrap().val_state_before(), Some(&before), "{case}");
+            }
+        }
+    }
+}
+
 /// Under a minimum total stake of 1000, which every height's candidate reaches, the candidate in
 /// c + 1's post-state, the origin keys at powers 1 and 2, is usable at c + 1: FinalizeBlock(c + 1)
 /// returns updates, and the candidate signs c + 3. An import at s = c + 1 applies them once over
