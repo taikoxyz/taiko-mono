@@ -2648,6 +2648,8 @@ class VectorsTest(unittest.TestCase):
             "off_curve_key": "invalid_key",
             "duplicate_key": "duplicate_key",
             "power_sum": "power_sum",
+            "power_sum_max": None,
+            "power_sum_wraps": "power_sum",
             "record_at_seat_100": None,
             "empty": "no_members",
         }
@@ -2711,10 +2713,24 @@ class VectorsTest(unittest.TestCase):
         self.assertIn(0, words2("zero_prefix"))
         self.assertIn(0x02, words2("zero_power"))
         self.assertIn(uint(5), [r["word1"] for r in c["off_curve_key"]["records"]])
-        self.assertEqual(
-            sum(power for _, power, _ in map(record_member, c["power_sum"]["records"])),
-            MAX_POWER_SUM + 1,
-        )
+        def powers(name):
+            return [power for _, power, _ in map(record_member, c[name]["records"])]
+
+        # MAX = floor((2^63 - 1) / 8) = 2^60 - 1. The exact sum MAX + 1 is too much and exactly
+        # MAX is a valid set, so a reader that rejects at MAX fails `power_sum_max`.
+        self.assertEqual(MAX_POWER_SUM, 1_152_921_504_606_846_975)
+        self.assertEqual(MAX_POWER_SUM, 2**60 - 1)
+        self.assertEqual(sum(powers("power_sum")), MAX_POWER_SUM + 1)
+        self.assertEqual(sum(powers("power_sum_max")), MAX_POWER_SUM)
+        self.assertTrue(c["power_sum_max"]["usable"])
+        # 128 members at 2^57, one in every seat: the exact sum is 2^64, which a 64-bit sum wraps
+        # to 0, at most MAX, so a reader that wraps finds the set usable.
+        wide = c["power_sum_wraps"]
+        self.assertEqual([r["seat"] for r in wide["records"]], [str(s) for s in range(128)])
+        self.assertEqual(powers("power_sum_wraps"), [2**57] * 128)
+        self.assertEqual(sum(powers("power_sum_wraps")), 2**64)
+        self.assertLessEqual(sum(powers("power_sum_wraps")) % 2**64, MAX_POWER_SUM)
+        self.assertFalse(wide["usable"])
         self.assertIn("100", [r["seat"] for r in c["record_at_seat_100"]["records"]])
         self.assertEqual(c["empty"]["records"], [])
 

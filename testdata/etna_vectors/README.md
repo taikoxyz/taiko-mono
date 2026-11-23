@@ -213,17 +213,24 @@ calldata of the zero-parts-hash conflict; `governance_abi.slash_double_sign` rep
   seat in the parent (word 0); words that are not well formed (0x0502, 0x8001, 0x10501); two
   addresses that map to seat 3, one missing; seat 100, set whatever n_max is (`onBlockStart` then
   ignores it); and a generation's first block.
-- `candidate`: H = 100, the members are keys a1–a3 and the fallback key set is [K1, K2]. `records`
-  lists the nonzero snapshot seat records; every other record is zero. The candidate is usable
-  exactly when `min_total_stake` (M) is not 2^256 − 1, `snapshot_height_word`, the whole word at T,
-  equals H, the records form a valid set (1 to 128 members, valid and distinct keys, no bit of word
-  2 above `power`, every power at least 1, their exact sum at most MAX = (2^63 − 1) / 8) and
-  `snapshot_total_stake` ≥ M. Only `usable` and `signers` are normative: the members in seat order
-  at their stored powers when usable, otherwise the fallback keys at power 1, each with its
-  secp256k1eth address. `reason` is a diagnostic label for the first condition broken, in the order
-  `min_total_stake_max`, `snapshot_height`, `no_members`, `stray_bits`, `invalid_key`,
-  `duplicate_key`, `zero_power`, `power_sum` and `below_min_total_stake`. Each unusable case breaks
-  one condition, except `zero_prefix`, whose zero word 2 is both ckPrefix 0 and power 0.
+- `candidate`: H = 100, the members are keys a1–a3 (in `power_sum_wraps`, the keys of private keys
+  0x200–0x27f) and the fallback key set is [K1, K2]. `records` lists the nonzero snapshot seat
+  records; every other record is zero. The candidate is usable exactly when `min_total_stake` (M) is
+  not 2^256 − 1, `snapshot_height_word`, the whole word at T, equals H, the records form a valid set
+  (1 to 128 members, valid and distinct keys, no bit of word 2 above `power`, every power at least
+  1, their exact sum at most MAX = (2^63 − 1) / 8) and `snapshot_total_stake` ≥ M. Only `usable` and
+  `signers` are normative: the members in seat order at their stored powers when usable, otherwise
+  the fallback keys at power 1, each with its secp256k1eth address. `reason` is a diagnostic label
+  for the first condition broken, in the order `min_total_stake_max`, `snapshot_height`,
+  `no_members`, `stray_bits`, `invalid_key`, `duplicate_key`, `zero_power`, `power_sum` and
+  `below_min_total_stake`. Each unusable case breaks one condition, except `zero_prefix`, whose zero
+  word 2 is both ckPrefix 0 and power 0. The power sum is exact: `power_sum` sums to MAX + 1 and
+  `power_sum_max` to exactly MAX, which is usable, and `power_sum_wraps` has 128 members at 2^57,
+  whose sum 2^64 exceeds MAX although a 64-bit sum wraps it to 0. A reader that wraps, or that
+  rejects a sum equal to MAX, fails one of them.
+- JSON null appears in two places: `staking_layout.key_seat_words[].seat` is null when the value
+  gives the key no seat (null, not 0, since 0 is seat 0), and `candidate.cases[].reason` is null
+  exactly when the candidate is usable.
 - `on_block_start`: `deployment` holds the staking parameters every case starts from (those of the
   top-level `deployment`) and `overrides` the ones a case changes; m is `min_stake`. Bond i
   registers the key of `private_key` 0x100 + i with `amount` and takes `seat`, the lowest empty

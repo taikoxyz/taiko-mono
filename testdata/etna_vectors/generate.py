@@ -2811,6 +2811,8 @@ def miss_bitmap(key_list):
 
 
 CANDIDATE_HEIGHT = 100
+# Seat s of the 128-member candidate holds the key of private key 0x200 + s.
+CANDIDATE_WIDE_KEY = 0x200
 
 
 def candidate_unusable(height, height_word, total, records, threshold):
@@ -2847,7 +2849,8 @@ def candidate(key_list):
     """Candidate decisions at H = 100: the word at T, snapshotTotalStake, the nonzero snapshot
     seat records, the M that H's anchor proves and the fallback key set [K1, K2], and the set that
     signs H + 2: the members in seat order at their stored powers when the candidate is usable,
-    otherwise the fallback keys at power 1. Members are keys a1-a3."""
+    otherwise the fallback keys at power 1. Members are keys a1-a3, except in the 128-member
+    case."""
     vp_unit = DEPLOYMENT["vp_unit"]
 
     def record(key, power):
@@ -2859,6 +2862,12 @@ def candidate(key_list):
     low = 100_000 * vp_unit  # a threshold every usable total below reaches
     h = CANDIDATE_HEIGHT
     half = MAX_TOTAL_VOTING_POWER // 2 + 1  # two members at this power sum to MAX + 1
+    # 128 members at 2^57: the exact sum is 2^64, which a 64-bit sum wraps to 0, at most MAX.
+    wrap_power = 2**57
+    wide_scalars = range(CANDIDATE_WIDE_KEY, CANDIDATE_WIDE_KEY + SNAPSHOT_RECORDS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, wide_scalars))
+    wide = {s: record(scalar_key(k), wrap_power) for s, k in enumerate(wide_scalars)}
 
     def seat_2(word1, word2):
         return {**three, 2: (word1, word2)}
@@ -2882,12 +2891,18 @@ def candidate(key_list):
          "duplicate_key"),
         ("power_sum", h, 2 * half * vp_unit, {0: record(a1, half), 2: record(a2, half)}, low,
          "power_sum"),
+        # The powers sum to exactly MAX: a valid set.
+        ("power_sum_max", h, MAX_TOTAL_VOTING_POWER * vp_unit,
+         {0: record(a1, half), 2: record(a2, half - 1)}, low, None),
+        ("power_sum_wraps", h, SNAPSHOT_RECORDS * wrap_power * vp_unit, wide, low, "power_sum"),
         # A record at a seat at or above any n_max below 101 is a member like any other.
         ("record_at_seat_100", h, 350_000 * vp_unit,
          {0: record(a1, 100_000), 100: record(a2, 250_000)}, low, None),
         ("empty", h, 0, {}, 0, "no_members"),
     )
-    assert 2 * half == MAX_TOTAL_VOTING_POWER + 1
+    assert 2 * half == MAX_TOTAL_VOTING_POWER + 1 == 2**60
+    total_wide = SNAPSHOT_RECORDS * wrap_power
+    assert total_wide == 2**64 and total_wide % 2**64 == 0 < MAX_TOTAL_VOTING_POWER < total_wide
     fallback_scalars = (1, 2)
     fallback = [fallback_key(k) for k in fallback_scalars]
     out = []
