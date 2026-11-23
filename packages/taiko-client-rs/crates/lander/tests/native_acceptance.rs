@@ -166,7 +166,8 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     c.wait_for_height(fi_height + 1).await?;
     assert_eq!(c.cmt.envelope(fi_height).await?.block.transactions[0].as_ref(), raw);
     c.wait_for_height(18.max(fi_height + 1)).await?;
-    // The anchors prove a `minTotalStake` of 2^256 − 1, so the origin keys sign every height.
+    // This fixture's L2 has no `EtnaStaking` account, so no candidate is ever usable and the
+    // origin fallback keys, which the anchors keep proving, sign every height.
     assert_eq!(c.cmt.validators(Some(15)).await?, c.cmt.validators(Some(1)).await?);
     let trust_path = c.app_dir(0).join("checkpoint-trust.sock");
     let before_timeout = trust_timeout::observe(&trust_path).await?;

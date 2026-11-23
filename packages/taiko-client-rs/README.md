@@ -103,10 +103,10 @@ newest snapshot at or below it and the update records since (spec SYNC-9-5c). Co
 segments below the checkpoint the committed anchor proves: the Comet block IDs and execution blocks
 below it, and the validator records below the newest snapshot under it, the base the state one
 height below the checkpoint is recomputed from. A crash during an append can leave only a cut or
-zero-filled last record, which the next append truncates. This assumes a filesystem that orders
-data writes before the size update of an append, such as ext4 in its default `data=ordered` mode,
-XFS, btrfs or ZFS; on one that does not, such as ext4 with `data=writeback`, a crash can leave a
-last header that reads as damage and stops the node. A record whose body fails its hash is corrupt
+zero-filled last record, which the next append truncates. This assumes a filesystem that writes
+an append's data before it updates the file size, the ordered-data guarantee of ext4's default
+`data=ordered` mode; verify that the filesystem under the app store gives it. Without it, as with
+ext4's `data=writeback`, a crash can leave a last header that reads as damage and stops the node. A record whose body fails its hash is corrupt
 until its height is saved again. Any other damaged header is never truncated or read past: every
 height of that segment without a valid record before the damage reads as corrupt, never as
 absent, and the app refuses to append to that segment, which stops the node. Repair it by
@@ -1225,10 +1225,14 @@ contract harness.
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
   pressure flushes; runner and store unit tests cover receipt reorgs and journal restarts.
-  Every Docker devnet plants a `minTotalStake` of 2^256 − 1, so its origin fallback keys sign
-  every height; scenarios that stake on L2 and switch between the candidate and the fallback keys
-  need the protocol pin that adds `EtnaStaking`, and the contract-backed lander scenarios target
-  the contracts of the current pin until then.
+  The test-harness devnets plant a `minTotalStake` of 2^256 − 1, so their origin fallback keys
+  sign every height. The contract-backed scenarios (the lander's landing, recovery, switch and
+  native acceptance tests, `lander_cli`, `governance_recovery` and the checkpoint-import tests)
+  deploy the contracts of the current protocol pin and register validators with
+  `etna-signer pop --registry`, which the signer now refuses, so they fail at fixture setup until
+  the pin that adds `EtnaStaking` rewrites that fixture; two of the three smoke scenarios are
+  among them. Scenarios that stake on L2 and switch between the candidate and the fallback keys
+  come with that pin.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
