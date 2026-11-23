@@ -29,10 +29,10 @@ use crate::{
     engine::{Engine, EngineError},
     genesis::GenesisError,
     l1::{L1Error, L1Source},
-    metrics::{AbciMetrics, set_u64},
+    metrics::{AbciMetrics, publish_signers, set_u64},
     rules::{RuleViolation, check_chain_id},
     server::ConnectionEpoch,
-    store::{AppState, STATE_SCHEMA_VERSION, Store, StoreError},
+    store::{AppState, STATE_SCHEMA_VERSION, Signers, Store, StoreError},
 };
 
 /// Checkpoint ancestry of anchor witnesses against the local chain.
@@ -184,6 +184,9 @@ pub struct Status {
     pub last_checkpoint_height: u64,
     /// L1 block number of the head's anchor.
     pub anchor: u64,
+    /// Where the sets that sign `head + 1` and `head + 2` come from ([`AppState::signers`]),
+    /// which the `/signers` query also answers.
+    pub signers: Signers,
     /// Why the app currently refuses to make progress, if it does: the label of the last refused
     /// proposal or failed build. The process keeps running: in the spec's terms (section 8) this
     /// is a liveness pause. Despite the field's name, a safety halt is never reported here: it
@@ -643,6 +646,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             generation: state.generation,
             last_checkpoint_height: state.anchor.inbox.last_checkpoint_height,
             anchor: state.anchor.number,
+            signers: state.signers,
             halt_reason: self.halt.clone(),
             superseded: self.superseded,
             trust_phase: trust.phase,
@@ -780,8 +784,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         AbciMetrics::halted().set(0);
     }
 
-    /// Publishes the committed state's head, generation and unsettled depth gauges (no-op
-    /// before `InitChain`).
+    /// Publishes the committed state's head, generation, unsettled depth and signing set gauges
+    /// (no-op before `InitChain`).
     fn publish_state_metrics(&self) {
         let Some(status) = self.status() else { return };
         set_u64(AbciMetrics::head(), status.head);
@@ -790,6 +794,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             AbciMetrics::unsettled_depth(),
             status.head.saturating_sub(status.last_checkpoint_height),
         );
+        publish_signers(&status.signers);
     }
 }
 

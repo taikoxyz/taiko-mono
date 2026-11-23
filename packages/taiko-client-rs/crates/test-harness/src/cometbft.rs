@@ -2,7 +2,7 @@
 
 use std::{fs, os::unix::fs::DirBuilderExt, path::Path, time::Duration};
 
-use abci::{EtnaEnvelope, Status, key::ConsensusKey, single_envelope, valstate::ValEntry};
+use abci::{EtnaEnvelope, Signers, Status, key::ConsensusKey, single_envelope, valstate::ValEntry};
 use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -281,6 +281,13 @@ impl CmtClient {
     /// The app's `/status`.
     pub async fn abci_status(&self) -> Result<Status> {
         let bytes = self.abci_query("/status").await?.context("the app rejected /status")?;
+        Ok(serde_json::from_slice(&bytes)?)
+    }
+
+    /// The app's `/signers`: where the sets that sign the two heights after its committed head
+    /// come from.
+    pub async fn abci_signers(&self) -> Result<Signers> {
+        let bytes = self.abci_query("/signers").await?.context("the app rejected /signers")?;
         Ok(serde_json::from_slice(&bytes)?)
     }
 

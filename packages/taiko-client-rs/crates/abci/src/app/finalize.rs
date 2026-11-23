@@ -51,7 +51,7 @@ use crate::{
     fallback::{FallbackKeys, fetch_fallback_keys},
     l1::{L1Source, OwnFinality, RawL1Header, ReadBounded, own_finality},
     metrics::AbciMetrics,
-    store::{AppState, SEGMENT_HEIGHTS},
+    store::{AppState, SEGMENT_HEIGHTS, SignerStatus, Signers},
     types::{AnchorState, ParentInfo},
 };
 
@@ -119,7 +119,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // height + 2. CometBFT applies exactly the updates this response returns; a change set
         // it would refuse halts it, so the replica halts first. The set that signed this height
         // is the one the next block's LastCommit lists.
-        let (signers, anchored) = self.decide_signers(&next, height).await?;
+        let (signers, decided, anchored) = self.decide_signers(&next, height).await?;
         next.fallback_keys = kept_fallback_keys(&next, anchored);
         let updates =
             committee::validator_updates(&state.val_state.next.members(), &signers.members);
@@ -128,7 +128,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .val_state
             .advance(&updates)
             .map_err(|error| safety_halt(height, "validator_state", error))?;
-        next.signer_sources = [state.signer_sources[1], signers.source];
+        next.signers = Signers { next: state.signers.after, after: decided };
         let validator_updates = updates
             .iter()
             .map(|&update| validator_update(height, update))
@@ -253,9 +253,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// The set that signs `height + 2`, decided once the block at `height` is the EL's head, and
-    /// the fallback key list whose hash the block's anchor proves, when this node holds it or
-    /// had to fetch it.
+    /// The set that signs `height + 2`, decided once the block at `height` is the EL's head,
+    /// where it comes from, and the fallback key list whose hash the block's anchor proves, when
+    /// this node holds it or had to fetch it.
     ///
     /// The candidate is the snapshot the block's block-start call stored, read from the
     /// block's post-state at its hash ([`App::decided_staking_words`]); it signs when it is
@@ -266,12 +266,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// ([`App::prefetched_fallback_keys`]), else the one the own L1 serves for it
     /// ([`App::decided_fallback_keys`]), which only a usable candidate spares. The words serve
     /// this decision alone: the empty records of a read that skipped them are never kept or
-    /// shown as a seat table.
+    /// shown as a seat table; a usable candidate is recorded by its snapshot height and total
+    /// stake, the fallback keys by their list's hash.
     async fn decide_signers(
         &self,
         next: &AppState,
         height: u64,
-    ) -> Result<(SignerSet, Option<FallbackKeys>), AbciError> {
+    ) -> Result<(SignerSet, SignerStatus, Option<FallbackKeys>), AbciError> {
         let facts = &next.anchor.inbox;
         let hash = facts.fallback_keys_hash;
         let held =
@@ -279,7 +280,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let words =
             self.decided_staking_words(next.parent.hash, height, facts.min_total_stake).await?;
         if let Some(members) = committee::usable_candidate(height, &words, facts.min_total_stake) {
-            return Ok((SignerSet { source: SignerSource::Candidate, members }, held));
+            let decided = SignerStatus::candidate(height, words.total_stake, members.len());
+            return Ok((SignerSet { source: SignerSource::Candidate, members }, decided, held));
         }
         let keys = match held {
             Some(keys) => keys,
@@ -287,6 +289,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         Ok((
             SignerSet { source: SignerSource::Fallback, members: keys.validator_set() },
+            SignerStatus::fallback(&keys),
             Some(keys),
         ))
     }

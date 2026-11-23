@@ -1100,7 +1100,7 @@ mod tests {
             forced_cursor: 0,
             val_state: fx.val_states[&5].clone(),
             parent_signers: fx.val_states[&4].current.entries.clone(),
-            signer_sources: [abci::committee::SignerSource::Fallback; 2],
+            signers: abci::Signers::origin(&fx.origin_keys),
             fallback_keys: Default::default(),
             execution_floor: None,
         };

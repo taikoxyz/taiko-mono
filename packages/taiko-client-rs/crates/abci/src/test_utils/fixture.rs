@@ -346,7 +346,7 @@ impl Fixture {
             )
             .expect("the origin keys are a CometBFT validator set"),
             parent_signers: Vec::new(),
-            signer_sources: [crate::committee::SignerSource::Fallback; 2],
+            signers: crate::store::Signers::origin(&self.fallback_keys),
             fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         }

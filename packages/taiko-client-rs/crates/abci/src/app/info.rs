@@ -226,10 +226,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Query`.
     ///
     /// Paths: `/trust` answers the JSON trust snapshot; `/status` answers the JSON
-    /// [`Status`](super::Status); `/val_state/<height>`, with a canonical decimal height, answers
-    /// the raw validator-state preimage of [`App::val_state_preimage`]. Anything else (an unknown
-    /// path or height, or any query but `/trust` before `InitChain`) answers code
-    /// [`CODE_REJECTED`] with the reason in `log`.
+    /// [`Status`](super::Status); `/signers` answers the JSON [`Signers`](crate::store::Signers)
+    /// of the committed state, where the sets that sign the next two heights come from;
+    /// `/val_state/<height>`, with a canonical decimal height, answers the raw validator-state
+    /// preimage of [`App::val_state_preimage`]. Anything else (an unknown path or height, or any
+    /// query but `/trust` before `InitChain`) answers code [`CODE_REJECTED`] with the reason in
+    /// `log`.
     /// `height` is the last committed height. Callers authenticate the answers themselves.
     pub(super) fn query(&self, req: crate::wire::request::Query) -> response::Query {
         let height =
@@ -250,12 +252,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if path == "/trust" {
             return serde_json::to_vec(&self.trust.snapshot()).map_err(|e| e.to_string());
         }
-        if self.state.is_none() {
+        let Some(state) = &self.state else {
             return Err("the app is not initialized".into());
-        }
+        };
         if path == "/status" {
             let status = self.status().ok_or("the app is not initialized")?;
             return serde_json::to_vec(&status).map_err(|e| e.to_string());
+        }
+        if path == "/signers" {
+            return serde_json::to_vec(&state.signers).map_err(|e| e.to_string());
         }
         let Some(height) = path.strip_prefix("/val_state/") else {
             return Err(format!("unknown query path {path:?}"));

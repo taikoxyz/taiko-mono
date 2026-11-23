@@ -9,12 +9,11 @@ use super::{
 };
 use crate::{
     AnchorState, ChainParams, GenesisRecord, RawL1Header,
-    committee::SignerSource,
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::{RecoveryError, RecoveryOrigin, VerifiedRecovery, recovery_anchor, verify_recovery},
     rules::chain_id_for,
-    store::{AppState, STATE_SCHEMA_VERSION},
+    store::{AppState, STATE_SCHEMA_VERSION, Signers},
     types::ParentInfo,
     valstate::ValState,
 };
@@ -180,7 +179,7 @@ impl VerifiedGenesis {
             // The generation's first block has no LastCommit.
             parent_signers: Vec::new(),
             // The origin keys sign the generation's first two blocks.
-            signer_sources: [SignerSource::Fallback; 2],
+            signers: Signers::origin(&self.fallback_keys),
             fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         })

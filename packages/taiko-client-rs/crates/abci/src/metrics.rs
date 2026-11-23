@@ -6,7 +6,11 @@
 //! logged and keeps counting unexported: metrics never stop the node.
 
 use once_cell::sync::Lazy;
-use prometheus::{Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, Opts};
+use prometheus::{
+    Gauge, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts,
+};
+
+use crate::{committee::SignerSource, store::Signers};
 
 /// Histogram buckets for handler latencies, in seconds.
 pub const DURATION_SECONDS_BUCKETS: &[f64] =
@@ -77,6 +81,20 @@ impl AbciMetrics {
         &METRICS.unsettled_depth
     }
 
+    /// `abci_signing_source{set}`: where the set that signs the height after the committed head
+    /// (`set="next"`) and the one that signs the height after that (`set="after"`) come from: 0
+    /// for the candidate snapshot, 1 for the fallback key list.
+    pub fn signing_source() -> &'static IntGaugeVec {
+        &METRICS.signing_source
+    }
+
+    /// `abci_candidate_total_stake`: the stored total stake of the candidate snapshot that signs
+    /// the second height after the committed head, in base units, or 0 while the fallback key
+    /// list signs it. A float gauge, since a uint256 total does not fit an integer one.
+    pub fn candidate_total_stake() -> &'static Gauge {
+        &METRICS.candidate_total_stake
+    }
+
     /// `abci_l1_finality_lag`: the own L1 finalized block number minus the committed anchor's,
     /// in L1 blocks, as last seen by `PrepareProposal`.
     pub fn l1_finality_lag() -> &'static IntGauge {
@@ -122,6 +140,20 @@ pub(crate) fn set_u64(gauge: &IntGauge, value: u64) {
     gauge.set(i64::try_from(value).unwrap_or(i64::MAX));
 }
 
+/// Publishes where the two signing sets `signers` come from
+/// ([`AbciMetrics::signing_source`]) and the total stake of the candidate that signs the later
+/// one ([`AbciMetrics::candidate_total_stake`]).
+pub(crate) fn publish_signers(signers: &Signers) {
+    for (set, status) in [("next", &signers.next), ("after", &signers.after)] {
+        let source = match status.source {
+            SignerSource::Candidate => 0,
+            SignerSource::Fallback => 1,
+        };
+        AbciMetrics::signing_source().with_label_values(&[set]).set(source);
+    }
+    AbciMetrics::candidate_total_stake().set(signers.after.total_stake.map_or(0.0, f64::from));
+}
+
 /// The ABCI app's collectors.
 struct Metrics {
     /// See [`AbciMetrics::proposals_built`].
@@ -144,6 +176,10 @@ struct Metrics {
     generation: IntGauge,
     /// See [`AbciMetrics::unsettled_depth`].
     unsettled_depth: IntGauge,
+    /// See [`AbciMetrics::signing_source`].
+    signing_source: IntGaugeVec,
+    /// See [`AbciMetrics::candidate_total_stake`].
+    candidate_total_stake: Gauge,
     /// See [`AbciMetrics::l1_finality_lag`].
     l1_finality_lag: IntGauge,
     /// See [`AbciMetrics::checkpoint_trust_ready`].
@@ -195,6 +231,25 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
     unsettled_depth: gauge(
         "abci_unsettled_depth",
         "Committed head minus the anchored lastCheckpoint height, in L2 blocks",
+    ),
+    signing_source: register(
+        IntGaugeVec::new(
+            Opts::new(
+                "abci_signing_source",
+                "Source of the set signing head+1 (set=next) and head+2 (set=after): \
+                 candidate=0 fallback=1",
+            ),
+            &["set"],
+        )
+        .expect("valid gauge vector options"),
+    ),
+    candidate_total_stake: register(
+        Gauge::new(
+            "abci_candidate_total_stake",
+            "Total stake of the candidate signing head+2 in base units, 0 while the fallback \
+             keys sign it",
+        )
+        .expect("valid gauge options"),
     ),
     l1_finality_lag: gauge(
         "abci_l1_finality_lag",
@@ -254,6 +309,7 @@ mod tests {
         AbciMetrics::init();
         AbciMetrics::process_rejected().with_label_values(&["envelope"]).inc();
         AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).inc();
+        AbciMetrics::signing_source().with_label_values(&["next"]).set(1);
         let names: Vec<String> =
             prometheus::gather().iter().map(|family| family.get_name().to_string()).collect();
         for name in [
@@ -267,6 +323,8 @@ mod tests {
             "abci_head",
             "abci_generation",
             "abci_unsettled_depth",
+            "abci_signing_source",
+            "abci_candidate_total_stake",
             "abci_l1_finality_lag",
             "abci_halted",
         ] {

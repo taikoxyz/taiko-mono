@@ -21,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, U256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -104,12 +104,13 @@ pub struct AppState {
     /// [`AppState::val_state`]; it is empty at a generation's origin, whose first block has no
     /// LastCommit. A required field: a state file without it is refused (no migration).
     pub parent_signers: Vec<ValEntry>,
-    /// Where the sets that sign `last_height + 1` and `last_height + 2` come from, in that
-    /// order: [`AppState::val_state`]'s current and next sets. Both are
-    /// [`SignerSource::Fallback`] at a generation's origin, whose fallback keys sign its first
-    /// two blocks; `FinalizeBlock(H)` shifts the pair by one and records the source of the set it
-    /// decided for H + 2. A required field: a state file without it is refused (no migration).
-    pub signer_sources: [SignerSource; 2],
+    /// Where the sets that sign `last_height + 1` and `last_height + 2` come from:
+    /// [`AppState::val_state`]'s current and next sets. The origin record's fallback keys sign
+    /// a generation's first two blocks ([`Signers::origin`]); `FinalizeBlock(H)` shifts the pair
+    /// by one and records where the set it decided for H + 2 comes from. A node-local record
+    /// outside the app hash, which `/status` and `/signers` report. A required field: a state
+    /// file without it is refused (no migration).
+    pub signers: Signers,
     /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
     /// a list is obtained from the own L1 once. Every generation starts with its origin record's
     /// list. Each `FinalizeBlock` keeps only the list the block's anchor proves, when the node
@@ -117,6 +118,72 @@ pub struct AppState {
     /// at most two. A node-local cache outside the app hash. A required field: a state file
     /// without it is refused (no migration).
     pub fallback_keys: BTreeMap<B256, FallbackKeys>,
+}
+
+/// Where the sets that sign the two heights after the committed one come from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Signers {
+    /// The set that signs `last_height + 1`, the validator state's current set.
+    pub next: SignerStatus,
+    /// The set that signs `last_height + 2`, the validator state's next set.
+    pub after: SignerStatus,
+}
+
+impl Signers {
+    /// A generation's origin: its origin record's fallback keys `keys` sign its first two
+    /// blocks.
+    pub fn origin(keys: &FallbackKeys) -> Self {
+        let origin = SignerStatus::fallback(keys);
+        Self { next: origin, after: origin }
+    }
+}
+
+/// Where one signing set comes from: the usable candidate snapshot, named by its snapshot height
+/// and total stake, or the fallback key list, named by its hash. The facts of the other source
+/// are `None` (`null` in JSON); every field is written and required.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignerStatus {
+    /// Whether the candidate or the fallback key list signs.
+    pub source: SignerSource,
+    /// The candidate's `snapshotHeight`: the height H whose block-start call stored it and whose
+    /// `FinalizeBlock` decided it for H + 2.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub snapshot_height: Option<u64>,
+    /// The candidate's stored `snapshotTotalStake`, the sum of its bonds' effective stake.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub total_stake: Option<U256>,
+    /// The hash of the fallback key list that signs, each key at power 1.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub fallback_keys_hash: Option<B256>,
+    /// How many keys sign.
+    pub size: usize,
+}
+
+impl SignerStatus {
+    /// The fallback key list `keys`, each key at power 1.
+    pub fn fallback(keys: &FallbackKeys) -> Self {
+        Self {
+            source: SignerSource::Fallback,
+            snapshot_height: None,
+            total_stake: None,
+            fallback_keys_hash: Some(keys.hash()),
+            size: keys.keys().len(),
+        }
+    }
+
+    /// The usable candidate snapshot of `snapshot_height` with `size` members and the stored
+    /// total stake `total_stake`.
+    pub fn candidate(snapshot_height: u64, total_stake: U256, size: usize) -> Self {
+        Self {
+            source: SignerSource::Candidate,
+            snapshot_height: Some(snapshot_height),
+            total_stake: Some(total_stake),
+            fallback_keys_hash: None,
+            size,
+        }
+    }
 }
 
 /// The oldest EL block a checkpoint-imported store holds with its state: the landed checkpoint
@@ -730,7 +797,10 @@ mod tests {
                 &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
             )
             .unwrap(),
-            signer_sources: [SignerSource::Fallback, SignerSource::Candidate],
+            signers: Signers {
+                next: SignerStatus::fallback(&crate::test_utils::fallback_list(&[1, 2, 3])),
+                after: SignerStatus::candidate(105, U256::from(4_000), 3),
+            },
             fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
                 .into_iter()
                 .map(|keys| (keys.hash(), keys))
@@ -938,18 +1008,47 @@ mod tests {
         assert_eq!(serde_json::from_value::<AppState>(json).unwrap(), s);
     }
 
-    /// The two signer sources are saved by name, the set signing `last_height + 1` first; any
-    /// other name or count does not load.
+    /// The two signing sets are saved by name, each source by its name and the facts it lacks
+    /// as `null`; an unknown source, a missing fact or an unknown field does not load.
     #[test]
-    fn signer_sources_are_saved_by_name() {
+    fn signers_are_saved_by_name() {
         let s = state();
         let json = serde_json::to_value(&s).unwrap();
-        assert_eq!(json["signer_sources"], serde_json::json!(["fallback", "candidate"]));
-        for refused in [serde_json::json!(["fallback"]), serde_json::json!(["fallback", "staked"])]
-        {
+        let hash = crate::test_utils::fallback_list(&[1, 2, 3]).hash();
+        assert_eq!(
+            json["signers"],
+            serde_json::json!({
+                "next": {
+                    "source": "fallback",
+                    "snapshot_height": null,
+                    "total_stake": null,
+                    "fallback_keys_hash": hash,
+                    "size": 3,
+                },
+                "after": {
+                    "source": "candidate",
+                    "snapshot_height": 105,
+                    "total_stake": "0xfa0",
+                    "fallback_keys_hash": null,
+                    "size": 3,
+                },
+            })
+        );
+        assert_eq!(serde_json::from_value::<AppState>(json.clone()).unwrap(), s);
+        for (pointer, field, value) in [
+            ("/signers/next", "source", Some(serde_json::json!("staked"))),
+            ("/signers/next", "total_stake", None),
+            ("/signers/after", "snapshot_height", None),
+            ("/signers/after", "members", Some(serde_json::json!([]))),
+            ("/signers", "after", None),
+        ] {
             let mut json = json.clone();
-            json["signer_sources"] = refused;
-            assert!(serde_json::from_value::<AppState>(json).is_err());
+            let object = json.pointer_mut(pointer).unwrap().as_object_mut().unwrap();
+            match value {
+                Some(value) => object.insert(field.into(), value),
+                None => object.remove(field),
+            };
+            assert!(serde_json::from_value::<AppState>(json).is_err(), "{pointer}/{field}");
         }
     }
 
@@ -969,7 +1068,7 @@ mod tests {
             ("", "forced_cursor"),
             ("", "val_state"),
             ("", "parent_signers"),
-            ("", "signer_sources"),
+            ("", "signers"),
             ("", "fallback_keys"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),

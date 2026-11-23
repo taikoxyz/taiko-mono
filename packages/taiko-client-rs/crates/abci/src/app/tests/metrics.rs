@@ -1,14 +1,21 @@
 //! The app's Prometheus metrics. The collectors are process-wide, so every test
 //! runs alone in its process ([`in_own_process`]) and the exact values below hold.
 
+use alloy_primitives::U256;
+
 use super::{
     proposal::{
         bft_time, decide, judge, mid_epoch, next_height, prepare, prepare_req, process,
         process_req, propose,
     },
+    signers::{MIN_STAKE, node, snapshot, step},
     *,
 };
-use crate::{l1::L1Error, metrics::AbciMetrics, test_utils::in_own_process};
+use crate::{
+    l1::L1Error,
+    metrics::AbciMetrics,
+    test_utils::{in_own_process, test_key},
+};
 
 /// `abci_process_rejected_total{reason = label}`.
 fn rejected(label: &str) -> u64 {
@@ -62,6 +69,49 @@ async fn a_committed_round_counts_and_publishes_the_new_head() {
         i64::try_from(status.head - status.last_checkpoint_height).unwrap()
     );
     assert_eq!(AbciMetrics::halted().get(), 0);
+}
+
+/// `abci_signing_source{set}`, `abci_candidate_total_stake`: where the set that signs the next
+/// height and the one after it come from.
+fn signing_gauges() -> (i64, i64, f64) {
+    let source = |set: &str| AbciMetrics::signing_source().with_label_values(&[set]).get();
+    (source("next"), source("after"), AbciMetrics::candidate_total_stake().get())
+}
+
+/// The signing-source gauges follow a switch to a candidate and back to the fallback keys, one
+/// height apart for the set that signs the next height and the one after it (0 candidate,
+/// 1 fallback), and the candidate total stake gauge shows the total stake of the candidate that
+/// signs the later of them, 0 while the fallback keys sign it. A restarted app publishes them
+/// from its store.
+#[tokio::test]
+async fn gauges_follow_a_mode_switch() {
+    if !in_own_process(module_path!(), "gauges_follow_a_mode_switch") {
+        return;
+    }
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
+    assert_eq!(signing_gauges(), (1, 1, 0.0), "the origin keys sign both");
+
+    let members = [(test_key(11), 5), (test_key(12), 7)];
+    let h = next_height(&app);
+    step(&mut app, Some(snapshot(h, 4_000, &members))).await;
+    assert_eq!(signing_gauges(), (1, 0, 4_000.0));
+    step(&mut app, Some(snapshot(h + 1, 5_000, &members))).await;
+    assert_eq!(signing_gauges(), (0, 0, 5_000.0));
+    step(&mut app, Some(snapshot(h + 2, MIN_STAKE - 1, &members))).await;
+    assert_eq!(signing_gauges(), (0, 1, 0.0), "a total below the minimum falls back");
+    step(&mut app, None).await;
+    assert_eq!(signing_gauges(), (1, 1, 0.0));
+    step(&mut app, Some(snapshot(h + 4, 6_000, &members))).await;
+    assert_eq!(signing_gauges(), (1, 0, 6_000.0));
+
+    drop(app);
+    AbciMetrics::signing_source().with_label_values(&["next"]).set(-1);
+    AbciMetrics::signing_source().with_label_values(&["after"]).set(-1);
+    AbciMetrics::candidate_total_stake().set(-1.0);
+    let _app = fx.app(dir.path());
+    assert_eq!(signing_gauges(), (1, 0, 6_000.0), "the restarted app publishes its store's sets");
 }
 
 #[tokio::test]

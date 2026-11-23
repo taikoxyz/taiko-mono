@@ -3,17 +3,24 @@
 use std::time::Duration;
 
 use alloy_consensus::Header;
-use alloy_primitives::B256;
+use alloy_primitives::{B256, U256};
 use tendermint::abci::{Code, request::CheckTxKind};
 
-use super::*;
+use super::{
+    proposal::next_height,
+    signers::{MIN_STAKE, snapshot, step},
+    *,
+};
 use crate::{
     app::{APP_NAME, APP_VERSION, Status},
     config::{ConfigError, ParamsError},
     engine::PayloadVerdict,
+    fallback::FallbackKeys,
     rules::RuleViolation,
-    store::{ExecutionFloor, StoreError},
-    test_utils::{EngineCall, MockEngine},
+    store::{ExecutionFloor, SignerStatus, Signers, StoreError},
+    test_utils::{
+        EngineCall, InboxStorage, MockEngine, fallback_list, serve_fallback_keys, test_key,
+    },
     types::ParentInfo,
 };
 
@@ -617,6 +624,7 @@ async fn status_query_reports_the_committed_head() {
             generation: 0,
             last_checkpoint_height: fx.genesis.genesis_height,
             anchor: fx.genesis.l1_0,
+            signers: Signers::origin(&fx.fallback_keys),
             halt_reason: None,
             superseded: false,
             trust_phase: crate::app::trust::TrustPhase::Acquiring,
@@ -626,6 +634,101 @@ async fn status_query_reports_the_committed_head() {
         }
     );
     assert_eq!(app.status(), Some(status));
+}
+
+/// A node of `fx` after `InitChain` whose own L1 has finalized block 65, where the Inbox proves
+/// the fallback list `keys` (served by `getFallbackKeys()`) and a minimum total stake of
+/// [`MIN_STAKE`]: the generation's first block anchors there.
+async fn anchored_on(
+    fx: &Fixture,
+    dir: &std::path::Path,
+    keys: &FallbackKeys,
+) -> App<MockL1, MockEngine> {
+    let app = initialized(fx, dir).await;
+    serve_fallback_keys(app.l1(), fx.params.inbox, keys);
+    let inbox = InboxStorage {
+        fallback_keys_hash: keys.hash(),
+        min_total_stake: U256::from(MIN_STAKE),
+        ..fx.inbox_with(fx.genesis.genesis_height)
+    };
+    fx.advance_l1(app.l1(), 65, &inbox);
+    app
+}
+
+/// `/status` reports the set that signs the next height and the one after it, each with where
+/// it comes from: the origin keys sign both after `InitChain`; the fallback list an anchor
+/// proves is named by its hash; a usable candidate by its snapshot height and total stake. Each
+/// block shifts the pair by one, and a restarted app reports the same sets from its store.
+#[tokio::test]
+async fn status_reports_both_sets() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let other = fallback_list(&[2, 3, 4]);
+    let mut app = anchored_on(&fx, dir.path(), &other).await;
+    let origin = SignerStatus::fallback(&fx.fallback_keys);
+    let fallback = SignerStatus::fallback(&other);
+    let candidate =
+        |height, total: u64, size| SignerStatus::candidate(height, U256::from(total), size);
+    let signers = |app: &App<MockL1, MockEngine>| app.status().expect("initialized").signers;
+    assert_eq!(signers(&app), Signers { next: origin, after: origin });
+
+    let h = next_height(&app);
+    step(&mut app, None).await;
+    assert_eq!(signers(&app), Signers { next: origin, after: fallback });
+
+    let members = [(test_key(11), 5), (test_key(12), 7), (test_key(13), 1), (test_key(14), 2)];
+    step(&mut app, Some(snapshot(h + 1, 4_000, &members))).await;
+    assert_eq!(signers(&app), Signers { next: fallback, after: candidate(h + 1, 4_000, 4) });
+
+    step(&mut app, Some(snapshot(h + 2, 5_000, &members[..3]))).await;
+    let expected = Signers { next: candidate(h + 1, 4_000, 4), after: candidate(h + 2, 5_000, 3) };
+    assert_eq!(signers(&app), expected);
+
+    drop(app);
+    assert_eq!(signers(&fx.app(dir.path())), expected, "the restarted app reads its store");
+}
+
+/// `/signers` answers the JSON of the two sets `/status` reports, at the committed height: each
+/// names its source in lower case and writes the facts its source lacks as `null`, and it
+/// decodes to the same value. Before `InitChain` it is refused.
+#[tokio::test]
+async fn signers_query_round_trips() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let resp = query(&mut fx.app(dir.path()), "/signers").await;
+    assert_eq!(resp.code, Code::from(1));
+    assert!(resp.value.is_empty() && !resp.log.is_empty(), "{resp:?}");
+
+    let mut app = anchored_on(&fx, dir.path(), &fx.fallback_keys).await;
+    let h = next_height(&app);
+    let members = [(test_key(11), 5), (test_key(12), 7), (test_key(13), 1)];
+    step(&mut app, Some(snapshot(h, 4_000, &members))).await;
+    let resp = query(&mut app, "/signers").await;
+    assert_eq!(resp.code, Code::Ok, "{}", resp.log);
+    assert_eq!(resp.height.value(), h);
+    let json: serde_json::Value = serde_json::from_slice(&resp.value).expect("signers JSON");
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "next": {
+                "source": "fallback",
+                "snapshot_height": null,
+                "total_stake": null,
+                "fallback_keys_hash": fx.fallback_keys.hash(),
+                "size": 2,
+            },
+            "after": {
+                "source": "candidate",
+                "snapshot_height": h,
+                "total_stake": "0xfa0",
+                "fallback_keys_hash": null,
+                "size": 3,
+            },
+        })
+    );
+    let signers: Signers = serde_json::from_slice(&resp.value).expect("signers decode");
+    assert_eq!(signers, app.status().unwrap().signers);
+    assert_eq!(serde_json::to_vec(&signers).unwrap(), resp.value);
 }
 
 #[tokio::test]
@@ -646,7 +749,9 @@ async fn bad_queries_answer_code_one() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     // No committee is kept by epoch any more, so `/committee/<epoch>` is an unknown path.
-    for path in ["/committee/0", "/committee/1", "/committee/x", "/committee", "/nope", ""] {
+    for path in
+        ["/committee/0", "/committee/1", "/committee/x", "/committee", "/signers/0", "/nope", ""]
+    {
         let resp = query(&mut app, path).await;
         assert_eq!(resp.code, Code::from(1), "{path:?}");
         assert!(!resp.log.is_empty(), "{path:?}");

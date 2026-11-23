@@ -31,6 +31,7 @@ use crate::{
     envelope::EtnaEnvelope,
     fallback::FallbackKeys,
     key::ConsensusKey,
+    store::AppState,
     test_utils::{
         GenesisSpec, InboxStorage, L1Call, LogCapture, fallback_list, init_chain_request,
         recovery_fixture, serve_fallback_keys, test_key, test_options,
@@ -39,11 +40,11 @@ use crate::{
 };
 
 /// The minimum total stake the tests' anchors prove.
-const MIN_STAKE: u64 = 1_000;
+pub(super) const MIN_STAKE: u64 = 1_000;
 
 /// A node of `fx` after `InitChain` whose own L1 has finalized block 65, where the Inbox proves
 /// the origin list's hash and `min_total_stake`: the generation's first block anchors there.
-async fn node(
+pub(super) async fn node(
     fx: &Fixture,
     dir: &std::path::Path,
     min_total_stake: U256,
@@ -56,7 +57,7 @@ async fn node(
 
 /// The candidate snapshot `height`'s block-start call stores for `members`, seated from seat 0
 /// on in the given order, with the total stake `total`.
-fn snapshot(height: u64, total: u64, members: &[(ConsensusKey, u64)]) -> StakingWords {
+pub(super) fn snapshot(height: u64, total: u64, members: &[(ConsensusKey, u64)]) -> StakingWords {
     let mut words = StakingWords::header_only(U256::from(height), U256::from(total));
     for (seat, &(key, power)) in members.iter().enumerate() {
         words.records[seat] = record(key, U256::from(power));
@@ -81,6 +82,11 @@ fn sorted(set: &ValSet) -> Vec<(ConsensusKey, u64)> {
     let mut members = set.members();
     members.sort();
     members
+}
+
+/// Where the sets that sign `state`'s next two heights come from, in height order.
+fn sources(state: &AppState) -> [SignerSource; 2] {
+    [state.signers.next.source, state.signers.after.source]
 }
 
 /// `updates` in ascending key order, the order a response lists them in.
@@ -120,7 +126,7 @@ fn process_request(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request
 /// Builds `app`'s next height H, plants `words` as the candidate snapshot in H's post-state
 /// (none: all zero), then processes, finalizes and commits H; returns the `FinalizeBlock`
 /// response.
-async fn step(
+pub(super) async fn step(
     app: &mut App<MockL1, MockEngine>,
     words: Option<StakingWords>,
 ) -> response::FinalizeBlock {
@@ -177,7 +183,7 @@ async fn usable_candidate_signs_h_plus_2() {
     let state = app.state().unwrap();
     assert_eq!(sorted(&state.val_state.current), origin, "the origin keys sign H + 1");
     assert_eq!(sorted(&state.val_state.next), by_key(members.clone()), "the members sign H + 2");
-    assert_eq!(state.signer_sources, [SignerSource::Fallback, SignerSource::Candidate]);
+    assert_eq!(sources(state), [SignerSource::Fallback, SignerSource::Candidate]);
 
     // H + 1: an origin key proposes, and its LastCommit lists the origin keys.
     let env = propose(&mut app).await;
@@ -221,7 +227,7 @@ async fn usable_candidate_signs_h_plus_2() {
     let listed: Vec<_> = state.parent_signers.iter().map(|e| (e.key, e.power)).collect();
     let order: Vec<_> = comet_order(&members).unwrap().iter().map(|e| (e.key, e.power)).collect();
     assert_eq!(listed, order, "H + 3's LastCommit lists the members");
-    assert_eq!(state.signer_sources, [SignerSource::Candidate; 2]);
+    assert_eq!(sources(state), [SignerSource::Candidate; 2]);
 }
 
 /// A candidate that signs while its total stake reaches the minimum hands H + 3 back to the
@@ -245,7 +251,7 @@ async fn fallback_returns_when_total_drops_below_m() {
     assert_eq!(updates_of(&resp), by_key(expected));
     let state = app.state().unwrap();
     assert_eq!(sorted(&state.val_state.next), origin);
-    assert_eq!(state.signer_sources, [SignerSource::Candidate, SignerSource::Fallback]);
+    assert_eq!(sources(state), [SignerSource::Candidate, SignerSource::Fallback]);
     let hash = state.parent.hash;
     assert_eq!(storage_reads(&app)[reads..], [(hash, header_slots())], "the header alone");
 }
@@ -269,7 +275,7 @@ async fn failed_block_start_call_falls_back_without_a_halt() {
     assert_eq!(updates_of(&resp), by_key(expected));
     let state = app.state().unwrap();
     assert_eq!(state.last_height, h + 1, "the block is committed");
-    assert_eq!(state.signer_sources, [SignerSource::Candidate, SignerSource::Fallback]);
+    assert_eq!(sources(state), [SignerSource::Candidate, SignerSource::Fallback]);
     assert_eq!(app.halt, None);
 }
 
@@ -287,7 +293,7 @@ async fn m_max_with_a_usable_looking_candidate_falls_back() {
     let resp = step(&mut app, Some(words)).await;
     assert!(resp.validator_updates.is_empty(), "the origin keys sign H + 2 again");
     let state = app.state().unwrap();
-    assert_eq!(state.signer_sources, [SignerSource::Fallback; 2]);
+    assert_eq!(sources(state), [SignerSource::Fallback; 2]);
     assert_eq!(storage_reads(&app), [(state.parent.hash, header_slots())]);
 }
 
@@ -313,7 +319,7 @@ async fn invalid_candidate_falls_back_without_a_halt() {
         let state = app.state().unwrap();
         assert_eq!(state.last_height, h, "{third:?}: the block is committed");
         let source = if usable { SignerSource::Candidate } else { SignerSource::Fallback };
-        assert_eq!(state.signer_sources, [SignerSource::Fallback, source], "{third:?}");
+        assert_eq!(sources(state), [SignerSource::Fallback, source], "{third:?}");
         assert_eq!(app.halt, None);
     }
 }
@@ -415,14 +421,14 @@ async fn mode_switch_reweights_a_key_in_both_sets() {
     let candidate = |step: usize| (step >= 2).then(|| vec![(shared, 250_000)]);
     let dir = tempfile::tempdir().unwrap();
     let mut app = replay_stock(&case, dir.path(), candidate).await;
-    assert_eq!(app.state().unwrap().signer_sources, [SignerSource::Candidate; 2]);
+    assert_eq!(sources(app.state().unwrap()), [SignerSource::Candidate; 2]);
 
     let resp = step(&mut app, None).await;
     let origin = case.fixture().fallback_keys.validator_set();
     assert_eq!(updates_of(&resp), origin, "the shared key goes back to power 1, the others return");
     let state = app.state().unwrap();
     assert_eq!(sorted(&state.val_state.next), origin);
-    assert_eq!(state.signer_sources, [SignerSource::Candidate, SignerSource::Fallback]);
+    assert_eq!(sources(state), [SignerSource::Candidate, SignerSource::Fallback]);
 }
 
 /// 128 origin keys replaced by 128 other keys at H + 2: one list of 256 updates, which stock
@@ -437,7 +443,7 @@ async fn replace_128_with_128() {
     let dir = tempfile::tempdir().unwrap();
     let app = replay_stock(&case, dir.path(), |step| (step >= 3).then(|| members.clone())).await;
     let state = app.state().unwrap();
-    assert_eq!(state.signer_sources, [SignerSource::Candidate; 2]);
+    assert_eq!(sources(state), [SignerSource::Candidate; 2]);
     assert_eq!(state.parent_signers.len(), 128);
 }
 
@@ -458,7 +464,7 @@ async fn same_set_returns_an_empty_list() {
     assert!(resp.validator_updates.is_empty());
     let state = app.state().unwrap();
     assert_eq!(sorted(&state.val_state.next), sorted(&next));
-    assert_eq!(state.signer_sources, [SignerSource::Candidate; 2]);
+    assert_eq!(sources(state), [SignerSource::Candidate; 2]);
 }
 
 /// `FinalizeBlock(o + 1)` diffs the set it decides against the origin keys, which sign o + 2:
@@ -501,10 +507,7 @@ async fn h_equal_o_plus_1_diffs_against_the_origin_keys() {
     expected.retain(|&(key, _)| key != test_key(1));
     expected.extend(members.iter().copied());
     assert_eq!(updates_of(&resp), by_key(expected), "the shared origin key is re-weighted");
-    assert_eq!(
-        app.state().unwrap().signer_sources,
-        [SignerSource::Fallback, SignerSource::Candidate]
-    );
+    assert_eq!(sources(app.state().unwrap()), [SignerSource::Fallback, SignerSource::Candidate]);
 }
 
 /// A `FinalizeBlock(H)` replayed after a crash before `Commit`, with the EL already at H,
@@ -620,7 +623,7 @@ async fn missing_list_waits_on_the_cold_path_with_trust_pending() {
     assert_eq!(updates_of(&resp), by_key(expected));
     let pending = app.pending.as_ref().unwrap();
     assert_eq!(pending.fallback_keys.get(&other.hash()), Some(&other));
-    assert_eq!(pending.signer_sources, [SignerSource::Fallback; 2]);
+    assert_eq!(sources(pending), [SignerSource::Fallback; 2]);
     assert_eq!(app.trust.snapshot().phase, TrustPhase::CatchingUp);
 }
 
