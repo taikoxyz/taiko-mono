@@ -71,7 +71,7 @@ SECP_G = (
 TAIKO = 10**18  # base units per TAIKO
 TAIKO_SUPPLY = 10**9 * TAIKO  # TAIKO's fixed total supply, 10^27 base units (4.3)
 MAX_TOTAL_VOTING_POWER = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower, appendix A's MAX
-MAX_COMMITTEE_SIZE = 4096  # n_max's upper bound and the number of registry slots (START-10-11)
+MAX_SIGNING_SET = 128  # the most members any set that signs a block has, whatever n_max is (4.3)
 
 
 def constant_address(prefix, suffix):
@@ -1345,28 +1345,31 @@ VAL_STATE_SIGNATURE = (
 )
 VAL_KEYS = tuple((f"c{i}", 0xC0 + i) for i in range(1, 13))  # validator keys c1..c12
 VAL_GENESIS_TIME = 1_700_000_000
-MAX_COMMITTEE_KEY = 0x10000  # member i of the maximum committee has private key 0x10000 + i
-# Rows shown from each end of a maximum-committee set; the full sets follow from the rules.
+MAX_COMMITTEE_KEY = 0x10000  # member i of the 128-member set has private key 0x10000 + i
+# Rows shown from each end of a 128-member set; the full sets follow from the rules.
 MAX_COMMITTEE_SAMPLE = 3
 
-# Each chain is one CometBFT chain from a genesis at start height o. FinalizeBlock returns validator
-# updates only at S(t) = H(t) - 2 = t·L - 1 (4.2, 4.3; H(t) = 1 + t·L counts from block 0 for any
-# S), each the change from the pending committee to epoch t's: new members at their power, leaving
-# members at 0 and re-weighted members at their new power. `expect` names events the chain exists
-# to show: (height, step, kind, fields) that the model must log.
+# Each chain is one CometBFT chain from a genesis at start height o, whose validators sign o + 1 and
+# o + 2. FinalizeBlock(H) may return validator updates at any height H after o, and they first sign
+# H + 2 (4.3): the difference between the set that signs H + 2 and the set that signs H + 1, a new
+# member at its power, a leaving member at 0 and a re-weighted member at its new power; a member
+# whose power stays the same is not listed. `expect` names events the chain exists to show:
+# (height, step, kind, fields) that the model must log.
 VAL_CHAINS = (
     {
         "name": "gen0",
         "description": (
-            "Generation 0 from the Etna start S = 0 with L = 7: genesis at 0, every single-height "
-            "increment through 48, and switches at S(1)..S(7) that add (6), remove (13), re-weight "
-            "(20), add, remove and re-weight at once (27), add (34), replace the largest member "
-            "(41) and re-weight (48). Equal powers order by address; ties go to the lower address."
+            "Generation 0 from height 0, with a genesis of unequal powers that exercises "
+            "CometBFT's arithmetic (an Etna genesis gives each fallback key power 1, as in "
+            "fallback_genesis_to_candidate): every single-height increment through 48, and "
+            "updates returned at 6 (add), 13 (remove), 20 (re-weight), 27 (add, remove and "
+            "re-weight at once), 34 (add), 41 (replace the largest member) and 48 (re-weight), "
+            "each signing from two heights later. Equal powers order by address; ties go to the "
+            "lower address."
         ),
         "generation": 0,
         "start": 0,
         "end": 48,
-        "epoch_length": 7,
         "genesis": (("c1", 30), ("c2", 30), ("c3", 20), ("c4", 10)),
         "switches": {
             6: (("c5", 25),),
@@ -1387,15 +1390,14 @@ VAL_CHAINS = (
     {
         "name": "gen1",
         "description": (
-            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with a "
-            "different committee and initial height 49. Generation 0's update returned at "
-            "S(7) = 48 is discarded with the rest of its state; the next switch is S(8) = 55 "
-            "(add one member, remove another), active from H(8) = 57."
+            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with "
+            "other members of unequal powers and initial height 49. Generation 0's update "
+            "returned at 48 is discarded with the rest of its state; the update returned at 55 "
+            "(add one member, remove another) signs from 57."
         ),
         "generation": 1,
         "start": 48,
         "end": 60,
-        "epoch_length": 7,
         "genesis": (("c3", 40), ("c6", 15), ("c10", 25), ("c11", 25)),
         "switches": {55: (("c12", 10), ("c6", 0))},
         "expect": ((48, "genesis_next", "tie", {"tied": ["c10", "c11"], "proposer": "c10"}),),
@@ -1403,15 +1405,14 @@ VAL_CHAINS = (
     {
         "name": "bounds_a",
         "description": (
-            "L = 3. At S(1) = 2 the update leaves a priority spread of exactly 2·total, so "
-            "neither UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment "
-            "raises it to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
+            "The update returned at 2 leaves a priority spread of exactly 2·total, so neither "
+            "UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment raises it "
+            "to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
             "floor(-1 / 4) = -1, leaving the largest residual sum, n - 1."
         ),
         "generation": 0,
         "start": 0,
         "end": 4,
-        "epoch_length": 3,
         "genesis": (("c2", 2), ("c9", 2), ("c1", 12), ("c4", 8)),
         "switches": {2: (("c12", 1), ("c4", 0))},
         "expect": (
@@ -1424,14 +1425,13 @@ VAL_CHAINS = (
     {
         "name": "bounds_b",
         "description": (
-            "L = 3. Height 3 rescales a spread of 2·total + 1 left by the switch at S(1) = 2; the "
-            "switch at S(2) = 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, whose "
-            "rescale truncates negative priorities toward zero."
+            "Height 3 rescales a spread of 2·total + 1 left by the update returned at 2; the "
+            "update returned at 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, "
+            "whose rescale truncates negative priorities toward zero."
         ),
         "generation": 0,
         "start": 0,
         "end": 6,
-        "epoch_length": 3,
         "genesis": (("c3", 6), ("c6", 4), ("c12", 11), ("c10", 5)),
         "switches": {2: (("c10", 0), ("c9", 1)), 5: (("c12", 0),)},
         "expect": (
@@ -1443,14 +1443,13 @@ VAL_CHAINS = (
     {
         "name": "bounds_c",
         "description": (
-            "L = 3. Three members of equal power: genesis and later increments break priority ties "
-            "by address. Height 3 has no update and increments a set whose spread is exactly "
+            "Three members of equal power: genesis and later increments break priority ties by "
+            "address. Height 3 has no update and increments a set whose spread is exactly "
             "2·total, which is not rescaled."
         ),
         "generation": 0,
         "start": 0,
         "end": 4,
-        "epoch_length": 3,
         "genesis": (("c4", 1), ("c3", 1), ("c8", 1), ("c9", 3)),
         "switches": {2: (("c9", 0),)},
         "expect": (
@@ -1458,13 +1457,54 @@ VAL_CHAINS = (
             (3, "increment", "rescale", {"fires": False}),
         ),
     },
+    {
+        "name": "fallback_genesis_to_candidate",
+        "description": (
+            "Generation 0 as Etna derives it from S = 0: the genesis is the origin's fallback "
+            "key set, c1..c4 at power 1 each, which signs 1 and 2. FinalizeBlock(1) switches to "
+            "a usable candidate (c5 at 30, c6 at 20, c7 at 10) with one list that also removes "
+            "every fallback key, so the candidate signs from 3. A stake change re-weights c6 to "
+            "25 at 4 (signing from 6) and an exit removes c7 at 6 (from 8). At 8 the candidate "
+            "is no longer usable, and one list replaces it with the fallback key set at power 1, "
+            "which signs from 10."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 10,
+        "genesis": tuple((f"c{i}", 1) for i in range(1, 5)),
+        "switches": {
+            1: (("c1", 0), ("c2", 0), ("c3", 0), ("c4", 0), ("c5", 30), ("c6", 20), ("c7", 10)),
+            4: (("c6", 25),),
+            6: (("c7", 0),),
+            8: (("c5", 0), ("c6", 0), ("c1", 1), ("c2", 1), ("c3", 1), ("c4", 1)),
+        },
+        "expect": (
+            (0, "genesis", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+            (8, "increment", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+        ),
+    },
+    {
+        "name": "recovery_origin_keys",
+        "description": (
+            "Generation 1 from governance recovery at c = 10 (8.4): a new genesis at 10 with "
+            "initial height 11, whose validators are the new origin's fallback keys, c8 and c9 "
+            "at power 1; they sign 11 and 12. FinalizeBlock(11) replaces them with a usable "
+            "candidate, c5 at 30, in one list, and the candidate signs from 13."
+        ),
+        "generation": 1,
+        "start": 10,
+        "end": 14,
+        "genesis": (("c8", 1), ("c9", 1)),
+        "switches": {11: (("c8", 0), ("c9", 0), ("c5", 30))},
+        "expect": ((10, "genesis", "tie", {"tied": ["c9", "c8"], "proposer": "c9"}),),
+    },
 )
 
 def max_committee_power(index):
-    """2^48 + (i mod 64) - 32 for i < 4095, and the rest of MaxTotalVotingPower for i = 4095."""
-    if index < MAX_COMMITTEE_SIZE - 1:
+    """2^48 + (i mod 64) - 32 for i < 127, and the rest of MaxTotalVotingPower for i = 127."""
+    if index < MAX_SIGNING_SET - 1:
         return 2**48 + index % 64 - 32
-    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_COMMITTEE_SIZE - 1)))
+    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_SIGNING_SET - 1)))
 
 
 def run_valgen(request):
@@ -1489,73 +1529,26 @@ def keccak_stdin(data):
     ).stdout.strip()
 
 
-def epoch_roles(epoch_length, height):
-    """`S(t)`, `S(t)+1` or `H(t)` when `height` is one of them (S(t) = t·L - 1, H(t) = t·L + 1)."""
-    roles = []
-    for name, offset in (("S", -1), ("S+1", 0), ("H", 1)):
-        t, rest = divmod(height - offset, epoch_length)
-        if rest == 0 and t >= 1:
-            roles.append(f"{name[0]}({t}){name[1:]}")
-    return roles
-
-
-# Rows per `cast abi-encode` argument: Linux limits one argument to 128 KiB (MAX_ARG_STRLEN), and a
-# maximum-committee set written as one argument is about 400 KB.
-VAL_STATE_ROWS_PER_ARG = 512
-
-
 def val_state_preimage(height, sets, key_info):
-    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`.
-
-    A set too large for one argument is encoded in pieces: the head's six words as plain words
-    (tag, x, the first array's offset 192, its proposer, the second array's offset and its
-    proposer), then each array as its length and the rows of `cast abi-encode` of consecutive
-    slices, which is the same standard ABI encoding.
-    """
-
-    def rows(entries):
-        out = []
-        for key, power, priority in entries:
-            info = key_info[key]
-            out.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
-        return out
+    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`."""
 
     def array(entries):
-        return "[" + ",".join(rows(entries)) + "]"
+        rows = []
+        for key, power, priority in entries:
+            info = key_info[key]
+            rows.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
+        return "[" + ",".join(rows) + "]"
 
     (current, current_proposer), (following, next_proposer) = sets
-    if max(len(current), len(following)) <= VAL_STATE_ROWS_PER_ARG:
-        return abi_encode(
-            VAL_STATE_SIGNATURE,
-            tag("ETNA_VAL_STATE_V1"),
-            height,
-            array(current),
-            current_proposer,
-            array(following),
-            next_proposer,
-        )
-
-    def array_words(entries):
-        out = word(len(entries))[2:]
-        for i in range(0, len(entries), VAL_STATE_ROWS_PER_ARG):
-            part = abi_encode(
-                "f((uint8,bytes32,uint64,int64)[])", array(entries[i : i + VAL_STATE_ROWS_PER_ARG])
-            )
-            # Drop the offset and length words; what is left is the slice's rows.
-            out += part[2 + 128 :]
-        assert len(out) == 64 * (1 + 4 * len(entries))
-        return out
-
-    head = abi_encode(
-        "f(bytes32,uint256,uint256,uint256,uint256,uint256)",
+    return abi_encode(
+        VAL_STATE_SIGNATURE,
         tag("ETNA_VAL_STATE_V1"),
         height,
-        192,
+        array(current),
         current_proposer,
-        192 + 32 * (1 + 4 * len(current)),
+        array(following),
         next_proposer,
     )
-    return head + array_words(current) + array_words(following)
 
 
 def check_val_states(chain, generated, key_info, address):
@@ -1581,6 +1574,7 @@ def check_val_states(chain, generated, key_info, address):
                 assert (int(e["ck_prefix"]), e["ck_x"]) == (info["ck_prefix"], info["ck_x"])
             proposer = int(state[side + "_proposer"])
             assert 0 <= proposer < len(entries)
+            assert 1 <= len(entries) <= MAX_SIGNING_SET, (chain["name"], height, side)
             # CometBFT's set order: voting power descending, then address ascending.
             order = [(-power, address[key]) for key, power, _ in entries]
             assert order == sorted(order) and len(set(order)) == len(order), (chain["name"], height)
@@ -1594,11 +1588,18 @@ def check_val_states(chain, generated, key_info, address):
                 )
             sets.append((entries, proposer))
         preimage = val_state_preimage(height, sets, key_info)
-        # A maximum-committee preimage (about 1 MiB) is too large for one command-line argument.
-        digest = keccak_stdin(preimage) if len(preimage) > 100_000 else keccak(preimage)
+        digest = keccak(preimage)
         assert preimage == state["preimage"], (chain["name"], height)
         assert digest == state["hash"], (chain["name"], height)
         out.append((height, *sets[0], *sets[1], preimage, digest))
+    # Each update is the difference from the set that signs H + 1 (next at H - 1): every key once,
+    # no member at the power it already has, and only members of that set at power 0.
+    by_height = {state[0]: state for state in out}
+    for height, changes in chain["switches"].items():
+        signs_next = {key: power for key, power, _ in by_height[height - 1][3]}
+        assert len({key for key, _ in changes}) == len(changes), (chain["name"], height)
+        for key, power in changes:
+            assert signs_next.get(key, 0) != power, (chain["name"], height, key)
     for height, step, kind, fields in chain.get("expect", ()):
         matches = [
             e
@@ -1633,10 +1634,10 @@ def val_state_keys():
 
 
 def max_committee_keys():
-    """The maximum committee's keys (`m0`..`m4095`, private key 0x10000 + i) by consecutive point
+    """The maximum set's keys (`m0`..`m127`, private key 0x10000 + i) by consecutive point
     additions; every address is checked with `cast keccak`."""
     out, current = [], point(MAX_COMMITTEE_KEY)
-    for i in range(MAX_COMMITTEE_SIZE):
+    for i in range(MAX_SIGNING_SET):
         if i:
             current = _add(current, SECP_G)
         x, y = current
@@ -1650,7 +1651,7 @@ def max_committee_keys():
                 "xy": (x, y),
             }
         )
-    assert current == point(MAX_COMMITTEE_KEY + MAX_COMMITTEE_SIZE - 1)
+    assert current == point(MAX_COMMITTEE_KEY + MAX_SIGNING_SET - 1)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         addresses = list(pool.map(lambda key: address_of(*key["xy"]), out))
     for key, ck_addr in zip(out, addresses):
@@ -1675,17 +1676,12 @@ def val_state_chains(domains):
         "generation": 0,
         "start": 0,
         "end": 1,
-        "epoch_length": None,
-        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_COMMITTEE_SIZE)),
+        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_SIGNING_SET)),
         "switches": {},
     }
     assert sum(p for _, p in max_chain["genesis"]) == MAX_TOTAL_VOTING_POWER
+    assert max_committee_power(MAX_SIGNING_SET - 1) == 3969 * 2**48 + 94
     chains = VAL_CHAINS + (max_chain,)
-    for chain in VAL_CHAINS:
-        for height in chain["switches"]:
-            assert epoch_roles(chain["epoch_length"], height)[:1] == [
-                f"S({(height + 1) // chain['epoch_length']})"
-            ], (chain["name"], height)
     request = {
         "keys": [{"name": k["name"], "private_key": k["private_key"]} for k in key_info.values()],
         "chains": [
@@ -1721,11 +1717,9 @@ def val_state_chains(domains):
                 "generation": chain["generation"],
                 "start_height": chain["start"],
                 "end_height": chain["end"],
-                "epoch_length": chain["epoch_length"],
                 "genesis": [list(m) for m in chain["genesis"]],
                 "switches": [
                     {
-                        "epoch": (height + 1) // chain["epoch_length"],
                         "height": height,
                         "activation_height": height + 2,
                         "changes": [list(c) for c in changes],
@@ -1781,16 +1775,16 @@ def val_state_chains(domains):
             "chains": chain_out,
             "max_committee": {
                 "description": (
-                    "4096 members (n_max's bound) at CometBFT's MaxTotalVotingPower: genesis at "
-                    "0 and one increment. Member i (0 <= i < 4096) is key mi with private key "
-                    "0x10000 + i; its power is 2^48 + (i mod 64) - 32 for i < 4095, and member "
-                    "4095 takes the rest of the total, 2^48 + 2078. Only the hash and the first "
-                    "and last rows of each set are listed."
+                    "128 members, the most that any set that signs a block has, at CometBFT's "
+                    "MaxTotalVotingPower: genesis at 0 and one increment. Member i (0 <= i < 128) "
+                    "is key mi with private key 0x10000 + i; its power is 2^48 + (i mod 64) - 32 "
+                    "for i < 127, and member 127 takes the rest of the total, 3969·2^48 + 94. "
+                    "Only the hash and the first and last rows of each set are listed."
                 ),
-                "size": MAX_COMMITTEE_SIZE,
+                "size": MAX_SIGNING_SET,
                 "first_private_key": word(MAX_COMMITTEE_KEY),
                 "total_power": MAX_TOTAL_VOTING_POWER,
-                "last_member_power": max_committee_power(MAX_COMMITTEE_SIZE - 1),
+                "last_member_power": max_committee_power(MAX_SIGNING_SET - 1),
                 "start_height": max_chain["start"],
                 "states": max_out,
                 "events": max_events,

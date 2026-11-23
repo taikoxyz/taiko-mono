@@ -23,7 +23,10 @@ exclusions, the committee snapshot in statements and `LandInput`, and the Inbox 
 (284). `land_statements[].inputs.committee_config_hash` and
 `layout.inbox.slots.committee_config_hash` are now `config_hash`. Added in schema 10:
 `fallback_keys`, `staking_layout`, `miss_bitmap`, `candidate` and `on_block_start` (see
-[Staking and the fallback key set](#staking-and-the-fallback-key-set)).
+[Staking and the fallback key set](#staking-and-the-fallback-key-set)). `val_state_chains` has no
+epochs: FinalizeBlock may return validator updates at any height, so `epoch_length` and the
+updates' `epoch` are gone; two chains start from a genesis of fallback keys at power 1, and
+`max_committee` is 128 members, the most that any set that signs a block has.
 
 `governance_abi` encodes calldata, each entry labelled with its `contract` (`inbox` or `staking`):
 the Inbox's nonce/deadline-bound recovery `recover(expectedGeneration, expectedC,
@@ -79,7 +82,7 @@ The `0x06` envelope is unchanged; extraData is 29 bytes and ends with the block'
 | `register_digests`    | 4.1, A        | The EIP-712 `Register(address owner)` domain separator (name `EtnaStaking`, version 1, the L2 chain id and the staking proxy as verifying contract), struct hash and digest, and a proof of possession (65 bytes, V ∈ {0, 1}, low s) by every key for two owners.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `pop_rejections`      | 4.1           | PoPs a registration by `owner` rejects although the key decodes: V of 27 or 2, high s, r or s zero, r = n, an r with no curve point, 64 or 66 bytes, and well-formed signatures bound to another owner, key, chain or verifying contract, or submitted with the other-parity key of their signer. `wrong_chain` is signed for the L1 chain id 1 and `wrong_registry` with the Inbox `0x1111…11` as verifying contract.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `config`              | 6.4, 10, A, B | `configHash` (Inbox slot 269): the four input words (`ETNA_CONFIG_V1`, L2 chain id, the staking proxy, U 151,200), the 128-byte preimage and the hash.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `val_state_chains`    | 6.2, 8.4, A   | `valStateHash(x)` (appendix A) of the states stock CometBFT v0.40.0 holds after committing each height of five chains with real secp256k1eth keys: the genesis of generation 0 and of a recovery generation, single-height increments, switches at S(t) that add, remove and re-weight members, priority rescaling and centering at their bounds, proposer ties broken by address and both stored proposers; and 4096 members at `MaxTotalVotingPower`. See the notes below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `val_state_chains`    | 6.2, 8.4, A   | `valStateHash(x)` (appendix A) of the states stock CometBFT v0.40.0 holds after committing each height of seven chains with real secp256k1eth keys: the genesis of generation 0 and of a recovery generation, both from fallback keys at power 1 and from members of unequal powers, single-height increments, validator updates returned at any height that add, remove and re-weight members and first sign two heights later, switches between the candidate and the fallback key set that replace the whole set in one update list, priority rescaling and centering at their bounds, proposer ties broken by address and both stored proposers; and 128 members, the most that any set that signs a block has, at `MaxTotalVotingPower`. See the notes below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `cuts`                | 6.1, 6.3, A   | Cut leaves `keccak256(abi.encode(x, blockHash, cometHash, forcedHead))` (four words) for heights 0–18 of a fixed model (EL hash 100 + x, Comet hash 200 + x and 0 at x = 0, FI cursor x / 6), and `ETNA_LAND_CUTS_V1` cut hashes over the h − p − 1 leaves of the heights strictly between p and h: the empty list (`keccak256("")`) at h = p + 1 in generations 0 and 2, one leaf at h = p + 2, the 17 and 11 leaves of the two statements, and Etna start S = 1000 with p = 1000 and h = 1003, whose two leaves are at 1001 and 1002.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `land_statements`     | 6.1, 6.2, A   | The 19-word (608-byte) `TAIKO_ETNA_LAND_V1` statement, with the config hash ninth and no staking address or committee snapshot, for a generation-0 landing from block 0 and a generation-1 landing from height 6.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `land_abi`            | 6.1           | The `land(input, leaves, proof)` signature (seven-field LandInput), selector `0x5185fd7a` and complete calldata of the generation-1 statement with its 11 leaves.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -109,24 +112,37 @@ FinalizeBlock returns. Its hash enters only the app hash (`app_hashes`); no land
   ascending); its ValEntry is `(ck_prefix, ck_x, votingPower, proposerPriority)` of that key.
   `current_proposer` and `next_proposer` are indexes into the rows.
 - A chain has `genesis` (the validators of the genesis at `start_height`, whose initial height is
-  `start_height + 1`), `switches`, and one state per height through `end_height` with both sets,
-  both stored proposers and `hash`. `start_preimage` is the preimage at `start_height`; the other
-  preimages follow from the rows and `keys`.
-- FinalizeBlock returns a switch at `height` = S(t) = t·L − 1 (L is `epoch_length`; H(t) =
-  1 + t·L counts from block 0) as `changes`: a joining member at its power, a leaving member at 0,
-  a re-weighted member at its new power. It changes only `next` at S(t); `current` at S(t) + 1
-  holds the new committee, which first signs `activation_height` = H(t) = S(t) + 2
-  (COMM-4.3-13). Sending the whole new committee instead, unchanged members at their power, gives
-  the same state, because CometBFT keeps an unchanged member's priority; `valgen/` checks this at
-  every height.
-- `gen0` is generation 0 from S = 0 with L = 7, heights 0–48, switching at 6 (add), 13 (remove),
-  20 (re-weight), 27 (all three), 34 (add), 41 (remove the largest member, add a small one: the
+  `start_height + 1`; they sign `start_height + 1` and `start_height + 2`), `switches`, and one
+  state per height through `end_height` with both sets, both stored proposers and `hash`.
+  `start_preimage` is the preimage at `start_height`; the other preimages follow from the rows and
+  `keys`.
+- FinalizeBlock(H) may return validator updates at any height H after `start_height`. Each is a
+  `switches` row with `height` = H and `changes`, the difference between the set that signs H + 2
+  and the set that signs H + 1: a joining member at its power, a leaving member at 0, a
+  re-weighted member at its new power. A member whose power stays the same is not listed. The
+  update changes only `next` at H; `current` at H + 1 holds the new set, which first signs
+  `activation_height` = H + 2 (4.3). Sending the whole new set instead, unchanged members at their
+  power, gives the same state, because CometBFT keeps an unchanged member's priority; `valgen/`
+  checks this at every height. Every `current` and `next` has 1 to 128 members.
+- `gen0` is generation 0 from height 0, heights 0–48, with updates at 6 (add), 13 (remove), 20
+  (re-weight), 27 (all three), 34 (add), 41 (remove the largest member, add a small one: the
   update rescales) and 48. `gen1` is the recovery generation from c = 48 (8.4): a new genesis at
   48, heights 48–60. Generation 0's update returned at 48 is discarded with its state, and the
-  next switch is S(8) = 55. `bounds_a`, `bounds_b` and `bounds_c` (L = 3) reach the
-  priority-window bounds: a spread of exactly 2·total (no rescale) and of 2·total + 1 (rescale
-  by 2), each inside `UpdateWithChangeSet` and inside `IncrementProposerPriority`, the latter
-  also at a height without an update, and a centered sum of −1 over four members.
+  next update is returned at 55. Both start from members of unequal powers, which exercise
+  CometBFT's arithmetic; an Etna genesis gives each fallback key power 1. `bounds_a`, `bounds_b`
+  and `bounds_c` reach the priority-window bounds: a spread of exactly 2·total (no rescale) and
+  of 2·total + 1 (rescale by 2), each inside `UpdateWithChangeSet` and inside
+  `IncrementProposerPriority`, the latter also at a height without an update, and a centered sum
+  of −1 over four members.
+- `fallback_genesis_to_candidate` is generation 0 as Etna derives it (4.3): the genesis is the
+  fallback key set c1–c4, each at power 1, which signs 1 and 2. The update returned at 1 removes
+  every fallback key and adds a usable candidate (c5, c6 and c7 at 30, 20 and 10), which signs
+  from 3; c6 is re-weighted at 4 and c7 leaves at 6; at 8 one update removes the candidate and
+  restores the fallback key set at power 1, which signs from 10. Each switch between the
+  candidate and the fallback key set replaces the whole set through one update list.
+  `recovery_origin_keys` is generation 1 from a governance recovery at c = 10 (8.4): its genesis
+  is the new origin's fallback keys c8 and c9 at power 1, which sign 11 and 12, and the update
+  returned at 11 replaces them with the candidate c5 at 30, which signs from 13.
 - `events` mark where a chain reaches these cases, as `valset_model.py` replays it. `rescale` is
   a spread at or above `diff_max` = 2·total, with `fires`, `ratio` and the `truncated` members
   whose negative priority Go's division rounds toward zero. `center` is a negative sum that is not
@@ -137,13 +153,13 @@ FinalizeBlock returns. Its hash enters only the app hash (`app_hashes`); no land
   or `increment` (`IncrementProposerPriority`).
 - Every stored set's priorities sum to between 0 and n − 1. The stored proposer is the member
   the last increment decremented, usually not the highest priority: read it, never recompute it.
-- `max_committee` is 4096 members at `MaxTotalVotingPower` = (2^63 − 1) / 8. Member i (key mi)
-  has private key 0x10000 + i and power 2^48 + (i mod 64) − 32; member 4095 takes the rest of the
-  total, 2^48 + 2078, so 64 power classes each order by address. It lists the hash at genesis
-  and one height later, both proposers, the first and last three rows of each set and the
-  preimage size (1,048,832 bytes), not all 16,384 rows: those would add more than 1 MB to a file
-  that every Etna Solidity test loads. Rebuild the sets from the rules and compare the hash; the
-  rows shown and the proposers locate a mismatch.
+- `max_committee` is 128 members, the most that any set that signs a block has, at
+  `MaxTotalVotingPower` = (2^63 − 1) / 8. Member i (key mi) has private key 0x10000 + i and power
+  2^48 + (i mod 64) − 32; member 127 takes the rest of the total, 3969·2^48 + 94, so 63 pairs of
+  equal power each order by address. It lists the hash at genesis and one height later, both
+  proposers, the first and last three rows of each set and the preimage size (33,024 bytes), not
+  all 512 rows: every Etna Solidity test loads this file, which stays well under 1 MB. Rebuild the
+  sets from the rules and compare the hash; the rows shown and the proposers locate a mismatch.
 
 `valgen/` produces every state with CometBFT's own code: `state.MakeGenesisState` at a chain's
 start (state/state.go:344-345: `NewValidatorSet` and `CopyIncrementProposerPriority(1)`), and
@@ -259,10 +275,9 @@ python3 -I testdata/etna_vectors/generate.py
 
 `generate.py` holds the inputs, the packing table and the storage slot numbers, written from
 appendices A and B. Every ABI encoding, hash and storage slot is computed by `cast`, independently
-of the contracts and of the node; a maximum-committee validator set is encoded in slices, because
-Linux limits one command-line argument to 128 KiB. Every literal of appendix A's vectors must
-reproduce, or generation stops. Three Go modules, each in its own directory and never imported by
-the root module, are run with `go run` (a `GOFLAGS` in the environment, such as `-p=2`, is kept):
+of the contracts and of the node. Every literal of appendix A's vectors must reproduce, or
+generation stops. Three Go modules, each in its own directory and never imported by the root
+module, are run with `go run` (a `GOFLAGS` in the environment, such as `-p=2`, is kept):
 
 - `votegen/` signs every vote with stock CometBFT v0.40.0 (`types.VoteSignBytes` and the
   secp256k1eth key type). Generation stops if any sign-byte string differs from a separate Python

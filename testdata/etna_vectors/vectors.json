@@ -662,11 +662,10 @@
     "chains": [
       {
         "name": "gen0",
-        "description": "Generation 0 from the Etna start S = 0 with L = 7: genesis at 0, every single-height increment through 48, and switches at S(1)..S(7) that add (6), remove (13), re-weight (20), add, remove and re-weight at once (27), add (34), replace the largest member (41) and re-weight (48). Equal powers order by address; ties go to the lower address.",
+        "description": "Generation 0 from height 0, with a genesis of unequal powers that exercises CometBFT's arithmetic (an Etna genesis gives each fallback key power 1, as in fallback_genesis_to_candidate): every single-height increment through 48, and updates returned at 6 (add), 13 (remove), 20 (re-weight), 27 (add, remove and re-weight at once), 34 (add), 41 (replace the largest member) and 48 (re-weight), each signing from two heights later. Equal powers order by address; ties go to the lower address.",
         "generation": "0",
         "start_height": "0",
         "end_height": "48",
-        "epoch_length": "7",
         "genesis": [
           ["c1", "30"],
           ["c2", "30"],
@@ -675,25 +674,21 @@
         ],
         "switches": [
           {
-            "epoch": "1",
             "height": "6",
             "activation_height": "8",
             "changes": [["c5", "25"]]
           },
           {
-            "epoch": "2",
             "height": "13",
             "activation_height": "15",
             "changes": [["c4", "0"]]
           },
           {
-            "epoch": "3",
             "height": "20",
             "activation_height": "22",
             "changes": [["c3", "45"]]
           },
           {
-            "epoch": "4",
             "height": "27",
             "activation_height": "29",
             "changes": [
@@ -703,13 +698,11 @@
             ]
           },
           {
-            "epoch": "5",
             "height": "34",
             "activation_height": "36",
             "changes": [["c8", "20"]]
           },
           {
-            "epoch": "6",
             "height": "41",
             "activation_height": "43",
             "changes": [
@@ -718,7 +711,6 @@
             ]
           },
           {
-            "epoch": "7",
             "height": "48",
             "activation_height": "50",
             "changes": [["c5", "50"]]
@@ -1765,11 +1757,10 @@
       },
       {
         "name": "gen1",
-        "description": "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with a different committee and initial height 49. Generation 0's update returned at S(7) = 48 is discarded with the rest of its state; the next switch is S(8) = 55 (add one member, remove another), active from H(8) = 57.",
+        "description": "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with other members of unequal powers and initial height 49. Generation 0's update returned at 48 is discarded with the rest of its state; the update returned at 55 (add one member, remove another) signs from 57.",
         "generation": "1",
         "start_height": "48",
         "end_height": "60",
-        "epoch_length": "7",
         "genesis": [
           ["c3", "40"],
           ["c6", "15"],
@@ -1778,7 +1769,6 @@
         ],
         "switches": [
           {
-            "epoch": "8",
             "height": "55",
             "activation_height": "57",
             "changes": [
@@ -2064,11 +2054,10 @@
       },
       {
         "name": "bounds_a",
-        "description": "L = 3. At S(1) = 2 the update leaves a priority spread of exactly 2\u00b7total, so neither UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment raises it to 2\u00b7total + 1, so height 3 rescales by 2 and then centers a sum of -1 by floor(-1 / 4) = -1, leaving the largest residual sum, n - 1.",
+        "description": "The update returned at 2 leaves a priority spread of exactly 2\u00b7total, so neither UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment raises it to 2\u00b7total + 1, so height 3 rescales by 2 and then centers a sum of -1 by floor(-1 / 4) = -1, leaving the largest residual sum, n - 1.",
         "generation": "0",
         "start_height": "0",
         "end_height": "4",
-        "epoch_length": "3",
         "genesis": [
           ["c2", "2"],
           ["c9", "2"],
@@ -2077,7 +2066,6 @@
         ],
         "switches": [
           {
-            "epoch": "1",
             "height": "2",
             "activation_height": "4",
             "changes": [
@@ -2225,11 +2213,10 @@
       },
       {
         "name": "bounds_b",
-        "description": "L = 3. Height 3 rescales a spread of 2\u00b7total + 1 left by the switch at S(1) = 2; the switch at S(2) = 5 leaves a spread of 2\u00b7total + 1 inside UpdateWithChangeSet, whose rescale truncates negative priorities toward zero.",
+        "description": "Height 3 rescales a spread of 2\u00b7total + 1 left by the update returned at 2; the update returned at 5 leaves a spread of 2\u00b7total + 1 inside UpdateWithChangeSet, whose rescale truncates negative priorities toward zero.",
         "generation": "0",
         "start_height": "0",
         "end_height": "6",
-        "epoch_length": "3",
         "genesis": [
           ["c3", "6"],
           ["c6", "4"],
@@ -2238,7 +2225,6 @@
         ],
         "switches": [
           {
-            "epoch": "1",
             "height": "2",
             "activation_height": "4",
             "changes": [
@@ -2247,7 +2233,6 @@
             ]
           },
           {
-            "epoch": "2",
             "height": "5",
             "activation_height": "7",
             "changes": [["c12", "0"]]
@@ -2420,11 +2405,10 @@
       },
       {
         "name": "bounds_c",
-        "description": "L = 3. Three members of equal power: genesis and later increments break priority ties by address. Height 3 has no update and increments a set whose spread is exactly 2\u00b7total, which is not rescaled.",
+        "description": "Three members of equal power: genesis and later increments break priority ties by address. Height 3 has no update and increments a set whose spread is exactly 2\u00b7total, which is not rescaled.",
         "generation": "0",
         "start_height": "0",
         "end_height": "4",
-        "epoch_length": "3",
         "genesis": [
           ["c4", "1"],
           ["c3", "1"],
@@ -2433,7 +2417,6 @@
         ],
         "switches": [
           {
-            "epoch": "1",
             "height": "2",
             "activation_height": "4",
             "changes": [["c9", "0"]]
@@ -2581,214 +2564,439 @@
             "proposer": "c3"
           }
         ]
+      },
+      {
+        "name": "fallback_genesis_to_candidate",
+        "description": "Generation 0 as Etna derives it from S = 0: the genesis is the origin's fallback key set, c1..c4 at power 1 each, which signs 1 and 2. FinalizeBlock(1) switches to a usable candidate (c5 at 30, c6 at 20, c7 at 10) with one list that also removes every fallback key, so the candidate signs from 3. A stake change re-weights c6 to 25 at 4 (signing from 6) and an exit removes c7 at 6 (from 8). At 8 the candidate is no longer usable, and one list replaces it with the fallback key set at power 1, which signs from 10.",
+        "generation": "0",
+        "start_height": "0",
+        "end_height": "10",
+        "genesis": [
+          ["c1", "1"],
+          ["c2", "1"],
+          ["c3", "1"],
+          ["c4", "1"]
+        ],
+        "switches": [
+          {
+            "height": "1",
+            "activation_height": "3",
+            "changes": [
+              ["c1", "0"],
+              ["c2", "0"],
+              ["c3", "0"],
+              ["c4", "0"],
+              ["c5", "30"],
+              ["c6", "20"],
+              ["c7", "10"]
+            ]
+          },
+          {
+            "height": "4",
+            "activation_height": "6",
+            "changes": [["c6", "25"]]
+          },
+          {
+            "height": "6",
+            "activation_height": "8",
+            "changes": [["c7", "0"]]
+          },
+          {
+            "height": "8",
+            "activation_height": "10",
+            "changes": [
+              ["c5", "0"],
+              ["c6", "0"],
+              ["c1", "1"],
+              ["c2", "1"],
+              ["c3", "1"],
+              ["c4", "1"]
+            ]
+          }
+        ],
+        "start_preimage": "0x45544e415f56414c5f53544154455f5631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002e0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002eb98660f4c4dfaa06a2be453d5020bc99a0c2e60abe388457dd43fefb1ed620c0000000000000000000000000000000000000000000000000000000000000001fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd0000000000000000000000000000000000000000000000000000000000000003838ed2eb98f466853b4ab50f6b1030ce1d8742af3a39049ad0f9cf8031bdc86300000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000313e87b027d8514d35939f2e6892b19922154596941888336dc3563e3b8dba94200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000221c76dbf7a8d075a88b426221796035964f08ea3aa575d8f5f2d7ca5d86e196e0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002eb98660f4c4dfaa06a2be453d5020bc99a0c2e60abe388457dd43fefb1ed620c0000000000000000000000000000000000000000000000000000000000000001fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000003838ed2eb98f466853b4ab50f6b1030ce1d8742af3a39049ad0f9cf8031bdc8630000000000000000000000000000000000000000000000000000000000000001fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe000000000000000000000000000000000000000000000000000000000000000313e87b027d8514d35939f2e6892b19922154596941888336dc3563e3b8dba94200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000221c76dbf7a8d075a88b426221796035964f08ea3aa575d8f5f2d7ca5d86e196e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+        "states": [
+          {
+            "height": "0",
+            "current": [
+              ["c1", "1", "-3"],
+              ["c2", "1", "1"],
+              ["c3", "1", "1"],
+              ["c4", "1", "1"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c1", "1", "-2"],
+              ["c2", "1", "-2"],
+              ["c3", "1", "2"],
+              ["c4", "1", "2"]
+            ],
+            "next_proposer": "1",
+            "hash": "0xcc1bec878648e747be54f78bcd65874ef53607420d30f6279ca56d15752eea78"
+          },
+          {
+            "height": "1",
+            "current": [
+              ["c1", "1", "-2"],
+              ["c2", "1", "-2"],
+              ["c3", "1", "2"],
+              ["c4", "1", "2"]
+            ],
+            "current_proposer": "1",
+            "next": [
+              ["c5", "30", "-30"],
+              ["c6", "20", "20"],
+              ["c7", "10", "10"]
+            ],
+            "next_proposer": "0",
+            "hash": "0xbebdb7fae381aa5e04163f8ba3757ff35f63551d777dfe972e474bd391d8c3e8"
+          },
+          {
+            "height": "2",
+            "current": [
+              ["c5", "30", "-30"],
+              ["c6", "20", "20"],
+              ["c7", "10", "10"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c5", "30", "0"],
+              ["c6", "20", "-20"],
+              ["c7", "10", "20"]
+            ],
+            "next_proposer": "1",
+            "hash": "0x654819882612b1fd9ea416b012604f56beac948580d6a8e25cddb4055bfc59b6"
+          },
+          {
+            "height": "3",
+            "current": [
+              ["c5", "30", "0"],
+              ["c6", "20", "-20"],
+              ["c7", "10", "20"]
+            ],
+            "current_proposer": "1",
+            "next": [
+              ["c5", "30", "-30"],
+              ["c6", "20", "0"],
+              ["c7", "10", "30"]
+            ],
+            "next_proposer": "0",
+            "hash": "0x78ef3dbbd2b3373c1c93f0b2c60f92784272cc638b14df4bb7bd7448c59bfee6"
+          },
+          {
+            "height": "4",
+            "current": [
+              ["c5", "30", "-30"],
+              ["c6", "20", "0"],
+              ["c7", "10", "30"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c5", "30", "0"],
+              ["c6", "25", "25"],
+              ["c7", "10", "-25"]
+            ],
+            "next_proposer": "2",
+            "hash": "0xd44cc33d2f140a47095382749b68954dfdfe928027d3af2a3f5c5a2019a48cf6"
+          },
+          {
+            "height": "5",
+            "current": [
+              ["c5", "30", "0"],
+              ["c6", "25", "25"],
+              ["c7", "10", "-25"]
+            ],
+            "current_proposer": "2",
+            "next": [
+              ["c5", "30", "30"],
+              ["c6", "25", "-15"],
+              ["c7", "10", "-15"]
+            ],
+            "next_proposer": "1",
+            "hash": "0x3464d143c5fef13a85522e5edd10631e9721cbb6abc4f81b4bd6a5eae8dcc6e0"
+          },
+          {
+            "height": "6",
+            "current": [
+              ["c5", "30", "30"],
+              ["c6", "25", "-15"],
+              ["c7", "10", "-15"]
+            ],
+            "current_proposer": "1",
+            "next": [
+              ["c5", "30", "-2"],
+              ["c6", "25", "3"]
+            ],
+            "next_proposer": "0",
+            "hash": "0xdbd9fc8dfdddc8fa488d07c42206368cc3d86877aaeaa8bb3251d5fd99759d6a"
+          },
+          {
+            "height": "7",
+            "current": [
+              ["c5", "30", "-2"],
+              ["c6", "25", "3"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c5", "30", "28"],
+              ["c6", "25", "-27"]
+            ],
+            "next_proposer": "1",
+            "hash": "0x9382a6f8e41b2f56a7103e1a6e44e63a58b54f57af3482f3d2f138418d2dffce"
+          },
+          {
+            "height": "8",
+            "current": [
+              ["c5", "30", "28"],
+              ["c6", "25", "-27"]
+            ],
+            "current_proposer": "1",
+            "next": [
+              ["c1", "1", "-3"],
+              ["c2", "1", "1"],
+              ["c3", "1", "1"],
+              ["c4", "1", "1"]
+            ],
+            "next_proposer": "0",
+            "hash": "0x98ff1f2986fb962daeae8a6fb2e2ae7ffc08432a6c3ab7fcec2229216f668eae"
+          },
+          {
+            "height": "9",
+            "current": [
+              ["c1", "1", "-3"],
+              ["c2", "1", "1"],
+              ["c3", "1", "1"],
+              ["c4", "1", "1"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c1", "1", "-2"],
+              ["c2", "1", "-2"],
+              ["c3", "1", "2"],
+              ["c4", "1", "2"]
+            ],
+            "next_proposer": "1",
+            "hash": "0xa77b8e76167476c378e629e484303637c6d0f537e53d4f95eaf75916cb8a1006"
+          },
+          {
+            "height": "10",
+            "current": [
+              ["c1", "1", "-2"],
+              ["c2", "1", "-2"],
+              ["c3", "1", "2"],
+              ["c4", "1", "2"]
+            ],
+            "current_proposer": "1",
+            "next": [
+              ["c1", "1", "-1"],
+              ["c2", "1", "-1"],
+              ["c3", "1", "-1"],
+              ["c4", "1", "3"]
+            ],
+            "next_proposer": "2",
+            "hash": "0x4b54185e142f51b94d0449c9eb2d43018078dcae2b544df6dc5cba1c34de9f14"
+          }
+        ],
+        "events": [
+          {
+            "height": "0",
+            "step": "genesis",
+            "kind": "tie",
+            "tied": ["c1", "c2", "c3", "c4"],
+            "proposer": "c1"
+          },
+          {
+            "height": "0",
+            "step": "genesis_next",
+            "kind": "tie",
+            "tied": ["c2", "c3", "c4"],
+            "proposer": "c2"
+          },
+          {
+            "height": "3",
+            "step": "increment",
+            "kind": "tie",
+            "tied": ["c5", "c7"],
+            "proposer": "c5"
+          },
+          {
+            "height": "7",
+            "step": "increment",
+            "kind": "tie",
+            "tied": ["c6", "c5"],
+            "proposer": "c6"
+          },
+          {
+            "height": "8",
+            "step": "increment",
+            "kind": "tie",
+            "tied": ["c1", "c2", "c3", "c4"],
+            "proposer": "c1"
+          },
+          {
+            "height": "9",
+            "step": "increment",
+            "kind": "tie",
+            "tied": ["c2", "c3", "c4"],
+            "proposer": "c2"
+          },
+          {
+            "height": "10",
+            "step": "increment",
+            "kind": "tie",
+            "tied": ["c3", "c4"],
+            "proposer": "c3"
+          }
+        ]
+      },
+      {
+        "name": "recovery_origin_keys",
+        "description": "Generation 1 from governance recovery at c = 10 (8.4): a new genesis at 10 with initial height 11, whose validators are the new origin's fallback keys, c8 and c9 at power 1; they sign 11 and 12. FinalizeBlock(11) replaces them with a usable candidate, c5 at 30, in one list, and the candidate signs from 13.",
+        "generation": "1",
+        "start_height": "10",
+        "end_height": "14",
+        "genesis": [
+          ["c8", "1"],
+          ["c9", "1"]
+        ],
+        "switches": [
+          {
+            "height": "11",
+            "activation_height": "13",
+            "changes": [
+              ["c8", "0"],
+              ["c9", "0"],
+              ["c5", "30"]
+            ]
+          }
+        ],
+        "start_preimage": "0x45544e415f56414c5f53544154455f5631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002ff07f3118a9df035e9fad85eb6c7bfe42b02f01ca99ceea3bf7ffdba93c4750d0000000000000000000000000000000000000000000000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000003cd5a3be41717d65683fe7a9de8ae5b4b8feced69f26a8b55eeefbcc2e74b75fb0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002ff07f3118a9df035e9fad85eb6c7bfe42b02f01ca99ceea3bf7ffdba93c4750d000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003cd5a3be41717d65683fe7a9de8ae5b4b8feced69f26a8b55eeefbcc2e74b75fb00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+        "states": [
+          {
+            "height": "10",
+            "current": [
+              ["c9", "1", "-1"],
+              ["c8", "1", "1"]
+            ],
+            "current_proposer": "0",
+            "next": [
+              ["c9", "1", "0"],
+              ["c8", "1", "0"]
+            ],
+            "next_proposer": "1",
+            "hash": "0xf65d51c4ac3676aebd248b1dfb7d58423b167776d27af03c70389d2a2c50bb90"
+          },
+          {
+            "height": "11",
+            "current": [
+              ["c9", "1", "0"],
+              ["c8", "1", "0"]
+            ],
+            "current_proposer": "1",
+            "next": [["c5", "30", "0"]],
+            "next_proposer": "0",
+            "hash": "0xaee20078793fa4af88e359153f09e8f722a6c4b9cbdda21696a88e45cab07d80"
+          },
+          {
+            "height": "12",
+            "current": [["c5", "30", "0"]],
+            "current_proposer": "0",
+            "next": [["c5", "30", "0"]],
+            "next_proposer": "0",
+            "hash": "0x9f6c642b12c503a89532277e180e25cf0daf205eac678e22e8fcbf5dc5796c63"
+          },
+          {
+            "height": "13",
+            "current": [["c5", "30", "0"]],
+            "current_proposer": "0",
+            "next": [["c5", "30", "0"]],
+            "next_proposer": "0",
+            "hash": "0x5e46d15214ac28d3a46ecd4ade88e54cacae699934e4ecb4b81d05c1ec2452d0"
+          },
+          {
+            "height": "14",
+            "current": [["c5", "30", "0"]],
+            "current_proposer": "0",
+            "next": [["c5", "30", "0"]],
+            "next_proposer": "0",
+            "hash": "0xd78ac3e1300c9ee538bf1981ab72e7ac277a0f0e79a3f9d596f13dc2d0564fdf"
+          }
+        ],
+        "events": [
+          {
+            "height": "10",
+            "step": "genesis",
+            "kind": "tie",
+            "tied": ["c9", "c8"],
+            "proposer": "c9"
+          }
+        ]
       }
     ],
     "max_committee": {
-      "description": "4096 members (n_max's bound) at CometBFT's MaxTotalVotingPower: genesis at 0 and one increment. Member i (0 <= i < 4096) is key mi with private key 0x10000 + i; its power is 2^48 + (i mod 64) - 32 for i < 4095, and member 4095 takes the rest of the total, 2^48 + 2078. Only the hash and the first and last rows of each set are listed.",
-      "size": "4096",
+      "description": "128 members, the most that any set that signs a block has, at CometBFT's MaxTotalVotingPower: genesis at 0 and one increment. Member i (0 <= i < 128) is key mi with private key 0x10000 + i; its power is 2^48 + (i mod 64) - 32 for i < 127, and member 127 takes the rest of the total, 3969\u00b72^48 + 94. Only the hash and the first and last rows of each set are listed.",
+      "size": "128",
       "first_private_key": "0x0000000000000000000000000000000000000000000000000000000000010000",
       "total_power": "1152921504606846975",
-      "last_member_power": "281474976712734",
+      "last_member_power": "1117174182564593758",
       "start_height": "0",
       "states": [
         {
           "height": "0",
           "current_head": [
-            ["m4095", "281474976712734", "-1152640029630134241"],
-            ["m1279", "281474976710687", "281474976710687"],
-            ["m1791", "281474976710687", "281474976710687"]
+            ["m127", "1117174182564593758", "-35747322042253217"],
+            ["m63", "281474976710687", "281474976710687"],
+            ["m62", "281474976710686", "281474976710686"]
           ],
           "current_tail": [
-            ["m832", "281474976710624", "281474976710624"],
-            ["m3328", "281474976710624", "281474976710624"],
-            ["m1408", "281474976710624", "281474976710624"]
+            ["m1", "281474976710625", "281474976710625"],
+            ["m64", "281474976710624", "281474976710624"],
+            ["m0", "281474976710624", "281474976710624"]
           ],
           "current_proposer": "0",
           "next_head": [
-            ["m4095", "281474976712734", "-1152358554653421507"],
-            ["m1279", "281474976710687", "-1152358554653425601"],
-            ["m1791", "281474976710687", "562949953421374"]
+            ["m127", "1117174182564593758", "-71494644084506434"],
+            ["m63", "281474976710687", "562949953421374"],
+            ["m62", "281474976710686", "562949953421372"]
           ],
           "next_tail": [
-            ["m832", "281474976710624", "562949953421248"],
-            ["m3328", "281474976710624", "562949953421248"],
-            ["m1408", "281474976710624", "562949953421248"]
+            ["m1", "281474976710625", "562949953421250"],
+            ["m64", "281474976710624", "562949953421248"],
+            ["m0", "281474976710624", "562949953421248"]
           ],
-          "next_proposer": "1",
-          "preimage_bytes": "1048832",
-          "hash": "0x34a560dc110a775c1476b023336a807d590fba872cb8eb7bc3cd4e8c2122172c"
+          "next_proposer": "0",
+          "preimage_bytes": "33024",
+          "hash": "0x11c52fc4c72e51a2132ec7f2d4e2a7b5ed579520da5ae04482783239aab88a70"
         },
         {
           "height": "1",
           "current_head": [
-            ["m4095", "281474976712734", "-1152358554653421507"],
-            ["m1279", "281474976710687", "-1152358554653425601"],
-            ["m1791", "281474976710687", "562949953421374"]
+            ["m127", "1117174182564593758", "-71494644084506434"],
+            ["m63", "281474976710687", "562949953421374"],
+            ["m62", "281474976710686", "562949953421372"]
           ],
           "current_tail": [
-            ["m832", "281474976710624", "562949953421248"],
-            ["m3328", "281474976710624", "562949953421248"],
-            ["m1408", "281474976710624", "562949953421248"]
+            ["m1", "281474976710625", "562949953421250"],
+            ["m64", "281474976710624", "562949953421248"],
+            ["m0", "281474976710624", "562949953421248"]
           ],
-          "current_proposer": "1",
+          "current_proposer": "0",
           "next_head": [
-            ["m4095", "281474976712734", "-1152077079676708773"],
-            ["m1279", "281474976710687", "-1152077079676714914"],
-            ["m1791", "281474976710687", "-1152077079676714914"]
+            ["m127", "1117174182564593758", "-107241966126759651"],
+            ["m63", "281474976710687", "844424930132061"],
+            ["m62", "281474976710686", "844424930132058"]
           ],
           "next_tail": [
-            ["m832", "281474976710624", "844424930131872"],
-            ["m3328", "281474976710624", "844424930131872"],
-            ["m1408", "281474976710624", "844424930131872"]
+            ["m1", "281474976710625", "844424930131875"],
+            ["m64", "281474976710624", "844424930131872"],
+            ["m0", "281474976710624", "844424930131872"]
           ],
-          "next_proposer": "2",
-          "preimage_bytes": "1048832",
-          "hash": "0x610a2f7345cdd9c8e7de0fe6a4f481cd239edd6fcd60fc3ce8dcea8e8abc6384"
+          "next_proposer": "0",
+          "preimage_bytes": "33024",
+          "hash": "0xcb43ff85866791c283d6fa8816c866afa905ba8e52e8eca7574c18eaac374e11"
         }
       ],
-      "events": [
-        {
-          "height": "0",
-          "step": "genesis_next",
-          "kind": "tie",
-          "tied": [
-            "m1279",
-            "m1791",
-            "m1599",
-            "m3455",
-            "m831",
-            "m1087",
-            "m511",
-            "m1919",
-            "m1023",
-            "m1535",
-            "m255",
-            "m1855",
-            "m3007",
-            "m2879",
-            "m2623",
-            "m3583",
-            "m2495",
-            "m319",
-            "m3967",
-            "m2303",
-            "m2943",
-            "m639",
-            "m703",
-            "m1343",
-            "m447",
-            "m2815",
-            "m1407",
-            "m1151",
-            "m63",
-            "m4031",
-            "m1215",
-            "m2175",
-            "m3263",
-            "m3711",
-            "m2239",
-            "m3519",
-            "m1663",
-            "m1983",
-            "m127",
-            "m2047",
-            "m2687",
-            "m2367",
-            "m767",
-            "m575",
-            "m3071",
-            "m959",
-            "m895",
-            "m3391",
-            "m3199",
-            "m2431",
-            "m1727",
-            "m383",
-            "m3839",
-            "m1471",
-            "m2559",
-            "m3775",
-            "m2111",
-            "m3327",
-            "m3903",
-            "m2751",
-            "m3135",
-            "m191",
-            "m3647"
-          ],
-          "proposer": "m1279"
-        },
-        {
-          "height": "1",
-          "step": "increment",
-          "kind": "tie",
-          "tied": [
-            "m1791",
-            "m1599",
-            "m3455",
-            "m831",
-            "m1087",
-            "m511",
-            "m1919",
-            "m1023",
-            "m1535",
-            "m255",
-            "m1855",
-            "m3007",
-            "m2879",
-            "m2623",
-            "m3583",
-            "m2495",
-            "m319",
-            "m3967",
-            "m2303",
-            "m2943",
-            "m639",
-            "m703",
-            "m1343",
-            "m447",
-            "m2815",
-            "m1407",
-            "m1151",
-            "m63",
-            "m4031",
-            "m1215",
-            "m2175",
-            "m3263",
-            "m3711",
-            "m2239",
-            "m3519",
-            "m1663",
-            "m1983",
-            "m127",
-            "m2047",
-            "m2687",
-            "m2367",
-            "m767",
-            "m575",
-            "m3071",
-            "m959",
-            "m895",
-            "m3391",
-            "m3199",
-            "m2431",
-            "m1727",
-            "m383",
-            "m3839",
-            "m1471",
-            "m2559",
-            "m3775",
-            "m2111",
-            "m3327",
-            "m3903",
-            "m2751",
-            "m3135",
-            "m191",
-            "m3647"
-          ],
-          "proposer": "m1791"
-        }
-      ]
+      "events": []
     }
   },
   "cuts": {

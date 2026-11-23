@@ -1449,20 +1449,22 @@ class VectorsTest(unittest.TestCase):
         address = {k["name"]: k["ck_addr"][2:] for k in section["keys"]}
         self.assertEqual(
             [c["name"] for c in section["chains"]],
-            ["gen0", "gen1", "bounds_a", "bounds_b", "bounds_c"],
+            [
+                "gen0",
+                "gen1",
+                "bounds_a",
+                "bounds_b",
+                "bounds_c",
+                "fallback_genesis_to_candidate",
+                "recovery_origin_keys",
+            ],
         )
         for chain in section["chains"]:
             start, end = int(chain["start_height"]), int(chain["end_height"])
-            epoch_length = int(chain["epoch_length"])
-            self.assertGreaterEqual(epoch_length, 3)  # START-10-7
-            updates = {}
-            for switch in chain["switches"]:
-                height, t = int(switch["height"]), int(switch["epoch"])
-                # FinalizeBlock at S(t) = H(t) - 2 returns the update; it first signs H(t).
-                self.assertEqual(height, t * epoch_length - 1)
-                self.assertEqual(int(switch["activation_height"]), t * epoch_length + 1)
-                self.assertTrue(start < height <= end)
-                updates[height] = [(k, int(p)) for k, p in switch["changes"]]
+            updates = {
+                int(s["height"]): [(k, int(p)) for k, p in s["changes"]]
+                for s in chain["switches"]
+            }
             genesis = [(k, int(p)) for k, p in chain["genesis"]]
             states, events = valset_model.replay(address, start, end, genesis, updates)
             self.assertEqual(
@@ -1548,15 +1550,69 @@ class VectorsTest(unittest.TestCase):
                     else:
                         del expected[key]
                 self.assertEqual(committee(state["next"]), expected)
-            # H + 2: a switch returned at S(t) signs neither S(t) + 1 (current at S(t)) nor
-            # S(t) + 2 = H(t) until current at S(t) + 1.
-            by_height = {int(s["height"]): s for s in states}
-            for height, switch in switches.items():
-                new = committee(by_height[height]["next"])
-                self.assertNotEqual(committee(by_height[height]["current"]), new)
-                if height + 1 in by_height:
-                    self.assertEqual(committee(by_height[height + 1]["current"]), new)
         self.assertGreater(stored_not_highest, 0)
+
+    def test_val_state_chains_have_no_epochs_and_activate_two_heights_later(self):
+        """FinalizeBlock(H) may return an update at any height after the genesis; the update
+        leaves the set that signs H + 1 as it was and first signs H + 2."""
+        section = V["val_state_chains"]
+        for chain in section["chains"]:
+            self.assertFalse([k for k in chain if "epoch" in k], chain["name"])
+            start, end = int(chain["start_height"]), int(chain["end_height"])
+            by_height = {int(s["height"]): s for s in chain["states"]}
+            heights = [int(s["height"]) for s in chain["switches"]]
+            self.assertEqual(heights, sorted(set(heights)), chain["name"])
+            for switch in chain["switches"]:
+                height = int(switch["height"])
+                with self.subTest(chain=chain["name"], height=height):
+                    self.assertEqual(set(switch), {"height", "activation_height", "changes"})
+                    self.assertEqual(int(switch["activation_height"]), height + 2)
+                    self.assertTrue(start < height <= end)
+                    signs_next = committee(by_height[height - 1]["next"])
+                    # Every change changes the set that signs H + 1: a member that keeps its
+                    # power is not listed and only a member of that set leaves.
+                    for key, power in switch["changes"]:
+                        self.assertNotEqual(signs_next.get(key, 0), int(power), key)
+                    self.assertEqual(committee(by_height[height]["current"]), signs_next)
+                    new = committee(by_height[height]["next"])
+                    self.assertNotEqual(new, signs_next)
+                    if height + 1 in by_height:
+                        self.assertEqual(committee(by_height[height + 1]["current"]), new)
+
+    def test_every_signing_set_has_1_to_128_members(self):
+        section = V["val_state_chains"]
+        sizes = set()
+        for chain in section["chains"]:
+            for state in chain["states"]:
+                for side in ("current", "next"):
+                    self.assertTrue(1 <= len(state[side]) <= 128, (chain["name"], side))
+                    sizes.add(len(state[side]))
+        mc = section["max_committee"]
+        self.assertEqual(int(mc["size"]), 128)
+        sizes.add(int(mc["size"]))
+        self.assertEqual((min(sizes), max(sizes)), (1, 128))
+
+    def test_mode_switch_replaces_the_whole_set(self):
+        """From the genesis's fallback keys to a usable candidate at 1, and back at 8: one update
+        list removes every member of the set that signs H + 1 and adds every new member, so the
+        two sets share no key; every fallback key signs at power 1."""
+        chains = {c["name"]: c for c in V["val_state_chains"]["chains"]}
+        chain = chains["fallback_genesis_to_candidate"]
+        fallback = {f"c{i}": 1 for i in range(1, 5)}
+        self.assertEqual({k: int(p) for k, p in chain["genesis"]}, fallback)
+        by_height = {int(s["height"]): s for s in chain["states"]}
+        switches = {int(s["height"]): s for s in chain["switches"]}
+        for height, new in ((1, {"c5": 30, "c6": 20, "c7": 10}), (8, fallback)):
+            with self.subTest(height=height):
+                old = committee(by_height[height]["current"])
+                self.assertEqual(committee(by_height[height]["next"]), new)
+                self.assertFalse(set(old) & set(new))
+                self.assertEqual(
+                    sorted((k, int(p)) for k, p in switches[height]["changes"]),
+                    sorted([(k, 0) for k in old] + list(new.items())),
+                )
+                self.assertEqual(committee(by_height[height + 1]["current"]), new)
+                self.assertEqual(committee(by_height[height + 1]["next"]), new)
 
     def test_validator_state_events_cover_bounds(self):
         """Rescaling at 2·total (none) and 2·total + 1 (ratio 2) in both UpdateWithChangeSet and
@@ -1620,10 +1676,10 @@ class VectorsTest(unittest.TestCase):
         )
 
     def test_validator_state_max_committee(self):
-        """Rebuilds the 4096-member committee at MaxTotalVotingPower from its rules."""
+        """Rebuilds the 128-member set at MaxTotalVotingPower from its rules."""
         mc = V["val_state_chains"]["max_committee"]
         size, total = int(mc["size"]), int(mc["total_power"])
-        self.assertEqual((size, total), (4096, (2**63 - 1) // 8))
+        self.assertEqual((size, total), (128, (2**63 - 1) // 8))
         keys, address, genesis = {}, {}, []
         point = ec_mul(SECP_G, int(mc["first_private_key"], 16))
         for i in range(size):
@@ -1634,6 +1690,7 @@ class VectorsTest(unittest.TestCase):
             address[name] = eth_address(point)
             genesis.append((name, 2**48 + i % 64 - 32))
         genesis[-1] = (genesis[-1][0], total - sum(p for _, p in genesis[:-1]))
+        self.assertEqual(genesis[-1][1], 3969 * 2**48 + 94)
         self.assertEqual(int(mc["last_member_power"]), genesis[-1][1])
         start = int(mc["start_height"])
         states, events = valset_model.replay(
