@@ -2620,12 +2620,14 @@ class VectorsTest(unittest.TestCase):
             "all_commit": 0,
             "absent_seat_5": 1 << 5,
             "nil_seat_0": 1 << 0,
+            "two_seats": 9,
             "seat_127": 1 << 127,
             "fallback_key_without_bond": 0,
             "fallback_key_with_seated_bond": 1 << 7,
             "vacated_in_parent": 0,
             "malformed_words": 0,
             "two_addresses_one_seat": 1 << 3,
+            "two_addresses_one_seat_both_missing": 1 << 3,
             "seat_100": 1 << 100,
             "first_block": 0,
         }
@@ -2671,10 +2673,43 @@ class VectorsTest(unittest.TestCase):
             sorted(word for _, word in missing("malformed_words")), [0x0502, 0x8001, 0x10501]
         )
         self.assertEqual(missing("seat_100"), [("1", 0x6401)])
-        # A seat two addresses map to is set when either is missing.
+        self.assertEqual(missing("two_seats"), [("1", 0x0001), ("3", 0x0301)])
+        # A seat two addresses map to is set when either is missing, and when both are.
         pair = by_name(cases, "two_addresses_one_seat")["validators"]
         self.assertEqual(sorted(v["block_id_flag"] for v in pair), ["1", "2"])
         self.assertEqual({int(v["key_seat_word"], 16) for v in pair}, {0x0301})
+        both = by_name(cases, "two_addresses_one_seat_both_missing")["validators"]
+        self.assertEqual([v["ck_addr"] for v in both[:2]], [v["ck_addr"] for v in pair])
+        self.assertEqual(missing("two_addresses_one_seat_both_missing"),
+                         [("1", 0x0301), ("3", 0x0301)])
+
+        # The bitmap ORs one bit per missing validator. A reader that assigns each validator's bit
+        # instead keeps only the last one and fails `two_seats`; one that toggles it clears the
+        # seat of `two_addresses_one_seat_both_missing`.
+        def read(case, combine):
+            bitmap = 0
+            for _, value in missing(case["name"]):
+                seat = seat_from_word(value)
+                if seat is not None:
+                    bitmap = combine(bitmap, 1 << seat)
+            return bitmap
+
+        def or_bit(bitmap, bit):
+            return bitmap | bit
+
+        def assign_bit(_, bit):
+            return bit
+
+        def toggle_bit(bitmap, bit):
+            return bitmap ^ bit
+
+        for case in cases:
+            if not case["first_block_of_generation"]:
+                self.assertEqual(read(case, or_bit), int(case["miss_bitmap"]), case["name"])
+        for name, wrong in (("two_seats", assign_bit),
+                            ("two_addresses_one_seat_both_missing", toggle_bit)):
+            case = by_name(cases, name)
+            self.assertNotEqual(read(case, wrong), int(case["miss_bitmap"]), name)
         # While the fallback key set signs the parent, its keys are the validators: K1 and K2.
         fallback_addrs = [K1_ADDR, "0x" + eth_address(decompress(key_bytes(K2)))]
         for name, word_value in (("fallback_key_without_bond", 0),
@@ -2704,6 +2739,8 @@ class VectorsTest(unittest.TestCase):
             "power_sum_max": None,
             "power_sum_wraps": "power_sum",
             "record_at_seat_100": None,
+            "full_128": None,
+            "one_member": None,
             "empty": "no_members",
         }
         cases = family["cases"]
@@ -2785,6 +2822,25 @@ class VectorsTest(unittest.TestCase):
         self.assertLessEqual(sum(powers("power_sum_wraps")) % 2**64, MAX_POWER_SUM)
         self.assertFalse(wide["usable"])
         self.assertIn("100", [r["seat"] for r in c["record_at_seat_100"]["records"]])
+        # The largest usable set: a member in every seat at the reference minStake's power, so
+        # the snapshot total is TAIKO's supply and the powers sum to 10^18, below MAX. A reader
+        # that bounds the set below 128 members fails it.
+        full = c["full_128"]
+        full_power = int(V["deployment"]["min_stake"]) // int(V["deployment"]["vp_unit"])
+        self.assertEqual([r["seat"] for r in full["records"]], [str(s) for s in range(128)])
+        self.assertEqual(powers("full_128"), [full_power] * 128)
+        self.assertEqual(sum(powers("full_128")), 10**18)
+        self.assertLess(sum(powers("full_128")), MAX_POWER_SUM)
+        self.assertEqual(int(full["snapshot_total_stake"]), 10**27)
+        self.assertEqual(len({key for key, _, _ in map(record_member, full["records"])}), 128)
+        self.assertTrue(full["usable"])
+        self.assertEqual(len(full["signers"]), 128)
+        # The smallest usable set: one member at power 1, the least power a member may have.
+        one = c["one_member"]
+        self.assertEqual([r["seat"] for r in one["records"]], ["0"])
+        self.assertEqual(powers("one_member"), [1])
+        self.assertTrue(one["usable"])
+        self.assertEqual(len(one["signers"]), 1)
         self.assertEqual(c["empty"]["records"], [])
 
     def test_on_block_start_cases(self):

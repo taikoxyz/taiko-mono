@@ -226,14 +226,17 @@ calldata of the zero-parts-hash conflict; `governance_abi.slash_double_sign` rep
   validator is missing unless its flag is 2. A word gives seat s only when holdsSeat (bits 0–7) is
   1, seat (bits 8–15) is below 128 and every higher bit is 0; bit s is 1 exactly when a missing
   validator has seat s. A block with `first_block_of_generation` has no LastCommit and sets 0,
-  whatever its validators show. The cases: every validator committed; an absent validator in seat
-  5, a nil one in seat 0, seat 127; the fallback key set signing the parent, with a missing key that
-  no bond uses (word 0) and one that is also the key of a bond in seat 7; a key whose bond left its
-  seat in the parent (word 0); words that are not well formed (0x0502, 0x8001, 0x10501); two
-  addresses that map to seat 3, one missing; seat 100, set whatever n_max is (`onBlockStart` then
-  ignores it); and a generation's first block.
-- `candidate`: H = 100, the members are keys a1–a3 (in `power_sum_wraps`, the keys of private keys
-  0x200–0x27f) and the fallback key set is [K1, K2]. `records` lists the nonzero snapshot seat
+  whatever its validators show. The bits of the missing validators are OR-ed: a reader that assigns
+  each validator's bit instead fails `two_seats`, and one that toggles it fails
+  `two_addresses_one_seat_both_missing`. The cases: every validator committed; an absent validator
+  in seat 5, a nil one in seat 0; two missing validators in seats 0 and 3 (bitmap 9); seat 127; the
+  fallback key set signing the parent, with a missing key that no bond uses (word 0) and one that is
+  also the key of a bond in seat 7; a key whose bond left its seat in the parent (word 0); words
+  that are not well formed (0x0502, 0x8001, 0x10501); two addresses that map to seat 3, one missing
+  and then both (the bit is set once); seat 100, set whatever n_max is (with n_max ≤ 100,
+  `onBlockStart` then ignores it); and a generation's first block.
+- `candidate`: H = 100, the members are keys a1–a3 (in `power_sum_wraps` and `full_128`, the keys
+  of private keys 0x200–0x27f) and the fallback key set is [K1, K2]. `records` lists the nonzero snapshot seat
   records; every other record is zero. The candidate is usable exactly when `min_total_stake` (M) is
   not 2^256 − 1, `snapshot_height_word`, the whole word at T, equals H, the records form a valid set
   (1 to 128 members, valid and distinct keys, no bit of word 2 above `power`, every power at least
@@ -246,7 +249,9 @@ calldata of the zero-parts-hash conflict; `governance_abi.slash_double_sign` rep
   word 2 is both ckPrefix 0 and power 0. The power sum is exact: `power_sum` sums to MAX + 1 and
   `power_sum_max` to exactly MAX, which is usable, and `power_sum_wraps` has 128 members at 2^57,
   whose sum 2^64 exceeds MAX although a 64-bit sum wraps it to 0. A reader that wraps, or that
-  rejects a sum equal to MAX, fails one of them.
+  rejects a sum equal to MAX, fails one of them. The member count is pinned at both ends: `full_128`
+  is usable with a member in every seat at the reference minStake's power (powers summing to 10^18,
+  the whole supply staked), and `one_member` is usable with one member at power 1.
 - JSON null appears in two places: `staking_layout.key_seat_words[].seat` is null when the value
   gives the key no seat (null, not 0, since 0 is seat 0), and `candidate.cases[].reason` is null
   exactly when the candidate is usable.

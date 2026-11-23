@@ -2770,6 +2770,9 @@ def miss_bitmap(key_list):
         ("absent_seat_5", False,
          ((a1, commit, 0x0001), (a2, absent, 0x0501), (a3, commit, 0x0201)), 1 << 5),
         ("nil_seat_0", False, ((a1, nil, 0x0001), (a2, commit, 0x0101)), 1 << 0),
+        # Two missing validators at seats 0 and 3: the bitmap ORs both bits.
+        ("two_seats", False,
+         ((a1, absent, 0x0001), (a2, commit, 0x0101), (a3, nil, 0x0301)), 1 << 0 | 1 << 3),
         ("seat_127", False, ((a1, commit, 0x0001), (a2, absent, 0x7F01)), 1 << 127),
         # K1 is the key of no bond, so it maps to 0.
         ("fallback_key_without_bond", False, ((f1, absent, 0), (f2, commit, 0)), 0),
@@ -2781,6 +2784,9 @@ def miss_bitmap(key_list):
          ((a1, absent, 0x0502), (a2, absent, 0x8001), (a3, nil, 0x10501), (a4, commit, 0x0001)),
          0),
         ("two_addresses_one_seat", False, ((a1, absent, 0x0301), (a2, commit, 0x0301)), 1 << 3),
+        # The same two addresses, both missing: the seat's bit is set once, not toggled.
+        ("two_addresses_one_seat_both_missing", False,
+         ((a1, absent, 0x0301), (a2, nil, 0x0301), (a3, commit, 0x0001)), 1 << 3),
         # n_max 64 does not matter: the bit is set, and onBlockStart then ignores it.
         ("seat_100", False, ((a1, absent, 0x6401), (a2, commit, 0x0001)), 1 << 100),
         # The first block of a generation has no LastCommit.
@@ -2805,7 +2811,7 @@ def miss_bitmap(key_list):
 
 
 CANDIDATE_HEIGHT = 100
-# Seat s of the 128-member candidate holds the key of private key 0x200 + s.
+# Seat s of a 128-member candidate holds the key of private key 0x200 + s.
 CANDIDATE_WIDE_KEY = 0x200
 
 
@@ -2844,7 +2850,7 @@ def candidate(key_list):
     seat records, the M that H's anchor proves and the fallback key set [K1, K2], and the set that
     signs H + 2: the members in seat order at their stored powers when the candidate is usable,
     otherwise the fallback keys at power 1. Members are keys a1-a3, except in the 128-member
-    case."""
+    cases."""
     vp_unit = DEPLOYMENT["vp_unit"]
 
     def record(key, power):
@@ -2862,6 +2868,10 @@ def candidate(key_list):
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(scalar_key, wide_scalars))
     wide = {s: record(scalar_key(k), wrap_power) for s, k in enumerate(wide_scalars)}
+    # 128 members at the reference minStake's power: the whole supply staked, the most members a
+    # set has, with the powers summing to 10^18, below MAX.
+    full_power = DEPLOYMENT["min_stake"] // vp_unit
+    full = {s: record(scalar_key(k), full_power) for s, k in enumerate(wide_scalars)}
 
     def seat_2(word1, word2):
         return {**three, 2: (word1, word2)}
@@ -2892,11 +2902,17 @@ def candidate(key_list):
         # A record at a seat at or above any n_max below 101 is a member like any other.
         ("record_at_seat_100", h, 350_000 * vp_unit,
          {0: record(a1, 100_000), 100: record(a2, 250_000)}, low, None),
+        ("full_128", h, SNAPSHOT_RECORDS * full_power * vp_unit, full, low, None),
+        # The fewest members and the least power: one member at power 1, with a threshold its
+        # total reaches.
+        ("one_member", h, vp_unit, {0: record(a1, 1)}, vp_unit, None),
         ("empty", h, 0, {}, 0, "no_members"),
     )
     assert 2 * half == MAX_TOTAL_VOTING_POWER + 1 == 2**60
     total_wide = SNAPSHOT_RECORDS * wrap_power
     assert total_wide == 2**64 and total_wide % 2**64 == 0 < MAX_TOTAL_VOTING_POWER < total_wide
+    assert SNAPSHOT_RECORDS * full_power == 10**18 < MAX_TOTAL_VOTING_POWER
+    assert SNAPSHOT_RECORDS * full_power * vp_unit == TAIKO_SUPPLY
     fallback_scalars = (1, 2)
     fallback = [fallback_key(k) for k in fallback_scalars]
     out = []
