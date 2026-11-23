@@ -35,9 +35,10 @@ new committee's members, so unchanged members repeat their power. Stock CometBFT
 same state from that list as from the difference alone, which is what
 `committee::validator_updates` returns: a leaver at power 0, a newcomer or changed power at its
 new power, no unchanged member. `per_block_diff_ten_heights`,
-`replace_128_with_128_other_keys` and `fallback_key_reweighted_as_seat_key` record that
-difference alone, as FinalizeBlock returns it, and the Rust tests check that the decider's list
-from the set in force to the recorded next set is exactly the recorded list.
+`replace_128_with_128_other_keys`, `fallback_key_reweighted_as_seat_key` and
+`max_total_switches_with_128_fallback_keys` record that difference alone, as FinalizeBlock
+returns it, and the Rust tests check that the decider's list from the set in force to the
+recorded next set is exactly the recorded list.
 
 A step holds the state after that height: `current` is `State.Validators` and `next` is
 `State.NextValidators`, each in CometBFT set order (power descending, then address ascending)
@@ -56,7 +57,11 @@ consecutive heights (`per_block_diff_ten_heights`); 128 keys at power 1 replaced
 other keys in one list of 128 removals and 128 additions (`replace_128_with_128_other_keys`);
 a key at power 1 among four re-weighted to 250,000 while the other three leave, in one list
 (`fallback_key_reweighted_as_seat_key`); 128 members at exactly `MaxTotalVotingPower`, with
-`validators_hash` (`maximum_128_members`); the rejected change sets (`duplicate_update`,
+`validators_hash` (`maximum_128_members`); 128 other keys at power 1 and that maximum set
+replacing each other as a whole, each switch with a total of `MaxTotalVotingPower` + 128 before
+its removals, then the same switches with a maximum set that shares one of the power-1 keys
+(`max_total_switches_with_128_fallback_keys`; stock CometBFT checks the total after the
+removals and prices the new members with the total before them); the rejected change sets (`duplicate_update`,
 `remove_unknown`, `remove_all`, `negative_power`, `power_overflow`, `total_overflow`) and a
 zero-power genesis member. `random_0` to `random_7` come from one seeded PCG(22280, 2026): 50
 heights each, with a committee switch every 5 to 20 heights.

@@ -514,6 +514,33 @@ func namedCases() []vcase {
 	maxCase.ValidatorsHash = hash
 	cases = append(cases, maxCase)
 
+	// Whole-set switches at maxSetMembers members between seeds 129..256 at power 1, as the
+	// fallback keys sign, and the maximum set at MaxTotalVotingPower, each way one list of 128
+	// removals and 128 additions whose total before the removals is MaxTotalVotingPower + 128.
+	// Stock verifyUpdates checks the total after the removals, and computeNewPriorities prices
+	// every new member with the total before them. Then the same switches with a maximum set
+	// whose last member is seed 129, a fallback key re-weighted rather than removed, so the
+	// rescale after each weighs that key's own priority against the new members' price.
+	fallbackKeys := make([]member, maxSetMembers)
+	for i := range maxSetMembers {
+		fallbackKeys[i] = member{maxSetMembers + i + 1, 1}
+	}
+	sharing := slices.Clone(maximum)
+	sharing[maxSetMembers-1].seed = maxSetMembers + 1
+	c = start(0, fallbackKeys...)
+	c.idle(1)
+	for i, change := range [][2][]member{
+		{fallbackKeys, maximum}, {maximum, fallbackKeys}, {fallbackKeys, sharing}, {sharing, fallbackKeys},
+	} {
+		updates := diffUpdates(change[0], change[1])
+		if above := totalBeforeRemovals(c.next, updates) > maxTotal; above != (i < 3) {
+			panic("a switch total before removals on the wrong side of MaxTotalVotingPower")
+		}
+		c.apply(updates)
+		c.idle(1)
+	}
+	cases = append(cases, c.done("max_total_switches_with_128_fallback_keys"))
+
 	cases = append(cases, rpcRebuildDiverges())
 
 	failures := []struct {
@@ -540,6 +567,22 @@ func namedCases() []vcase {
 	}
 	cases = append(cases, c.done("genesis_zero_power"))
 	return cases
+}
+
+// totalBeforeRemovals is the total voting power of vals once updates are applied and before
+// their removals are, as stock verifyUpdates returns it.
+func totalBeforeRemovals(vals *types.ValidatorSet, updates []update) int64 {
+	total := vals.TotalVotingPower()
+	for _, v := range validators(updates) {
+		if v.VotingPower == 0 {
+			continue
+		}
+		total += v.VotingPower
+		if _, old := vals.GetByAddress(v.Address); old != nil {
+			total -= old.VotingPower
+		}
+	}
+	return total
 }
 
 // priorityDiff is the max-min spread of a set's priorities.

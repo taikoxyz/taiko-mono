@@ -447,6 +447,26 @@ async fn replace_128_with_128() {
     assert_eq!(state.parent_signers.len(), 128);
 }
 
+/// 128 origin keys and a 128-member candidate at a total of the maximum power replace each
+/// other as a whole, so that each switch's total before its removals exceeds the maximum, then
+/// the same with a candidate that shares one origin key: every response holds stock CometBFT's
+/// updates, and the app's validator state is stock CometBFT's at every height.
+#[tokio::test]
+async fn whole_set_switches_at_the_maximum_total_follow_stock() {
+    let case = StockCase::load("max_total_switches_with_128_fallback_keys");
+    let origin = case.fixture().fallback_keys.validator_set();
+    let candidate = |step: usize| {
+        let next = sorted(&case.state(step, 0).next);
+        (next != origin).then_some(next)
+    };
+    assert_eq!((1..case.steps.len()).filter(|&step| candidate(step).is_some()).count(), 4);
+    let dir = tempfile::tempdir().unwrap();
+    let app = replay_stock(&case, dir.path(), candidate).await;
+    let state = app.state().unwrap();
+    assert_eq!(sources(state), [SignerSource::Fallback; 2]);
+    assert_eq!(sorted(&state.val_state.current), origin);
+}
+
 /// Two consecutive candidates with the same members and powers, seated otherwise and with
 /// another total stake, decide the same set: an empty update list.
 #[tokio::test]

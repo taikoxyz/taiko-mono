@@ -871,6 +871,7 @@ mod tests {
             "replace_128_with_128_other_keys",
             "fallback_key_reweighted_as_seat_key",
             "maximum_128_members",
+            "max_total_switches_with_128_fallback_keys",
             "rpc_rebuild_diverges",
             "duplicate_update",
             "remove_unknown",
@@ -954,6 +955,7 @@ mod tests {
             "per_block_diff_ten_heights",
             "replace_128_with_128_other_keys",
             "fallback_key_reweighted_as_seat_key",
+            "max_total_switches_with_128_fallback_keys",
         ] {
             for (index, pair) in vectors.case(name).steps.windows(2).enumerate() {
                 let (before, after) = (expected(keys, &pair[0]), expected(keys, &pair[1]));
@@ -975,6 +977,60 @@ mod tests {
         let replaced = switch("replace_128_with_128_other_keys");
         assert_eq!(replaced.len(), 256);
         assert_eq!(replaced.iter().filter(|(_, power)| *power == 0).count(), 128);
+    }
+
+    /// 128 keys at power 1, as the fallback keys sign, and a 128-member set at a total of
+    /// `MAX_TOTAL_POWER` replace each other as a whole, so that each switch's total before its
+    /// removals is `MAX_TOTAL_POWER + 128`; then the same switches with a set that shares one
+    /// fallback key, re-weighted instead of removed. Stock CometBFT accepts every switch,
+    /// checking the total only after the removals and pricing each new member with the total
+    /// before them, and the replica follows it step by step
+    /// ([`every_go_vector_step_replays_exactly`]).
+    #[test]
+    fn max_total_switches_exceed_the_maximum_only_before_removals() {
+        let vectors = vectors();
+        let keys = &vectors.keys;
+        let case = vectors.case("max_total_switches_with_128_fallback_keys");
+        assert!(case.steps.iter().all(|step| step.error.is_none()));
+        let total = |set: &[(ConsensusKey, u64)]| -> i128 {
+            set.iter().map(|(_, power)| i128::from(*power)).sum()
+        };
+        let max = i128::from(crate::committee::MAX_TOTAL_POWER);
+        let members = crate::params::MAX_SET_MEMBERS;
+        let mut switches = Vec::new();
+        let mut shared_power = 0;
+        for pair in case.steps.windows(2) {
+            let changes = updates(keys, &pair[1]);
+            if changes.is_empty() {
+                continue;
+            }
+            let (before, after) =
+                (expected(keys, &pair[0]).next.members(), expected(keys, &pair[1]).next.members());
+            let old: std::collections::BTreeMap<_, _> = before.iter().copied().collect();
+            let added: i128 = changes
+                .iter()
+                .filter(|(_, power)| *power > 0)
+                .map(|(key, power)| i128::from(*power) - old.get(key).map_or(0, |&p| i128::from(p)))
+                .sum();
+            let removed = changes.iter().filter(|(_, power)| *power == 0).count();
+            switches.push((total(&before) + added, removed, after.len(), total(&after)));
+            // Seed 129, the shared fallback key, at its seat power.
+            if let Some(&(_, power)) =
+                after.iter().find(|&&(key, power)| key == keys[128] && power > 1)
+            {
+                shared_power = i128::from(power);
+            }
+        }
+        assert!(shared_power > 1);
+        assert_eq!(
+            switches,
+            [
+                (max + 128, 128, members, max),
+                (max + 128, 128, members, 128),
+                (max + 127, 127, members, max),
+                (max - shared_power + 128, 127, members, 128),
+            ]
+        );
     }
 
     /// [`comet_order`] lists the 128 genesis members of the maximum case, given in seed order or
