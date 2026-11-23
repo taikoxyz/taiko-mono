@@ -167,13 +167,14 @@ mod tests {
     use alloy_primitives::{Address, Bloom, b256, bytes};
     use serde_json::Value;
 
-    /// `engine_getPayloadV5` output of alethia-reth `sha-1e25b48` for devnet block 1 (see the
-    /// fixture's `source` field), plus the `parentBeaconBlockRoot` sent with the build.
+    /// `engine_getPayloadV5` output of the pinned alethia-reth for block 1 on the test harness's
+    /// devnet genesis (see the fixture's `source` field), plus the `parentBeaconBlockRoot` sent
+    /// with the build.
     const GOLDEN: &str = include_str!("testdata/etna_block_1.json");
 
     /// `transactionsRoot` alethia-reth reported for the golden block (`eth_getBlockByNumber`).
     const GOLDEN_TX_ROOT: B256 =
-        b256!("61ce0f0641c7fa032b8ead151e403d15188812f0c28e44b0c223266452cd6ef9");
+        b256!("b191e52630d32c8c508d89d686dfdfc1d70dff216d03ceea852865efdbbe51b3");
 
     struct Golden {
         payload: ExecutionPayloadV3,

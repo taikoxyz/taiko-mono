@@ -467,14 +467,16 @@ async fn signed_checkpoint_resource_phase() {
 }
 
 /// The resource window's s holds block zero's materialized state, so its package proves the
-/// staking proxy there: the devnet alloc holds no proxy, and that exclusion proof gives zero
-/// words. A proof of an account the alloc holds verifies under the same root.
+/// staking proxy there: the devnet alloc predeploys the proxy with an empty staking namespace, so
+/// the proof gives zero words. A proof of another account the alloc holds verifies under the same
+/// root.
 #[test]
 fn genesis_staking_proof_verifies_under_block_zero() {
     let original = test_harness::EtnaGenesis::build().unwrap();
     let params = parameters();
     let slots = crate::l1::staking_slots(&[]);
     let witness = original.account_witness(params.staking, &slots).unwrap();
+    assert_ne!(witness.code_hash, alloy_primitives::KECCAK256_EMPTY, "no predeployed proxy");
     let (words, _) =
         crate::l1::verify_staking_witness(original.state_root, params.staking, &witness, 1, &[])
             .unwrap();

@@ -2,11 +2,11 @@
 use std::{collections::BTreeMap, fs, time::Duration};
 
 use crate::{
-    boot::{POLL, RETH_CMD, RETH_IMAGE, RPC_TIMEOUT, jwt_path, local_url},
+    boot::{POLL, RETH_CMD, RETH_IMAGE, RPC_TIMEOUT, auth_provider, jwt_path, local_url},
     docker::{DockerEnv, host_port},
     wait_until,
 };
-use abci::{AccountWitness, StorageProof};
+use abci::{AccountWitness, ChainParams, ChainParamsExt, StorageProof};
 use alloy::{consensus::Header, rlp};
 use alloy_eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_genesis::{Genesis, GenesisAccount};
@@ -110,6 +110,28 @@ impl EtnaGenesis {
                 "genesis runtime mismatch at {address}"
             );
         }
+        Ok(())
+    }
+
+    /// Fail startup unless the EL's block-start call targets `staking`, the proxy the client's
+    /// configuration hash commits, as `taikoAuth_etnaStakingAddress` on the JWT-authenticated
+    /// endpoint `auth` reports it, and the EL serves this genesis's predeployed proxy code there.
+    pub async fn verify_staking(
+        &self,
+        l2: &RootProvider,
+        auth: &RootProvider,
+        staking: Address,
+    ) -> Result<()> {
+        let served: Option<Address> =
+            auth.raw_request("taikoAuth_etnaStakingAddress".into(), ()).await?;
+        ensure!(
+            served == Some(staking),
+            "the EL's block-start call targets {served:?}, not {staking}"
+        );
+        let genesis: Genesis = serde_json::from_str(&self.json)?;
+        let code = genesis.alloc.get(&staking).and_then(|account| account.code.as_ref());
+        let code = code.filter(|code| !code.is_empty()).context("no EtnaStaking predeploy")?;
+        ensure!(l2.get_code_at(staking).await? == *code, "EtnaStaking code mismatch at {staking}");
         Ok(())
     }
 
@@ -276,6 +298,8 @@ impl StandaloneReth {
         })
         .await?;
         genesis.verify(&provider).await?;
+        let staking = ChainParams::builtin(167001)?.staking;
+        genesis.verify_staking(&provider, &auth_provider(auth.clone())?, staking).await?;
         Ok(Self { provider, http, auth, genesis, docker, _tmp: tmp })
     }
     /// Engine access for tests that explicitly build and validate subsequent blocks.
@@ -360,7 +384,7 @@ mod tests {
 
     #[test]
     fn genesis_preserves_non_alloc_and_predeploys_change_header() {
-        let mut original: Value = serde_json::from_str(BASE).unwrap();
+        let original: Value = serde_json::from_str(BASE).unwrap();
         let a = EtnaGenesis::build().unwrap();
         let b = EtnaGenesis::build().unwrap();
         let mut actual: Value = serde_json::from_str(&a.json).unwrap();
@@ -370,9 +394,9 @@ mod tests {
                 assert_eq!(actual["alloc"][format!("{address:#x}")], *account);
             }
         }
-        assert!(original.get("stateRoot").is_some());
+        // The Etna genesis builder that laid the predeploys over the base dropped its root.
+        assert!(original.get("stateRoot").is_none(), "the source carries a stale root");
         assert!(actual.get("stateRoot").is_none(), "alloc changes invalidate the source root");
-        original.as_object_mut().unwrap().remove("stateRoot");
         actual["alloc"] = original["alloc"].clone();
         assert_eq!(actual, original);
         assert_eq!(a.hash, b.hash);
@@ -406,5 +430,77 @@ mod tests {
             let code: Bytes = systems[format!("{address:#x}")].as_str().unwrap().parse().unwrap();
             assert_eq!(format!("{:x}", Sha256::digest(code)), hash);
         }
+    }
+
+    /// The pinned protocol revision's lander fixtures of the predeploys' contracts.
+    const PROXY_ARTIFACT: &str =
+        include_str!("../../lander/tests/fixtures/contracts/ERC1967Proxy.json");
+    const STAKING_ARTIFACT: &str =
+        include_str!("../../lander/tests/fixtures/contracts/EtnaStaking.json");
+    const TOKEN_ARTIFACT: &str =
+        include_str!("../../lander/tests/fixtures/contracts/BridgedTaikoToken.json");
+
+    /// The compiled runtime in a contract fixture.
+    fn runtime(artifact: &str) -> Bytes {
+        let artifact: Value = serde_json::from_str(artifact).unwrap();
+        artifact["deployedBytecode"]["object"].as_str().unwrap().parse().unwrap()
+    }
+
+    /// Whether `code` is the runtime `compiled` with its immutables filled in: as long, and equal
+    /// at every byte the compiler did not leave zero.
+    fn fills_immutables_of(code: &[u8], compiled: &[u8]) -> bool {
+        code != compiled &&
+            code.len() == compiled.len() &&
+            code.iter().zip(compiled).all(|(byte, compiled)| *compiled == 0 || byte == compiled)
+    }
+
+    /// The devnet genesis predeploys `EtnaStaking` where alethia-reth's block-start call and the
+    /// client's built-in parameters expect it, as the pinned protocol revision's proxy over its
+    /// implementation, and bridged TAIKO likewise, holding the harness stakers' premint: two
+    /// minStakes for each of anvil's first four dev accounts, which also hold ETH for gas.
+    #[test]
+    fn devnet_genesis_has_etna_staking_at_the_builtin_address() {
+        use alethia_reth_primitives::addresses::etna_staking_address;
+        use alloy_primitives::b256;
+
+        const IMPLEMENTATION_SLOT: B256 =
+            b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+        let staking = address!("1670010000000000000000000000000000010003");
+        let token = address!("1670010000000000000000000000000000000007");
+        assert_eq!(ChainParams::builtin(167001).unwrap().staking, staking);
+        assert_eq!(etna_staking_address(167001), Some(staking));
+
+        let genesis: Genesis = serde_json::from_str(&EtnaGenesis::build().unwrap().json).unwrap();
+        let proxy = runtime(PROXY_ARTIFACT);
+        for (address, implementation, artifact) in [
+            (staking, address!("0167001000000000000000000000000000010003"), STAKING_ARTIFACT),
+            (token, address!("0167001000000000000000000000000000000007"), TOKEN_ARTIFACT),
+        ] {
+            let account = genesis.alloc.get(&address).expect("predeployed proxy");
+            assert_eq!(account.code.as_ref(), Some(&proxy), "{address} is not the pinned proxy");
+            let slot = account.storage.as_ref().unwrap()[&IMPLEMENTATION_SLOT];
+            assert_eq!(slot, implementation.into_word(), "{address} points elsewhere");
+            let code = genesis.alloc[&implementation].code.as_ref().unwrap();
+            assert!(fills_immutables_of(code, &runtime(artifact)), "{implementation}");
+        }
+
+        let storage = genesis.alloc[&token].storage.as_ref().unwrap();
+        let word =
+            |slot: B256| U256::from_be_bytes(storage.get(&slot).copied().unwrap_or_default().0);
+        let premint = U256::from(15_625_000u64) * U256::from(10u64).pow(U256::from(18));
+        let stakers = [
+            address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+            address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+            address!("3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+            address!("90F79bf6EB2c4f870365E785982E1f101E93b906"),
+        ];
+        for staker in stakers {
+            // `_balances`, slot 301.
+            let balance = keccak256([staker.into_word().0, B256::from(U256::from(301)).0].concat());
+            assert_eq!(word(balance), premint, "{staker}");
+            assert!(!genesis.alloc[&staker].balance.is_zero(), "{staker} holds no ETH");
+        }
+        // `_totalSupply`, slot 303.
+        assert_eq!(word(B256::from(U256::from(303))), premint * U256::from(stakers.len()));
     }
 }

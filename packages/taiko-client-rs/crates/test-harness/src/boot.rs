@@ -15,7 +15,9 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
-use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
+use rpc::client::{
+    DEFAULT_HTTP_TIMEOUT, build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret,
+};
 use url::Url;
 
 use crate::{
@@ -35,7 +37,7 @@ use crate::{
 const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
 /// Image built from the pinned EL source by `tests/entrypoint.sh`; an explicit
 /// `ALETHIA_RETH_IMAGE` overrides it.
-pub(crate) const RETH_IMAGE: &str = "alethia-reth:etna-ad584325c6b1e15f3c163fb25e71c04a78b194e0";
+pub(crate) const RETH_IMAGE: &str = "alethia-reth:etna-7174fd0064c69fa75ce784b8ec13702fffa5d429";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
 const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798";
 
@@ -167,6 +169,10 @@ pub(crate) async fn boot(
         ..ChainParams::builtin(chain_id)?
     };
     params.validate()?;
+    for node in &reth {
+        let l2 = connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT);
+        expected.verify_staking(&l2, &auth_provider(node.auth.clone())?, params.staking).await?;
+    }
 
     // 3. L1 state: the initialized Inbox in block L1_0.
     let keys = validator_keys(n);
@@ -358,6 +364,12 @@ fn image(var: &str, default: &str) -> String {
 pub(crate) fn jwt_path() -> Result<PathBuf> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/docker/jwt.hex");
     path.canonicalize().with_context(|| format!("JWT secret {}", path.display()))
+}
+
+/// A provider for the JWT-authenticated Engine endpoint `auth`, signing with the test secret.
+pub(crate) fn auth_provider(auth: Url) -> Result<RootProvider> {
+    let secret = read_jwt_secret(&jwt_path()?).context("unreadable test JWT secret")?;
+    Ok(build_jwt_http_provider(auth, secret, DEFAULT_HTTP_TIMEOUT))
 }
 
 /// `<uid>:<gid>` of this process, so CometBFT writes its home as the host user.
