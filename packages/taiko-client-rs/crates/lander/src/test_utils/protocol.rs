@@ -81,6 +81,7 @@ pub(crate) fn request() -> ProofRequest {
             },
             p_anchor_witness: None,
             start_signal_service_witness: None,
+            start_staking_witness: None,
             blocks: vec![],
             anchors: vec![],
             reference_headers: vec![],

@@ -1254,18 +1254,26 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             return Ok(None);
         }
         let start = self.checkpoint(&snapshot).await?;
-        let start_signal_service_witness = if self.params.switch.is_some() &&
-            snapshot.checkpoint_height == snapshot.genesis.genesis_height
-        {
-            self.l1.start_signal_service_witness(&snapshot).await?
+        // The first proof from S on a switching network carries both proxies' implementation
+        // proofs at S: the L2 SignalService's and the staking proxy's that the configuration
+        // hash commits.
+        let from_switch_start = self.params.switch.is_some() &&
+            snapshot.checkpoint_height == snapshot.genesis.genesis_height;
+        let (start_signal_service_witness, start_staking_witness) = if from_switch_start {
+            let signal_service = abci::l2_signal_service_address(self.params.l2_chain_id);
+            (
+                self.l1.start_proxy_witness(&snapshot, signal_service).await?,
+                self.l1.start_proxy_witness(&snapshot, self.params.staking).await?,
+            )
         } else {
-            None
+            (None, None)
         };
-        crate::types::verify_start_signal_service_witness(
+        crate::types::verify_start_witness(
             &snapshot,
             &start.parent.header,
             &self.params,
             start_signal_service_witness.as_ref(),
+            start_staking_witness.as_ref(),
         )?;
         let selected = selected.filter(|selected| {
             selected.snapshot == snapshot &&
@@ -1334,6 +1342,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 snapshot,
                 parent_header: start.parent.header.clone(),
                 start_signal_service_witness,
+                start_staking_witness,
                 grandparent_timestamp: start.parent.grandparent_timestamp,
                 parent_anchor: start.anchor.clone(),
                 starting_inbox_witness,
@@ -4049,15 +4058,17 @@ mod tests {
 
         /// A Comet node's `/validators` answer at p or p + 1 that does not hash to header(p)'s
         /// `validators_hash` or `next_validators_hash` is refused as `Safety`: another key, the
-        /// right keys with one power changed, or no member at all.
+        /// right keys with one power changed, no member at all, or powers that each fit
+        /// CometBFT's int64 but together overflow a u64.
         #[tokio::test]
         async fn validators_answer_with_another_hash_is_safety() {
             let mut repowered = Fixture::new(18, 24).signing_sets[&18].members.clone();
             repowered[0].1 += 1;
+            let overflowing = [9, 10, 11].map(|seed| (key(seed), i64::MAX as u64)).to_vec();
             for (height, what) in
                 [(18, "with the validator hash"), (19, "with the next validator hash")]
             {
-                for answer in [vec![(key(9), 1)], repowered.clone(), vec![]] {
+                for answer in [vec![(key(9), 1)], repowered.clone(), vec![], overflowing.clone()] {
                     let mut fixture = Fixture::new(18, 24);
                     fixture.validator_answers.insert(height, answer);
                     let fixture = Arc::new(fixture);

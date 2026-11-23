@@ -43,6 +43,8 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.input.lastCometHash =
         alloy_primitives::B256::from_slice(last.block.header.hash().as_bytes());
     request.batch.leaves = leaves(&blocks);
+    // One committee signs every block, so the terminal height is the only commit height.
+    request.batch.commit_heights = vec![12];
     request.batch.anchors = vec![request.batch.parent_anchor.clone(); blocks.len()];
     request.batch.blocks = blocks;
     let reference = RawL1Header::from(&Header { number: 15, ..Default::default() });

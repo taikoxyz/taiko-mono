@@ -6,6 +6,17 @@ use abci::{
 };
 use tendermint::{Hash, account::Id};
 
+/// Why keys with powers form no validator set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum SetError {
+    /// A key is invalid, or a power does not fit CometBFT's int64.
+    #[error(transparent)]
+    Key(#[from] KeyError),
+    /// The powers sum past CometBFT's total voting power bound, possibly past a u64.
+    #[error("the powers' total voting power exceeds CometBFT's bound")]
+    TotalPower,
+}
+
 /// Native validator metadata in the exact ordered certificate slot.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Validator {
@@ -32,14 +43,20 @@ pub struct Validators {
     members: Vec<Validator>,
     /// Stock native protobuf validator Merkle commitment.
     hash: Hash,
-    /// Total power of the members, at most `MAX_TOTAL_POWER` for a decided set.
+    /// Total power of the members, at most `MAX_TOTAL_POWER`.
     total: u64,
 }
 impl Validators {
-    /// Build native commit slots from previously power-bounded keys with their powers, such as
-    /// a fallback key list's keys, each at power 1. Only keys/powers enter this representation;
-    /// callers authenticate it against each native header before use.
-    pub fn from_powers(powers: &[(ConsensusKey, u64)]) -> Result<Self, KeyError> {
+    /// Build native commit slots from keys with their powers, such as a fallback key list's
+    /// keys, each at power 1, or a Comet node's untrusted `/validators` answer. Powers summing
+    /// past CometBFT's total voting power bound form no set. Only keys/powers enter this
+    /// representation; callers authenticate it against each native header before use.
+    pub fn from_powers(powers: &[(ConsensusKey, u64)]) -> Result<Self, SetError> {
+        let total = powers
+            .iter()
+            .try_fold(0u64, |total, (_, power)| total.checked_add(*power))
+            .filter(|total| *total <= abci::committee::MAX_TOTAL_POWER)
+            .ok_or(SetError::TotalPower)?;
         let mut validators = powers
             .iter()
             .map(|(key, power)| Validator {
@@ -50,7 +67,6 @@ impl Validators {
             .collect::<Vec<_>>();
         validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
         let hash = abci::wire::validators_hash(powers)?;
-        let total = validators.iter().map(|v| v.voting_power).sum();
         Ok(Self { members: validators, hash: Hash::Sha256(hash.0), total })
     }
     /// Ordered signature slots.
@@ -93,6 +109,25 @@ mod tests {
             valid.validators.hash(),
             tendermint::Hash::Sha256(abci::wire::validators_hash(&valid.members).unwrap().0)
         );
+    }
+
+    /// Powers whose sum exceeds CometBFT's total voting power bound form no set, also when the
+    /// sum overflows a u64, as an untrusted `/validators` answer can hold; powers summing to the
+    /// bound do.
+    #[test]
+    fn powers_past_the_total_bound_form_no_set() {
+        let (_, valid, _) = committee(&[1, 1, 1]);
+        let with = |powers: [u64; 3]| {
+            valid.members.iter().map(|(key, _)| *key).zip(powers).collect::<Vec<_>>()
+        };
+        let max = abci::committee::MAX_TOTAL_POWER;
+        let bound = super::Validators::from_powers(&with([max - 2, 1, 1])).unwrap();
+        assert_eq!(bound.total_voting_power(), max);
+        for powers in [[max - 1, 1, 1], [i64::MAX as u64; 3]] {
+            let error = super::Validators::from_powers(&with(powers)).unwrap_err();
+            assert_eq!(error, super::SetError::TotalPower);
+            assert!(error.to_string().contains("total voting power"), "{error}");
+        }
     }
 
     /// The entries keep the slot order and are the set `comet_order` builds from the members.

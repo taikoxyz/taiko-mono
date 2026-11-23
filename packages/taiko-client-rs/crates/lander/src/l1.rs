@@ -112,11 +112,13 @@ pub trait LandingSource: Send + Sync {
     async fn snapshot(&self) -> Result<LandingSnapshot>;
     /// Authenticate the checkpoint's EL parent and its preceding timestamp.
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext>;
-    /// Retain raw L2 SignalService proxy state at S for the first switching proof; the builder
-    /// verifies it.
-    async fn start_signal_service_witness(
+    /// Retain the raw L2 state at S of the proxy `proxy`, the L2 SignalService or the
+    /// `EtnaStaking` proxy, that the first switching proof carries: its EIP-1967 implementation
+    /// slot's proof. The builder verifies it.
+    async fn start_proxy_witness(
         &self,
         _snapshot: &LandingSnapshot,
+        _proxy: Address,
     ) -> Result<Option<AccountWitness>> {
         Ok(None)
     }
@@ -415,26 +417,18 @@ impl LandingSource for RpcLandingSource {
     }
 
     /// Hash-pin the EIP-1186 read to S and retain every MPT node for the external proof backend.
-    async fn start_signal_service_witness(
+    async fn start_proxy_witness(
         &self,
         snapshot: &LandingSnapshot,
+        proxy: Address,
     ) -> Result<Option<AccountWitness>> {
-        let signal_service = abci::l2_signal_service_address(snapshot.l2_chain_id);
         let response = self
             .l2
-            .get_proof(signal_service, vec![crate::types::IMPLEMENTATION_SLOT])
+            .get_proof(proxy, vec![crate::types::IMPLEMENTATION_SLOT])
             .block_id(BlockId::hash_canonical(snapshot.genesis.genesis_hash))
             .await
             .map_err(rpc_error)?;
-        let witness = account_witness(response);
-        let parent = self.parent_header(snapshot).await?;
-        crate::types::verify_start_signal_service_witness(
-            snapshot,
-            &parent.header,
-            &self.params,
-            Some(&witness),
-        )?;
-        Ok(Some(witness))
+        Ok(Some(account_witness(response)))
     }
 
     /// Return public EL data for pure checkpoint-bound history authentication.

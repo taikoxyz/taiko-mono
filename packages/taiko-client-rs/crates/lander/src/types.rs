@@ -18,55 +18,78 @@ use crate::{
 pub(crate) const IMPLEMENTATION_SLOT: B256 =
     alloy_primitives::b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
 
-/// Authenticate the first proof's raw L2 SignalService implementation witness against the fixed
-/// S header (PROOF-6.2-46a). Later parents must not carry a replacement witness for the
-/// already-settled start.
-pub(crate) fn verify_start_signal_service_witness(
+/// Authenticate the first proof's raw L2 proxy witnesses against the fixed S header. Under S's
+/// state root, the L2 SignalService proxy's EIP-1967 implementation slot must hold the built-in
+/// SignalService implementation, and the `EtnaStaking` proxy's, at the staking address the
+/// configuration hash commits, the built-in `EtnaStaking` implementation. A batch from S on a
+/// switching network carries both witnesses; any other batch carries neither, as its start is
+/// already settled.
+pub(crate) fn verify_start_witness(
     snapshot: &LandingSnapshot,
     parent_header: &Header,
     params: &abci::ChainParams,
-    witness: Option<&AccountWitness>,
+    signal_service: Option<&AccountWitness>,
+    staking: Option<&AccountWitness>,
 ) -> Result<()> {
     let Some(config) = params
         .switch
         .as_ref()
         .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
     else {
-        if witness.is_some() {
-            return Err(LanderError::Safety("unexpected start SignalService witness".into()));
+        if signal_service.is_some() || staking.is_some() {
+            return Err(LanderError::Safety("unexpected start proxy witness".into()));
         }
         return Ok(());
     };
-    let witness = witness.ok_or_else(|| {
-        LanderError::Unavailable(
-            "first landing requires the L2 SignalService implementation proof at S".into(),
-        )
-    })?;
+    let (Some(signal_service), Some(staking)) = (signal_service, staking) else {
+        return Err(LanderError::Unavailable(
+            "first landing requires the L2 SignalService and EtnaStaking implementation proofs \
+             at S"
+                .into(),
+        ));
+    };
     if parent_header.number != snapshot.genesis.genesis_height ||
         parent_header.hash_slow() != snapshot.genesis.genesis_hash ||
         parent_header.state_root != snapshot.genesis.genesis_state_root ||
-        parent_header.timestamp >= config.fork_timestamp ||
-        witness.address != abci::l2_signal_service_address(params.l2_chain_id)
+        parent_header.timestamp >= config.fork_timestamp
     {
-        return Err(LanderError::Safety(
-            "start SignalService witness contradicts the S header or account".into(),
+        return Err(LanderError::Safety("start proxy witness contradicts the S header".into()));
+    }
+    // The snapshot was authenticated under the same parameters; checking the hash again here
+    // ties the staking proxy checked below to the one the configuration hash commits.
+    if snapshot.config_hash != params.config_hash() {
+        return Err(LanderError::Configuration(
+            "Inbox configuration hash does not commit the built-in staking proxy".into(),
         ));
     }
-    let storage = abci::l1::mpt::verify_account_witness(
-        parent_header.state_root,
-        witness,
-        &[IMPLEMENTATION_SLOT],
-    )
-    .map_err(|error| {
-        LanderError::Safety(format!("start SignalService implementation proof: {error}"))
-    })?;
-    let value = storage.get(IMPLEMENTATION_SLOT).expect("verified implementation slot");
-    if value >> 160 != U256::ZERO ||
-        Address::from_word(B256::from(value)) != config.signal_service_implementation
-    {
-        return Err(LanderError::Safety(
-            "start L2 SignalService implementation differs from switch configuration".into(),
-        ));
+    for (contract, witness, proxy, built_in) in [
+        (
+            "SignalService",
+            signal_service,
+            abci::l2_signal_service_address(params.l2_chain_id),
+            config.signal_service_implementation,
+        ),
+        ("EtnaStaking", staking, params.staking, config.staking_implementation),
+    ] {
+        if witness.address != proxy {
+            return Err(LanderError::Safety(format!(
+                "start {contract} witness proves another account than its proxy"
+            )));
+        }
+        let storage = abci::l1::mpt::verify_account_witness(
+            parent_header.state_root,
+            witness,
+            &[IMPLEMENTATION_SLOT],
+        )
+        .map_err(|error| {
+            LanderError::Safety(format!("start {contract} implementation proof: {error}"))
+        })?;
+        let value = storage.get(IMPLEMENTATION_SLOT).expect("verified implementation slot");
+        if value >> 160 != U256::ZERO || Address::from_word(B256::from(value)) != built_in {
+            return Err(LanderError::Safety(format!(
+                "start L2 {contract} implementation differs from switch configuration"
+            )));
+        }
     }
     Ok(())
 }
@@ -332,10 +355,15 @@ pub struct PreparedBatch {
     /// for the set that signs p + 2.
     #[serde(with = "rlp_serde_option")]
     pub p_anchor_witness: Option<AnchorWitness>,
-    /// Raw EIP-1186 L2 SignalService proxy implementation proof under S's state root, retained
-    /// only for a switching batch whose parent is S. A real proof backend must verify this
-    /// private input (PROOF-6.2-46a).
+    /// Raw EIP-1186 proof of the L2 SignalService proxy's EIP-1967 implementation slot under S's
+    /// state root, retained only for a switching batch whose parent is S. A real proof backend
+    /// must verify this private input: the slot holds the built-in SignalService implementation.
     pub start_signal_service_witness: Option<AccountWitness>,
+    /// Raw EIP-1186 proof of the `EtnaStaking` proxy's EIP-1967 implementation slot, at the
+    /// staking address the configuration hash commits, under S's state root, retained exactly
+    /// when `start_signal_service_witness` is. A real proof backend must verify this private
+    /// input: the slot holds the built-in `EtnaStaking` implementation.
+    pub start_staking_witness: Option<AccountWitness>,
     /// Exact complete block/commit pairs in increasing height order. Only execution blocks are
     /// published; original envelopes, headers, evidence and signatures remain private.
     pub blocks: Vec<CertifiedBlock>,
@@ -377,6 +405,9 @@ impl PreparedBatch {
     /// reference number, the statement hash, the blob payload against the retained blocks
     /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
     ///
+    /// The commit heights, which the statement does not bind, must still have the shape the
+    /// builder gives them: strictly ascending inside (p, h] and ending at h.
+    ///
     /// Proof witnesses (anchors, p's anchor witness and the starting Inbox witness) are not
     /// re-derived. A restored job is at least Prepared, so its proof already exists and nothing
     /// reads them again; the builder checked every one before proving.
@@ -398,6 +429,14 @@ impl PreparedBatch {
         }
         if self.leaves.len() as u64 != last - parent - 1 {
             return Err(LanderError::Journal("job cut leaf count differs from its interval".into()));
+        }
+        if self.commit_heights.last() != Some(&last) ||
+            self.commit_heights.first().is_some_and(|first| *first <= parent) ||
+            !self.commit_heights.is_sorted_by(|lower, higher| lower < higher)
+        {
+            return Err(LanderError::Journal(
+                "job commit heights are not strictly ascending inside (p, h] ending at h".into(),
+            ));
         }
         if self.blocks.last().is_none_or(|pair| {
             B256::from_slice(pair.block.header.hash().as_bytes()) != self.input.lastCometHash
@@ -548,8 +587,9 @@ mod tests {
 
     /// Restoration rechecks what the signed transaction and the statement bind: the shape, the
     /// terminal Comet hash, the reference, the statement hash, the blob payload and its KZG
-    /// sidecar. It does not re-derive proof witnesses: a restored job's proof already exists, and
-    /// the builder checked them all before proving.
+    /// sidecar, and the shape of the commit heights, which nothing binds. It does not re-derive
+    /// proof witnesses: a restored job's proof already exists, and the builder checked them all
+    /// before proving.
     #[test]
     fn restore_rechecks_the_statement_shape_and_blob_binding_but_not_proof_witnesses() {
         use crate::test_utils::runtime::{limits, rebind, request};
@@ -611,6 +651,12 @@ mod tests {
         let mut batch = original.batch.clone();
         batch.blobs.payload_bytes += 1;
         cases.push(("payload length", batch));
+        // The commit heights rise strictly inside (p, h] and end at h = 12.
+        for heights in [vec![], vec![11], vec![12, 12], vec![6, 4, 12], vec![0, 12], vec![12, 13]] {
+            let mut batch = original.batch.clone();
+            batch.commit_heights = heights;
+            cases.push(("commit heights", batch));
+        }
 
         for (expected, batch) in cases {
             let error = batch.verify_restored().unwrap_err();
@@ -619,91 +665,151 @@ mod tests {
         }
     }
 
-    /// PROOF-6.2-46a, host side: the first proof from S carries an EIP-1186 proof, under S's own
-    /// header, that the L2 SignalService proxy's EIP-1967 slot holds the built-in implementation.
-    /// A proof from a later parent, or on a network without a switch, carries none.
-    #[test]
-    fn start_signal_service_witness_proves_the_built_in_implementation_at_s() {
-        use crate::test_utils::consensus_mpt::{Fixture, State};
-        const S: u64 = 7;
-        const FORK: u64 = 1_000;
-        let implementation = Address::repeat_byte(0x42);
-        let fixture = Fixture::new(0, 2);
+    /// The Etna start S of the switching start-witness tests, and their fork time.
+    const S: u64 = 7;
+    const FORK: u64 = 1_000;
+    /// The built-in L2 SignalService and `EtnaStaking` implementations of those tests.
+    const SIGNAL_SERVICE_IMPLEMENTATION: Address = Address::repeat_byte(0x42);
+    const STAKING_IMPLEMENTATION: Address = Address::repeat_byte(0x56);
+    /// An account that is neither proxy.
+    const OTHER_ACCOUNT: Address = Address::repeat_byte(0x43);
+
+    /// The EIP-1967 implementation slot word naming `address`.
+    fn implementation_word(address: Address) -> U256 {
+        U256::from_be_bytes(address.into_word().0)
+    }
+
+    /// Switching chain parameters with the built-in implementations above, and a snapshot whose
+    /// configuration hash commits their staking proxy.
+    fn switching() -> (abci::ChainParams, LandingSnapshot) {
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
         let mut params = fixture.params.clone();
         params.switch = Some(abci::SwitchConfig {
-            staking_implementation: alloy_primitives::Address::repeat_byte(0x56),
             unzen_inbox: Address::repeat_byte(0x41),
             fork_timestamp: FORK,
-            signal_service_implementation: implementation,
+            signal_service_implementation: SIGNAL_SERVICE_IMPLEMENTATION,
+            staking_implementation: STAKING_IMPLEMENTATION,
         });
-        let proxy = abci::l2_signal_service_address(params.l2_chain_id);
-        let other_account = Address::repeat_byte(0x43);
-        let word = |address: Address| U256::from_be_bytes(address.into_word().0);
-        // An L2 state whose proxy (and another account) hold `value` in the EIP-1967 slot.
-        let state = |value: U256| {
-            State::new(vec![
-                (proxy, vec![(IMPLEMENTATION_SLOT, value)]),
-                (other_account, vec![(IMPLEMENTATION_SLOT, value)]),
-            ])
-        };
-        // The snapshot at checkpoint S whose start record names `header`.
-        let at_s = |header: &Header| {
-            let mut snapshot = fixture.snapshot.clone();
-            snapshot.genesis.genesis_height = S;
-            snapshot.genesis.genesis_hash = header.hash_slow();
-            snapshot.genesis.genesis_state_root = header.state_root;
-            snapshot.checkpoint_height = S;
-            snapshot.checkpoint_hash = header.hash_slow();
-            snapshot
-        };
-        let start = |root: B256| Header {
+        assert_eq!(fixture.snapshot.config_hash, params.config_hash());
+        (params, fixture.snapshot.clone())
+    }
+
+    /// An L2 state whose accounts `words` each hold the paired word in the EIP-1967 slot.
+    fn proxy_state(words: &[(Address, U256)]) -> crate::test_utils::consensus_mpt::State {
+        crate::test_utils::consensus_mpt::State::new(
+            words
+                .iter()
+                .map(|(account, word)| (*account, vec![(IMPLEMENTATION_SLOT, *word)]))
+                .collect(),
+        )
+    }
+
+    /// The header of S over the L2 state root `root`, one second before the fork.
+    fn start_header(root: B256) -> Header {
+        Header {
             number: S,
             parent_hash: B256::repeat_byte(6),
             state_root: root,
             timestamp: FORK - 1,
             ..Default::default()
+        }
+    }
+
+    /// `snapshot` at the checkpoint S whose start record names `header`.
+    fn at_s(snapshot: &LandingSnapshot, header: &Header) -> LandingSnapshot {
+        let mut snapshot = snapshot.clone();
+        snapshot.genesis.genesis_height = S;
+        snapshot.genesis.genesis_hash = header.hash_slow();
+        snapshot.genesis.genesis_state_root = header.state_root;
+        snapshot.checkpoint_height = S;
+        snapshot.checkpoint_hash = header.hash_slow();
+        snapshot
+    }
+
+    /// Asserts a `Safety` refusal whose reason contains `expected`.
+    fn assert_safety(result: Result<()>, expected: &str) {
+        assert!(
+            matches!(&result, Err(LanderError::Safety(reason)) if reason.contains(expected)),
+            "{expected}: {result:?}"
+        );
+    }
+
+    /// The host side of the first proof from S: it carries EIP-1186 proofs, under S's own
+    /// header, that the L2 SignalService proxy's EIP-1967 slot holds the built-in implementation,
+    /// and so does the staking proxy's. A proof from a later parent, or on a network without a
+    /// switch, carries neither.
+    #[test]
+    fn start_signal_service_witness_proves_the_built_in_implementation_at_s() {
+        let (params, snapshot) = switching();
+        let proxy = abci::l2_signal_service_address(params.l2_chain_id);
+        // S's L2 state whose SignalService proxy, and another account, hold `value`, and whose
+        // staking proxy holds its built-in implementation.
+        let state = |value: U256| {
+            proxy_state(&[
+                (proxy, value),
+                (OTHER_ACCOUNT, value),
+                (params.staking, implementation_word(STAKING_IMPLEMENTATION)),
+            ])
         };
-        let check =
-            |snapshot: &LandingSnapshot, header: &Header, witness: Option<&AccountWitness>| {
-                verify_start_signal_service_witness(snapshot, header, &params, witness)
-            };
-        let safety = |result: Result<()>, expected: &str| {
-            assert!(
-                matches!(&result, Err(LanderError::Safety(reason)) if reason.contains(expected)),
-                "{expected}: {result:?}"
-            );
+        let check = |snapshot: &LandingSnapshot,
+                     header: &Header,
+                     signal_service: Option<&AccountWitness>,
+                     staking: Option<&AccountWitness>| {
+            verify_start_witness(snapshot, header, &params, signal_service, staking)
         };
 
-        let l2 = state(word(implementation));
-        let header = start(l2.root);
-        let snapshot = at_s(&header);
+        let l2 = state(implementation_word(SIGNAL_SERVICE_IMPLEMENTATION));
+        let header = start_header(l2.root);
+        let snapshot = at_s(&snapshot, &header);
         let witness = l2.witness(proxy, &[IMPLEMENTATION_SLOT]);
-        check(&snapshot, &header, Some(&witness)).unwrap();
-        assert!(matches!(check(&snapshot, &header, None), Err(LanderError::Unavailable(_))));
+        let staking = l2.witness(params.staking, &[IMPLEMENTATION_SLOT]);
+        check(&snapshot, &header, Some(&witness), Some(&staking)).unwrap();
+        for (signal_service, staking) in
+            [(None, Some(&staking)), (Some(&witness), None), (None, None)]
+        {
+            assert!(matches!(
+                check(&snapshot, &header, signal_service, staking),
+                Err(LanderError::Unavailable(_))
+            ));
+        }
 
         // Another implementation, or the built-in one with dirty address padding.
-        for value in
-            [word(Address::repeat_byte(0x44)), word(implementation) | (U256::from(1) << 160)]
-        {
+        for value in [
+            implementation_word(Address::repeat_byte(0x44)),
+            implementation_word(SIGNAL_SERVICE_IMPLEMENTATION) | (U256::from(1) << 160),
+        ] {
             let other = state(value);
-            let header = start(other.root);
+            let header = start_header(other.root);
             let witness = other.witness(proxy, &[IMPLEMENTATION_SLOT]);
-            safety(check(&at_s(&header), &header, Some(&witness)), "differs from switch");
+            let staking = other.witness(params.staking, &[IMPLEMENTATION_SLOT]);
+            assert_safety(
+                check(&at_s(&snapshot, &header), &header, Some(&witness), Some(&staking)),
+                "SignalService implementation differs from switch",
+            );
         }
 
         // A header at another height, under another parent or state root, or at the fork, is
-        // not the S the Inbox recorded; neither is another account's proof.
+        // not the S the Inbox recorded; another account's proof is not the proxy's.
         for changed in [
             Header { number: S + 1, ..header.clone() },
             Header { parent_hash: B256::repeat_byte(9), ..header.clone() },
             Header { state_root: state(U256::from(1)).root, ..header.clone() },
         ] {
-            safety(check(&snapshot, &changed, Some(&witness)), "contradicts the S header");
+            assert_safety(
+                check(&snapshot, &changed, Some(&witness), Some(&staking)),
+                "contradicts the S header",
+            );
         }
         let at_fork = Header { timestamp: FORK, ..header.clone() };
-        safety(check(&at_s(&at_fork), &at_fork, Some(&witness)), "contradicts the S header");
-        let foreign = l2.witness(other_account, &[IMPLEMENTATION_SLOT]);
-        safety(check(&snapshot, &header, Some(&foreign)), "contradicts the S header");
+        assert_safety(
+            check(&at_s(&snapshot, &at_fork), &at_fork, Some(&witness), Some(&staking)),
+            "contradicts the S header",
+        );
+        let foreign = l2.witness(OTHER_ACCOUNT, &[IMPLEMENTATION_SLOT]);
+        assert_safety(
+            check(&snapshot, &header, Some(&foreign), Some(&staking)),
+            "SignalService witness proves another account",
+        );
 
         // Malformed proofs: a tampered node, a value the proof does not carry, no slot proof.
         let mut tampered = witness.clone();
@@ -711,22 +817,126 @@ mod tests {
         node[3] ^= 1;
         tampered.account_proof[0] = node.into();
         let mut forged = witness.clone();
-        forged.storage[0].value = word(Address::repeat_byte(0x44));
+        forged.storage[0].value = implementation_word(Address::repeat_byte(0x44));
         let mut missing = witness.clone();
         missing.storage.clear();
         for malformed in [tampered, forged, missing] {
-            safety(check(&snapshot, &header, Some(&malformed)), "implementation proof");
+            assert_safety(
+                check(&snapshot, &header, Some(&malformed), Some(&staking)),
+                "SignalService implementation proof",
+            );
         }
 
-        // After S, and on a network without a switch, the proof carries no witness.
+        // After S, and on a network without a switch, the proof carries neither witness.
         let later = LandingSnapshot { checkpoint_height: S + 1, ..snapshot.clone() };
-        check(&later, &header, None).unwrap();
-        safety(check(&later, &header, Some(&witness)), "unexpected");
         let fresh = abci::ChainParams { switch: None, ..params.clone() };
-        verify_start_signal_service_witness(&snapshot, &header, &fresh, None).unwrap();
-        assert!(matches!(
-            verify_start_signal_service_witness(&snapshot, &header, &fresh, Some(&witness)),
-            Err(LanderError::Safety(_))
-        ));
+        for (snapshot, params) in [(&later, &params), (&snapshot, &fresh)] {
+            verify_start_witness(snapshot, &header, params, None, None).unwrap();
+            for (signal_service, staking) in
+                [(Some(&witness), None), (None, Some(&staking)), (Some(&witness), Some(&staking))]
+            {
+                assert_safety(
+                    verify_start_witness(snapshot, &header, params, signal_service, staking),
+                    "unexpected",
+                );
+            }
+        }
+    }
+
+    /// The first proof from S fails unless the staking proxy's EIP-1967 slot holds the
+    /// `EtnaStaking` implementation built in for the L2 chain id, with the SignalService proxy's
+    /// holding its own: another implementation, the SignalService one, the built-in one with
+    /// dirty address padding, an empty slot, no proxy at all, or a proof of a value S's state
+    /// does not hold.
+    #[test]
+    fn start_wrong_staking_implementation_fails() {
+        let (params, snapshot) = switching();
+        let proxy = abci::l2_signal_service_address(params.l2_chain_id);
+        let signal_service = (proxy, implementation_word(SIGNAL_SERVICE_IMPLEMENTATION));
+        let check = |words: &[(Address, U256)], forge: Option<U256>| {
+            let l2 = proxy_state(words);
+            let header = start_header(l2.root);
+            let mut staking = l2.witness(params.staking, &[IMPLEMENTATION_SLOT]);
+            if let Some(value) = forge {
+                staking.storage[0].value = value;
+            }
+            verify_start_witness(
+                &at_s(&snapshot, &header),
+                &header,
+                &params,
+                Some(&l2.witness(proxy, &[IMPLEMENTATION_SLOT])),
+                Some(&staking),
+            )
+        };
+        let built_in = implementation_word(STAKING_IMPLEMENTATION);
+        check(&[signal_service, (params.staking, built_in)], None).unwrap();
+
+        for value in [
+            implementation_word(Address::repeat_byte(0x44)),
+            implementation_word(SIGNAL_SERVICE_IMPLEMENTATION),
+            built_in | (U256::from(1) << 160),
+            U256::ZERO,
+        ] {
+            assert_safety(
+                check(&[signal_service, (params.staking, value)], None),
+                "EtnaStaking implementation differs from switch",
+            );
+        }
+        assert_safety(check(&[signal_service], None), "EtnaStaking implementation proof");
+        assert_safety(
+            check(
+                &[
+                    signal_service,
+                    (params.staking, implementation_word(Address::repeat_byte(0x44))),
+                ],
+                Some(built_in),
+            ),
+            "EtnaStaking implementation proof",
+        );
+    }
+
+    /// The staking proxy checked is the one at the staking address the configuration hash
+    /// commits: a proof of another account holding the built-in implementation, such as the
+    /// SignalService proxy's, fails, and so does checking at a staking address the snapshot's
+    /// configuration hash does not commit. Under a configuration hash that commits that other
+    /// address, the same proof passes.
+    #[test]
+    fn start_staking_checked_at_the_config_hash_address() {
+        let (params, snapshot) = switching();
+        let proxy = abci::l2_signal_service_address(params.l2_chain_id);
+        let built_in = implementation_word(STAKING_IMPLEMENTATION);
+        let l2 = proxy_state(&[
+            (proxy, implementation_word(SIGNAL_SERVICE_IMPLEMENTATION)),
+            (params.staking, built_in),
+            (OTHER_ACCOUNT, built_in),
+        ]);
+        let header = start_header(l2.root);
+        let snapshot = at_s(&snapshot, &header);
+        let signal_service = l2.witness(proxy, &[IMPLEMENTATION_SLOT]);
+        let staking = l2.witness(params.staking, &[IMPLEMENTATION_SLOT]);
+        let other = l2.witness(OTHER_ACCOUNT, &[IMPLEMENTATION_SLOT]);
+        let check = |snapshot: &LandingSnapshot,
+                     params: &abci::ChainParams,
+                     staking: &AccountWitness| {
+            verify_start_witness(snapshot, &header, params, Some(&signal_service), Some(staking))
+        };
+        check(&snapshot, &params, &staking).unwrap();
+        for foreign in [&other, &signal_service] {
+            assert_safety(
+                check(&snapshot, &params, foreign),
+                "EtnaStaking witness proves another account",
+            );
+        }
+
+        let moved = abci::ChainParams { staking: OTHER_ACCOUNT, ..params.clone() };
+        let error = check(&snapshot, &moved, &other).unwrap_err();
+        let LanderError::Configuration(reason) = &error else { panic!("{error}") };
+        assert!(reason.contains("configuration hash"), "{error}");
+        let committed = LandingSnapshot { config_hash: moved.config_hash(), ..snapshot.clone() };
+        check(&committed, &moved, &other).unwrap();
+        assert_safety(
+            check(&committed, &moved, &staking),
+            "EtnaStaking witness proves another account",
+        );
     }
 }
