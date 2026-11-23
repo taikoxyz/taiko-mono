@@ -9,10 +9,11 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use tendermint_proto::v0_38::types::Commit as RawCommit;
+use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
 
 use crate::{
     blob::PreparedBlobs,
+    committee::Validators,
     contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
 };
@@ -252,12 +253,38 @@ mod protobuf_serde {
     pub fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> std::result::Result<Bytes, D::Error> {
-        let encoded = String::deserialize(deserializer)?;
-        let bytes = STANDARD.decode(&encoded).map_err(serde::de::Error::custom)?;
+        decode(String::deserialize(deserializer)?)
+    }
+
+    /// The bytes `encoded` holds as padded standard base64, refusing any other form.
+    pub(super) fn decode<E: serde::de::Error>(encoded: String) -> std::result::Result<Bytes, E> {
+        let bytes = STANDARD.decode(&encoded).map_err(E::custom)?;
         if STANDARD.encode(&bytes) != encoded {
-            return Err(serde::de::Error::custom("noncanonical protobuf base64"));
+            return Err(E::custom("noncanonical protobuf base64"));
         }
         Ok(bytes.into())
+    }
+}
+
+/// [`protobuf_serde`] for an optional protobuf: `null` when absent.
+mod protobuf_serde_option {
+    use alloy_primitives::Bytes;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serializes a present protobuf as padded standard base64.
+    pub fn serialize<S: Serializer>(
+        bytes: &Option<Bytes>,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        bytes.as_ref().map(|bytes| STANDARD.encode(bytes)).serialize(serializer)
+    }
+
+    /// Rejects invalid or noncanonical base64 of a present protobuf.
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Option<Bytes>, D::Error> {
+        Option::<String>::deserialize(deserializer)?.map(super::protobuf_serde::decode).transpose()
     }
 }
 
@@ -361,6 +388,12 @@ pub struct PreparedBatch {
     /// The fallback key list whose hash the generation's origin record holds: its keys, each at
     /// power 1, sign o + 1 and o + 2.
     pub origin_fallback_keys: FallbackKeys,
+    /// header(p), the canonical protobuf of the CometBFT header whose hash p's landing record
+    /// holds (`checkpoint_comet_hash`), present exactly when p is above o: its
+    /// `validators_hash` commits `validators_p`, and its `next_validators_hash` the set that
+    /// signs p + 1, `validators_p1` or, up to o + 2, the origin list's.
+    #[serde(with = "protobuf_serde_option")]
+    pub header_p: Option<Bytes>,
     /// The set that signs p, keys and powers in CometBFT's order, which header(p)'s
     /// `validators_hash` commits and p + 1's LastCommit lists; present exactly when p is above
     /// the generation's start o, as o + 1 has no LastCommit.
@@ -448,12 +481,14 @@ impl PreparedBatch {
     /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
     ///
     /// The commit heights, which the statement does not bind, must still have the shape the
-    /// builder gives them: strictly ascending inside (p, h] and ending at h.
+    /// builder gives them: strictly ascending inside (p, h] and ending at h. header(p) and the
+    /// sets that sign p and p + 1 must be the ones p's landing record commits
+    /// ([`PreparedBatch::check_origin_sets`]).
     ///
-    /// Proof witnesses (anchors, p's anchor witness, the starting Inbox witness, the sets of p and
-    /// p + 1, the origin and fallback key lists, p's staking proof and the per-height staking
-    /// reads) are not re-derived. A restored job is at least Prepared, so its proof already
-    /// exists and nothing reads them again; the builder checked every one before proving.
+    /// Other proof witnesses (anchors, p's anchor witness, the starting Inbox witness, the
+    /// fallback key lists, p's staking proof and the per-height staking reads) are not
+    /// re-derived. A restored job is at least Prepared, so its proof already exists and nothing
+    /// reads them again; the builder checked every one before proving.
     pub fn verify_restored(&self) -> Result<()> {
         let u48 = |value: U256| {
             protocol_u48(value)
@@ -481,6 +516,7 @@ impl PreparedBatch {
                 "job commit heights are not strictly ascending inside (p, h] ending at h".into(),
             ));
         }
+        self.check_origin_sets().map_err(|reason| LanderError::Journal(format!("job {reason}")))?;
         if self.blocks.last().is_none_or(|pair| {
             B256::from_slice(pair.block.header.hash().as_bytes()) != self.input.lastCometHash
         }) {
@@ -536,6 +572,61 @@ impl PreparedBatch {
             return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
         }
         crate::blob::verify(&self.blobs)
+    }
+
+    /// Checks header(p) and the sets that sign p and p + 1 against p's landing record and each
+    /// other, as the proof does: each is carried exactly where the proof takes it as input,
+    /// header(p) is canonical and hashes to `checkpoint_comet_hash`, `validators_p` is in
+    /// CometBFT's order and hashes to its `validators_hash`, and the set that signs p + 1,
+    /// `validators_p1` in CometBFT's order or, up to o + 2, the origin list's keys at power 1,
+    /// hashes to its `next_validators_hash`. Returns the first contradiction.
+    pub(crate) fn check_origin_sets(&self) -> std::result::Result<(), String> {
+        let p = self.snapshot.checkpoint_height;
+        let origin = self.snapshot.origin_height();
+        let above = p > origin;
+        if self.header_p.is_some() != above ||
+            self.validators_p.is_some() != above ||
+            self.validators_p1.is_some() != (p > origin.saturating_add(1))
+        {
+            return Err("header(p) or a set that signs p or p + 1 is carried where the proof \
+                        does not take it, or missing where it does"
+                .into());
+        }
+        let Some(raw) = &self.header_p else {
+            return Ok(());
+        };
+        let decoded = RawHeader::decode(raw.as_ref())
+            .map_err(|error| format!("header(p) is no CometBFT header protobuf: {error}"))?;
+        if decoded.encode_to_vec().as_slice() != raw.as_ref() {
+            return Err("header(p) is a noncanonical protobuf".into());
+        }
+        let header = tendermint::block::Header::try_from(decoded)
+            .map_err(|error| format!("header(p) is no CometBFT header: {error}"))?;
+        if B256::from_slice(header.hash().as_bytes()) != self.snapshot.checkpoint_comet_hash {
+            return Err("header(p) does not hash to p's Comet hash".into());
+        }
+        let committed = |members: &[(ConsensusKey, u64)], carried: bool, expected, what| {
+            let set = Validators::from_powers(members)
+                .map_err(|error| format!("the set that signs {what} is no set: {error}"))?;
+            if carried && set.members() != members {
+                return Err(format!("the set that signs {what} is not in CometBFT order"));
+            }
+            if set.hash() != expected {
+                return Err(format!("the set that signs {what} differs from header(p)'s"));
+            }
+            Ok(())
+        };
+        let at_p = self.validators_p.as_deref().expect("carried above the generation's start");
+        committed(at_p, true, header.validators_hash, "p")?;
+        match &self.validators_p1 {
+            Some(at_p1) => committed(at_p1, true, header.next_validators_hash, "p + 1"),
+            None => committed(
+                &self.origin_fallback_keys.validator_set(),
+                false,
+                header.next_validators_hash,
+                "p + 1",
+            ),
+        }
     }
 }
 
@@ -632,13 +723,14 @@ mod tests {
     /// terminal Comet hash, the reference, the statement hash, the blob payload and its KZG
     /// sidecar, and the shape of the commit heights, which nothing binds. It does not re-derive
     /// proof witnesses: a restored job's proof already exists, and the builder checked them all
-    /// before proving. The anchors, p's anchor witness, the sets of p and p + 1, the origin
-    /// list, the fallback key lists, p's staking proof and the per-height staking reads may each
-    /// be dropped or replaced by values no proof would accept.
+    /// before proving. The anchors, p's anchor witness, the fallback key lists, p's staking proof
+    /// and the per-height staking reads may each be dropped or replaced by values no proof would
+    /// accept. (header(p) and the sets that sign p and p + 1 are checked: see
+    /// `request_carries_header_p_committing_the_sets_of_p_and_p_plus_1`.)
     #[test]
     fn restore_rechecks_the_statement_shape_and_blob_binding_but_not_proof_witnesses() {
         use crate::test_utils::{
-            consensus::{fallback_keys, public_key},
+            consensus::fallback_keys,
             consensus_mpt::seed_key,
             runtime::{limits, rebind, request},
         };
@@ -649,9 +741,6 @@ mod tests {
         let mut witnesses = original.batch.clone();
         witnesses.anchors.clear();
         witnesses.p_anchor_witness = Some(witnesses.starting_inbox_witness.clone());
-        witnesses.validators_p = Some(Vec::new());
-        witnesses.validators_p1 = Some(vec![(public_key(&seed_key(0x52)), 0)]);
-        witnesses.origin_fallback_keys = other.clone();
         witnesses.fallback_key_lists = vec![other.clone(), other];
         witnesses.staking_at_p = Some(witnesses.snapshot.inbox_witness.clone());
         witnesses.staking_reads = vec![HeightReads {
@@ -724,79 +813,6 @@ mod tests {
             assert!(matches!(error, LanderError::Journal(_)), "{expected}: {error}");
             assert!(error.to_string().contains(expected), "{expected}: {error}");
         }
-    }
-
-    /// A request of 300 blocks, the average batch of the 4 s block and 20 min landing operating
-    /// targets, journals within the journal bound with every per-height witness at its largest:
-    /// 128 seat words at each height of (p, h), a 128-key fallback key list for each of the 300
-    /// decisions, 128-member sets of p and p + 1, and p's staking proof of the 258 snapshot and
-    /// 128 seat slots, each proof a path of 65 full branch nodes. The bound holds with the
-    /// private block and commit witnesses at the whole budget the codec reserves for them.
-    #[test]
-    fn request_of_300_blocks_stays_under_the_journal_bound() {
-        use crate::{
-            store::MAX_JOURNAL_BYTES,
-            test_utils::{
-                consensus::{committee, fallback_keys, pair},
-                consensus_mpt::seed_key,
-                protocol::request,
-                runtime::leaves,
-            },
-        };
-        const BLOCKS: u64 = 300;
-        let mut request = request();
-        let batch = &mut request.batch;
-        let (_, signers, keys) = committee(&[3, 3, 3]);
-        let mut parent = batch.snapshot.checkpoint_hash;
-        for height in 1..=BLOCKS {
-            let block = pair(height, parent, &signers, &keys, batch.blocks.last());
-            parent =
-                abci::EtnaEnvelope::decode(&block.block.data[0]).unwrap().block.header.hash_slow();
-            batch.blocks.push(block);
-        }
-        batch.leaves = leaves(&batch.blocks);
-        batch.anchors = vec![batch.parent_anchor.clone(); BLOCKS as usize];
-        batch.commit_heights = (1..=BLOCKS).collect();
-        batch.input.lastHeight = U256::from(BLOCKS);
-
-        let list = fallback_keys(&(1..=128).map(seed_key).collect::<Vec<_>>());
-        let power = abci::committee::MAX_TOTAL_POWER / 128;
-        let set = list.keys().iter().map(|key| (*key, power)).collect::<Vec<_>>();
-        // A full branch node: 16 child hashes and an empty value under a three-byte list header.
-        let path = vec![Bytes::from(vec![0xff; 532]); 65];
-        let seats = [Address::repeat_byte(0xff); 128];
-        batch.staking_at_p = Some(AccountWitness {
-            address: Address::repeat_byte(0xff),
-            nonce: u64::MAX,
-            balance: U256::MAX,
-            storage_root: B256::repeat_byte(0xff),
-            code_hash: B256::repeat_byte(0xff),
-            account_proof: path.clone(),
-            storage: crate::l1::staking_slots(&seats)
-                .into_iter()
-                .map(|slot| abci::StorageProof { slot, value: U256::MAX, proof: path.clone() })
-                .collect(),
-        });
-        batch.staking_reads = (1..BLOCKS)
-            .map(|height| HeightReads {
-                height,
-                values: vec![U256::MAX; abci::staking::SNAPSHOT_SLOT_COUNT],
-                seat_words: seats.iter().map(|address| (*address, U256::MAX)).collect(),
-            })
-            .collect();
-        batch.fallback_key_lists = vec![list.clone(); BLOCKS as usize];
-        batch.origin_fallback_keys = list;
-        batch.validators_p = Some(set.clone());
-        batch.validators_p1 = Some(set);
-
-        let bytes = serde_json::to_vec(&request).unwrap().len() as u64;
-        // The blocks above are small; the codec admits up to a quarter of the bound of block and
-        // commit protobufs, which journal as base64.
-        let block_budget = (MAX_JOURNAL_BYTES / 4).div_ceil(3) * 4;
-        assert!(
-            bytes + block_budget < MAX_JOURNAL_BYTES,
-            "a 300-block request journals {bytes} bytes"
-        );
     }
 
     /// The Etna start S of the switching start-witness tests, and their fork time.

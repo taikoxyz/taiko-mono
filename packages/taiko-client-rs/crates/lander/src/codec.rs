@@ -95,6 +95,10 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
     list_len.saturating_add(list_len / 256).saturating_add(64)
 }
 
+/// The most canonical block and commit protobuf bytes one batch retains as private witnesses: a
+/// quarter of the journal bound, before their base64 journal encoding.
+pub(crate) const MAX_PRIVATE_BYTES: usize = crate::store::MAX_JOURNAL_BYTES as usize / 4;
+
 /// A V6 payload's RLP list, built one validated block at a time so prefix selection checks and
 /// encodes each block once rather than once per candidate prefix.
 #[derive(Debug)]
@@ -122,7 +126,7 @@ impl PayloadList {
             items: Vec::new(),
             ends: Vec::new(),
             private_ends: Vec::new(),
-            private_limit: crate::store::MAX_JOURNAL_BYTES as usize / 4,
+            private_limit: MAX_PRIVATE_BYTES,
             headers: Vec::new(),
         })
     }

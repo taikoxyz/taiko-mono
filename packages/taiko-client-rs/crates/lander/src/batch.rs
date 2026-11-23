@@ -10,8 +10,10 @@ use abci::{
     AccountWitness, AnchorState, ChainParams, ParentInfo, committee::SignerSource,
     fallback::FallbackKeys, rules, staking::StakingWords,
 };
-use alloy_primitives::{Address, B256, U256, aliases::U48};
+use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use async_trait::async_trait;
+use prost::Message;
+use tendermint_proto::v0_38::types::Commit as RawCommit;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -46,6 +48,53 @@ pub const MAX_SELECTION_DEFLATE_BYTES: usize = 32 * 1024 * 1024;
 
 const _: () = assert!(MAX_BATCH_LIST_BYTES / 3 * 4 <= MAX_JOURNAL_BYTES as usize / 2);
 const _: () = assert!(COMET_BLOCK_MAX_BYTES <= MAX_BATCH_LIST_BYTES / 2);
+
+/// Journal bytes left for what a job journals besides its proof request: the signed
+/// transaction, whose sidecar repeats the request's blobs and whose calldata carries the proof and
+/// the cut leaves, the proof itself, and the journal's envelope.
+const JOURNAL_RESERVE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// The most bytes a proof request may journal as. Preparation refuses, before any proof, a
+/// request that would journal more, so a prepared job always journals.
+pub(crate) const MAX_REQUEST_BYTES: u64 = MAX_JOURNAL_BYTES - JOURNAL_RESERVE_BYTES;
+
+/// The bytes prefix selection leaves for the parts of a proof request that do not grow with its
+/// heights: the snapshot, the starting and anchor witnesses, header(p), the sets and staking proof
+/// of p, the origin list, the reference chain and the blobs.
+const REQUEST_FIXED_BYTES: u64 = 48 * 1024 * 1024;
+
+/// The most bytes one height adds to a journaled proof request besides its block and commit
+/// protobufs: its staking reads (258 snapshot words and up to 128 seat words), a 128-key fallback
+/// key list, its anchor, cut leaf and commit height, and its block's JSON framing.
+pub(crate) const MAX_HEIGHT_REQUEST_BYTES: u64 = 48 * 1024;
+
+/// The bytes prefix selection lets a batch's heights journal as in its proof request: each
+/// height's base64 block and commit protobufs and [`MAX_HEIGHT_REQUEST_BYTES`].
+const HEIGHTS_REQUEST_BYTES: u64 = MAX_REQUEST_BYTES - REQUEST_FIXED_BYTES;
+
+/// The most heights a batch may hold so that its heights journal within
+/// [`HEIGHTS_REQUEST_BYTES`] whatever they hold, with their block and commit protobufs at the
+/// whole private budget selection admits ([`codec::MAX_PRIVATE_BYTES`]). [`batch_cap`] refuses a
+/// larger cap.
+pub const MAX_REQUEST_HEIGHTS: u64 = (HEIGHTS_REQUEST_BYTES -
+    journaled_bytes(codec::MAX_PRIVATE_BYTES as u64)) /
+    MAX_HEIGHT_REQUEST_BYTES;
+
+const _: () = assert!(MAX_REQUEST_HEIGHTS >= 1_000);
+
+/// The length of the padded base64 of `bytes` bytes, the journal encoding of a protobuf.
+const fn journaled_bytes(bytes: u64) -> u64 {
+    bytes.div_ceil(3) * 4
+}
+
+/// The most bytes the height of `pair` adds to a journaled proof request: its base64 block and
+/// commit protobufs and [`MAX_HEIGHT_REQUEST_BYTES`].
+fn height_request_bytes(pair: &CertifiedBlock) -> u64 {
+    let commit = RawCommit::from(pair.commit.clone()).encoded_len() as u64;
+    journaled_bytes(pair.raw_block.len() as u64) +
+        journaled_bytes(commit) +
+        MAX_HEIGHT_REQUEST_BYTES
+}
 
 /// Decided backlog and complete-prefix facts used by the runner's publication policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -316,7 +365,8 @@ pub struct BatchBuilderConfig {
 /// The most blocks one batch selects: the configured `max_blocks` or the Inbox's
 /// `max_batch_blocks`, whichever is lower. A landing may end at any height (LAND-6.1-5), so any
 /// cap of at least one block can land; a zero cap is a configuration error, which the lander
-/// checks before it starts.
+/// checks before it starts. So is a cap above [`MAX_REQUEST_HEIGHTS`], whose batches could need
+/// a proof request larger than the journal holds.
 pub fn batch_cap(max_blocks: usize, max_batch_blocks: u64) -> Result<usize> {
     let deployed = usize::try_from(max_batch_blocks).unwrap_or(usize::MAX);
     let cap = max_blocks.min(deployed);
@@ -324,6 +374,13 @@ pub fn batch_cap(max_blocks: usize, max_batch_blocks: u64) -> Result<usize> {
         return Err(LanderError::Configuration(format!(
             "batches of at most {max_blocks} configured and {max_batch_blocks} deployed \
              (maxBatchBlocks) blocks cannot hold one block"
+        )));
+    }
+    if cap as u64 > MAX_REQUEST_HEIGHTS {
+        return Err(LanderError::Configuration(format!(
+            "batches of up to {cap} blocks, the lower of --max-blocks {max_blocks} and the Inbox \
+             maxBatchBlocks {max_batch_blocks}, can need a proof request beyond the journal \
+             bound; set --max-blocks to at most {MAX_REQUEST_HEIGHTS}"
         )));
     }
     Ok(cap)
@@ -367,6 +424,11 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     list_budget: usize,
     /// Bytes one prefix selection may deflate ([`MAX_SELECTION_DEFLATE_BYTES`]).
     deflate_budget: usize,
+    /// Bytes the selected heights may journal as in the proof request
+    /// ([`HEIGHTS_REQUEST_BYTES`], counted by [`height_request_bytes`]).
+    heights_budget: u64,
+    /// Bytes the whole proof request may journal as ([`MAX_REQUEST_BYTES`]).
+    request_budget: u64,
     /// Retain at most one authenticated starting context and serialize concurrent misses.
     checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
     /// The last tip whose anchor [`BatchBuilder::tip_anchor`] authenticated, so a later
@@ -404,6 +466,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             mode,
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
+            heights_budget: HEIGHTS_REQUEST_BYTES,
+            request_budget: MAX_REQUEST_BYTES,
             checkpoint_cache: Mutex::new(None),
             tip_anchor: Mutex::new(None),
             fallback_lists: Mutex::new(BTreeMap::new()),
@@ -430,6 +494,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     ) -> Self {
         self.list_budget = list_bytes;
         self.deflate_budget = deflate_bytes;
+        self
+    }
+
+    /// Replaces the journal budgets of the selected heights and of the whole proof request, so
+    /// tests reach them with small batches.
+    #[cfg(test)]
+    pub(crate) fn with_request_budgets(mut self, heights_bytes: u64, request_bytes: u64) -> Self {
+        self.heights_budget = heights_bytes;
+        self.request_budget = request_bytes;
         self
     }
 
@@ -498,7 +571,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(status)
     }
 
-    /// Select exact complete-block boundaries using canonical codec and blob capacity checks.
+    /// Select exact complete-block boundaries using canonical codec, blob and journal capacity
+    /// checks: the selected heights may journal as at most the heights budget in the proof
+    /// request, each counted at the most it can add ([`height_request_bytes`]).
     ///
     /// An oversized first block is a capacity error; a later oversized block ends the prefix.
     /// With an exact end, which the caller has checked and seen decided, the prefix runs to it,
@@ -520,6 +595,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut blocks = Vec::new();
         let mut payload = None;
         let mut deflated = 0usize;
+        let mut journaled = 0u64;
         let most = self.max_batch_blocks.min(self.limits.max_blocks as u64);
         let mut stop = decided_height.min(snapshot.checkpoint_height.saturating_add(most));
         if let Some(end) = self.land_to {
@@ -533,6 +609,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     pair.block.header.height
                 )));
             }
+            let height_bytes = height_request_bytes(&pair);
+            if journaled + height_bytes > self.heights_budget {
+                if blocks.is_empty() {
+                    return Err(LanderError::Capacity(format!(
+                        "block {height} can add {height_bytes} bytes to the proof request, beyond \
+                         the {} journal bytes a batch's heights may take",
+                        self.heights_budget
+                    )));
+                }
+                break;
+            }
+            journaled += height_bytes;
             match list.push(&pair) {
                 Ok(()) => {}
                 Err(LanderError::Capacity(_)) if !blocks.is_empty() => break,
@@ -579,8 +667,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             last != end
         {
             return Err(LanderError::Capacity(format!(
-                "blocks {}..={end} do not fit one batch, whose payload, blob and selection limits \
-                 end it at {last}, so --land-to {end} cannot land",
+                "blocks {}..={end} do not fit one batch, whose payload, blob, journal and \
+                 selection limits end it at {last}, so --land-to {end} cannot land",
                 snapshot.checkpoint_height + 1
             )));
         }
@@ -1407,7 +1495,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         // only above.
         let validators_p1 = (snapshot.checkpoint_height >= snapshot.origin_height() + 2)
             .then(|| start.signers.members());
-        Ok(Some(ProofRequest {
+        // header(p), from the original block protobuf of the checkpoint above the start.
+        let header_p = match &start.previous {
+            Some(pair) => {
+                let header = pair.block_proto()?.header.ok_or_else(|| {
+                    LanderError::Safety("checkpoint block protobuf holds no header".into())
+                })?;
+                Some(Bytes::from(header.encode_to_vec()))
+            }
+            None => None,
+        };
+        let request = ProofRequest {
             batch: PreparedBatch {
                 snapshot,
                 parent_header: start.parent.header.clone(),
@@ -1418,6 +1516,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 starting_inbox_witness,
                 p_anchor_witness: start.anchor_witness.clone(),
                 origin_fallback_keys: start.origin_keys.clone(),
+                header_p,
                 validators_p: start.parent_signers.as_ref().map(Validators::members),
                 validators_p1,
                 staking_at_p,
@@ -1432,7 +1531,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 blobs,
                 statement_hash: hash,
             },
-        }))
+        };
+        request.batch.check_origin_sets().map_err(LanderError::Safety)?;
+        let journaled = request_bytes(&request)?;
+        if journaled > self.request_budget {
+            return Err(LanderError::Capacity(format!(
+                "the proof request of blocks {}..={} would journal {journaled} bytes, beyond the \
+                 {} a request may take",
+                request.batch.snapshot.checkpoint_height + 1,
+                last.number,
+                self.request_budget
+            )));
+        }
+        Ok(Some(request))
     }
 }
 
@@ -1562,6 +1673,25 @@ fn parent_info(context: &ParentContext) -> Result<ParentInfo> {
             .ok_or_else(|| LanderError::Safety("EL parent has no base fee".into()))?,
         grandparent_timestamp: context.grandparent_timestamp,
     })
+}
+
+/// The bytes `request` journals as: the length of its JSON, counted without retaining it.
+fn request_bytes(request: &ProofRequest) -> Result<u64> {
+    /// Counts the bytes written to it.
+    struct Count(u64);
+    impl std::io::Write for Count {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 += bytes.len() as u64;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut count = Count(0);
+    serde_json::to_writer(&mut count, request)
+        .map_err(|error| LanderError::Encoding(format!("proof request: {error}")))?;
+    Ok(count.0)
 }
 
 /// The values of the candidate snapshot `words` at [`abci::staking::snapshot_slots`], in that
@@ -2275,6 +2405,156 @@ mod tests {
                 "{min_blocks} above cap {cap}"
             );
         }
+    }
+
+    /// A cap whose batches always journal starts; a larger one is refused at startup, whatever
+    /// the reason the cap is that large, unless the Inbox's `maxBatchBlocks` lowers it.
+    #[test]
+    fn a_batch_cap_beyond_the_journal_is_refused() {
+        let most = MAX_REQUEST_HEIGHTS as usize;
+        assert!(most >= 300, "{most}");
+        assert_eq!(batch_cap(most, u64::MAX).unwrap(), most);
+        assert_eq!(batch_cap(usize::MAX, 1_000).unwrap(), 1_000);
+        for (max_blocks, max_batch_blocks) in [(most + 1, u64::MAX), (usize::MAX, u64::MAX)] {
+            let error = batch_cap(max_blocks, max_batch_blocks).unwrap_err();
+            assert!(
+                matches!(&error, LanderError::Configuration(reason)
+                    if reason.contains(&format!("set --max-blocks to at most {most}"))),
+                "{error}"
+            );
+        }
+    }
+
+    /// Selection stops adding heights before they would journal beyond the heights budget,
+    /// each counted at the most it can add, and a first height that cannot fit is a capacity
+    /// error naming it. A request that would journal beyond the request budget is refused before
+    /// any proof.
+    #[tokio::test]
+    async fn selection_stops_before_the_request_would_outgrow_the_journal() {
+        let fixture = Arc::new(Fixture::new(0, 6));
+        let cost = |height: u64| height_request_bytes(&fixture.blocks[&height]);
+        let three = cost(1) + cost(2) + cost(3);
+        for (budget, expected) in [(three, 3), (three + cost(4) - 1, 3), (three + cost(4), 4)] {
+            let b = builder(fixture.clone(), limits(6)).with_request_budgets(budget, u64::MAX);
+            let preview = b.observe(&fixture.snapshot).await.unwrap();
+            assert_eq!(preview.observation.publishable_blocks, expected, "budget {budget}");
+            let request = b.prepare_observed(fixture.snapshot.clone(), preview).await.unwrap();
+            let last = request.unwrap().batch.input.lastHeight;
+            assert_eq!(last, U256::from(expected), "budget {budget}");
+        }
+        let b = builder(fixture.clone(), limits(6)).with_request_budgets(cost(1) - 1, u64::MAX);
+        let error = b.prepare(fixture.snapshot.clone()).await.unwrap_err();
+        assert!(
+            matches!(&error, LanderError::Capacity(reason) if reason.contains("block 1 can add")),
+            "{error}"
+        );
+
+        let request = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let journaled = request_bytes(&request).unwrap();
+        assert_eq!(journaled, serde_json::to_vec(&request).unwrap().len() as u64);
+        for (budget, fits) in [(journaled, true), (journaled - 1, false)] {
+            let b = builder(fixture.clone(), limits(6)).with_request_budgets(u64::MAX, budget);
+            let prepared = b.prepare(fixture.snapshot.clone()).await;
+            match prepared {
+                Ok(Some(prepared)) if fits => assert_eq!(prepared, request),
+                Err(LanderError::Capacity(reason)) if !fits => {
+                    assert!(
+                        reason.contains(&format!("would journal {journaled} bytes")),
+                        "{reason}"
+                    )
+                }
+                other => panic!("budget {budget}: {other:?}"),
+            }
+        }
+    }
+
+    /// A request of 300 blocks, the average batch of the 4 s block and 20 min landing operating
+    /// targets, journals within the bound with every witness at its largest: 128 seat words at
+    /// each height of (p, h), a 128-key fallback key list for each of the 300 decisions,
+    /// 128-member sets of p and p + 1, header(p), and p's staking proof of the 258 snapshot and
+    /// 128 seat slots, each proof a path of 65 full branch nodes. Each height adds at most
+    /// [`MAX_HEIGHT_REQUEST_BYTES`] besides its block and commit protobufs, the parts that do not
+    /// grow with the heights stay within [`REQUEST_FIXED_BYTES`], and the whole request fits
+    /// [`MAX_REQUEST_BYTES`] with the private block and commit witnesses at their whole budget.
+    #[test]
+    fn request_of_300_blocks_stays_under_the_journal_bound() {
+        use crate::test_utils::{
+            consensus::{committee, fallback_keys, pair},
+            consensus_mpt::seed_key,
+            protocol,
+            runtime::leaves,
+        };
+        /// A request of `count` blocks with every witness at its largest.
+        fn worst(count: u64) -> ProofRequest {
+            let mut request = protocol::request();
+            let batch = &mut request.batch;
+            let (_, signers, keys) = committee(&[3, 3, 3]);
+            let mut parent = batch.snapshot.checkpoint_hash;
+            for height in 1..=count {
+                let block = pair(height, parent, &signers, &keys, batch.blocks.last());
+                let envelope = abci::EtnaEnvelope::decode(&block.block.data[0]).unwrap();
+                parent = envelope.block.header.hash_slow();
+                batch.blocks.push(block);
+            }
+            let header = batch.blocks[0].block_proto().unwrap().header.unwrap();
+            batch.header_p = Some(Bytes::from(header.encode_to_vec()));
+            batch.leaves = leaves(&batch.blocks);
+            batch.anchors = vec![batch.parent_anchor.clone(); count as usize];
+            batch.commit_heights = (1..=count).collect();
+            batch.input.lastHeight = U256::from(count);
+
+            let list = fallback_keys(&(1..=128).map(seed_key).collect::<Vec<_>>());
+            let power = abci::committee::MAX_TOTAL_POWER / 128;
+            let set = list.keys().iter().map(|key| (*key, power)).collect::<Vec<_>>();
+            // A full branch node: 16 child hashes and an empty value under a three-byte header.
+            let path = vec![Bytes::from(vec![0xff; 532]); 65];
+            let seats = [Address::repeat_byte(0xff); 128];
+            batch.staking_at_p = Some(AccountWitness {
+                address: Address::repeat_byte(0xff),
+                nonce: u64::MAX,
+                balance: U256::MAX,
+                storage_root: B256::repeat_byte(0xff),
+                code_hash: B256::repeat_byte(0xff),
+                account_proof: path.clone(),
+                storage: crate::l1::staking_slots(&seats)
+                    .into_iter()
+                    .map(|slot| abci::StorageProof { slot, value: U256::MAX, proof: path.clone() })
+                    .collect(),
+            });
+            batch.staking_reads = (1..count)
+                .map(|height| HeightReads {
+                    height,
+                    values: vec![U256::MAX; abci::staking::SNAPSHOT_SLOT_COUNT],
+                    seat_words: seats.iter().map(|address| (*address, U256::MAX)).collect(),
+                })
+                .collect();
+            batch.fallback_key_lists = vec![list.clone(); count as usize];
+            batch.origin_fallback_keys = list;
+            batch.validators_p = Some(set.clone());
+            batch.validators_p1 = Some(set);
+            request
+        }
+        // The bytes of `request` besides its block and commit protobufs.
+        let witness_bytes = |request: &ProofRequest| {
+            let protobufs = request
+                .batch
+                .blocks
+                .iter()
+                .map(|pair| height_request_bytes(pair) - MAX_HEIGHT_REQUEST_BYTES);
+            request_bytes(request).unwrap() - protobufs.sum::<u64>()
+        };
+        let (one, many) = (worst(1), worst(300));
+        let per_height = (witness_bytes(&many) - witness_bytes(&one)).div_ceil(299);
+        assert!(per_height <= MAX_HEIGHT_REQUEST_BYTES, "a height adds {per_height} bytes");
+        let fixed = witness_bytes(&one) - per_height;
+        assert!(fixed <= REQUEST_FIXED_BYTES, "the fixed parts take {fixed} bytes");
+        let whole =
+            request_bytes(&many).unwrap() + journaled_bytes(codec::MAX_PRIVATE_BYTES as u64);
+        assert!(whole <= MAX_REQUEST_BYTES, "a 300-block request journals {whole} bytes");
     }
 
     /// However many blocks `--max-blocks` allows, observation and selection never exceed the
@@ -4496,6 +4776,97 @@ mod tests {
                 let at_p1 = carries_p1.then(|| ordered(&origin));
                 assert_eq!(request.validators_p1, at_p1, "p = {p}");
             }
+        }
+
+        /// Above the generation's start the request carries header(p), the original protobuf of
+        /// the CometBFT header p's landing record names, and header(p), the sets that sign p and
+        /// p + 1 and the origin list commit each other, on build and on restore. A request whose
+        /// header(p) or sets are missing or carried where the proof does not take them, whose
+        /// header(p) is another block's, noncanonical or no header, or whose sets are reordered
+        /// or re-powered is refused, as is one at p = o + 1 whose origin list header(p) does not
+        /// commit as the set that signs p + 1.
+        #[tokio::test]
+        async fn request_carries_header_p_committing_the_sets_of_p_and_p_plus_1() {
+            use prost::Message;
+            let refused = |batch: &PreparedBatch, expected: &str| {
+                let reason = batch.check_origin_sets().unwrap_err();
+                assert!(reason.contains(expected), "{expected}: {reason}");
+                let error = batch.verify_restored().unwrap_err();
+                assert!(
+                    matches!(&error, LanderError::Journal(message) if message.contains(expected)),
+                    "{expected}: {error}"
+                );
+            };
+            let header = |fixture: &Fixture, height: u64| {
+                let raw = fixture.blocks[&height].block_proto().unwrap().header.unwrap();
+                Bytes::from(raw.encode_to_vec())
+            };
+            let misplaced = "carried where the proof does not take it";
+
+            let at_o = Arc::new(Fixture::new(0, 6));
+            let request = batch(&at_o, 4).await.unwrap();
+            assert_eq!(request.header_p, None);
+            request.verify_restored().unwrap();
+            let mut changed = request.clone();
+            changed.header_p = Some(header(&at_o, 1));
+            refused(&changed, misplaced);
+
+            let deep = Arc::new(Fixture::new(18, 22));
+            let request = batch(&deep, 4).await.unwrap();
+            assert_eq!(request.header_p, Some(header(&deep, 18)));
+            request.verify_restored().unwrap();
+            let at_p = request.validators_p.clone().unwrap();
+            let at_p1 = request.validators_p1.clone().unwrap();
+            assert!(at_p.len() > 1 && at_p1.len() > 1);
+            let mut cases = Vec::new();
+            let mut changed = request.clone();
+            changed.header_p = None;
+            cases.push((changed, misplaced));
+            let mut changed = request.clone();
+            changed.validators_p = None;
+            cases.push((changed, misplaced));
+            let mut changed = request.clone();
+            changed.validators_p1 = None;
+            cases.push((changed, misplaced));
+            let mut changed = request.clone();
+            changed.header_p = Some(header(&deep, 19));
+            cases.push((changed, "does not hash to p's Comet hash"));
+            // A repeated height field decodes to the same header but re-encodes without it.
+            let mut changed = request.clone();
+            changed.header_p = Some([header(&deep, 18).as_ref(), &[0x18, 18]].concat().into());
+            cases.push((changed, "noncanonical"));
+            let mut changed = request.clone();
+            changed.header_p = Some(Bytes::from_static(&[0xff]));
+            cases.push((changed, "no CometBFT header protobuf"));
+            let mut changed = request.clone();
+            changed.validators_p.as_mut().unwrap().reverse();
+            cases.push((changed, "signs p is not in CometBFT order"));
+            let mut changed = request.clone();
+            changed.validators_p1.as_mut().unwrap().reverse();
+            cases.push((changed, "signs p + 1 is not in CometBFT order"));
+            let mut changed = request.clone();
+            changed.validators_p.as_mut().unwrap()[0].1 += 1;
+            cases.push((changed, "signs p differs from header(p)'s"));
+            let mut changed = request.clone();
+            changed.validators_p1.as_mut().unwrap()[0].1 += 1;
+            cases.push((changed, "signs p + 1 differs from header(p)'s"));
+            for (changed, expected) in &cases {
+                refused(changed, expected);
+            }
+
+            // At p = o + 1 the origin list signs p + 1, and header(p) commits it.
+            let source = TrackingSource::new(recovery::fixture(8, 7, 12).await);
+            let snapshot = source.fixture().snapshot.clone();
+            let request = source.builder(4).prepare(snapshot).await.unwrap().unwrap().batch;
+            assert_eq!(request.header_p, Some(header(&source.fixture(), 7)));
+            assert_eq!(request.validators_p1, None);
+            request.verify_restored().unwrap();
+            let mut changed = request.clone();
+            changed.origin_fallback_keys = fallback_keys(&[seed_key(0x51)]);
+            refused(&changed, "signs p + 1 differs from header(p)'s");
+            let mut changed = request;
+            changed.validators_p1 = changed.validators_p.clone();
+            refused(&changed, misplaced);
         }
 
         /// The request carries each fallback key list a decision at a height of [p, h − 1] fell
