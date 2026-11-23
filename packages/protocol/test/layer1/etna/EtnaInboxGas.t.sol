@@ -14,25 +14,27 @@ import { Controller } from "src/shared/governance/Controller.sol";
 
 /// @title EtnaInboxGasBase
 /// @notice Gas snapshots of the Inbox's entry points on the `EtnaLandTestBase` chain.
-/// @dev `setUp` and the measured test are separate transactions, so every contract's storage
-/// starts cold in the test. Each test loads its target, caller and arguments into memory before
-/// `vm.startSnapshotGas`, so the measured window holds only the call; a test that snapshots with
-/// `vm.snapshotGasLastCall` instead records the callee frame's gas. Every landing suite lands
-/// (0, 6] in `setUp` first, so the measured landing starts from non-zero checkpoint slots. Landings
-/// carry two blobs and use the mock verifier, bound in `setUp` to the measured landing's honest
-/// statement.
+/// @dev Every snapshot in this file is the gas of the called contract's frame before refunds, as
+/// `vm.snapshotGasLastCall` records it: the Inbox proxy's, or for the DAO's recovery the
+/// controller's. It leaves out the transaction's intrinsic cost and the test's own work for the
+/// call, such as encoding the arguments. `setUp` and the measured test are separate transactions,
+/// so every contract's storage starts cold in the test, and no test touches the Inbox before the
+/// measured call. Every landing suite lands (0, 6] in `setUp` first, so the measured landing starts
+/// from non-zero checkpoint slots. Landings carry two blobs and use the mock verifier, bound in
+/// `setUp` to the measured landing's honest statement.
 abstract contract EtnaInboxGasBase is EtnaLandTestBase {
-    /// @dev Every measured call must stay below this, except those that store 128 fallback keys;
-    /// the recovery and `init` transactions that do so are checked against the transaction gas
-    /// cap on the DAO path instead (`EtnaTxGasCapBase`).
+    /// @dev The most frame gas a measured call may use, except the calls that store 128 fallback
+    /// keys. Those are bounded by transaction gas instead, which `EtnaTxGasCapBase` checks
+    /// against the per-transaction gas cap on the DAO path.
     uint256 internal constant GAS_LIMIT = 3_000_000;
 
     /// @dev The checkpoint height when `setUp` bound the measured landing's statement.
     uint256 internal checkpointBefore;
 
-    /// @dev Ends the measurement `_label`, logs it and checks it against `GAS_LIMIT`.
-    function _stopSnapshot(string memory _label) internal returns (uint256 gasUsed_) {
-        gasUsed_ = vm.stopSnapshotGas();
+    /// @dev Records the frame gas of the last call as `_label`, logs it and checks it against
+    /// `GAS_LIMIT`.
+    function _snapshotLastCall(string memory _label) internal returns (uint256 gasUsed_) {
+        gasUsed_ = vm.snapshotGasLastCall(_label);
         emit log_named_uint(_label, gasUsed_);
         assertLt(gasUsed_, GAS_LIMIT, _label);
     }
@@ -67,11 +69,9 @@ abstract contract EtnaInboxGasBase is EtnaLandTestBase {
         bytes32[] memory leaves = _leaves(_p, _h);
         bytes memory proof = PROOF;
         vm.blobhashes(blobHashes);
-        vm.startPrank(Bob);
-        vm.startSnapshotGas(_label);
+        vm.prank(Bob);
         target.land(input, leaves, proof);
-        _stopSnapshot(_label);
-        vm.stopPrank();
+        _snapshotLastCall(_label);
 
         _assertCheckpoint(_h, bytes32(100 + _h));
         (uint48 head,) = _inbox().getForcedInclusionState();
@@ -159,9 +159,8 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
     function test_gas_RecoverWithOneBlank() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         uint256[] memory blanks = fiToClear;
-        vm.startSnapshotGas("recover_1_blank");
         target.recover(0, 6, 0, type(uint256).max, blanks, 0);
-        _stopSnapshot("recover_1_blank");
+        _snapshotLastCall("recover_1_blank");
 
         assertEq(_inbox().recoveryGeneration(), 1, "generation");
         assertEq(_inbox().getForcedInclusion(2).txHash, keccak256(""), "blanked");
@@ -183,14 +182,15 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
 /// run only by hand, with `L1_FORK_URL` set, so re-run them whenever the recovery payload, the
 /// fork block or the DAO stack changes.
 abstract contract EtnaTxGasCapBase is Test {
-    /// @dev EIP-7825's per-transaction gas cap.
+    /// @dev EIP-7825's per-transaction gas cap. It bounds a transaction's gas before refunds, as
+    /// `_txGas` computes it from the frame gas of the transaction's call, not the frame gas alone.
     uint256 internal constant TX_GAS_CAP = 2 ** 24;
 
-    /// @dev The most gas a DAO path step adds to the controller-only transaction, rounded up from
-    /// the costliest step measured on the mainnet fork at block 26,460,000: the Emergency
-    /// Multisig's `execute` of the recovery with 16 blanks needs 14,334,289 gas, 7,158,116 more
-    /// than the live controller-only transaction's 7,176,173 and 7,163,187 more than the local
-    /// one's 7,171,102.
+    /// @dev The most transaction gas before refunds that a DAO path step adds to the
+    /// controller-only transaction, rounded up from the costliest step measured on the mainnet
+    /// fork at block 26,460,000: the Emergency Multisig's `execute` of the recovery with 16 blanks
+    /// needs 14,334,289 gas, 7,158,116 more than the live controller-only transaction's 7,176,173
+    /// and 7,163,187 more than the local one's 7,171,102.
     uint256 internal constant DAO_PATH_EXTRA = 7_250_000;
 
     /// @dev The execution gas a 2^24 gas limit leaves a transaction with calldata `_data`.
@@ -438,11 +438,9 @@ contract EtnaInboxForcedInclusionGasTest is EtnaInboxGasBase {
         EtnaInbox target = EtnaInbox(inboxProxy);
         bytes memory txBytes = forcedTx;
         uint256 fee = forcedInclusionFee;
-        vm.startPrank(Alice);
-        vm.startSnapshotGas("save_forced_inclusion");
+        vm.prank(Alice);
         target.saveForcedInclusion{ value: fee }(txBytes);
-        _stopSnapshot("save_forced_inclusion");
-        vm.stopPrank();
+        _snapshotLastCall("save_forced_inclusion");
         _assertQueue(0, LEAN_FORCED_INCLUSIONS + 1);
         assertEq(
             _inbox().getForcedInclusion(uint48(LEAN_FORCED_INCLUSIONS)).txHash, keccak256(txBytes)
@@ -451,11 +449,9 @@ contract EtnaInboxForcedInclusionGasTest is EtnaInboxGasBase {
 
     function test_gas_SweepProtocolFees() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
-        vm.startPrank(Carol);
-        vm.startSnapshotGas("sweep");
+        vm.prank(Carol);
         target.sweepProtocolFees();
-        _stopSnapshot("sweep");
-        vm.stopPrank();
+        _snapshotLastCall("sweep");
         assertEq(inboxProxy.balance, 0, "swept");
         assertEq(PROTOCOL_FEE_RECIPIENT.balance, feesWei + 1, "to the treasury");
     }
@@ -484,11 +480,9 @@ contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
         bytes32[] memory leaves = _leaves(0, 6);
         bytes memory proof = PROOF;
         vm.blobhashes(blobHashes);
-        vm.startPrank(Bob);
-        vm.startSnapshotGas("land_6_blocks_from_start");
+        vm.prank(Bob);
         target.land(input, leaves, proof);
-        _stopSnapshot("land_6_blocks_from_start");
-        vm.stopPrank();
+        _snapshotLastCall("land_6_blocks_from_start");
         _assertCheckpoint(6, bytes32(uint256(106)));
     }
 }
@@ -512,11 +506,10 @@ contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
         bytes32[] memory leaves = _leaves(S, S + 6);
         bytes memory proof = PROOF;
         vm.blobhashes(blobHashes);
-        vm.startPrank(Bob);
-        vm.startSnapshotGas("land_6_blocks_from_unzen_start");
+        vm.prank(Bob);
         target.land(input, leaves, proof);
-        emit log_named_uint("land_6_blocks_from_unzen_start", vm.stopSnapshotGas());
-        vm.stopPrank();
+        uint256 gasUsed = vm.snapshotGasLastCall("land_6_blocks_from_unzen_start");
+        emit log_named_uint("land_6_blocks_from_unzen_start", gasUsed);
         _assertCheckpoint(S + 6, bytes32(100 + S + 6));
     }
 }
@@ -534,11 +527,10 @@ contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
     function test_gas_SetOrigin() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         uint48 s = uint48(S);
-        vm.startPrank(Carol);
-        vm.startSnapshotGas("set_origin");
+        vm.prank(Carol);
         target.setOrigin(s);
-        emit log_named_uint("set_origin", vm.stopSnapshotGas());
-        vm.stopPrank();
+        uint256 gasUsed = vm.snapshotGasLastCall("set_origin");
+        emit log_named_uint("set_origin", gasUsed);
         _assertCheckpoint(S, _startHash());
     }
 }
@@ -549,9 +541,8 @@ contract EtnaInboxScheduleRulesGasTest is EtnaInboxGasBase {
     function test_gas_ScheduleRules() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         uint48 time = uint48(block.timestamp + MAX_ANCHOR_AGE);
-        vm.startSnapshotGas("schedule_rules");
         target.scheduleRules(0, 1, time);
-        _stopSnapshot("schedule_rules");
+        _snapshotLastCall("schedule_rules");
         assertEq(_inbox().rulesSchedule().nextRules, 1, "scheduled");
     }
 }
@@ -675,9 +666,8 @@ contract EtnaInboxInit128KeysGasTest is EtnaInboxTestBase, EtnaTxGasCapBase {
 contract EtnaRecoveryNonceGasTest is EtnaInboxTestBase {
     function test_gas_InvalidateRecoveryNonce() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
-        vm.startSnapshotGas("invalidate_recovery_nonce");
         target.invalidateRecoveryNonce(0);
-        uint256 gasUsed = vm.stopSnapshotGas();
+        uint256 gasUsed = vm.snapshotGasLastCall("invalidate_recovery_nonce");
         emit log_named_uint("invalidate_recovery_nonce", gasUsed);
         assertLt(gasUsed, 3_000_000);
         assertEq(target.recoveryNonce(), 1);
