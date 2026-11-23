@@ -21,14 +21,20 @@
 //! every step of it is a bijection of its state, so a change confined to one byte always changes
 //! it, and other damage escapes it with odds of about 2^-64.
 //!
-//! - A crash can tear only the last append: a cut header, or an accepted header whose body runs
-//!   past the end of the file. That torn tail is no record; the next append truncates it.
-//! - A complete header that fails its check or names a height outside the segment is a damaged
-//!   region, wherever it lies. The scan resumes at the next accepted header, so later records stay
-//!   readable, and nothing truncates it. Its height cannot be known, so a read of any height the
-//!   segment holds no valid record of is [`Record::Corrupt`], never [`Record::Missing`].
+//! A scan reads headers only where the accepted headers before them put them, from the start of
+//! the file: it never searches for a header, so bytes inside a body, which a transaction can
+//! choose, are never framed as one.
+//!
+//! - A crash can tear only the last append: a cut header, an accepted header whose body runs past
+//!   the end of the file, or a tail of zero bytes after the last accepted record. That torn tail is
+//!   no record; the next append truncates it.
+//! - Any other complete header that fails its check or names a height outside the segment is
+//!   damage. Nothing past it is framed: that record and every height the segment holds no valid
+//!   record of before it read as [`Record::Corrupt`], never [`Record::Missing`]; an append of a new
+//!   body fails with [`StoreError::SegmentDamaged`], and nothing truncates the segment.
 //! - A record whose header is accepted but whose body fails its hash is a corrupt record of that
-//!   height: a read of it is [`Record::Corrupt`], and an append of its height supersedes it.
+//!   height: a read of it is [`Record::Corrupt`], and an append of its height supersedes it. Its
+//!   accepted header still frames the records after it.
 
 use std::{
     fs::{self, File, OpenOptions},
@@ -86,9 +92,10 @@ impl Entry {
 struct Scan {
     /// The records with accepted headers, in file order.
     entries: Vec<Entry>,
-    /// Where the first damaged region, a complete header the scan rejected, starts.
+    /// Where the damage, a complete header the scan rejected with bytes other than zero from it
+    /// to the end of the file, starts; nothing past it is framed.
     damaged: Option<u64>,
-    /// Where the torn tail, a cut last record, starts.
+    /// Where the torn tail, a cut last record or zero bytes after the last record, starts.
     torn: Option<u64>,
     /// The file size.
     size: u64,
@@ -118,11 +125,12 @@ impl SegmentLog {
     /// Durably appends `body` as the record of `height`.
     ///
     /// A valid record of `height` holding the same body makes this a no-op (a replay after a
-    /// crash); one holding another body is the kind's conflict error and nothing is written. A
-    /// torn tail is truncated before the record is written; a corrupt record of `height` and a
-    /// damaged region are kept, the new record written after them (it supersedes the corrupt
-    /// record). The record and the segment's size are fsynced before this returns, and so is the
-    /// directory when the append creates the segment.
+    /// crash); one holding another body is the kind's conflict error and nothing is written.
+    /// Otherwise a damaged segment refuses the append with [`StoreError::SegmentDamaged`] and is
+    /// left as it is. A torn tail is truncated before the record is written; a corrupt record of
+    /// `height` is kept, and the new record written after it supersedes it. The record and the
+    /// segment's size are fsynced before this returns, and so is the directory when the append
+    /// creates the segment.
     pub(crate) fn append(&self, height: u64, body: &[u8]) -> Result<(), StoreError> {
         let first = first_height(height);
         let path = self.path(first);
@@ -150,11 +158,11 @@ impl SegmentLog {
                 None => superseded = true,
             }
         }
+        if let Some(offset) = scan.damaged {
+            return Err(StoreError::SegmentDamaged { path, offset });
+        }
         if superseded {
             tracing::warn!(height, file = %path.display(), "superseding a corrupt record");
-        }
-        if let Some(offset) = scan.damaged {
-            tracing::warn!(height, file = %path.display(), offset, "appending past a damaged region");
         }
         let end = match scan.torn {
             Some(torn) => {
@@ -183,8 +191,8 @@ impl SegmentLog {
 
     /// The body recorded for `height`: [`Record::Valid`] for the record of that height whose
     /// body matches its hash. [`Record::Corrupt`] when its records all fail their body hash, or
-    /// when there is none and the segment holds a damaged region, whose height cannot be known;
-    /// [`Record::Missing`] when an intact segment holds no record of it (a torn tail is none).
+    /// when there is none before the segment's damage, past which it may lie; [`Record::Missing`]
+    /// when an undamaged segment holds no record of it (a torn tail is none).
     /// Filesystem errors other than an absent segment are [`StoreError::Io`].
     pub(crate) fn read(&self, height: u64) -> Result<Record<Vec<u8>>, StoreError> {
         let first = first_height(height);
@@ -204,7 +212,7 @@ impl SegmentLog {
         }
         Ok(match scan.damaged {
             _ if corrupt => Record::Corrupt("the body does not match its hash".into()),
-            Some(offset) => Record::Corrupt(format!("its segment is damaged at byte {offset}")),
+            Some(offset) => Record::Corrupt(format!("its segment is damaged from byte {offset}")),
             None => Record::Missing,
         })
     }
@@ -230,10 +238,10 @@ impl SegmentLog {
         Ok(removed)
     }
 
-    /// The heights of every record with an accepted header in every segment, ascending and
-    /// without repeats, whether their bodies match their hashes or not. It reads every segment's
-    /// headers, so it is for a kind recorded at few heights, such as the validator-state
-    /// snapshots.
+    /// The heights of every record with an accepted header in every segment (before any damage),
+    /// ascending and without repeats, whether their bodies match their hashes or not. It reads
+    /// every segment's headers, so it is for a kind recorded at few heights, such as the
+    /// validator-state snapshots.
     pub(crate) fn heights(&self) -> Result<Vec<u64>, StoreError> {
         let mut heights = vec![];
         for (_, scan) in self.scan_all()? {
@@ -244,9 +252,8 @@ impl SegmentLog {
         Ok(heights)
     }
 
-    /// The first damaged region of a segment holding heights at or below `height`, as the first
-    /// height of its segment and its offset there: a record of any of those heights may lie in
-    /// it.
+    /// The first damage in a segment holding heights at or below `height`, as the first height of
+    /// its segment and its offset there: a record of any of those heights may lie past it.
     pub(crate) fn damaged_at_or_below(
         &self,
         height: u64,
@@ -357,8 +364,8 @@ fn frame(bytes: &[u8], offset: u64, first: u64, size: u64) -> Frame {
 }
 
 /// Scans the segment `file`, whose heights start at `first`: walks the records from accepted
-/// header to accepted header, and past a rejected header resumes at the next accepted one
-/// ([`resume`]). A segment that is no regular file is an error.
+/// header to accepted header from the start of the file and stops at the first header it does
+/// not accept, which is a torn tail or damage. A segment that is no regular file is an error.
 fn scan(file: &File, first: u64) -> io::Result<Scan> {
     let metadata = file.metadata()?;
     if !metadata.is_file() {
@@ -385,35 +392,28 @@ fn scan(file: &File, first: u64) -> io::Result<Scan> {
                 break;
             }
             Frame::Rejected => {
-                scan.damaged.get_or_insert(offset);
-                let Some(next) = resume(file, first, offset + 1, size)? else { break };
-                reader.seek(SeekFrom::Start(next))?;
-                offset = next;
+                if header.iter().all(|byte| *byte == 0) && zeros_to_end(&mut reader)? {
+                    scan.torn = Some(offset);
+                } else {
+                    scan.damaged = Some(offset);
+                }
+                break;
             }
         }
     }
     Ok(scan)
 }
 
-/// The offset of the first accepted header at or after `from` in a segment of `size` bytes
-/// whose heights start at `first`, read in windows of 64 KiB.
-fn resume(mut file: &File, first: u64, from: u64, size: u64) -> io::Result<Option<u64>> {
-    const WINDOW: u64 = 1 << 16;
-    let mut start = from;
-    while size.saturating_sub(start) >= HEADER_LEN {
-        let mut window = vec![0; (size - start).min(WINDOW + HEADER_LEN - 1) as usize];
-        file.seek(SeekFrom::Start(start))?;
-        file.read_exact(&mut window)?;
-        let starts = window.len() - HEADER_LEN as usize + 1;
-        for at in 0..starts {
-            let offset = start + at as u64;
-            if !matches!(frame(&window[at..], offset, first, size), Frame::Rejected) {
-                return Ok(Some(offset));
-            }
+/// Whether every byte `reader` has left is zero.
+fn zeros_to_end(reader: &mut impl Read) -> io::Result<bool> {
+    let mut chunk = [0; 1 << 13];
+    loop {
+        match reader.read(&mut chunk)? {
+            0 => return Ok(true),
+            read if chunk[..read].iter().any(|byte| *byte != 0) => return Ok(false),
+            _ => {}
         }
-        start += starts as u64;
     }
-    Ok(None)
 }
 
 /// The body of `entry`, or `None` when it does not match the hash its header records.
@@ -615,9 +615,10 @@ mod tests {
         assert!(matches!(log.append(8, b"eight"), Err(StoreError::CometConflict(8))));
     }
 
-    /// A crash can tear only the last append: a cut header or a cut body. No read finds the
-    /// torn record, and the next append truncates the tail before writing, leaving the bytes an
-    /// uninterrupted append writes; the torn height can be appended again.
+    /// A crash can tear only the last append: a cut header, a cut body, or the zero bytes of a
+    /// record the file was extended for but not written. No read finds the torn record, and the
+    /// next append truncates the tail before writing, leaving the bytes an uninterrupted append
+    /// writes; the torn height can be appended again.
     #[test]
     fn torn_tail_is_truncated() {
         let dir = tempfile::tempdir().unwrap();
@@ -628,14 +629,21 @@ mod tests {
         let kept = fs::read(&path).unwrap();
         log.append(3, b"three").unwrap();
         let complete = fs::read(&path).unwrap();
-        for cut in 1..record(3, b"three").len() {
-            fs::write(&path, &complete[..kept.len() + cut]).unwrap();
-            assert_eq!(log.read(3).unwrap(), Record::Missing, "cut at {cut}");
-            assert_eq!(log.read(4).unwrap(), Record::Missing, "cut at {cut}");
+        let three = record(3, b"three").len();
+        let mut tails: Vec<Vec<u8>> =
+            (1..three).map(|cut| complete[..kept.len() + cut].to_vec()).collect();
+        tails.push([kept.as_slice(), &vec![0; three]].concat());
+        tails.push([kept.as_slice(), &[0; 3 * HEADER_LEN as usize]].concat());
+        for torn in tails {
+            fs::write(&path, &torn).unwrap();
+            let len = torn.len();
+            assert_eq!(log.read(3).unwrap(), Record::Missing, "{len} bytes");
+            assert_eq!(log.read(4).unwrap(), Record::Missing, "{len} bytes");
             assert_eq!(log.read(2).unwrap(), Record::Valid(b"two".to_vec()));
             assert_eq!(log.heights().unwrap(), [1, 2]);
+            assert_eq!(log.damaged_at_or_below(0).unwrap(), None);
             log.append(3, b"three").unwrap();
-            assert_eq!(fs::read(&path).unwrap(), complete, "cut at {cut}");
+            assert_eq!(fs::read(&path).unwrap(), complete, "{len} bytes");
         }
         fs::write(&path, &complete[..kept.len() + 10]).unwrap();
         log.append(4, b"four").unwrap();
@@ -643,38 +651,46 @@ mod tests {
     }
 
     /// A header whose height byte flipped fails its check: the record is never read as the
-    /// height it now names, and its own height reads as corrupt, not as another height's value
-    /// or as absent.
+    /// height it now names, and it and every height after it read as corrupt, not as another
+    /// height's value or as absent. Only the records before it are framed.
     #[test]
     fn flipped_header_height_is_corruption() {
         let dir = tempfile::tempdir().unwrap();
         let log = log(dir.path());
         let path = segment(dir.path(), 0);
-        log.append(7, b"seven").unwrap();
         log.append(6, b"six").unwrap();
+        let at = fs::read(&path).unwrap().len();
+        log.append(7, b"seven").unwrap();
+        log.append(8, b"eight").unwrap();
         let mut bytes = fs::read(&path).unwrap();
-        bytes[7] ^= 1; // 7 becomes 6
+        bytes[at + 7] ^= 1; // 7 becomes 6
         fs::write(&path, &bytes).unwrap();
         assert_eq!(log.read(6).unwrap(), Record::Valid(b"six".to_vec()));
-        assert!(matches!(log.read(7).unwrap(), Record::Corrupt(_)));
-        assert!(matches!(log.read(8).unwrap(), Record::Corrupt(_)), "it may hold any height");
+        for height in [7, 8, 9] {
+            assert!(matches!(log.read(height).unwrap(), Record::Corrupt(_)), "{height}");
+        }
         assert_eq!(log.heights().unwrap(), [6]);
-        assert_eq!(log.damaged_at_or_below(0).unwrap(), Some((0, 0)));
+        assert_eq!(log.damaged_at_or_below(0).unwrap(), Some((0, at as u64)));
     }
 
-    /// A rejected header with records after it is a damaged region, whatever damaged it: a
-    /// flipped length, a height outside the segment or bytes zeroed in place. The records
-    /// after it stay readable, every height the segment holds no valid record of reads as
-    /// corrupt, and an append keeps the damaged bytes and writes after them.
+    /// A rejected header with bytes other than zero after it is damage, whatever damaged it: a
+    /// flipped length, a height outside the segment, a header zeroed in place before more
+    /// records, or a last header naming another segment's height. The records before it stay
+    /// readable; it and every later height read as corrupt, never absent. An append of a new
+    /// body fails as corruption and the segment is never truncated or changed; an equal re-append
+    /// of a height before the damage is still a no-op and another body for it a conflict.
     #[test]
-    fn corrupt_middle_record_is_corruption_and_later_records_survive() {
+    fn damaged_header_makes_it_and_later_heights_corrupt() {
         /// Damages the record at an offset of a segment's bytes.
-        type Damage = fn(&mut [u8], usize);
-        let outside = record(SEGMENT_HEIGHTS + 2, b"two");
-        let damage: [(&str, Damage); 3] = [
+        type Damage = fn(&mut Vec<u8>, usize);
+        let damage: [(&str, Damage); 4] = [
             ("length", |bytes, at| bytes[at + 11] ^= 0x10),
             ("height", |bytes, at| bytes[at + 6] ^= 0x04),
             ("zeroed", |bytes, at| bytes[at..at + HEADER_LEN as usize].fill(0)),
+            ("outside", |bytes, at| {
+                bytes.truncate(at);
+                bytes.extend(record(SEGMENT_HEIGHTS + 2, b"two"));
+            }),
         ];
         for (name, damage) in damage {
             let dir = tempfile::tempdir().unwrap();
@@ -690,34 +706,51 @@ mod tests {
             fs::write(&path, &bytes).unwrap();
 
             assert_eq!(log.read(1).unwrap(), Record::Valid(b"one".to_vec()), "{name}");
-            assert!(matches!(log.read(2).unwrap(), Record::Corrupt(_)), "{name}");
-            assert_eq!(log.read(3).unwrap(), Record::Valid(b"three".to_vec()), "{name}");
-            assert_eq!(log.read(4).unwrap(), Record::Valid(b"four".to_vec()), "{name}");
-            assert!(matches!(log.read(5).unwrap(), Record::Corrupt(_)), "{name}: never absent");
-            assert_eq!(log.heights().unwrap(), [1, 3, 4], "{name}");
-
-            log.append(5, b"five").unwrap();
-            assert_eq!(fs::read(&path).unwrap(), [bytes.clone(), record(5, b"five")].concat());
-            assert_eq!(log.read(5).unwrap(), Record::Valid(b"five".to_vec()), "{name}");
-            assert_eq!(log.read(4).unwrap(), Record::Valid(b"four".to_vec()), "{name}");
-            assert!(matches!(log.read(2).unwrap(), Record::Corrupt(_)), "{name}");
-        }
-
-        // A last header that names a height outside the segment, or one zeroed in place, is no
-        // cut record: it is kept, and later appends are written after it.
-        for tail in [outside, vec![0; 100]] {
-            let dir = tempfile::tempdir().unwrap();
-            let log = log(dir.path());
-            let path = segment(dir.path(), 0);
+            for height in 2..=5 {
+                let record = log.read(height).unwrap();
+                assert!(matches!(record, Record::Corrupt(_)), "{name}: {height} reads {record:?}");
+            }
+            assert_eq!(log.heights().unwrap(), [1], "{name}");
+            assert_eq!(log.damaged_at_or_below(SEGMENT_HEIGHTS - 1).unwrap(), Some((0, at as u64)));
+            let error = log.append(5, b"five").unwrap_err();
+            assert!(
+                matches!(&error, StoreError::SegmentDamaged { offset, .. } if *offset == at as u64),
+                "{name}: {error:?}"
+            );
+            assert!(matches!(log.append(3, b"three"), Err(StoreError::SegmentDamaged { .. })));
             log.append(1, b"one").unwrap();
-            let bytes = [fs::read(&path).unwrap(), tail].concat();
-            fs::write(&path, &bytes).unwrap();
-            assert!(matches!(log.read(2).unwrap(), Record::Corrupt(_)));
-            log.append(2, b"two").unwrap();
-            assert_eq!(fs::read(&path).unwrap(), [bytes, record(2, b"two")].concat());
-            assert_eq!(log.read(2).unwrap(), Record::Valid(b"two".to_vec()));
-            assert_eq!(log.read(1).unwrap(), Record::Valid(b"one".to_vec()));
+            assert!(matches!(log.append(1, b"ONE"), Err(StoreError::CometConflict(1))));
+            assert_eq!(fs::read(&path).unwrap(), bytes, "{name}: nothing is written or truncated");
         }
+    }
+
+    /// A body may hold any bytes a transaction chooses, a well-formed record of another height
+    /// included. Such bytes are never framed as a record: not while the segment is intact, and
+    /// not after the header of the record holding them is damaged, when the height they name
+    /// reads as corrupt and never as their value.
+    #[test]
+    fn bytes_in_a_body_are_never_framed_as_a_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = log(dir.path());
+        let path = segment(dir.path(), 0);
+        let planted = [b"pad".as_slice(), &record(2, b"forged"), &record(3, b"forged")].concat();
+        log.append(1, &planted).unwrap();
+        log.append(2, b"two").unwrap();
+        assert_eq!(log.read(1).unwrap(), Record::Valid(planted.clone()));
+        assert_eq!(log.read(2).unwrap(), Record::Valid(b"two".to_vec()));
+        assert_eq!(log.read(3).unwrap(), Record::Missing);
+        assert_eq!(log.heights().unwrap(), [1, 2]);
+
+        let mut bytes = fs::read(&path).unwrap();
+        bytes[11] ^= 1;
+        fs::write(&path, &bytes).unwrap();
+        for height in [1, 2, 3] {
+            let record = log.read(height).unwrap();
+            assert!(matches!(record, Record::Corrupt(_)), "{height} reads {record:?}");
+        }
+        assert!(log.heights().unwrap().is_empty());
+        assert!(matches!(log.append(3, b"three"), Err(StoreError::SegmentDamaged { .. })));
+        assert_eq!(fs::read(&path).unwrap(), bytes);
     }
 
     /// Pruning deletes the segments wholly below the floor, never the one holding it, and

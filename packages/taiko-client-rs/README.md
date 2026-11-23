@@ -99,11 +99,12 @@ states after s − 1 and s of a checkpoint import at s, and at every committed h
 newest snapshot at or below it and the update records since (spec SYNC-9-5c). Commits delete whole
 segments below the checkpoint the committed anchor proves: the Comet block IDs and execution blocks
 below it, and the validator records below the newest snapshot under it, the base the state one
-height below the checkpoint is recomputed from. A crash during an append can leave only a cut last
-record, which the next append truncates. A record whose body fails its hash is corrupt; a damaged
-header elsewhere is kept, the records after it stay readable, and any height that segment holds no
-valid record of reads as corrupt, never as absent. Do not delete or edit these files by hand:
-without them trust stays closed and the node cannot serve the state at a height to
+height below the checkpoint is recomputed from. A crash during an append can leave only a cut or
+zero-filled last record, which the next append truncates. A record whose body fails its hash is
+corrupt until its height is saved again. Any other damaged header is never truncated or read past:
+it and every later height of its segment read as corrupt, never as absent, and the app refuses to
+append to that segment, stopping the node until it is repaired. Do not delete or edit these files
+by hand: without them trust stays closed and the node cannot serve the state at a height to
 `abci-import export`, whose package at s carries the state after s − 1. `fatal-evidence.txt`
 survives restarts and records the first safety failure, such as an unknown-execution-state Engine
 error (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes

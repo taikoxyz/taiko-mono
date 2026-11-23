@@ -198,6 +198,16 @@ pub enum StoreError {
     /// Replaying a finalized height produced a different execution block.
     #[error("conflicting durable execution block at height {0}")]
     ExecutionConflict(u64),
+    /// A segment log holds damage: a complete record header that fails its check or names a
+    /// height outside the segment, with bytes other than zero after it. Nothing past it can be
+    /// framed, so the segment is never appended to, truncated or re-framed there.
+    #[error("damaged segment {} from byte {offset}", path.display())]
+    SegmentDamaged {
+        /// The segment file.
+        path: PathBuf,
+        /// Where the damage starts.
+        offset: u64,
+    },
     /// Replaying the origin or a committed height produced a different validator state.
     #[error("conflicting durable validator state at height {0}")]
     ValStateConflict(u64),
@@ -1070,9 +1080,9 @@ mod record_tests {
     }
 
     /// The header check covers a record's height: a record whose header height byte flipped is
-    /// corruption at its own height, never the value of the height it now names, and a height
-    /// its damaged segment may hold is never read as absent. The records after it stay readable,
-    /// and later saves keep the damaged bytes.
+    /// corruption at its own height, never the value of the height it now names, and so is every
+    /// height its segment holds no valid record of before it, never absent. A save of a new body
+    /// there fails as corruption and changes nothing.
     #[test]
     fn flipped_header_height_is_corruption_not_another_heights_value() {
         let dir = tempfile::tempdir().unwrap();
@@ -1098,20 +1108,59 @@ mod record_tests {
         flip_seven(&updates_log, updates_at);
 
         assert_eq!(store.load_comet_hash(6).unwrap(), Some(B256::repeat_byte(6)));
-        let error = store.load_comet_hash(7).unwrap_err();
-        assert!(matches!(error, StoreError::CometCorrupt { height: 7, .. }), "{error:?}");
-        assert_eq!(store.load_comet_hash(8).unwrap(), Some(B256::repeat_byte(8)));
-        let error = store.load_comet_hash(9).unwrap_err();
-        assert!(matches!(error, StoreError::CometCorrupt { height: 9, .. }), "{error:?}");
+        for height in [7, 8, 9] {
+            let error = store.load_comet_hash(height).unwrap_err();
+            assert!(
+                matches!(error, StoreError::CometCorrupt { height: h, .. } if h == height),
+                "{error:?}"
+            );
+        }
         assert_eq!(store.load_val_updates(6).unwrap(), Record::Valid(updates(6)));
-        assert!(matches!(store.load_val_updates(7).unwrap(), Record::Corrupt(_)));
-        assert_eq!(store.load_val_updates(8).unwrap(), Record::Valid(updates(8)));
+        for height in [7, 8, 9] {
+            let record = store.load_val_updates(height).unwrap();
+            assert!(matches!(record, Record::Corrupt(_)), "{height}: {record:?}");
+        }
 
         let damaged = fs::read(&comet).unwrap();
-        store.save_comet_hash(9, B256::repeat_byte(9)).unwrap();
-        assert!(fs::read(&comet).unwrap().starts_with(&damaged), "nothing is truncated");
-        assert_eq!(store.load_comet_hash(9).unwrap(), Some(B256::repeat_byte(9)));
-        assert_eq!(store.load_comet_hash(8).unwrap(), Some(B256::repeat_byte(8)));
+        let error = store.save_comet_hash(9, B256::repeat_byte(9)).unwrap_err();
+        assert!(matches!(error, StoreError::SegmentDamaged { .. }), "{error:?}");
+        assert!(matches!(store.save_val_updates(9, &[]), Err(StoreError::SegmentDamaged { .. })));
+        store.save_comet_hash(6, B256::repeat_byte(6)).unwrap();
+        assert_eq!(fs::read(&comet).unwrap(), damaged, "nothing is written or truncated");
+    }
+
+    /// A validator-state snapshot segment whose only snapshot header is damaged holds no
+    /// snapshot the state can be recomputed from, and the state is corrupt, never missing; with
+    /// an undamaged older snapshot segment the state recomputes from that one instead.
+    #[test]
+    fn damaged_snapshot_segment_is_corrupt_not_missing() {
+        let k = SEGMENT_HEIGHTS;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::volatile(dir.path().into());
+        let segment = dir.path().join(format!("val-state-{k:020}.log"));
+        store.save_val_state(&val_state(k, 1)).unwrap();
+        for height in k + 1..=k + 3 {
+            store.save_val_updates(height, &[]).unwrap();
+        }
+        let mut bytes = fs::read(&segment).unwrap();
+        bytes[0] ^= 1;
+        fs::write(&segment, &bytes).unwrap();
+        assert!(store.val_states().heights().unwrap().is_empty());
+        for height in [k, k + 3] {
+            let Record::Corrupt(reason) = store.load_val_state(height).unwrap() else {
+                panic!("height {height} is not missing")
+            };
+            assert!(reason.contains(&format!("segment of {k} is damaged")), "{reason}");
+        }
+        assert_eq!(store.load_val_state(k - 1).unwrap(), Record::Missing, "below the damage");
+
+        // An undamaged older snapshot is the base instead.
+        let older = val_state(k - 2, 1);
+        store.save_val_state(&older).unwrap();
+        store.save_val_updates(k - 1, &[]).unwrap();
+        store.save_val_updates(k, &[]).unwrap();
+        let expected = (k - 1..=k + 3).try_fold(older, |state, _| state.advance(&[])).unwrap();
+        assert_eq!(store.load_val_state(k + 3).unwrap(), Record::Valid(expected));
     }
 
     /// Pruning deletes the Comet block ID segments wholly below the floor; the segment holding
