@@ -260,10 +260,14 @@ impl LandingSource for MockL1 {
     async fn execution_header(&self, _: u64) -> Result<alloy_consensus::Header> {
         unreachable!()
     }
-    async fn parent_anchor(&self, _: &LandingSnapshot, _: &ParentContext) -> Result<AnchorState> {
+    async fn origin_anchor(&self, _: &LandingSnapshot) -> Result<AnchorState> {
         Ok(self.request.batch.parent_anchor.clone())
     }
-    async fn starting_inbox_witness(&self, _: &AnchorState) -> Result<abci::AnchorWitness> {
+    async fn starting_inbox_witness(
+        &self,
+        _: &abci::RawL1Header,
+        _: u64,
+    ) -> Result<abci::AnchorWitness> {
         unreachable!()
     }
     async fn fallback_keys(

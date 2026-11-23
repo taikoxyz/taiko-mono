@@ -1,7 +1,7 @@
 //! Hash-pinned Inbox reads and authentication of the reference's L1 header chain.
 
 use abci::{
-    AccountWitness, AnchorState, ChainParams, GenesisRecord,
+    AccountWitness, AnchorState, ChainParams, GenesisRecord, OriginRecord,
     envelope::AnchorWitness,
     fallback::{FallbackKeys, fetch_fallback_keys},
     l1::{
@@ -54,12 +54,38 @@ const HISTORY_STORAGE_ADDRESS: Address =
 /// The recent-window branch uses the EVM BLOCKHASH opcode rather than the history contract.
 const BLOCKHASH_WINDOW: u64 = 256;
 /// Bounds a long-outage reference chain before allocating or issuing its reads.
-const MAX_REFERENCE_HEADERS: u64 = 131_072;
+pub(crate) const MAX_REFERENCE_HEADERS: u64 = 131_072;
 
 /// Whether the reference is older than the pinned Inbox's EIP-2935 window at this L1 block.
 /// The caller separately checks that a reference is in the past and its hash is readable.
 pub(crate) fn reference_expired(reference: u64, at_block: u64) -> bool {
     at_block.saturating_sub(reference) > REFERENCE_WINDOW
+}
+
+/// The oldest L1 block of the reference chain from the tip `tip` down to the oldest of
+/// `anchors`, the anchors the batch's blocks use: `Safety` without anchors, `Temporary` while
+/// `tip` is below the newest anchor, and `Capacity` for a chain of more than `max_headers`
+/// headers. Anchors never regress, so the oldest is the first block's, and no shorter batch from
+/// the same checkpoint shortens the chain.
+pub(crate) fn reference_floor(anchors: &[AnchorState], tip: u64, max_headers: u64) -> Result<u64> {
+    let min = anchors
+        .iter()
+        .map(|a| a.number)
+        .min()
+        .ok_or_else(|| LanderError::Safety("reference without anchors".into()))?;
+    let max = anchors.iter().map(|a| a.number).max().expect("nonempty anchors");
+    if tip < max {
+        return Err(LanderError::Temporary(format!(
+            "finalized L1 reference {tip} has not reached consumed anchor {max}"
+        )));
+    }
+    if tip - min >= max_headers {
+        return Err(LanderError::Capacity(format!(
+            "reference chain {} headers exceeds {max_headers}",
+            tip - min + 1
+        )));
+    }
+    Ok(min)
 }
 
 /// Execution parent plus the timestamp needed by the Etna base-fee rule.
@@ -96,15 +122,19 @@ pub trait LandingSource: Send + Sync {
     }
     /// Read an untrusted public execution header; the builder verifies checkpoint ancestry.
     async fn execution_header(&self, number: u64) -> Result<Header>;
-    /// Recover the checkpoint's historical anchor, or R at the fixed recovery boundary.
-    async fn parent_anchor(
+    /// The anchor of the generation's start o, the parent anchor of o + 1: R after a recovery,
+    /// `L1_0` at generation zero, with its anchor slots proven under its own L1 header. o + 1
+    /// always carries its own anchor witness, so only its number serves a block rule.
+    async fn origin_anchor(&self, snapshot: &LandingSnapshot) -> Result<AnchorState>;
+    /// Prove the fixed starting Inbox facts, the start record, configuration hash, slot 282 and
+    /// `generation`'s origin record ([`starting_slots`]), under the batch's reference header
+    /// `reference`, read pinned to its canonical hash. The builder verifies them with
+    /// [`verify_starting_inbox`].
+    async fn starting_inbox_witness(
         &self,
-        snapshot: &LandingSnapshot,
-        parent: &ParentContext,
-    ) -> Result<AnchorState>;
-    /// Prove genesis/config, the anchor generation's origin record and all consumed Inbox anchor
-    /// facts under the parent root.
-    async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness>;
+        reference: &RawL1Header,
+        generation: u64,
+    ) -> Result<AnchorWitness>;
     /// The fallback key list whose hash is `hash`, as the Inbox stored it, read at the L1 block
     /// with hash `at` and number `at_number`, the block that stored it or a later one; the log
     /// scan reaches down to `from_block` ([`abci::fallback::fetch_fallback_keys`]). The list
@@ -124,11 +154,9 @@ pub trait LandingSource: Send + Sync {
     /// [`LanderError::Temporary`].
     async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness>;
     /// Fetch the descending raw L1 headers from the reference tip, the finalized block below
-    /// the snapshot, down to the oldest consumed anchor: `Safety` for an empty anchor slice,
-    /// `Temporary` while finality is behind the newest anchor, `Capacity` above
-    /// `MAX_REFERENCE_HEADERS` (BATCH-6.3-6). Fetch only: the caller verifies the links and
-    /// anchors with [`crate::batch::verify_reference_chain`] and the tip with
-    /// [`Self::validate_reference`].
+    /// the snapshot, down to the oldest consumed anchor, failing as [`reference_floor`] does
+    /// with `MAX_REFERENCE_HEADERS`. Fetch only: the caller verifies the links and anchors with
+    /// [`crate::batch::verify_reference_chain`] and the tip with [`Self::validate_reference`].
     async fn reference(
         &self,
         snapshot: &LandingSnapshot,
@@ -414,50 +442,28 @@ impl LandingSource for RpcLandingSource {
         self.el_header(number).await
     }
 
-    async fn parent_anchor(
-        &self,
-        snapshot: &LandingSnapshot,
-        parent: &ParentContext,
-    ) -> Result<AnchorState> {
-        let at_recovery = snapshot.recovery.as_ref().filter(|r| parent.header.number == r.height);
-        let number = if let Some(origin) = at_recovery {
-            origin.l1_number
-        } else if parent.header.number == snapshot.genesis.genesis_height {
-            snapshot.genesis.l1_0
-        } else {
-            // Read only extraData's deployment-core fields: the decoder refuses a fee-sharing
-            // byte other than 100, and the generation and anchor are checked and used here.
-            let abci::rules::ExtraData { generation, anchor, .. } =
-                abci::rules::decode_extra_data(&parent.header.extra_data).map_err(|_| {
-                    LanderError::Safety("EL checkpoint has invalid Etna extraData".into())
-                })?;
-            if generation != snapshot.generation {
-                return Err(LanderError::Safety(
-                    "EL checkpoint generation differs from Inbox".into(),
-                ));
-            }
-            anchor
-        };
-        let anchor = self.anchor_at(number).await?;
-        if at_recovery.is_none() &&
-            parent.header.number != snapshot.genesis.genesis_height &&
-            parent.header.parent_beacon_block_root != Some(anchor.state_root)
-        {
-            return Err(LanderError::Safety("EL checkpoint anchor root differs from L1".into()));
-        }
-        Ok(anchor)
+    async fn origin_anchor(&self, snapshot: &LandingSnapshot) -> Result<AnchorState> {
+        self.anchor_at(snapshot.recovery.as_ref().map_or(snapshot.genesis.l1_0, |r| r.l1_number))
+            .await
     }
 
-    /// Retain every fixed starting Inbox slot and its raw header in the reference ancestry.
-    async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness> {
-        let l1_header = self.anchors.header(anchor.number).await.map_err(anchor_error)?;
-        let slots = starting_slots(anchor.inbox.recovery_generation);
+    /// One EIP-1186 read of the starting slots at the reference hash, beside the reference's
+    /// own raw header.
+    async fn starting_inbox_witness(
+        &self,
+        reference: &RawL1Header,
+        generation: u64,
+    ) -> Result<AnchorWitness> {
         let inbox = self
             .anchors
-            .account_witness(self.params.inbox, &slots, anchor.number)
+            .account_witness_hash_canonical(
+                self.params.inbox,
+                &starting_slots(generation),
+                reference.hash(),
+            )
             .await
             .map_err(anchor_error)?;
-        Ok(AnchorWitness { l1_header, inbox })
+        Ok(AnchorWitness { l1_header: reference.clone(), inbox })
     }
 
     /// Runs [`fetch_fallback_keys`] on the own L1 endpoint. Its failures are the node's own L1:
@@ -492,29 +498,13 @@ impl LandingSource for RpcLandingSource {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>> {
-        let min = anchors
-            .iter()
-            .map(|a| a.number)
-            .min()
-            .ok_or_else(|| LanderError::Safety("reference without anchors".into()))?;
-        let max = anchors.iter().map(|a| a.number).max().expect("nonempty anchors");
         let tip = self
             .anchors
             .finalized_number()
             .await
             .map_err(anchor_error)?
             .min(snapshot.l1_block_number.saturating_sub(1));
-        if tip < max {
-            return Err(LanderError::Temporary(format!(
-                "finalized L1 reference {tip} has not reached consumed anchor {max}"
-            )));
-        }
-        if tip - min >= MAX_REFERENCE_HEADERS {
-            return Err(LanderError::Capacity(format!(
-                "reference chain {} headers exceeds {MAX_REFERENCE_HEADERS}",
-                tip - min + 1
-            )));
-        }
+        let min = reference_floor(anchors, tip, MAX_REFERENCE_HEADERS)?;
         let mut headers =
             Vec::with_capacity(usize::try_from(tip - min + 1).expect("bounded header count"));
         for number in (min..=tip).rev() {
@@ -659,10 +649,12 @@ pub fn snapshot_slots() -> Vec<B256> {
     slots
 }
 
-/// Fixed Inbox slots plus `generation`'s fixed origin record (slot 290), which every proof
-/// authenticates (PROOF-6.2-14); a batch reads it under its own starting anchor, not under R.
+/// The fixed starting Inbox slots a batch proves under its reference header: the genesis slots
+/// (the start record, configuration hash and slot 282, with generation 0's origin record) and
+/// `generation`'s four-word origin record (slot 290), which every proof authenticates. They hold
+/// no anchor slot: each block's anchor witness proves those under the block's own anchor.
 pub fn starting_slots(generation: u64) -> Vec<B256> {
-    let mut slots = snapshot_slots();
+    let mut slots = inbox::genesis_slots();
     slots.extend(inbox::origin_slots(generation));
     slots.sort_unstable();
     slots.dedup();
@@ -780,47 +772,118 @@ pub(crate) fn decode_snapshot(
     })
 }
 
-/// Authenticate the complete starting Inbox proof, then project exact existing verifier slot sets.
+/// Verifies `witness`, the starting Inbox proof of a batch of the recovery generation
+/// `generation`, under the batch's reference header `reference`, the newest header of its
+/// reference chain, and returns the genesis record and `generation`'s origin record it proves.
 ///
-/// The full proof must include checkpoint facts as well as genesis/config. Its raw header and
-/// decoded anchor facts must equal the consumed parent anchor; no latest snapshot can substitute
-/// for this ancestor. Projection preserves the strict slot-set checks of both verifiers. The slot
-/// set includes the anchor generation's fixed origin record ([`starting_slots`]). Returns the
-/// genesis record and the fourth word of that origin record, the `fallbackKeysHash` of the list
-/// whose keys sign the generation's first two blocks.
+/// The witness must carry `reference` as its header and prove the configured Inbox's exact
+/// [`starting_slots`] under that header's state root, whose genesis slots must pass
+/// [`verify_genesis_inbox`], and the reference must be in `generation`. These words never change
+/// once written, so the reference proves the values every later block reads, under a root the
+/// reference chain authenticates. A proof that does not verify is `Safety`.
 pub fn verify_starting_inbox(
     witness: &AnchorWitness,
-    anchor: &AnchorState,
+    reference: &RawL1Header,
+    generation: u64,
     inbox_address: Address,
-) -> Result<(GenesisRecord, B256)> {
+) -> Result<(GenesisRecord, OriginRecord)> {
+    if witness.l1_header.hash() != reference.hash() {
+        return Err(LanderError::Safety("starting proof is not under the reference header".into()));
+    }
     if witness.inbox.address != inbox_address {
         return Err(LanderError::Safety("starting proof names another Inbox".into()));
     }
-    let slots = starting_slots(anchor.inbox.recovery_generation);
-    verify_account_witness(anchor.state_root, &witness.inbox, &slots)
+    let root = reference.state_root();
+    let storage = verify_account_witness(root, &witness.inbox, &starting_slots(generation))
         .map_err(|e| LanderError::Safety(format!("starting Inbox proof: {e}")))?;
     let genesis_proof = project_witness(&witness.inbox, &inbox::genesis_slots());
-    let (genesis, _, _) =
-        abci::l1::witness::verify_genesis_inbox(anchor.state_root, &genesis_proof, inbox_address)
-            .map_err(|e| LanderError::Safety(format!("starting genesis proof: {e}")))?;
-    let origin_slot = inbox::origin_slots(anchor.inbox.recovery_generation)[3];
-    let origin_hash = witness
-        .inbox
-        .storage
-        .iter()
-        .find(|proof| proof.slot == origin_slot)
-        .map(|proof| B256::from(proof.value))
-        .expect("full slot set was verified");
-    let anchor_proof = AnchorWitness {
-        l1_header: witness.l1_header.clone(),
-        inbox: project_witness(&witness.inbox, &inbox::anchor_slots()),
-    };
-    let verified = verify_anchor_witness(&anchor_proof, inbox_address)
-        .map_err(|e| LanderError::Safety(format!("starting anchor proof: {e}")))?;
-    if verified != *anchor {
-        return Err(LanderError::Safety("starting proof contradicts consumed parent anchor".into()));
+    let (genesis, facts, _) = verify_genesis_inbox(root, &genesis_proof, inbox_address)
+        .map_err(|e| LanderError::Safety(format!("starting genesis proof: {e}")))?;
+    if facts.recovery_generation != generation {
+        return Err(LanderError::Safety(format!(
+            "the reference header is in generation {}, not {generation}",
+            facts.recovery_generation
+        )));
     }
-    Ok((genesis, origin_hash))
+    let origin = inbox::decode_origin_record(
+        inbox::origin_slots(generation)
+            .map(|slot| storage.get(slot).expect("verified starting slot")),
+    )
+    .ok_or_else(|| {
+        LanderError::Safety(format!("generation {generation}'s origin record sets reserved bits"))
+    })?;
+    Ok((genesis, origin))
+}
+
+/// Verifies `witness`, the anchor witness of a batch's checkpoint p above its generation's start,
+/// against p's EL header `header`, and returns the anchor it proves.
+///
+/// The witness must verify under its own L1 header ([`verify_anchor_witness`]) and prove
+/// `generation`; `header`'s extraData must name `generation` and that L1 header's number as its
+/// anchor, and its `parentBeaconBlockRoot` must be that header's state root. p's EL header, whose
+/// hash the checkpoint's slot 285 record holds, so authenticates the root under which p's anchor
+/// proves its `minTotalStake` and `fallbackKeysHash`, with no L1 ancestry. Every failure is
+/// `Safety`.
+pub fn verify_checkpoint_anchor(
+    witness: &AnchorWitness,
+    header: &Header,
+    generation: u64,
+    inbox_address: Address,
+) -> Result<AnchorState> {
+    // The decoder refuses a fee-sharing byte other than 100; the generation and anchor fields
+    // are checked here.
+    let extra = abci::rules::decode_extra_data(&header.extra_data)
+        .map_err(|_| LanderError::Safety("EL checkpoint has invalid Etna extraData".into()))?;
+    if extra.generation != generation {
+        return Err(LanderError::Safety(
+            "checkpoint execution header belongs to another generation".into(),
+        ));
+    }
+    let anchor = verify_anchor_witness(witness, inbox_address)
+        .map_err(|e| LanderError::Safety(format!("checkpoint anchor witness: {e}")))?;
+    if anchor.number != extra.anchor {
+        return Err(LanderError::Safety(format!(
+            "checkpoint anchor witness proves L1 {}, but the checkpoint's extraData names L1 {}",
+            anchor.number, extra.anchor
+        )));
+    }
+    if header.parent_beacon_block_root != Some(anchor.state_root) {
+        return Err(LanderError::Safety(
+            "checkpoint anchor witness root differs from the checkpoint's parentBeaconBlockRoot"
+                .into(),
+        ));
+    }
+    if anchor.inbox.recovery_generation != generation {
+        return Err(LanderError::Safety("checkpoint anchor proves another generation".into()));
+    }
+    Ok(anchor)
+}
+
+/// The current generation's origin record as the snapshot authenticates it: a recovery
+/// generation's authenticated origin, or generation 0's record from the snapshot's own genesis
+/// proof under its header.
+pub fn snapshot_origin(snapshot: &LandingSnapshot) -> Result<OriginRecord> {
+    match &snapshot.recovery {
+        Some(origin) => Ok(OriginRecord {
+            start_height: origin.height,
+            l1_number: origin.l1_number,
+            l1_timestamp: origin.l1_timestamp,
+            fallback_keys_hash: origin.fallback_keys_hash,
+        }),
+        None if snapshot.generation == 0 => {
+            let root = snapshot.l1_header.state_root();
+            let slots = snapshot_landing_slots(snapshot.checkpoint_height);
+            verify_account_witness(root, &snapshot.inbox_witness, &slots)
+                .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
+            let genesis_proof = project_witness(&snapshot.inbox_witness, &inbox::genesis_slots());
+            let (_, _, origin) = verify_genesis_inbox(root, &genesis_proof, snapshot.inbox)
+                .map_err(|e| LanderError::Safety(format!("snapshot genesis proof: {e}")))?;
+            Ok(origin)
+        }
+        None => Err(LanderError::Safety(
+            "generation requires matching recovery origin and evidence".into(),
+        )),
+    }
 }
 
 /// The slots of one staking read at an L2 height: the candidate snapshot's words in

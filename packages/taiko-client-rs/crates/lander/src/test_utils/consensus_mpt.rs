@@ -168,8 +168,12 @@ pub struct Fixture {
     /// keys sign every height of the generation, each at power 1.
     pub origin_keys: FallbackKeys,
     pub mismatch_statement: AtomicBool,
+    /// Tampers with the starting Inbox proof the fixture's L1 serves: 0 drops the configuration
+    /// hash, 1 changes the origin record's `fallbackKeysHash`.
     pub starting_proof_mutation: Option<u8>,
-    pub parent_anchor_override: Option<AnchorState>,
+    /// The most headers the fixture's reference chain may hold, as the RPC source's
+    /// `MAX_REFERENCE_HEADERS`.
+    pub reference_bound: u64,
     /// The validator state after each height from the generation origin on, replayed
     /// independently of the lander ([`replay_val_states`]).
     pub val_states: BTreeMap<u64, ValState>,
@@ -530,14 +534,14 @@ impl Fixture {
         self.snapshot.recovery_witness = recovery_witness;
         self.states.insert(number, state);
     }
-    /// The starting proof and the anchor of a new L1 block above every other whose Inbox is the
-    /// state of block `number` with `words` written over it, as after a later setter call; the
-    /// block joins the fixture's L1.
+    /// The starting proof of generation 0 under a new L1 block above every other, whose Inbox is
+    /// the state of block `number` with `words` written over it, as after a later setter call;
+    /// the proof carries the new block's header, and the block joins the fixture's L1.
     pub fn starting_witness_with_inbox_words(
         &mut self,
         number: u64,
         words: impl IntoIterator<Item = (B256, U256)>,
-    ) -> (AnchorWitness, AnchorState) {
+    ) -> AnchorWitness {
         let mut accounts = self.states[&number].accounts.clone();
         accounts.get_mut(&self.params.inbox).unwrap().0.extend(words);
         let state = State::new(
@@ -548,21 +552,30 @@ impl Fixture {
         );
         let next = *self.l1_headers.last_key_value().unwrap().0 + 1;
         let raw = l1_header(next, &state, self.l1_headers[&(next - 1)].hash());
-        let anchor = abci::l1::verify_anchor_witness(
-            &AnchorWitness {
-                l1_header: raw.clone(),
-                inbox: state.witness(self.params.inbox, &inbox::anchor_slots()),
-            },
-            self.params.inbox,
-        )
-        .unwrap();
         let witness = AnchorWitness {
             l1_header: raw.clone(),
             inbox: state.witness(self.params.inbox, &crate::l1::starting_slots(0)),
         };
         self.l1_headers.insert(next, raw);
         self.states.insert(next, state);
-        (witness, anchor)
+        witness
+    }
+
+    /// Writes `words` over the Inbox of L1 block `number`'s state, as on an L1 whose block
+    /// `number` holds them: its header commits the new root over the same parent, and the blocks
+    /// above it keep theirs.
+    pub fn rewrite_inbox_at(&mut self, number: u64, words: impl IntoIterator<Item = (B256, U256)>) {
+        let mut accounts = self.states[&number].accounts.clone();
+        accounts.get_mut(&self.params.inbox).unwrap().0.extend(words);
+        let state = State::new(
+            accounts
+                .into_iter()
+                .map(|(address, (slots, _))| (address, slots.into_iter().collect()))
+                .collect(),
+        );
+        let raw = l1_header(number, &state, self.l1_headers[&(number - 1)].hash());
+        self.l1_headers.insert(number, raw);
+        self.states.insert(number, state);
     }
 
     /// Replant exact Inbox words under a new authenticated root for decoder boundary tests.
@@ -1009,6 +1022,7 @@ impl Fixture {
         for number in last + 1..=snapshot_number {
             let raw = l1_header(number, &root_state, l1_headers[&(number - 1)].hash());
             l1_headers.insert(number, raw);
+            states.insert(number, root_state.clone());
         }
         let snapshot_queue = plan.queue(&planted, snapshot_number, checkpoint);
         let snapshot_state = state_with_queue(
@@ -1064,7 +1078,7 @@ impl Fixture {
             origin_keys,
             mismatch_statement: AtomicBool::new(false),
             starting_proof_mutation: None,
-            parent_anchor_override: None,
+            reference_bound: crate::l1::MAX_REFERENCE_HEADERS,
             val_states,
             val_state_answers: BTreeMap::new(),
             fallback_reads: AtomicUsize::new(0),
@@ -1137,59 +1151,36 @@ impl LandingSource for Fixture {
             ))
         })
     }
-    async fn parent_anchor(
-        &self,
-        snapshot: &LandingSnapshot,
-        parent: &ParentContext,
-    ) -> Result<AnchorState> {
-        if parent.header.number == snapshot.checkpoint_height &&
-            let Some(anchor) = &self.parent_anchor_override
-        {
-            return Ok(anchor.clone());
-        }
-        let number = if parent.header.number == 0 {
-            snapshot.genesis.l1_0
-        } else {
-            let rules::ExtraData { generation, anchor: number, .. } =
-                rules::decode_extra_data(&parent.header.extra_data)
-                    .map_err(|e| LanderError::Safety(e.to_string()))?;
-            if generation != snapshot.generation {
-                return Err(LanderError::Safety("anchor generation mismatch".into()));
-            }
-            number
-        };
+    /// The anchor of the origin record's L1 block, `L1_0` or R, from that block's state.
+    async fn origin_anchor(&self, snapshot: &LandingSnapshot) -> Result<AnchorState> {
+        let number = snapshot.recovery.as_ref().map_or(snapshot.genesis.l1_0, |r| r.l1_number);
         let witness = AnchorWitness {
             l1_header: self.l1_headers[&number].clone(),
             inbox: self.states[&number].witness(self.params.inbox, &inbox::anchor_slots()),
         };
-        let anchor = abci::l1::verify_anchor_witness(&witness, self.params.inbox)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if parent.header.number != 0 &&
-            parent.header.parent_beacon_block_root != Some(anchor.state_root)
-        {
-            return Err(LanderError::Safety("parent anchor root mismatch".into()));
-        }
-        Ok(anchor)
+        abci::l1::verify_anchor_witness(&witness, self.params.inbox)
+            .map_err(|e| LanderError::Safety(e.to_string()))
     }
-    async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness> {
-        let slots = crate::l1::starting_slots(anchor.inbox.recovery_generation);
-        let mut witness = self.states[&anchor.number].witness(self.params.inbox, &slots);
+    /// The starting slots in the state of the reference's L1 block, tampered with as
+    /// [`Fixture::starting_proof_mutation`] says.
+    async fn starting_inbox_witness(
+        &self,
+        reference: &RawL1Header,
+        generation: u64,
+    ) -> Result<AnchorWitness> {
+        let slots = crate::l1::starting_slots(generation);
+        let mut witness = self.states[&reference.number()].witness(self.params.inbox, &slots);
+        let origin_hash = inbox::origin_slots(generation)[3];
         match self.starting_proof_mutation {
-            Some(0) => {
-                witness.storage.retain(|s| s.slot != inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT))
-            }
+            Some(0) => witness.storage.retain(|s| s.slot != inbox::slot(inbox::CONFIG_HASH)),
             Some(1) => {
-                if let Some(proof) = witness
-                    .storage
-                    .iter_mut()
-                    .find(|s| s.slot == inbox::slot(inbox::LAST_CHECKPOINT_HASH))
-                {
+                if let Some(proof) = witness.storage.iter_mut().find(|s| s.slot == origin_hash) {
                     proof.value += U256::from(1);
                 }
             }
             _ => {}
         }
-        Ok(AnchorWitness { l1_header: self.l1_headers[&anchor.number].clone(), inbox: witness })
+        Ok(AnchorWitness { l1_header: reference.clone(), inbox: witness })
     }
     /// The served list with hash `hash`, at an L1 block of the fixture's.
     async fn fallback_keys(
@@ -1216,16 +1207,16 @@ impl LandingSource for Fixture {
             .map(|state| state.witness(self.params.staking, slots))
             .ok_or_else(|| LanderError::Temporary(format!("L2 block {block_hash} unavailable")))
     }
+    /// The chain from the block below the snapshot, bounded as the RPC source's by
+    /// [`Fixture::reference_bound`].
     async fn reference(
         &self,
         _snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>> {
-        let min = anchors.iter().map(|anchor| anchor.number).min().unwrap();
-        Ok((min..self.snapshot.l1_block_number)
-            .rev()
-            .map(|number| self.l1_headers[&number].clone())
-            .collect())
+        let tip = self.snapshot.l1_block_number - 1;
+        let min = crate::l1::reference_floor(anchors, tip, self.reference_bound)?;
+        Ok((min..=tip).rev().map(|number| self.l1_headers[&number].clone()).collect())
     }
     async fn deployment(&self, _: &LandingSnapshot) -> Result<Deployment> {
         if self.mismatch_statement.load(Ordering::Relaxed) {

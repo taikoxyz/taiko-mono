@@ -318,12 +318,20 @@ pub struct PreparedBatch {
     pub parent_header: Header,
     /// Timestamp of the parent's parent; zero when the parent is genesis.
     pub grandparent_timestamp: u64,
-    /// Anchor consumed by the parent; genesis uses the initialization L1 block.
+    /// The anchor the parent p uses: above the generation's start, the one `p_anchor_witness`
+    /// proves; at the start, the origin anchor (`L1_0` or R), whose words no rule reads.
     pub parent_anchor: AnchorState,
-    /// Inbox schedule/config/bootstrap and anchor-facts proof under the parent root in reference
-    /// ancestry.
+    /// The reference header and the fixed starting Inbox facts proven under its root: the start
+    /// record, configuration hash, slot 282 and the generation's origin record.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
+    /// p's anchor witness, its raw L1 header and Inbox proofs, from the block that carried it,
+    /// present exactly when p is above the generation's start. p's EL header authenticates it
+    /// through its `extraData` anchor number and `parentBeaconBlockRoot`, and so does the EL
+    /// header of p + 1 when p + 1 inherits it. Its `minTotalStake` and `fallbackKeysHash` are p's
+    /// for the set that signs p + 2.
+    #[serde(with = "rlp_serde_option")]
+    pub p_anchor_witness: Option<AnchorWitness>,
     /// Raw EIP-1186 L2 SignalService proxy implementation proof under S's state root, retained
     /// only for a switching batch whose parent is S. A real proof backend must verify this
     /// private input (PROOF-6.2-46a).
@@ -364,9 +372,9 @@ impl PreparedBatch {
     /// reference number, the statement hash, the blob payload against the retained blocks
     /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
     ///
-    /// Proof witnesses (anchors and the starting Inbox witness) are not re-derived. A restored job
-    /// is at least Prepared, so its proof already exists and nothing reads them again; the
-    /// builder checked every one before proving.
+    /// Proof witnesses (anchors, p's anchor witness and the starting Inbox witness) are not
+    /// re-derived. A restored job is at least Prepared, so its proof already exists and nothing
+    /// reads them again; the builder checked every one before proving.
     pub fn verify_restored(&self) -> Result<()> {
         let u48 = |value: U256| {
             protocol_u48(value)
@@ -444,6 +452,30 @@ impl PreparedBatch {
     }
 }
 
+/// [`rlp_serde`] for an optional witness: `null` when absent.
+mod rlp_serde_option {
+    use alloy_primitives::Bytes;
+    use alloy_rlp::{Decodable, Encodable};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Retain exact protocol RLP bytes of a present witness.
+    pub fn serialize<T: Encodable, S: Serializer>(
+        value: &Option<T>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        value.as_ref().map(|value| Bytes::from(alloy_rlp::encode(value))).serialize(serializer)
+    }
+
+    /// Require canonical complete RLP when restoring a present journaled witness.
+    pub fn deserialize<'de, T: Decodable + Encodable, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<T>, D::Error> {
+        Option::<Bytes>::deserialize(deserializer)?
+            .map(|bytes| super::rlp_serde::decode_canonical(&bytes))
+            .transpose()
+    }
+}
+
 /// Canonical RLP journal encoding for protocol witness types that intentionally have no JSON wire
 /// API.
 mod rlp_serde {
@@ -463,10 +495,16 @@ mod rlp_serde {
     pub fn deserialize<'de, T: Decodable + Encodable, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<T, D::Error> {
-        let bytes = Bytes::deserialize(deserializer)?;
-        let value: T = alloy_rlp::decode_exact(&bytes).map_err(serde::de::Error::custom)?;
-        if alloy_rlp::encode(&value).as_slice() != bytes.as_ref() {
-            return Err(serde::de::Error::custom("noncanonical witness RLP"));
+        decode_canonical(&Bytes::deserialize(deserializer)?)
+    }
+
+    /// The witness `bytes` encode, refusing trailing or noncanonical RLP.
+    pub(super) fn decode_canonical<T: Decodable + Encodable, E: serde::de::Error>(
+        bytes: &[u8],
+    ) -> Result<T, E> {
+        let value: T = alloy_rlp::decode_exact(bytes).map_err(E::custom)?;
+        if alloy_rlp::encode(&value).as_slice() != bytes {
+            return Err(E::custom("noncanonical witness RLP"));
         }
         Ok(value)
     }

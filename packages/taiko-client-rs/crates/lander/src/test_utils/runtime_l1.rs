@@ -832,41 +832,43 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
     }
 }
 
-#[tokio::test]
-async fn checkpoint_anchor_rejects_malformed_extra_data_generation_and_sharing_before_rpc() {
-    let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
-    let provider =
-        rpc(|_| json!({"__rpc_error":{"code":-32603,"message":"unexpected anchor lookup"}})).await;
-    let source =
-        RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
-    let snapshot = fixture.snapshot;
-    let mut well_formed = vec![0; abci::rules::EXTRA_DATA_LEN];
-    well_formed[0] = abci::rules::BASEFEE_SHARING_PCTG;
+/// p's anchor witness is checked against p's `extraData` before anything it proves is used: the
+/// 13-byte layout, one byte short or long, the wrong generation and every fee-sharing byte other
+/// than 100 are refused as `Safety`, as the sharing byte is deployment core like the generation
+/// and anchor; the well-formed header accepts the witness.
+#[test]
+fn checkpoint_anchor_rejects_malformed_extra_data_generation_and_sharing() {
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(24, 30);
+    let witness =
+        abci::EtnaEnvelope::decode(&fixture.blocks[&23].block.data[0]).unwrap().anchor.unwrap();
+    let well_formed = fixture.headers[&24].extra_data.to_vec();
     let mut wrong_generation = well_formed.clone();
-    wrong_generation[1..7].copy_from_slice(&(snapshot.generation + 1).to_be_bytes()[2..]);
-    let parent = |extra_data: &[u8]| crate::l1::ParentContext {
-        header: Header { number: 1, extra_data: extra_data.to_vec().into(), ..Default::default() },
-        grandparent_timestamp: 0,
-    };
-    // The 13-byte layout, one byte short or long, the wrong generation, and every fee-sharing
-    // byte other than 100: the sharing byte is deployment core like the generation and anchor.
+    wrong_generation[1..7].copy_from_slice(&1u64.to_be_bytes()[2..]);
     let mut malformed = vec![vec![0; 13], vec![0; 28], vec![0; 30], wrong_generation];
     for sharing in [0, 1, 99, 101, 255] {
         let mut extra_data = well_formed.clone();
         extra_data[0] = sharing;
         malformed.push(extra_data);
     }
+    let header = |extra_data: &[u8]| Header {
+        extra_data: extra_data.to_vec().into(),
+        ..fixture.headers[&24].clone()
+    };
     for extra_data in malformed {
-        let error = source.parent_anchor(&snapshot, &parent(&extra_data)).await.unwrap_err();
+        let error = crate::l1::verify_checkpoint_anchor(
+            &witness,
+            &header(&extra_data),
+            0,
+            fixture.params.inbox,
+        )
+        .unwrap_err();
         assert!(
             matches!(error, LanderError::Safety(_)),
-            "malformed checkpoint {extra_data:?} must be rejected before RPC: {error}"
+            "malformed checkpoint {extra_data:?} must be refused: {error}"
         );
     }
-    // A well-formed one reaches the anchor lookup, which this provider fails, instead of being
-    // called an authenticated contradiction.
-    let error = source.parent_anchor(&snapshot, &parent(&well_formed)).await.unwrap_err();
-    assert!(!matches!(error, LanderError::Safety(_)), "{error}");
+    crate::l1::verify_checkpoint_anchor(&witness, &header(&well_formed), 0, fixture.params.inbox)
+        .unwrap();
 }
 
 /// The deployment reads are the checked getters and `maxBatchBlocks` only, each pinned to the
@@ -993,11 +995,21 @@ async fn deployment_with_another_config_hash_is_refused() {
     }
 }
 
+/// R's anchor slots and raw header as an L1 endpoint serves them, from the recovery fixture.
+fn r_witness(f: &crate::test_utils::consensus_mpt::Fixture) -> abci::AnchorWitness {
+    abci::AnchorWitness {
+        l1_header: f.l1_headers[&20].clone(),
+        inbox: f.import_witness(f.params.inbox, &abci::l1::layout::inbox::anchor_slots(), 20),
+    }
+}
+
+/// After a recovery the origin anchor is R, read at the origin record's L1 block, whatever the
+/// checkpoint's own header names.
 #[tokio::test]
-async fn recovery_rpc_parent_anchor_uses_r_not_old_header_extra_data() {
+async fn recovery_rpc_origin_anchor_reads_r() {
     let f = crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 12).await;
-    let expected = f.parent_anchor_override.clone().unwrap();
-    let witness = f.starting_inbox_witness(&expected).await.unwrap();
+    let expected = crate::batch::recovery_anchor(&f.snapshot).unwrap();
+    let witness = r_witness(&f);
     let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
         "eth_getBlockByNumber" => {
             assert_eq!(request["params"][0], "0x14");
@@ -1015,22 +1027,46 @@ async fn recovery_rpc_parent_anchor_uses_r_not_old_header_extra_data() {
     })
     .await;
     let source = RpcLandingSource::new(l1.provider.clone(), l1.provider.clone(), f.params.clone());
-    let parent = f.parent_header(&f.snapshot).await.unwrap();
-    let observed = source.parent_anchor(&f.snapshot, &parent).await.unwrap();
+    let observed = source.origin_anchor(&f.snapshot).await.unwrap();
     assert_eq!(observed, expected);
     assert_eq!(observed.number, 20);
-    assert_ne!(parent.header.parent_beacon_block_root, Some(observed.state_root));
-    let mut later = parent;
-    later.header.number += 1;
-    assert!(matches!(source.parent_anchor(&f.snapshot, &later).await, Err(LanderError::Safety(_))));
+}
+
+/// The starting Inbox proof is one EIP-1186 read of exactly the starting slots of the snapshot's
+/// generation, pinned to the reference header's canonical hash, and carries that header.
+#[tokio::test]
+async fn starting_witness_is_read_at_the_reference_hash() {
+    let f = crate::test_utils::consensus_mpt::recovery::fixture(6, 12, 18).await;
+    let reference = f.l1_headers[&22].clone();
+    let slots = crate::l1::starting_slots(2);
+    let served = f.import_witness(f.params.inbox, &slots, 22);
+    let pin = reference.hash();
+    let expected_slots = slots.clone();
+    let answer = served.clone();
+    let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
+        "eth_getProof" => {
+            assert_eq!(request["params"][0], json!(answer.address));
+            assert_eq!(request["params"][1], json!(expected_slots));
+            assert_eq!(request["params"][2], json!({"blockHash": pin, "requireCanonical": true}));
+            proof_json(&answer)
+        }
+        other => panic!("unexpected starting proof request: {other}"),
+    })
+    .await;
+    let source = RpcLandingSource::new(l1.provider.clone(), l1.provider.clone(), f.params.clone());
+    let witness = source.starting_inbox_witness(&reference, 2).await.unwrap();
+    assert_eq!(witness, abci::AnchorWitness { l1_header: reference.clone(), inbox: served });
+    let (_, origin) =
+        crate::l1::verify_starting_inbox(&witness, &reference, 2, f.params.inbox).unwrap();
+    assert_eq!(origin, crate::l1::snapshot_origin(&f.snapshot).unwrap());
+    assert_eq!(l1.requests.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
 async fn recovery_finality_waits_for_proven_generation_and_rejects_tampering() {
     for (requested, tamper) in [(1, false), (2, false), (3, false), (2, true)] {
         let f = crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 12).await;
-        let witness =
-            f.starting_inbox_witness(f.parent_anchor_override.as_ref().unwrap()).await.unwrap();
+        let witness = r_witness(&f);
         let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
             "eth_getBlockByNumber" => json_header(&witness.l1_header),
             "debug_getRawHeader" => json!(witness.l1_header.raw()),

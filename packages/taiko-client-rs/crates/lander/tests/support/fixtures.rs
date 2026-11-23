@@ -499,18 +499,18 @@ impl LandingSource for FixtureLanding {
             lander::LanderError::Unavailable(format!("required execution history height {number}"))
         })
     }
-    async fn parent_anchor(
+    async fn origin_anchor(
         &self,
         snapshot: &LandingSnapshot,
-        parent: &lander::l1::ParentContext,
     ) -> lander::error::Result<AnchorState> {
-        self.rpc.parent_anchor(snapshot, parent).await
+        self.rpc.origin_anchor(snapshot).await
     }
     async fn starting_inbox_witness(
         &self,
-        anchor: &AnchorState,
+        reference: &abci::RawL1Header,
+        generation: u64,
     ) -> lander::error::Result<abci::AnchorWitness> {
-        self.rpc.starting_inbox_witness(anchor).await
+        self.rpc.starting_inbox_witness(reference, generation).await
     }
     async fn fallback_keys(
         &self,

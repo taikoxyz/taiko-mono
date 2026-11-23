@@ -193,8 +193,8 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     f.l1_headers.insert(21, next_header);
     for n in 22..=23 {
         f.l1_headers.insert(n, l1_header(n, &state, f.l1_headers[&(n - 1)].hash()));
+        f.states.insert(n, state.clone());
     }
-    f.states.insert(23, state.clone());
     let raw = f.l1_headers[&23].clone();
     f.snapshot = LandingSnapshot {
         recovery: Some(origin),
@@ -210,7 +210,6 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             .witness(f.params.inbox, &crate::l1::snapshot_landing_slots(checkpoint)),
         ..f.snapshot
     };
-    f.parent_anchor_override = Some(if checkpoint == 6 { r_anchor } else { next_anchor });
     f
 }
 
@@ -306,16 +305,14 @@ async fn recovery_later_checkpoint_keeps_authenticated_origin_and_the_origin_key
                 terminal_leaves.get(&length)
             );
         }
-        // The chain must reach its oldest consumed anchor; dropping that header is refused.
+        // The chain must reach the oldest anchor its blocks use; dropping that header is refused.
         let b = &prepared.batch;
-        let anchors =
-            crate::batch::consumed_anchors(&b.snapshot, &b.parent_anchor, &b.anchors).unwrap();
         let headers = |raw: &[alloy_primitives::Bytes]| {
             raw.iter().map(|h| RawL1Header::from_raw(h.clone()).unwrap()).collect::<Vec<_>>()
         };
-        crate::batch::verify_reference_chain(&headers(&b.reference_headers), &anchors).unwrap();
+        crate::batch::verify_reference_chain(&headers(&b.reference_headers), &b.anchors).unwrap();
         let truncated = &b.reference_headers[..b.reference_headers.len() - 1];
-        assert!(crate::batch::verify_reference_chain(&headers(truncated), &anchors).is_err());
+        assert!(crate::batch::verify_reference_chain(&headers(truncated), &b.anchors).is_err());
         assert!(
             prepared
                 .batch
@@ -326,13 +323,14 @@ async fn recovery_later_checkpoint_keeps_authenticated_origin_and_the_origin_key
     }
 }
 
-/// R joins the reference chain only for a batch from the origin c: a later batch
-/// authenticates the fixed origin record under its own starting anchor. Requiring R in every
-/// batch would make the generation unlandable once R falls more than the reference bound
-/// (131,072 headers) behind the finalized tip.
+/// R joins the reference chain only as the anchor of a block of the batch, here c + 1's: a
+/// batch from the origin c reaches it, a later one does not, and every batch proves the fixed
+/// origin record under its reference header. Requiring R in every batch would make the
+/// generation unlandable once R falls more than the reference bound (131,072 headers) behind the
+/// finalized tip.
 #[tokio::test]
 async fn recovery_root_is_consumed_only_from_the_origin() {
-    // c = 6, R = 20, next anchor 21: blocks from 9 on inherit anchor 21.
+    // c = 6, R = 20, c + 1 anchors at R, 8 moves to 21 and blocks from 9 on inherit it.
     for (length, checkpoint, tip, uses_r) in [
         (6, 6, 18, true),
         (6, 12, 18, false),
@@ -351,14 +349,17 @@ async fn recovery_root_is_consumed_only_from_the_origin() {
     }
 }
 
-/// Without R, a batch still authenticates its generation's fixed origin record (slot 290)
-/// under its own starting anchor (PROOF-6.2-14): the starting proof must carry it.
+/// Without R, a batch still authenticates its generation's fixed origin record (slot 290) under
+/// its reference header: the starting proof must carry it, as generation two's record, not
+/// generation zero's.
 #[tokio::test]
 async fn starting_witness_authenticates_the_generation_origin_record() {
     let f = Arc::new(fixture(8, 12, 18).await);
     let origin = f.snapshot.recovery.clone().unwrap();
     let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
     let witness = &prepared.batch.starting_inbox_witness;
+    let reference = RawL1Header::from_raw(prepared.batch.reference_headers[0].clone()).unwrap();
+    assert_eq!(witness.l1_header, reference);
     let slots = inbox::origin_slots(origin.generation);
     let record = slots.map(|slot| {
         witness.inbox.storage.iter().find(|p| p.slot == slot).expect("origin slot is proven").value
@@ -372,11 +373,16 @@ async fn starting_witness_authenticates_the_generation_origin_record() {
             origin.fallback_keys_hash.into(),
         ]
     );
+    let (_, record) =
+        crate::l1::verify_starting_inbox(witness, &reference, 2, f.params.inbox).unwrap();
+    assert_eq!(record, crate::l1::snapshot_origin(&f.snapshot).unwrap());
 
     let mut without_origin = witness.clone();
     without_origin.inbox.storage.retain(|p| !slots.contains(&p.slot));
-    let anchor = &prepared.batch.parent_anchor;
-    assert!(crate::l1::verify_starting_inbox(&without_origin, anchor, f.params.inbox).is_err());
+    assert!(
+        crate::l1::verify_starting_inbox(&without_origin, &reference, 2, f.params.inbox).is_err()
+    );
+    assert!(crate::l1::verify_starting_inbox(witness, &reference, 0, f.params.inbox).is_err());
 }
 
 #[tokio::test]

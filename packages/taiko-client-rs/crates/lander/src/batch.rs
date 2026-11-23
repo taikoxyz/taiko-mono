@@ -106,10 +106,12 @@ struct PublishablePrefix {
 struct BatchStart {
     /// Parent header and ancestry-derived base-fee timestamp.
     parent: ParentContext,
-    /// Historical L1 proving anchor authenticated by the checkpoint execution header.
+    /// The checkpoint's anchor: above the generation's start, the one `anchor_witness` proves
+    /// under the root the checkpoint's EL header names; at the start, the origin anchor.
     anchor: AnchorState,
-    /// Full schedule/bootstrap/anchor-facts proof retained for the guest.
-    inbox_witness: abci::AnchorWitness,
+    /// The checkpoint's anchor witness, from the block that carried it, above the generation's
+    /// start; absent at the start, whose anchor words no rule reads.
+    anchor_witness: Option<abci::AnchorWitness>,
     /// Certified checkpoint block, absent at the fixed generation origin.
     previous: Option<CertifiedBlock>,
     /// The generation's initial set, which signs every height until per-height set decisions
@@ -547,25 +549,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
 
     /// The generation's initial set, which signs every height until per-height set decisions
     /// land: the keys of the fallback key list whose hash the generation's origin record holds,
-    /// each at power 1. The batch's starting proof, under `anchor`, proves that hash,
-    /// `origin_hash` ([`crate::l1::verify_starting_inbox`]); a recovery's must be the snapshot's
-    /// authenticated origin's. So no root but the batch's own anchors authenticates the set. The
-    /// list is obtained by its hash ([`BatchBuilder::fallback_list`]) at R for a recovery
-    /// generation, and at the batch's anchor, a block at or after `L1_0`, at generation zero.
+    /// each at power 1, the record as the snapshot authenticates it
+    /// ([`crate::l1::snapshot_origin`]). The batch's starting proof proves the same record under
+    /// its reference header ([`BatchBuilder::starting_inbox`]). The list is obtained by its hash
+    /// ([`BatchBuilder::fallback_list`]) at R for a recovery generation, and at the checkpoint's
+    /// anchor `anchor`, a block at or after `L1_0`, at generation zero.
     async fn initial_set(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
-        origin_hash: B256,
     ) -> Result<Validators> {
+        let origin_hash = crate::l1::snapshot_origin(snapshot)?.fallback_keys_hash;
         let (at, at_number) = match &snapshot.recovery {
-            Some(origin) => {
-                if origin_hash != origin.fallback_keys_hash {
-                    return Err(LanderError::Safety(
-                        "starting proof's origin fallbackKeysHash contradicts the recovery origin"
-                            .into(),
-                    ));
-                }
+            Some(_) => {
                 let r = recovery_anchor(snapshot)?;
                 (r.hash, r.number)
             }
@@ -586,6 +582,33 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let keys = crate::l1::obtain_fallback_list(self.l1.as_ref(), hash, at, at_number).await?;
         self.fallback_lists.lock().await.insert(hash, keys.clone());
         Ok(keys)
+    }
+
+    /// The batch's starting Inbox proof under its reference header `reference`
+    /// ([`crate::l1::verify_starting_inbox`]): the genesis record and the generation's origin
+    /// record it proves must be the ones the snapshot authenticates, or the batch stops as
+    /// `Safety`.
+    async fn starting_inbox(
+        &self,
+        snapshot: &LandingSnapshot,
+        reference: &abci::RawL1Header,
+    ) -> Result<abci::AnchorWitness> {
+        let witness = self.l1.starting_inbox_witness(reference, snapshot.generation).await?;
+        let (genesis, origin) = crate::l1::verify_starting_inbox(
+            &witness,
+            reference,
+            snapshot.generation,
+            self.params.inbox,
+        )?;
+        if genesis != snapshot.genesis ||
+            genesis.config_hash != snapshot.config_hash ||
+            origin != crate::l1::snapshot_origin(snapshot)?
+        {
+            return Err(LanderError::Safety(
+                "starting Inbox proof under the reference header contradicts the snapshot".into(),
+            ));
+        }
+        Ok(witness)
     }
 
     /// Reuse only a fully authenticated checkpoint whose source parent and proving root remain
@@ -625,7 +648,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             return Ok(start);
         }
         let start = Arc::new(self.reconstruct_checkpoint(snapshot, parent).await?);
-        self.check_proving_anchor_canonicality(&start.anchor).await?;
         *retained = Some(CachedCheckpoint { identity, start: start.clone() });
         Ok(start)
     }
@@ -640,8 +662,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(())
     }
 
-    /// Hash-check the checkpoint's EL parent link, its historical proofs, the initial signing set
-    /// and the checkpoint BFT certificate.
+    /// Hash-check the checkpoint's EL parent link, its anchor, the initial signing set and the
+    /// checkpoint BFT certificate.
+    ///
+    /// Above the generation's start, the checkpoint p's anchor comes from the anchor witness of
+    /// the block that carried it ([`BatchBuilder::checkpoint_anchor_witness`]), checked against
+    /// p's EL header ([`crate::l1::verify_checkpoint_anchor`]). That header, not L1 ancestry,
+    /// authenticates it: p's anchor joins the reference chain only when p + 1 inherits it, as
+    /// p + 1's own anchor, whose block rules check p + 1's `extraData` and
+    /// `parentBeaconBlockRoot` against it. At the start the origin anchor only precedes the
+    /// generation's first block, which carries its own.
     async fn reconstruct_checkpoint(
         &self,
         snapshot: &LandingSnapshot,
@@ -666,47 +696,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }) {
             return Err(LanderError::Safety("execution history contradicts recovery origin".into()));
         }
-        let anchor = self.l1.parent_anchor(snapshot, &parent).await?;
-        let at_origin = parent.header.number == snapshot.origin_height();
-        let embedded_number = if let Some(origin) = snapshot.recovery.as_ref().filter(|_| at_origin)
-        {
-            origin.l1_number
-        } else if parent.header.number == snapshot.genesis.genesis_height {
-            snapshot.genesis.l1_0
-        } else {
-            let extra = rules::decode_extra_data(&parent.header.extra_data)
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-            if extra.generation != snapshot.generation {
-                return Err(LanderError::Safety(
-                    "checkpoint execution header belongs to another generation".into(),
-                ));
-            }
-            extra.anchor
-        };
-        if anchor.number != embedded_number ||
-            !at_origin &&
-                parent.header.number > 0 &&
-                parent.header.parent_beacon_block_root != Some(anchor.state_root)
-        {
-            return Err(LanderError::Safety(
-                "checkpoint proving anchor differs from embedded EL number/root".into(),
-            ));
-        }
-
-        let starting_inbox_witness = self.l1.starting_inbox_witness(&anchor).await?;
-        let (genesis, origin_hash) =
-            crate::l1::verify_starting_inbox(&starting_inbox_witness, &anchor, self.params.inbox)?;
-        if genesis != snapshot.genesis ||
-            snapshot.config_hash != genesis.config_hash ||
-            anchor.inbox.recovery_generation != snapshot.generation ||
-            anchor.number < genesis.l1_0
-        {
-            return Err(LanderError::Safety(
-                "starting genesis/config proof contradicts snapshot".into(),
-            ));
-        }
-        let validators = self.initial_set(snapshot, &anchor, origin_hash).await?;
-        if at_origin {
+        if parent.header.number == snapshot.origin_height() {
             let (hash, root) = snapshot.recovery.as_ref().map_or(
                 (snapshot.genesis.genesis_hash, snapshot.genesis.genesis_state_root),
                 |r| (r.el_hash, r.state_root),
@@ -716,10 +706,22 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     "genesis checkpoint hash/state root mismatch".into(),
                 ));
             }
+            let anchor = self.l1.origin_anchor(snapshot).await?;
+            let origin_number =
+                snapshot.recovery.as_ref().map_or(snapshot.genesis.l1_0, |r| r.l1_number);
+            if anchor.number != origin_number ||
+                anchor.inbox.recovery_generation != snapshot.generation
+            {
+                return Err(LanderError::Safety(
+                    "origin anchor differs from the generation's origin".into(),
+                ));
+            }
+            self.check_proving_anchor_canonicality(&anchor).await?;
+            let validators = self.initial_set(snapshot, &anchor).await?;
             return Ok(BatchStart {
                 parent,
                 anchor,
-                inbox_witness: starting_inbox_witness,
+                anchor_witness: None,
                 previous: None,
                 validators,
             });
@@ -743,6 +745,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 snapshot.checkpoint_height
             )));
         }
+        let witness = self.checkpoint_anchor_witness(snapshot, &envelope).await?;
+        let anchor = crate::l1::verify_checkpoint_anchor(
+            &witness,
+            &parent.header,
+            snapshot.generation,
+            self.params.inbox,
+        )?;
+        self.check_proving_anchor_canonicality(&anchor).await?;
+        let validators = self.initial_set(snapshot, &anchor).await?;
         verify_commit(
             &pair.commit,
             &pair.block.header,
@@ -757,10 +768,46 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(BatchStart {
             parent,
             anchor,
-            inbox_witness: starting_inbox_witness,
+            anchor_witness: Some(witness),
             previous: Some(pair),
             validators,
         })
+    }
+
+    /// The anchor witness the checkpoint p uses, p being above its generation's start: the one
+    /// p's own envelope `envelope` carries or, when p inherits its anchor, the one the newest
+    /// block below p carries, read down from p − 1 towards the generation's first block, which
+    /// always carries one. The blocks below p are read but not authenticated: the caller checks
+    /// the witness against p's EL header. A block there that is not one envelope, or no witness
+    /// down to the generation's first block, is `Safety`.
+    async fn checkpoint_anchor_witness(
+        &self,
+        snapshot: &LandingSnapshot,
+        envelope: &abci::EtnaEnvelope,
+    ) -> Result<abci::AnchorWitness> {
+        if let Some(witness) = &envelope.anchor {
+            return Ok(witness.clone());
+        }
+        for height in (snapshot.origin_height() + 1..snapshot.checkpoint_height).rev() {
+            let pair = self.comet.block(height).await?;
+            let envelope = match pair.block.data.as_slice() {
+                [tx] => abci::EtnaEnvelope::decode(tx).map_err(|e| {
+                    LanderError::Safety(format!("block {height} below the checkpoint: {e}"))
+                })?,
+                _ => {
+                    return Err(LanderError::Safety(format!(
+                        "block {height} below the checkpoint holds no single envelope"
+                    )));
+                }
+            };
+            if let Some(witness) = envelope.anchor {
+                return Ok(witness);
+            }
+        }
+        Err(LanderError::Safety(format!(
+            "no block of generation {} up to the checkpoint carries an anchor witness",
+            snapshot.generation
+        )))
     }
 
     /// Verify one successor against the set that signs the batch.
@@ -1093,12 +1140,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             .map_err(|e| LanderError::Safety(e.to_string()))?
             .block
             .header;
-        let parent_anchor = start.anchor.clone();
-        let consumed = consumed_anchors(&snapshot, &parent_anchor, &anchors)?;
-        let headers = self.l1.reference(&snapshot, &consumed).await?;
-        verify_reference_chain(&headers, &consumed)?;
+        // The reference chain reaches the anchors the batch's blocks use, and no other: p's
+        // anchor only as the one p + 1 inherits, R only as a block's anchor.
+        let headers = self.l1.reference(&snapshot, &anchors).await?;
+        verify_reference_chain(&headers, &anchors)?;
         let reference = &headers[0];
         self.l1.validate_reference(&snapshot, reference.number(), reference.hash()).await?;
+        let starting_inbox_witness = self.starting_inbox(&snapshot, reference).await?;
         let input = LandInput {
             // Proof origin p: the latest checkpoint c of the snapshot this batch is built on.
             parentHeight: U256::from(snapshot.checkpoint_height),
@@ -1135,8 +1183,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 parent_header: start.parent.header.clone(),
                 start_signal_service_witness,
                 grandparent_timestamp: start.parent.grandparent_timestamp,
-                parent_anchor,
-                starting_inbox_witness: start.inbox_witness.clone(),
+                parent_anchor: start.anchor.clone(),
+                starting_inbox_witness,
+                p_anchor_witness: start.anchor_witness.clone(),
                 blocks,
                 anchors,
                 reference_headers: headers.iter().map(|header| header.raw().clone()).collect(),
@@ -1218,26 +1267,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     }
 }
 
-/// The anchors a batch's reference chain must reach: p's anchor, every block's anchor and, for a
-/// batch from the recovery origin c itself, R. Later batches authenticate the fixed origin
-/// record under their starting anchor, so R never ages a generation out of the reference bound.
-pub(crate) fn consumed_anchors(
-    snapshot: &LandingSnapshot,
-    parent_anchor: &AnchorState,
-    anchors: &[AnchorState],
-) -> Result<Vec<AnchorState>> {
-    let mut consumed =
-        std::iter::once(parent_anchor.clone()).chain(anchors.iter().cloned()).collect::<Vec<_>>();
-    if let Some(origin) = &snapshot.recovery &&
-        snapshot.checkpoint_height == origin.height
-    {
-        consumed.push(recovery_anchor(snapshot)?);
-    }
-    Ok(consumed)
-}
-
 /// Reconstructs R's proof-bound anchor, whose canonicality a recovery generation's checkpoint
-/// rechecks and which a batch from c adds to its reference ancestry ([`consumed_anchors`]).
+/// rechecks and at which its origin key list is obtained.
 pub(crate) fn recovery_anchor(snapshot: &LandingSnapshot) -> Result<AnchorState> {
     use alloy_rlp::Decodable;
     let bytes = snapshot
@@ -1454,20 +1485,17 @@ mod tests {
             self.fixture().execution_header(number).await
         }
 
-        async fn parent_anchor(
-            &self,
-            snapshot: &LandingSnapshot,
-            parent: &ParentContext,
-        ) -> Result<AnchorState> {
-            self.fixture().parent_anchor(snapshot, parent).await
+        async fn origin_anchor(&self, snapshot: &LandingSnapshot) -> Result<AnchorState> {
+            self.fixture().origin_anchor(snapshot).await
         }
 
         async fn starting_inbox_witness(
             &self,
-            anchor: &AnchorState,
+            reference: &abci::RawL1Header,
+            generation: u64,
         ) -> Result<abci::AnchorWitness> {
             self.inbox_reads.fetch_add(1, Ordering::Relaxed);
-            self.fixture().starting_inbox_witness(anchor).await
+            self.fixture().starting_inbox_witness(reference, generation).await
         }
 
         async fn fallback_keys(
@@ -1685,7 +1713,8 @@ mod tests {
         b.validate_checkpoint(&snapshot).await.unwrap();
         b.observe(&snapshot).await.unwrap();
         b.prepare(snapshot.clone()).await.unwrap().unwrap();
-        // One start: the grandparent header and the origin key list, read once.
+        // One start: the grandparent header and the origin key list, read once; the starting
+        // Inbox proof is read once, under the one prepared batch's reference header.
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 1);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
         assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
@@ -1736,7 +1765,8 @@ mod tests {
         *source.fixture.write().unwrap() = Arc::new(Fixture::new(30, 30));
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
-        assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 2);
+        // A start reads no starting Inbox proof: each batch reads it under its reference.
+        assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 0);
         // The origin key list is read once by its hash, whatever start needs it.
         assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
@@ -1773,7 +1803,7 @@ mod tests {
 
     /// Generation zero's initial set is the list whose hash its origin record holds, each key at
     /// power 1, not the one slot 278 names after a later `setFallbackKeys`: the list comes by
-    /// the origin's hash, which the batch's starting proof carries.
+    /// the hash the origin record holds.
     #[tokio::test]
     async fn initial_set_is_the_origin_list_at_power_one() {
         let fixture = Fixture::new(18, 30);
@@ -1786,9 +1816,9 @@ mod tests {
         assert_eq!(start.validators.total_voting_power(), 2);
     }
 
-    /// The batch takes generation zero's origin hash from origin word 4 of its starting proof,
-    /// never from slot 278: after a later `setFallbackKeys` moved slot 278 to another list, the
-    /// starting proof still names the origin list, whose keys form the initial set.
+    /// The batch takes generation zero's origin hash from origin word 4, never from slot 278:
+    /// after a later `setFallbackKeys` moved slot 278 to another list, the starting proof under a
+    /// later header and the snapshot still name the origin list, whose keys form the initial set.
     #[tokio::test]
     async fn snapshot_takes_the_origin_hash_from_origin_word_4() {
         use abci::l1::layout::inbox;
@@ -1798,18 +1828,23 @@ mod tests {
         let mut fixture = Fixture::new(18, 30);
         fixture.fallback_lists.insert(other.hash(), other.clone());
         let origin = fixture.origin_keys.clone();
+        let moved = [(inbox::slot(278), other.hash().into())];
         let number = fixture.anchors[&18].number;
-        let (witness, anchor) = fixture
-            .starting_witness_with_inbox_words(number, [(inbox::slot(278), other.hash().into())]);
-        assert_eq!(anchor.inbox.fallback_keys_hash, other.hash());
-        let (_, origin_hash) =
-            crate::l1::verify_starting_inbox(&witness, &anchor, fixture.params.inbox).unwrap();
-        assert_eq!(origin_hash, origin.hash());
+        let witness = fixture.starting_witness_with_inbox_words(number, moved);
+        let (_, record) =
+            crate::l1::verify_starting_inbox(&witness, &witness.l1_header, 0, fixture.params.inbox)
+                .unwrap();
+        assert_eq!(record.fallback_keys_hash, origin.hash());
 
-        let snapshot = fixture.snapshot.clone();
+        let snapshot = fixture.snapshot_with_inbox_words(moved);
+        crate::l1::authenticate_snapshot(&snapshot, &fixture.params).unwrap();
+        assert_eq!(
+            crate::l1::snapshot_origin(&snapshot).unwrap().fallback_keys_hash,
+            origin.hash()
+        );
+        let anchor = fixture.anchors[&18].clone();
         let source = TrackingSource::new(fixture);
-        let validators =
-            source.builder(1).initial_set(&snapshot, &anchor, origin_hash).await.unwrap();
+        let validators = source.builder(1).initial_set(&snapshot, &anchor).await.unwrap();
         let expected = Validators::from_powers(&origin.validator_set()).unwrap();
         assert_eq!(validators.hash(), expected.hash());
     }
@@ -1832,18 +1867,17 @@ mod tests {
         assert_eq!(source.fixture().fallback_reads.load(Ordering::SeqCst), 1);
     }
 
-    /// The origin hash comes from the origin record the batch's own starting proof carries, so
-    /// no root but the batch's anchors authenticates the set: a snapshot naming another hash is
-    /// refused before any list is read.
+    /// The origin hash comes from the origin record the snapshot authenticates: a snapshot
+    /// naming another hash is refused before any list is read.
     #[tokio::test]
-    async fn the_starting_proof_binds_the_origin_list_hash() {
+    async fn the_snapshot_binds_the_origin_list_hash() {
         let recovered = crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 18).await;
         let source = TrackingSource::new(recovered);
         let mut snapshot = source.fixture().snapshot.clone();
         snapshot.recovery.as_mut().unwrap().fallback_keys_hash = B256::repeat_byte(0x99);
-        let result = source.builder(18).checkpoint(&snapshot).await;
+        let result = source.builder(18).validate_checkpoint(&snapshot).await;
         assert!(
-            matches!(&result, Err(LanderError::Safety(message)) if message.contains("fallbackKeysHash")),
+            matches!(&result, Err(LanderError::Safety(message)) if message.contains("recovery origin")),
             "{:?}",
             result.err()
         );
@@ -1878,6 +1912,8 @@ mod tests {
         assert_eq!(source.block_reads.load(Ordering::Relaxed), 2);
     }
 
+    /// A snapshot whose generation, genesis or configuration differs never reuses the start
+    /// retained for the original, which stays retained.
     #[tokio::test]
     async fn cached_context_cannot_outlive_generation_genesis_or_bootstrap_identity() {
         for mutation in 0..3 {
@@ -1892,7 +1928,15 @@ mod tests {
                 2 => changed.config_hash = alloy_primitives::B256::ZERO,
                 _ => unreachable!(),
             }
-            assert!(matches!(b.checkpoint(&changed).await, Err(LanderError::Safety(_))));
+            assert!(matches!(b.validate_checkpoint(&changed).await, Err(LanderError::Safety(_))));
+            let reads = source.history_reads.load(Ordering::Relaxed);
+            b.validate_checkpoint(&snapshot).await.unwrap();
+            assert_eq!(source.history_reads.load(Ordering::Relaxed), reads, "mutation {mutation}");
+            // The checkpoint's own extraData names generation zero, so no start is built for
+            // another generation either.
+            if mutation == 0 {
+                assert!(matches!(b.checkpoint(&changed).await, Err(LanderError::Safety(_))));
+            }
         }
     }
 
@@ -2225,9 +2269,7 @@ mod tests {
     #[tokio::test]
     async fn an_unavailable_lookup_keeps_the_remembered_tip() {
         let source = TrackingSource::new(Fixture::new(18, 30));
-        let fixture = source.fixture();
-        let parent = fixture.parent_header(&fixture.snapshot).await.unwrap();
-        let start = fixture.parent_anchor(&fixture.snapshot, &parent).await.unwrap();
+        let start = source.fixture().anchors[&18].clone();
         let b = source.builder(1);
         b.tip_anchor(&start, 18, 22).await.unwrap();
         assert_eq!(b.tip_anchor.lock().await.as_ref().map(|memo| memo.height), Some(22));
@@ -2244,8 +2286,7 @@ mod tests {
     async fn advisory_anchor_keeps_l1_errors_distinct_from_invalid_witnesses() {
         let source = TrackingSource::new(Fixture::new(18, 30));
         let fixture = source.fixture();
-        let parent = fixture.parent_header(&fixture.snapshot).await.unwrap();
-        let start = fixture.parent_anchor(&fixture.snapshot, &parent).await.unwrap();
+        let start = fixture.anchors[&18].clone();
         let envelope = abci::EtnaEnvelope::decode(&fixture.blocks[&23].block.data[0]).unwrap();
         let witness = envelope.anchor.unwrap();
         let b = source.builder(1);
@@ -2285,15 +2326,269 @@ mod tests {
         assert!(error.to_string().contains(&violation.to_string()), "{error}");
     }
 
+    /// The anchor witness the fixture's block `height` carries.
+    fn carried_witness(fixture: &Fixture, height: u64) -> abci::AnchorWitness {
+        abci::EtnaEnvelope::decode(&fixture.blocks[&height].block.data[0])
+            .unwrap()
+            .anchor
+            .expect("the block carries its anchor witness")
+    }
+
+    /// The fixture's reference chain as the headers' L1 numbers, newest first.
+    fn reference_numbers(request: &ProofRequest) -> Vec<u64> {
+        request
+            .batch
+            .reference_headers
+            .iter()
+            .map(|raw| abci::RawL1Header::from_raw(raw.clone()).unwrap().number())
+            .collect()
+    }
+
+    /// p = 22 uses anchor 11, which block 7 carried, and p + 1 moves to anchor 12. With a bound
+    /// one header short of reaching 11 from the reference tip 14, the batch still lands: p's
+    /// anchor comes from block 7's witness, checked against p's EL header, and stays off the
+    /// reference chain, which reaches 12 only.
     #[tokio::test]
-    async fn checkpoint_rejects_proving_anchor_not_embedded_in_its_el_header() {
-        let mut fixture = Fixture::new(24, 30);
-        fixture.parent_anchor_override = Some(fixture.anchors[&20].clone());
-        let fixture = Arc::new(fixture);
+    async fn p_anchor_beyond_the_reference_bound_succeeds_when_p_plus_1_moves_the_anchor() {
+        let mut fixture = Fixture::new(22, 30);
+        assert_eq!((fixture.anchors[&22].number, fixture.anchors[&23].number), (11, 12));
+        let tip = fixture.snapshot.l1_block_number - 1;
+        fixture.reference_bound = tip - 11;
+        let p_anchor = fixture.anchors[&22].clone();
         assert!(matches!(
-            builder(fixture.clone(), limits(1)).validate_checkpoint(&fixture.snapshot).await,
-            Err(LanderError::Safety(_))
+            crate::l1::reference_floor(
+                std::slice::from_ref(&p_anchor),
+                tip,
+                fixture.reference_bound
+            ),
+            Err(LanderError::Capacity(_))
         ));
+        let fixture = Arc::new(fixture);
+        let request = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(request.batch.parent_anchor, p_anchor);
+        assert_eq!(request.batch.p_anchor_witness, Some(carried_witness(&fixture, 7)));
+        assert!(request.batch.anchors.iter().all(|anchor| anchor.number == 12));
+        assert_eq!(reference_numbers(&request), (12..=tip).rev().collect::<Vec<_>>());
+        request.batch.verify_restored().unwrap();
+        // The journal keeps p's anchor witness as its exact RLP.
+        let journaled: crate::types::PreparedBatch =
+            serde_json::from_slice(&serde_json::to_vec(&request.batch).unwrap()).unwrap();
+        assert_eq!(journaled, request.batch);
+    }
+
+    /// p = 21 uses anchor 11 and p + 1 inherits it, so p's anchor is p + 1's and must reach the
+    /// reference chain like every anchor of (p, h]: under the same bound the batch is refused for
+    /// capacity, and one header more lets the chain reach 11.
+    #[tokio::test]
+    async fn inherited_p_anchor_beyond_the_bound_is_capacity() {
+        let mut fixture = Fixture::new(21, 30);
+        assert_eq!((fixture.anchors[&21].number, fixture.anchors[&22].number), (11, 11));
+        let tip = fixture.snapshot.l1_block_number - 1;
+        fixture.reference_bound = tip - 11;
+        let capped = Arc::new(fixture);
+        let error = builder(capped.clone(), limits(6))
+            .prepare(capped.snapshot.clone())
+            .await
+            .expect_err("the inherited anchor lies beyond the bound");
+        assert!(matches!(error, LanderError::Capacity(_)), "{error}");
+
+        let mut fixture = Fixture::new(21, 30);
+        fixture.reference_bound = tip - 11 + 1;
+        let fixture = Arc::new(fixture);
+        let request = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(request.batch.anchors[0], request.batch.parent_anchor);
+        assert_eq!(reference_numbers(&request).last(), Some(&11));
+    }
+
+    /// p's anchor witness must prove the anchor p's `extraData` names, under the root p's
+    /// `parentBeaconBlockRoot` names, in p's generation. p = 24 inherits anchor 12 from block
+    /// 23; an own Comet node that serves block 23 with block 7's witness of anchor 11 stops the
+    /// lander.
+    #[tokio::test]
+    async fn p_anchor_number_must_match_p_extra_data() {
+        let fixture = Fixture::new(24, 30);
+        let header = &fixture.headers[&24];
+        let witness = carried_witness(&fixture, 23);
+        let inbox = fixture.params.inbox;
+        assert_eq!(
+            crate::l1::verify_checkpoint_anchor(&witness, header, 0, inbox).unwrap(),
+            fixture.anchors[&24]
+        );
+        let other = carried_witness(&fixture, 7);
+        let mut moved = header.clone();
+        let mut extra = rules::decode_extra_data(&header.extra_data).unwrap();
+        extra.anchor = 11;
+        moved.extra_data = rules::encode_extra_data(&extra).unwrap();
+        let mut rooted = header.clone();
+        rooted.parent_beacon_block_root = Some(fixture.anchors[&7].state_root);
+        let mut regenerated = header.clone();
+        let mut extra = rules::decode_extra_data(&header.extra_data).unwrap();
+        extra.generation = 1;
+        regenerated.extra_data = rules::encode_extra_data(&extra).unwrap();
+        for (witness, header, why) in [
+            (&other, header, "extraData names L1 12"),
+            (&witness, &moved, "extraData names L1 11"),
+            (&witness, &rooted, "parentBeaconBlockRoot"),
+            (&witness, &regenerated, "another generation"),
+        ] {
+            let error = crate::l1::verify_checkpoint_anchor(witness, header, 0, inbox).unwrap_err();
+            assert!(
+                matches!(&error, LanderError::Safety(message) if message.contains(why)),
+                "{why}: {error}"
+            );
+        }
+
+        let mut served = fixture;
+        let pair = served.blocks.get_mut(&23).unwrap();
+        let mut envelope = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
+        envelope.anchor = Some(other);
+        pair.block.data[0] = envelope.encode().to_vec();
+        let served = Arc::new(served);
+        let error = builder(served.clone(), limits(6))
+            .validate_checkpoint(&served.snapshot)
+            .await
+            .expect_err("block 23 serves another anchor's witness");
+        assert!(
+            matches!(&error, LanderError::Safety(message) if message.contains("extraData names L1 12")),
+            "{error}"
+        );
+    }
+
+    /// p = 24 uses anchor 12 and p + 1 inherits it, carrying no witness: p's witness is then
+    /// checked against p + 1's EL header too, through p + 1's block rules, so a p + 1 whose
+    /// `parentBeaconBlockRoot` or `extraData` anchor differs from it is refused.
+    #[tokio::test]
+    async fn inherited_witness_is_checked_against_p_plus_1() {
+        let fixture = Arc::new(Fixture::new(24, 30));
+        assert!(
+            abci::EtnaEnvelope::decode(&fixture.blocks[&25].block.data[0])
+                .unwrap()
+                .anchor
+                .is_none()
+        );
+        let request = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let witness = request.batch.p_anchor_witness.clone().unwrap();
+        assert_eq!(witness, carried_witness(&fixture, 23));
+        assert_eq!(request.batch.anchors[0], request.batch.parent_anchor);
+        assert_eq!(
+            crate::l1::verify_checkpoint_anchor(
+                &witness,
+                &fixture.headers[&25],
+                0,
+                fixture.params.inbox
+            )
+            .unwrap(),
+            request.batch.parent_anchor
+        );
+
+        let other_root = fixture.anchors[&7].state_root;
+        for (change, why) in [(0, "parent_beacon_block_root"), (1, "anchor witness")] {
+            let mut fixture = Fixture::new(24, 30);
+            alter_envelope(&mut fixture, 25, |envelope| {
+                let header = &mut envelope.block.header;
+                if change == 0 {
+                    header.parent_beacon_block_root = Some(other_root);
+                } else {
+                    let mut extra = rules::decode_extra_data(&header.extra_data).unwrap();
+                    extra.anchor = 11;
+                    header.extra_data = rules::encode_extra_data(&extra).unwrap();
+                }
+            });
+            // A one-block batch: block 26 no longer links to the altered block 25.
+            let fixture = Arc::new(fixture);
+            let error = builder(fixture.clone(), limits(1))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .expect_err("p + 1 contradicts the anchor it inherits");
+            assert!(
+                matches!(&error, LanderError::Safety(message) if message.contains(why)),
+                "{why}: {error}"
+            );
+        }
+    }
+
+    /// The configuration hash, the start record, slot 282 and the origin record are proven under
+    /// the reference header, not under p's anchor: the proof carries the reference header and the
+    /// starting slots, which hold no anchor slot, and a reference whose Inbox holds another value
+    /// of any of them stops the batch.
+    #[tokio::test]
+    async fn origin_and_config_are_read_under_the_reference_root() {
+        use abci::l1::layout::inbox;
+        let fixture = Arc::new(Fixture::new(22, 30));
+        let request = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let reference =
+            abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
+        let witness = &request.batch.starting_inbox_witness;
+        assert_eq!(witness.l1_header, reference);
+        let slots = witness.inbox.storage.iter().map(|proof| proof.slot).collect::<Vec<_>>();
+        assert_eq!(slots, crate::l1::starting_slots(0));
+        for slot in [
+            inbox::LAST_CHECKPOINT_HEIGHT,
+            inbox::LAST_CHECKPOINT_HASH,
+            inbox::FALLBACK_KEYS_HASH,
+            inbox::MIN_TOTAL_STAKE,
+            inbox::FORCED_INCLUSION_HEAD_TAIL,
+            inbox::RULES_SCHEDULE,
+        ] {
+            assert!(!slots.contains(&inbox::slot(slot)), "anchor slot {slot}");
+        }
+        let (genesis, origin) =
+            crate::l1::verify_starting_inbox(witness, &reference, 0, fixture.params.inbox).unwrap();
+        assert_eq!(genesis, fixture.snapshot.genesis);
+        assert_eq!(origin, crate::l1::snapshot_origin(&fixture.snapshot).unwrap());
+        // The same slots proven under p's anchor root do not stand in for the reference's.
+        let p_anchor = fixture.l1_headers[&11].clone();
+        let under_p = abci::AnchorWitness {
+            inbox: fixture.import_witness(fixture.params.inbox, &slots, 11),
+            l1_header: p_anchor.clone(),
+        };
+        crate::l1::verify_starting_inbox(&under_p, &p_anchor, 0, fixture.params.inbox).unwrap();
+        assert!(
+            crate::l1::verify_starting_inbox(&under_p, &reference, 0, fixture.params.inbox)
+                .is_err()
+        );
+
+        let origin_hash = inbox::origin_slots(0)[3];
+        let contradicts = "contradicts the snapshot";
+        for (slot, value, why) in [
+            (inbox::slot(inbox::CONFIG_HASH), U256::from(7), contradicts),
+            (inbox::slot(inbox::START_BLOCK_HASH), U256::from(7), contradicts),
+            (
+                inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
+                U256::from(3_601) | U256::from(7_200) << 48,
+                contradicts,
+            ),
+            (origin_hash, U256::from(7), contradicts),
+            (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(1), "in generation 1, not 0"),
+        ] {
+            let mut fixture = Fixture::new(22, 30);
+            fixture.rewrite_inbox_at(reference.number(), [(slot, value)]);
+            let fixture = Arc::new(fixture);
+            let error = builder(fixture.clone(), limits(6))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .expect_err("the reference's Inbox contradicts the snapshot");
+            assert!(
+                matches!(&error, LanderError::Safety(message) if message.contains(why)),
+                "slot {slot}: {error}"
+            );
+        }
     }
 
     #[tokio::test]
@@ -2648,8 +2943,11 @@ mod tests {
         }
     }
 
+    /// The starting Inbox proof under the reference header must prove every starting slot
+    /// as stored: one without the configuration hash, or with another origin `fallbackKeysHash`,
+    /// stops the batch.
     #[tokio::test]
-    async fn starting_inbox_checkpoint_proofs_are_required_and_cannot_be_mutated() {
+    async fn starting_inbox_proofs_are_required_and_cannot_be_mutated() {
         for mutation in [0, 1] {
             let mut fixture = Fixture::new(24, 30);
             fixture.starting_proof_mutation = Some(mutation);
@@ -2706,14 +3004,6 @@ mod tests {
                 .unwrap()
                 .unwrap();
             assert_eq!(request.batch.input.lastHeight, last);
-            let (genesis, origin_hash) = crate::l1::verify_starting_inbox(
-                &request.batch.starting_inbox_witness,
-                &request.batch.parent_anchor,
-                fixture.params.inbox,
-            )
-            .unwrap();
-            assert_eq!(genesis, request.batch.snapshot.genesis);
-            assert_eq!(origin_hash, fixture.origin_keys.hash());
             let headers = request
                 .batch
                 .reference_headers
@@ -2721,31 +3011,27 @@ mod tests {
                 .map(|raw| abci::RawL1Header::from_raw(raw.clone()).unwrap())
                 .collect::<Vec<_>>();
             assert!(headers.iter().all(|h| h.number() < request.batch.snapshot.l1_block_number));
+            let witness = &request.batch.starting_inbox_witness;
+            let (genesis, origin) =
+                crate::l1::verify_starting_inbox(witness, &headers[0], 0, fixture.params.inbox)
+                    .unwrap();
+            assert_eq!(genesis, request.batch.snapshot.genesis);
+            assert_eq!(origin.fallback_keys_hash, fixture.origin_keys.hash());
             assert_eq!(
-                request
-                    .batch
-                    .starting_inbox_witness
-                    .inbox
-                    .storage
-                    .iter()
-                    .map(|p| p.slot)
-                    .collect::<Vec<_>>(),
+                witness.inbox.storage.iter().map(|p| p.slot).collect::<Vec<_>>(),
                 crate::l1::starting_slots(request.batch.snapshot.generation)
             );
+            // The proof holds under the reference header only, not under an older L1 header with
+            // another root.
+            let older = &fixture.l1_headers[&10];
+            assert_ne!(older.state_root(), headers[0].state_root());
+            let mut moved = witness.clone();
+            moved.l1_header = older.clone();
             assert!(
-                headers
-                    .iter()
-                    .any(|h| h.hash() == request.batch.starting_inbox_witness.l1_header.hash())
+                crate::l1::verify_starting_inbox(&moved, older, 0, fixture.params.inbox).is_err()
             );
-            let mut changed_parent = request.batch.parent_anchor.clone();
-            changed_parent.inbox.last_checkpoint_height += 1;
             assert!(
-                crate::l1::verify_starting_inbox(
-                    &request.batch.starting_inbox_witness,
-                    &changed_parent,
-                    fixture.params.inbox
-                )
-                .is_err()
+                crate::l1::verify_starting_inbox(witness, older, 0, fixture.params.inbox).is_err()
             );
         }
     }

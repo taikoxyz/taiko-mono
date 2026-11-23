@@ -71,11 +71,11 @@ impl LandingSource for Decided {
         Err(unread("L2"))
     }
 
-    async fn parent_anchor(&self, _: &LandingSnapshot, _: &ParentContext) -> Result<AnchorState> {
+    async fn origin_anchor(&self, _: &LandingSnapshot) -> Result<AnchorState> {
         Err(unread("L1"))
     }
 
-    async fn starting_inbox_witness(&self, _: &AnchorState) -> Result<AnchorWitness> {
+    async fn starting_inbox_witness(&self, _: &RawL1Header, _: u64) -> Result<AnchorWitness> {
         Err(unread("L1"))
     }
 

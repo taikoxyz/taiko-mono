@@ -76,6 +76,10 @@ pub struct InboxFacts {
 /// The Etna genesis record read from the Inbox: the configuration hash (slot 269), the start
 /// write (slots 272–274) and the forced inclusion configuration (slot 282).
 pub use etna_core::types::GenesisRecord;
+/// A generation's four-word origin record (slot 290): its start height, the L1 block that
+/// wrote the record and that block's timestamp, and the `fallbackKeysHash` of the list whose
+/// keys sign the generation's first two blocks.
+pub use etna_core::types::OriginRecord;
 
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
