@@ -324,12 +324,12 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
 
     /// @dev Every `pop_rejections` case fails registration's PoP check: a signature that is
     /// malformed, out of range or unrecoverable reverts with `InvalidSignature`; a well-formed
-    /// one bound to another owner, key, chain, registry or parity recovers to a nonzero address
-    /// other than the key's `ckAddr`.
+    /// one bound to another owner, key, chain, verifying contract or parity recovers to a nonzero
+    /// address other than the key's `ckAddr`.
     function test_recoverSigner_RejectsEveryPopRejection() external view {
         string memory j = LibEtnaVectors.load();
-        // Every case is checked at the deployment's registry on L1 chain 1, the domain of the
-        // `register_digests` cases.
+        // Every case is checked at the deployment's staking proxy on L2 chain 167001, the domain of
+        // the `register_digests` cases.
         bytes32 domainSeparator = _bytes32(j, ".register_digests[0].", "domain_separator");
         uint256 n = LibEtnaVectors.lengthAt(j, ".pop_rejections");
         uint256 reverted;

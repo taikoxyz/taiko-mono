@@ -91,6 +91,80 @@ library LibEtnaVectors {
         return _VM.parseJsonString(_json, _key);
     }
 
+    /// @dev Reads the boolean at `_key`.
+    /// @param _json The vectors document.
+    /// @param _key The JSON path.
+    /// @return The value.
+    function boolAt(string memory _json, string memory _key) internal pure returns (bool) {
+        return _VM.parseJsonBool(_json, _key);
+    }
+
+    /// @dev Reads the `bytes32` array at `_key`, possibly empty.
+    /// @param _json The vectors document.
+    /// @param _key The JSON path.
+    /// @return The values.
+    function bytes32ArrayAt(
+        string memory _json,
+        string memory _key
+    )
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        return _VM.parseJsonBytes32Array(_json, _key);
+    }
+
+    /// @dev Returns whether the value at `_key` is JSON null. Forge reads a null without error, as
+    /// the string "null" and as a single zero word, so a reader that may meet one asks here first.
+    /// Every number in the file is a decimal string, so no other value of a nullable field reads
+    /// as both.
+    /// @param _json The vectors document.
+    /// @param _key The JSON path.
+    /// @return Whether the value is null.
+    function isNullAt(string memory _json, string memory _key) internal pure returns (bool) {
+        bytes memory raw = _VM.parseJson(_json, _key);
+        return raw.length == 32 && bytes32(raw) == 0
+            && keccak256(bytes(_VM.parseJsonString(_json, _key))) == keccak256("null");
+    }
+
+    /// @dev Returns the number of entries of the object at `_family`, such as `.governance_abi`,
+    /// whose `contract` label is `_contract`.
+    /// @param _json The vectors document.
+    /// @param _family The JSON path of the object.
+    /// @param _contract The label: `inbox`, `staking` or `unzen_inbox`.
+    /// @return count_ The number of entries with that label.
+    function countWithContract(
+        string memory _json,
+        string memory _family,
+        string memory _contract
+    )
+        internal
+        pure
+        returns (uint256 count_)
+    {
+        string[] memory names = _VM.parseJsonKeys(_json, _family);
+        for (uint256 i; i < names.length; ++i) {
+            string memory label =
+                _VM.parseJsonString(_json, string.concat(_family, ".", names[i], ".contract"));
+            if (keccak256(bytes(label)) == keccak256(bytes(_contract))) ++count_;
+        }
+    }
+
+    /// @dev Returns the number of entries of the object at `_family`.
+    /// @param _json The vectors document.
+    /// @param _family The JSON path of the object.
+    /// @return The entry count.
+    function entryCount(
+        string memory _json,
+        string memory _family
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        return _VM.parseJsonKeys(_json, _family).length;
+    }
+
     /// @dev Reads the domain tag named at `_key`: its ASCII name right-padded with zero bytes.
     /// @param _json The vectors document.
     /// @param _key The JSON path of the tag's name.
@@ -137,7 +211,26 @@ library LibEtnaVectors {
 /// @title EtnaVectorReader
 /// @notice The field readers of the suites that walk `vectors.json` item by item: `_at` names an
 /// array item and the others read field `_field` of the item whose path prefix is `_p`.
+/// @dev Every read returns fresh memory that is never reclaimed, and memory expansion costs gas
+/// quadratically, so a loop over many items releases what an iteration allocated: it takes
+/// `_freeMemory()` before the iteration and passes it to `_releaseMemory` after it, once nothing
+/// the iteration allocated is used again.
 abstract contract EtnaVectorReader {
+    /// @dev Returns the free memory pointer.
+    function _freeMemory() internal pure returns (uint256 pointer_) {
+        assembly ("memory-safe") {
+            pointer_ := mload(0x40)
+        }
+    }
+
+    /// @dev Releases the memory allocated since `_pointer`, which `_freeMemory` returned; nothing
+    /// allocated after it may be used again.
+    function _releaseMemory(uint256 _pointer) internal pure {
+        assembly {
+            mstore(0x40, _pointer)
+        }
+    }
+
     function _at(string memory _array, uint256 _index) internal pure returns (string memory) {
         return LibEtnaVectors.itemAt(_array, _index);
     }
@@ -200,5 +293,41 @@ abstract contract EtnaVectorReader {
         returns (string memory)
     {
         return LibEtnaVectors.stringAt(_j, string.concat(_p, _field));
+    }
+
+    function _bool(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return LibEtnaVectors.boolAt(_j, string.concat(_p, _field));
+    }
+
+    function _bytes32Array(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        return LibEtnaVectors.bytes32ArrayAt(_j, string.concat(_p, _field));
+    }
+
+    function _isNull(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return LibEtnaVectors.isNullAt(_j, string.concat(_p, _field));
     }
 }
