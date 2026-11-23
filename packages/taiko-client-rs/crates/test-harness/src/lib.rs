@@ -48,7 +48,7 @@ pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer, sign_
 pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter};
 pub use signer::{
     init_signer_domains_log, init_signer_state, signer_binary, signer_domains_log, signer_hrs,
-    supervisor_command,
+    supervisor_command, test_comet_manifest,
 };
 pub use wait::{Fatal, wait_until};
 

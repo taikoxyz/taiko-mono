@@ -814,7 +814,7 @@ async fn registered_follow(
     // The same chain_id keeps its one HRS state: the imported stores run the same signer
     // configuration as before the import (DATA-5.4-7, RECOV-8.2-1).
     let mut command =
-        test_harness::supervisor_command(&ready.join("comet"), &ready.join("app"), &dir, &chain);
+        test_harness::supervisor_command(&ready.join("comet"), &ready.join("app"), &dir, &chain)?;
     command
         .env("ETNA_SIGNER_BIN", binary("ETNA_SIGNER_BIN", "etna-signer")?)
         .env("ETNA_COMET_BIN", binary("ETNA_COMET_BIN", "cometbft")?);

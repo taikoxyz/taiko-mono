@@ -13,6 +13,8 @@ const APP: &str = "/fixture/app-g1";
 const PLAN: &str = "/fixture/plan-g1.json";
 /// The transplanted validator directory: `key.json`, `hrs/<chain_id>.json`, `domains/domains.log`.
 const SIGNER: &str = "/fixture/signer";
+/// The supervisor's test deployment manifest.
+const MANIFEST: &str = "/fixture/comet-manifest.json";
 
 pub struct LinuxRuntime {
     name: String,
@@ -240,7 +242,7 @@ impl LinuxRuntime {
             Path::new(APP),
             Path::new(SIGNER),
             &self.chain_id()?,
-        )
+        )?
         .get_envs()
         .filter_map(|(key, value)| Some((key.to_str()?.to_owned(), value?.to_str()?.to_owned())))
         .filter(|(key, _)| key != "ETNA_COMET_MANIFEST")
@@ -251,6 +253,17 @@ impl LinuxRuntime {
             .and_then(toml::Value::as_str)
             .unwrap_or_default();
         env.push(("ETNA_P2P_INBOUND_PEER_IDS".into(), inbound.into()));
+        // The image's deployment manifest pins the production timeout_commit floor, above this
+        // test chain's cadence, so the supervisor checks a copy whose floor is the installed
+        // home's own timeout_commit.
+        let manifest = test_harness::test_comet_manifest(
+            &self.read("/app/comet-manifest.json")?,
+            &String::from_utf8(self.read(&format!("{HOME}/config/config.toml"))?)?,
+        )?;
+        let local = commands.dir.path().join("linux-comet-manifest.json");
+        std::fs::write(&local, serde_json::to_vec_pretty(&manifest)?)?;
+        self.copy(&local, MANIFEST)?;
+        env.push(("ETNA_COMET_MANIFEST".into(), MANIFEST.into()));
         let supervisor = Process::in_container(
             &self.name,
             "/usr/bin/python3",

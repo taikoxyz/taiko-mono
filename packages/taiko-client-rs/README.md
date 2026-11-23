@@ -480,6 +480,14 @@ node's built-in parameters; `abci-genesis` and `InitChain` take the genesis vali
 list whose hash generation 0's origin record holds and refuse a genesis whose configuration hash
 differs.
 
+Stock CometBFT signs with one key, so a fallback key holder runs, for each fallback key, a
+validator instance of its own: Comet, the app, alethia-reth and that key's `etna-signer`, each set
+up as below. Keep every instance online and following the chain at all times, also while the
+candidate set signs: one exit can drop the candidate's total stake below `minTotalStake` and hand
+the chain to the fallback key set within a few blocks, and a key can sign then only if its own
+instance has caught up. If a third or more of the fallback keys cannot sign, consensus halts until
+enough of them return or governance recovery replaces them.
+
 1. **Build the genesis** from L1 (every node must use the same file):
 
    ```sh
@@ -531,7 +539,7 @@ differs.
    type = "nop"                          # user transactions travel over the EL's devp2p
 
    [consensus]
-   timeout_commit = "1s"                 # block cadence; keep it at 1s or more
+   timeout_commit = "4s"                 # block cadence; at least the deployment manifest's floor
 
    [p2p]
    persistent_peers = "<sentry id>@<host>:26656,…"   # the only nodes this validator dials
@@ -580,11 +588,22 @@ differs.
    anyway, its consensus stops, and its block sync stalls, until it is restarted after its clock is
    corrected.
 
+   Every validator also sets `[consensus] timeout_commit`, the block cadence, no lower than the
+   floor the deployment manifest pins, `configuration["consensus.timeout_commit"].min` in
+   `comet-manifest.json` (`4s`, for the ~4 s block-time target); the supervisor refuses to start
+   a validator below it. On a validator the same setting is how long Comet waits for late
+   precommits after a block before the next height starts: a precommit it processes after that
+   counts as a miss, and a candidate member that misses `missLimit` consecutive blocks this way is
+   penalized like an offline one. Comet reads the value as a Go duration string (`"4s"`,
+   `"4000ms"`) or a bare integer in nanoseconds, and uses its stock `1s` when it is unset, which
+   the shipped floor refuses. Full nodes do not check the floor.
+
    These checks read the effective values: every spelling in `config.toml` (Viper folds key case
    and reads literal dotted keys), or the stock default when there is none, and every `CMT_*`
    override in the supervisor's environment, which Comet inherits, in both the `CMT_P2P_PEX` and
-   the copied `CMTP2P_PEX` spelling. Each candidate must pass, an override that cannot be
-   evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
+   the copied `CMTP2P_PEX` spelling (`CMT_CONSENSUS_TIMEOUT_COMMIT` and
+   `CMTCONSENSUS_TIMEOUT_COMMIT` for the floor). Each candidate must pass, an override that cannot
+   be evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
    `ETNA_COMET_HOME` and an explicit Comet argv (`ETNA_COMET_COMMAND_JSON`) that sets any of these
    settings, `db_dir`, `db_backend`, `node_key_file` or `priv_validator_laddr` by flag. Keep the
    values in `config.toml`. The supervisor reads `config.toml` and `genesis.json` again and repeats
@@ -672,8 +691,9 @@ committing those values to the Inbox.
    (CONS-3.1-1). [`comet-manifest.json`](comet-manifest.json), installed as
    `/app/comet-manifest.json`, is the deployment manifest: for each supported platform it names
    the upstream release artifact, the executable's digest, the source commit, the published build
-   recipe and flags, and the configuration the supervisor enforces. On linux/amd64 the image
-   copies `/usr/bin/cometbft` from the official image
+   recipe and flags, and the configuration the supervisor enforces, including the validators'
+   `timeout_commit` floor; a manifest of another schema than 2 is refused. On linux/amd64 the
+   image copies `/usr/bin/cometbft` from the official image
    `cometbft/cometbft:v0.40.0@sha256:0703fb88…` (platform manifest `sha256:53421974…`) and checks
    its sha256 `5fbb1bf5…`; the supervisor checks the digest again before every Comet start, since
    a reported version string alone does not identify the build (the official executable also
