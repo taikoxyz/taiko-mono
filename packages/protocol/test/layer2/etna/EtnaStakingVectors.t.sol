@@ -9,6 +9,7 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { LibCometVote } from "src/layer2/etna/libs/LibCometVote.sol";
 import { LibEtnaKeys } from "src/shared/etna/LibEtnaKeys.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
+import { LibEtnaVectorAbi } from "test/shared/etna/LibEtnaVectorAbi.sol";
 import { EtnaVectorReader, LibEtnaVectors } from "test/shared/etna/LibEtnaVectors.sol";
 
 /// @title EtnaStakingVectorsTest
@@ -450,7 +451,12 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
             assertEq(staking.bondAt(bondId).effStake, balance - penalty, "effStake after");
             assertTrue(staking.forfeited(bondId), "flag");
             if (i == 0) {
-                _assertLoggedEvent(j, "forfeited", logs, IEtnaStaking.Forfeited.selector);
+                LibEtnaVectorAbi.assertEvent(
+                    j,
+                    "forfeited",
+                    "staking",
+                    LibEtnaVectorAbi.logWithTopic(logs, IEtnaStaking.Forfeited.selector)
+                );
             }
             vm.revertToState(fresh);
         }
@@ -465,54 +471,64 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     /// families carries a label this suite or the L1 Inbox suite reads.
     function test_vectors_StakingSelectorsEventsMatchSolidityAbi() external {
         string memory j = LibEtnaVectors.load();
-        _assertStakingLabels(j, ".governance_abi", 7);
-        _assertStakingLabels(j, ".view_abi", 7);
-        _assertStakingLabels(j, ".governance_events", 2);
+        (, uint256 labelled,) = LibEtnaVectorAbi.labelCounts(j, ".governance_abi");
+        assertEq(labelled, 7, "staking calls");
+        (, labelled,) = LibEtnaVectorAbi.labelCounts(j, ".view_abi");
+        assertEq(labelled, 7, "staking views");
+        (, labelled,) = LibEtnaVectorAbi.labelCounts(j, ".governance_events");
+        assertEq(labelled, 2, "staking events");
 
         string memory g = ".governance_abi.";
         string memory reg = ".register_digests[0].";
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "register"),
+            "staking",
             IEtnaStaking.register.selector,
             abi.encodeCall(
                 IEtnaStaking.register, (_bytes(j, reg, "key"), MIN_STAKE, _bytes(j, reg, "pop_sig"))
             )
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "top_up"),
+            "staking",
             IEtnaStaking.topUp.selector,
             abi.encodeCall(IEtnaStaking.topUp, (0, 100))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "request_exit"),
+            "staking",
             IEtnaStaking.requestExit.selector,
             abi.encodeCall(IEtnaStaking.requestExit, (0))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "withdraw"),
+            "staking",
             IEtnaStaking.withdraw.selector,
             abi.encodeCall(IEtnaStaking.withdraw, (0, _OWNER_AA))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "forfeit"),
+            "staking",
             IEtnaStaking.forfeit.selector,
             abi.encodeCall(IEtnaStaking.forfeit, (0, _INCIDENT_ID, _VALID_UNTIL))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "on_block_start"),
+            "staking",
             IEtnaStaking.onBlockStart.selector,
             abi.encodeCall(IEtnaStaking.onBlockStart, (1, 5))
         );
         string[] memory names = _voteNames(j);
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(g, "slash_double_sign"),
+            "staking",
             IEtnaStaking.slashDoubleSign.selector,
             abi.encodeCall(
                 IEtnaStaking.slashDoubleSign,
@@ -531,45 +547,52 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
 
         string memory v = ".view_abi.";
         address a1 = _address(j, ".keys[0].", "ck_addr");
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "bond_for_key"),
+            "staking",
             IEtnaStaking.bondForKey.selector,
             abi.encodeCall(IEtnaStaking.bondForKey, (a1))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "seat_of_bond"),
+            "staking",
             IEtnaStaking.seatOfBond.selector,
             abi.encodeCall(IEtnaStaking.seatOfBond, (0))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "bond_in_seat"),
+            "staking",
             IEtnaStaking.bondInSeat.selector,
             abi.encodeCall(IEtnaStaking.bondInSeat, (0))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "snapshot"),
+            "staking",
             IEtnaStaking.snapshot.selector,
             abi.encodeCall(IEtnaStaking.snapshot, ())
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "register_digest"),
+            "staking",
             IEtnaStaking.registerDigest.selector,
             abi.encodeCall(IEtnaStaking.registerDigest, (_OWNER_AA))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "forfeited"),
+            "staking",
             IEtnaStaking.forfeited.selector,
             abi.encodeCall(IEtnaStaking.forfeited, (0))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             string.concat(v, "min_stake"),
+            "staking",
             IEtnaStaking.minStake.selector,
             abi.encodeCall(IEtnaStaking.minStake, ())
         );
@@ -578,8 +601,18 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         emit IEtnaStaking.TopUpDeposited(0, 100);
         emit IEtnaStaking.Forfeited(0, _INCIDENT_ID, 100, 10);
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        _assertLoggedEvent(j, "top_up_deposited", logs, IEtnaStaking.TopUpDeposited.selector);
-        _assertLoggedEvent(j, "forfeited", logs, IEtnaStaking.Forfeited.selector);
+        LibEtnaVectorAbi.assertEvent(
+            j,
+            "top_up_deposited",
+            "staking",
+            LibEtnaVectorAbi.logWithTopic(logs, IEtnaStaking.TopUpDeposited.selector)
+        );
+        LibEtnaVectorAbi.assertEvent(
+            j,
+            "forfeited",
+            "staking",
+            LibEtnaVectorAbi.logWithTopic(logs, IEtnaStaking.Forfeited.selector)
+        );
     }
 
     /// @dev The staking views at the vector address return `view_abi`'s data: absence for an
@@ -591,25 +624,33 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     function test_views_ReturnTheVectorEncodings() external {
         string memory j = LibEtnaVectors.load();
         _etchVectorStaking(j);
-        _assertViewResult(j, "bond_for_key", 1, "unused_key");
-        _assertViewResult(j, "seat_of_bond", 1, "no_seat");
-        _assertViewResult(j, "bond_in_seat", 1, "empty_seat");
-        _assertViewResult(j, "snapshot", 1, "empty");
-        _assertViewResult(j, "forfeited", 1, "not_forfeited");
-        _assertViewResult(j, "min_stake", 0, "deployment");
-        _assertViewResult(j, "register_digest", 0, "owner_aa");
+        LibEtnaVectorAbi.assertViewResult(
+            j, "bond_for_key", "staking", "unused_key", address(staking)
+        );
+        LibEtnaVectorAbi.assertViewResult(j, "seat_of_bond", "staking", "no_seat", address(staking));
+        LibEtnaVectorAbi.assertViewResult(
+            j, "bond_in_seat", "staking", "empty_seat", address(staking)
+        );
+        LibEtnaVectorAbi.assertViewResult(j, "snapshot", "staking", "empty", address(staking));
+        LibEtnaVectorAbi.assertViewResult(
+            j, "forfeited", "staking", "not_forfeited", address(staking)
+        );
+        LibEtnaVectorAbi.assertViewResult(j, "min_stake", "staking", "deployment", address(staking));
+        LibEtnaVectorAbi.assertViewResult(
+            j, "register_digest", "staking", "owner_aa", address(staking)
+        );
         uint256 fresh = vm.snapshotState();
 
         string memory control = ".register_digests[0].";
         _fund(_OWNER_AA, MIN_STAKE);
         vm.prank(_OWNER_AA);
         staking.register(_bytes(j, control, "key"), MIN_STAKE, _bytes(j, control, "pop_sig"));
-        _assertViewResult(j, "bond_for_key", 0, "bond_0");
-        _assertViewResult(j, "seat_of_bond", 0, "seat_0");
-        _assertViewResult(j, "bond_in_seat", 0, "bond_0");
+        LibEtnaVectorAbi.assertViewResult(j, "bond_for_key", "staking", "bond_0", address(staking));
+        LibEtnaVectorAbi.assertViewResult(j, "seat_of_bond", "staking", "seat_0", address(staking));
+        LibEtnaVectorAbi.assertViewResult(j, "bond_in_seat", "staking", "bond_0", address(staking));
         vm.prank(STAKING_OWNER);
         staking.forfeit(0, _INCIDENT_ID, block.timestamp);
-        _assertViewResult(j, "forfeited", 0, "forfeited");
+        LibEtnaVectorAbi.assertViewResult(j, "forfeited", "staking", "forfeited", address(staking));
         vm.revertToState(fresh);
 
         _register(1, Bob, MIN_STAKE);
@@ -621,7 +662,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         vm.roll(10);
         vm.prank(SYSTEM_CALLER);
         staking.onBlockStart(0, 0);
-        _assertViewResult(j, "snapshot", 0, "two_seats");
+        LibEtnaVectorAbi.assertViewResult(j, "snapshot", "staking", "two_seats", address(staking));
         IEtnaStaking.SeatMember[] memory members = new IEtnaStaking.SeatMember[](2);
         members[0] = IEtnaStaking.SeatMember({ seat: 0, ckPrefix: 2, ckX: _K1_X, power: 100_000 });
         members[1] = IEtnaStaking.SeatMember({ seat: 2, ckPrefix: 2, ckX: _K2_X, power: 250_000 });
@@ -1059,97 +1100,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     }
 
     // ---------------------------------------------------------------
-    // Helpers: ABI
+    // Helpers: encodings
     // ---------------------------------------------------------------
-
-    /// @dev The family at `_family` has `_staking` entries labelled `staking`, and every entry is
-    /// labelled `staking`, `inbox` or `unzen_inbox`.
-    function _assertStakingLabels(
-        string memory _j,
-        string memory _family,
-        uint256 _staking
-    )
-        private
-        pure
-    {
-        uint256 stakingCount = LibEtnaVectors.countWithContract(_j, _family, "staking");
-        assertEq(stakingCount, _staking, string.concat(_family, ": staking entries"));
-        assertEq(
-            stakingCount + LibEtnaVectors.countWithContract(_j, _family, "inbox")
-                + LibEtnaVectors.countWithContract(_j, _family, "unzen_inbox"),
-            LibEtnaVectors.entryCount(_j, _family),
-            string.concat(_family, ": every entry names a known contract")
-        );
-    }
-
-    /// @dev The staking call entry at `_p`: its signature hashes to its selector, which is
-    /// Solidity's `_selector`, and its calldata is `_calldata`.
-    function _assertCall(
-        string memory _j,
-        string memory _p,
-        bytes4 _selector,
-        bytes memory _calldata
-    )
-        private
-        pure
-    {
-        assertEq(_string(_j, _p, ".contract"), "staking", _p);
-        assertEq(_bytes(_j, _p, ".selector"), abi.encodePacked(_selector), _p);
-        assertEq(bytes4(keccak256(bytes(_string(_j, _p, ".signature")))), _selector, _p);
-        assertEq(_bytes(_j, _p, ".calldata"), _calldata, _p);
-    }
-
-    /// @dev The staking view `view_abi.<_name>` returns the data of its result `_index`, named
-    /// `_result`.
-    function _assertViewResult(
-        string memory _j,
-        string memory _name,
-        uint256 _index,
-        string memory _result
-    )
-        private
-        view
-    {
-        string memory v = string.concat(".view_abi.", _name, ".");
-        string memory r = string.concat(v, "results[", vm.toString(_index), "].");
-        assertEq(_string(_j, r, "name"), _result, _name);
-        (bool ok, bytes memory data) = address(staking).staticcall(_bytes(_j, v, "calldata"));
-        assertTrue(ok, _name);
-        assertEq(data, _bytes(_j, r, "data"), string.concat(_name, ": ", _result));
-    }
-
-    /// @dev The log of `_logs` with topic0 `_topic0` is the staking `governance_events` entry
-    /// `_name`, with its indexed topics and data.
-    function _assertLoggedEvent(
-        string memory _j,
-        string memory _name,
-        Vm.Log[] memory _logs,
-        bytes32 _topic0
-    )
-        private
-        view
-    {
-        string memory e = string.concat(".governance_events.", _name, ".");
-        assertEq(_string(_j, e, "contract"), "staking", _name);
-        assertEq(_bytes32(_j, e, "topic0"), _topic0, _name);
-        assertEq(keccak256(bytes(_string(_j, e, "signature"))), _topic0, _name);
-        uint256 i;
-        while (i < _logs.length && _logs[i].topics[0] != _topic0) {
-            ++i;
-        }
-        require(i < _logs.length, string.concat("no log of ", _name));
-        Vm.Log memory log = _logs[i];
-        uint256 indexedCount = LibEtnaVectors.lengthAt(_j, string.concat(e, "indexed_topics"));
-        assertEq(log.topics.length, indexedCount + 1, _name);
-        for (uint256 t; t < indexedCount; ++t) {
-            assertEq(
-                log.topics[t + 1],
-                _bytes32(_j, e, string.concat("indexed_topics[", vm.toString(t), "]")),
-                _name
-            );
-        }
-        assertEq(log.data, _bytes(_j, e, "data"), _name);
-    }
 
     /// @dev The big-endian integer of `_length` bytes of `_data` from `_offset`.
     function _bigEndian(

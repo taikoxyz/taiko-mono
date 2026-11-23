@@ -8,6 +8,7 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibEtnaKeys } from "src/shared/etna/LibEtnaKeys.sol";
+import { LibEtnaVectorAbi } from "test/shared/etna/LibEtnaVectorAbi.sol";
 import { EtnaVectorReader, LibEtnaVectors } from "test/shared/etna/LibEtnaVectors.sol";
 
 /// @title EtnaVectorsTest
@@ -455,15 +456,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(_bytes(j, v, "calldata"), abi.encodeCall(IEtnaInbox.etnaStart, ()));
         assertEq(LibEtnaVectors.stringAt(j, string.concat(v, "returns")), "(uint48,bytes32)");
 
-        string memory written = string.concat(v, "results[0].");
-        string memory notWritten = string.concat(v, "results[1].");
-        assertEq(_string(j, notWritten, "name"), "not_written");
-        assertEq(_viewReturn(inboxProxy, _bytes(j, v, "calldata")), _bytes(j, notWritten, "data"));
+        LibEtnaVectorAbi.assertViewResult(j, "etna_start", "inbox", "not_written", inboxProxy);
 
+        string memory written = string.concat(v, "results[0].");
         assertEq(_string(j, written, "name"), "written");
         _storeInbox(j, "genesis_packed", bytes32(_uint(j, written, "values[0]")));
         _storeInbox(j, "genesis_block_hash", _bytes32(j, written, "values[1]"));
-        assertEq(_viewReturn(inboxProxy, _bytes(j, v, "calldata")), _bytes(j, written, "data"));
+        LibEtnaVectorAbi.assertViewResult(j, "etna_start", "inbox", "written", inboxProxy);
     }
 
     // ---------------------------------------------------------------
@@ -512,14 +511,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
         string[3] memory names = ["config_hash", "etna_staking", "unsettled_limit"];
         for (uint256 i; i < names.length; ++i) {
-            string memory v = string.concat(".view_abi.", names[i], ".");
-            assertEq(_string(j, v, "contract"), "inbox", names[i]);
-            assertEq(_string(j, v, "results[0].name"), "deployment", names[i]);
-            assertEq(
-                _viewReturn(inboxProxy, _bytes(j, v, "calldata")),
-                _bytes(j, v, "results[0].data"),
-                names[i]
-            );
+            LibEtnaVectorAbi.assertViewResult(j, names[i], "inbox", "deployment", inboxProxy);
         }
 
         string[3] memory events =
@@ -529,7 +521,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             if (logs[i].emitter != inboxProxy) continue;
             string memory e = string.concat(".governance_events.", events[next], ".");
             if (logs[i].topics[0] != _bytes32(j, e, "topic0")) continue;
-            _assertVectorEvent(j, e, logs[i], events[next]);
+            LibEtnaVectorAbi.assertEvent(j, events[next], "inbox", logs[i]);
             ++next;
         }
         assertEq(next, events.length, "the three events, in order");
@@ -854,8 +846,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
             if (keccak256(bytes(name)) == keccak256("two_keys")) {
                 sawViewList = true;
-                _assertInboxView(j, "get_fallback_keys", name);
-                _assertInboxView(j, "fallback_keys_hash", name);
+                LibEtnaVectorAbi.assertViewResult(j, "get_fallback_keys", "inbox", name, inboxProxy);
+                LibEtnaVectorAbi.assertViewResult(
+                    j, "fallback_keys_hash", "inbox", name, inboxProxy
+                );
             }
             _releaseMemory(mark);
         }
@@ -979,43 +973,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     // Helpers: layout
     // ---------------------------------------------------------------
 
-    /// @dev The raw return data of a view call to `_target` with `_calldata`.
-    function _viewReturn(
-        address _target,
-        bytes memory _calldata
-    )
-        private
-        view
-        returns (bytes memory return_)
-    {
-        bool ok;
-        (ok, return_) = _target.staticcall(_calldata);
-        assertTrue(ok, "view call");
-    }
-
-    /// @dev The Inbox view `view_abi.<_view>` returns the data of its result named `_result`.
-    function _assertInboxView(
-        string memory _j,
-        string memory _view,
-        string memory _result
-    )
-        private
-        view
-    {
-        string memory v = string.concat(".view_abi.", _view, ".");
-        assertEq(_string(_j, v, "contract"), "inbox", _view);
-        uint256 n = LibEtnaVectors.lengthAt(_j, string.concat(v, "results"));
-        for (uint256 i; i < n; ++i) {
-            string memory r = _at(string.concat(v, "results"), i);
-            if (keccak256(bytes(_string(_j, r, "name"))) != keccak256(bytes(_result))) continue;
-            assertEq(
-                _viewReturn(inboxProxy, _bytes(_j, v, "calldata")), _bytes(_j, r, "data"), _view
-            );
-            return;
-        }
-        revert(string.concat("no result ", _result, " of ", _view));
-    }
-
     /// @dev `rulesSchedule()` decodes the slot 293 word planted from the packed-word item `_p`.
     function _assertRulesSchedule(string memory _j, string memory _p) private view {
         // Four 48-bit fields leave every bit from 192 up zero.
@@ -1036,33 +993,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
                 string.concat(_label, ": slot ", vm.toString(_slots[i]))
             );
         }
-    }
-
-    /// @dev The log `_log` is the `governance_events` entry at `_e`: an Inbox event with its
-    /// topic0, indexed topics and data.
-    function _assertVectorEvent(
-        string memory _j,
-        string memory _e,
-        Vm.Log memory _log,
-        string memory _name
-    )
-        private
-        view
-    {
-        assertEq(_string(_j, _e, "contract"), "inbox", _name);
-        assertEq(_log.topics[0], keccak256(bytes(_string(_j, _e, "signature"))), _name);
-        uint256 indexedCount = LibEtnaVectors.lengthAt(_j, string.concat(_e, "indexed_topics"));
-        assertEq(_log.topics.length, indexedCount + 1, _name);
-        for (uint256 t; t < indexedCount; ++t) {
-            assertEq(
-                _log.topics[t + 1],
-                LibEtnaVectors.bytes32At(
-                    _j, string.concat(_e, "indexed_topics[", vm.toString(t), "]")
-                ),
-                _name
-            );
-        }
-        assertEq(_log.data, _bytes(_j, _e, "data"), _name);
     }
 
     // ---------------------------------------------------------------
@@ -1157,8 +1087,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         uint256 n = LibEtnaVectors.lengthAt(_j, seats);
         uint256 rebuilt;
         for (uint256 i; i < n; ++i) {
-            rebuilt |= 1
-                << LibEtnaVectors.uintAt(_j, string.concat(seats, "[", vm.toString(i), "]"));
+            uint256 seat = LibEtnaVectors.uintAt(_j, string.concat(seats, "[", vm.toString(i), "]"));
+            rebuilt |= 2 ** seat;
         }
         assertEq(rebuilt, _bitmap, "the listed seats are the set bits");
     }

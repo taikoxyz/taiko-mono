@@ -5,6 +5,7 @@ import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IUnzenProposeCutoff } from "src/layer1/etna/iface/IUnzenProposeCutoff.sol";
+import { LibEtnaVectorAbi } from "test/shared/etna/LibEtnaVectorAbi.sol";
 import { LibEtnaVectors } from "test/shared/etna/LibEtnaVectors.sol";
 
 /// @title EtnaGovernanceVectorsTest
@@ -31,66 +32,71 @@ contract EtnaGovernanceVectorsTest is EtnaInboxTestBase {
 
     function test_vectors_InboxSelectorsAndCalldataMatchSolidityAbi() external view {
         string memory j = LibEtnaVectors.load();
-        _assertLabels(j, ".governance_abi", 9, 0);
-        _assertLabels(j, ".view_abi", 7, 1);
+        (uint256 inboxCalls,, uint256 unzenCalls) =
+            LibEtnaVectorAbi.labelCounts(j, ".governance_abi");
+        assertEq(inboxCalls, 9, "inbox calls");
+        assertEq(unzenCalls, 0, "unzen_inbox calls");
+        (uint256 inboxViews,, uint256 unzenViews) = LibEtnaVectorAbi.labelCounts(j, ".view_abi");
+        assertEq(inboxViews, 7, "inbox views");
+        assertEq(unzenViews, 1, "unzen_inbox views");
 
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.recover",
             "inbox",
             IEtnaInbox.recover.selector,
             abi.encodeCall(IEtnaInbox.recover, (2, 12, 7, _VALID_UNTIL, _fiToClear(), 4))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.invalidate_recovery_nonce",
             "inbox",
             IEtnaInbox.invalidateRecoveryNonce.selector,
             abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (7))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.schedule_rules",
             "inbox",
             IEtnaInbox.scheduleRules.selector,
             abi.encodeCall(IEtnaInbox.scheduleRules, (1, 2, 1_700_003_600))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.schedule_stop",
             "inbox",
             IEtnaInbox.scheduleStop.selector,
             abi.encodeCall(IEtnaInbox.scheduleStop, (1, 1_700_007_200))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.set_origin",
             "inbox",
             IEtnaInbox.setOrigin.selector,
             abi.encodeCall(IEtnaInbox.setOrigin, (1000))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.save_forced_inclusion",
             "inbox",
             IEtnaInbox.saveForcedInclusion.selector,
             abi.encodeCall(IEtnaInbox.saveForcedInclusion, (_FI_TX))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.sweep_protocol_fees",
             "inbox",
             IEtnaInbox.sweepProtocolFees.selector,
             abi.encodeCall(IEtnaInbox.sweepProtocolFees, ())
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.set_fallback_keys",
             "inbox",
             IEtnaInbox.setFallbackKeys.selector,
             abi.encodeCall(IEtnaInbox.setFallbackKeys, (_twoKeys()))
         );
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             j,
             ".governance_abi.set_min_total_stake",
             "inbox",
@@ -121,13 +127,10 @@ contract EtnaGovernanceVectorsTest is EtnaInboxTestBase {
 
     function test_vectors_InboxEventTopicsAndDataMatchDeclaredAbi() external {
         string memory j = LibEtnaVectors.load();
-        assertEq(LibEtnaVectors.countWithContract(j, ".governance_events", "inbox"), 10, "inbox");
-        assertEq(
-            LibEtnaVectors.countWithContract(j, ".governance_events", "inbox")
-                + LibEtnaVectors.countWithContract(j, ".governance_events", "staking"),
-            LibEtnaVectors.entryCount(j, ".governance_events"),
-            "every event names the Inbox or the staking contract"
-        );
+        (uint256 inboxEvents,, uint256 unzenEvents) =
+            LibEtnaVectorAbi.labelCounts(j, ".governance_events");
+        assertEq(inboxEvents, 10, "inbox events");
+        assertEq(unzenEvents, 0, "every event names the Inbox or the staking contract");
 
         vm.recordLogs();
         emit IEtnaInbox.FallbackKeysUpdated(DEFAULT_FALLBACK_KEYS_HASH, _defaultFallbackKeys());
@@ -162,7 +165,7 @@ contract EtnaGovernanceVectorsTest is EtnaInboxTestBase {
         ];
         assertEq(logs.length, names.length, "one log per event");
         for (uint256 i; i < names.length; ++i) {
-            _assertEvent(j, string.concat(".governance_events.", names[i], "."), logs[i], names[i]);
+            LibEtnaVectorAbi.assertEvent(j, names[i], "inbox", logs[i]);
         }
     }
 
@@ -188,69 +191,25 @@ contract EtnaGovernanceVectorsTest is EtnaInboxTestBase {
             logs[0].topics[1], LibEtnaVectors.bytes32At(j, string.concat(list, "event.topic1"))
         );
         assertEq(logs[0].data, LibEtnaVectors.bytesAt(j, string.concat(list, "event.data")));
-        _assertViewResult(j, "get_fallback_keys", 0, "two_keys");
-        _assertViewResult(j, "fallback_keys_hash", 0, "two_keys");
+        LibEtnaVectorAbi.assertViewResult(j, "get_fallback_keys", "inbox", "two_keys", inboxProxy);
+        LibEtnaVectorAbi.assertViewResult(j, "fallback_keys_hash", "inbox", "two_keys", inboxProxy);
 
         vm.recordLogs();
         _call(LibEtnaVectors.bytesAt(j, ".governance_abi.set_min_total_stake.calldata"));
         logs = vm.getRecordedLogs();
         assertEq(logs.length, 1, "one minTotalStake event");
-        _assertEvent(j, ".governance_events.min_total_stake_updated.", logs[0], "minTotalStake");
-        _assertViewResult(j, "min_total_stake", 0, "fallback_only");
+        LibEtnaVectorAbi.assertEvent(j, "min_total_stake_updated", "inbox", logs[0]);
+        LibEtnaVectorAbi.assertViewResult(
+            j, "min_total_stake", "inbox", "fallback_only", inboxProxy
+        );
 
         IEtnaInbox(inboxProxy).setMinTotalStake(0);
-        _assertViewResult(j, "min_total_stake", 1, "zero");
+        LibEtnaVectorAbi.assertViewResult(j, "min_total_stake", "inbox", "zero", inboxProxy);
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
-
-    /// @dev The family at `_family` has `_inbox` entries labelled `inbox`, `_unzen` labelled
-    /// `unzen_inbox`, and every other entry labelled `staking`.
-    function _assertLabels(
-        string memory _j,
-        string memory _family,
-        uint256 _inbox,
-        uint256 _unzen
-    )
-        private
-        pure
-    {
-        uint256 inboxCount = LibEtnaVectors.countWithContract(_j, _family, "inbox");
-        uint256 unzenCount = LibEtnaVectors.countWithContract(_j, _family, "unzen_inbox");
-        uint256 stakingCount = LibEtnaVectors.countWithContract(_j, _family, "staking");
-        assertEq(inboxCount, _inbox, string.concat(_family, ": inbox entries"));
-        assertEq(unzenCount, _unzen, string.concat(_family, ": unzen_inbox entries"));
-        assertEq(
-            inboxCount + unzenCount + stakingCount,
-            LibEtnaVectors.entryCount(_j, _family),
-            string.concat(_family, ": every entry names a known contract")
-        );
-    }
-
-    /// @dev The call entry at `_p` has label `_contract`, its signature hashes to its selector,
-    /// which is Solidity's `_selector`, and its calldata is `_calldata`.
-    function _assertCall(
-        string memory _j,
-        string memory _p,
-        string memory _contract,
-        bytes4 _selector,
-        bytes memory _calldata
-    )
-        private
-        pure
-    {
-        assertEq(LibEtnaVectors.stringAt(_j, string.concat(_p, ".contract")), _contract, _p);
-        bytes memory selector = LibEtnaVectors.bytesAt(_j, string.concat(_p, ".selector"));
-        assertEq(selector, abi.encodePacked(_selector), _p);
-        assertEq(
-            bytes4(keccak256(bytes(LibEtnaVectors.stringAt(_j, string.concat(_p, ".signature"))))),
-            _selector,
-            _p
-        );
-        assertEq(LibEtnaVectors.bytesAt(_j, string.concat(_p, ".calldata")), _calldata, _p);
-    }
 
     /// @dev The no-argument view `view_abi.<_name>` matches `_selector` and is called with the
     /// selector alone.
@@ -263,66 +222,13 @@ contract EtnaGovernanceVectorsTest is EtnaInboxTestBase {
         private
         pure
     {
-        _assertCall(
+        LibEtnaVectorAbi.assertCall(
             _j,
             string.concat(".view_abi.", _name),
             _contract,
             _selector,
             abi.encodePacked(_selector)
         );
-    }
-
-    /// @dev The Inbox view `view_abi.<_name>` returns the data of its result `_index`, named
-    /// `_result`.
-    function _assertViewResult(
-        string memory _j,
-        string memory _name,
-        uint256 _index,
-        string memory _result
-    )
-        private
-        view
-    {
-        string memory v = string.concat(".view_abi.", _name, ".");
-        string memory r = string.concat(v, "results[", vm.toString(_index), "].");
-        assertEq(LibEtnaVectors.stringAt(_j, string.concat(r, "name")), _result, _name);
-        (bool ok, bytes memory data) =
-            inboxProxy.staticcall(LibEtnaVectors.bytesAt(_j, string.concat(v, "calldata")));
-        assertTrue(ok, _name);
-        assertEq(data, LibEtnaVectors.bytesAt(_j, string.concat(r, "data")), _name);
-    }
-
-    /// @dev The log `_log` is the `governance_events` entry at `_e`: an Inbox event whose
-    /// signature hashes to its topic0, with its indexed topics and data.
-    function _assertEvent(
-        string memory _j,
-        string memory _e,
-        Vm.Log memory _log,
-        string memory _name
-    )
-        private
-        view
-    {
-        assertEq(LibEtnaVectors.stringAt(_j, string.concat(_e, "contract")), "inbox", _name);
-        bytes32 topic0 = LibEtnaVectors.bytes32At(_j, string.concat(_e, "topic0"));
-        assertEq(
-            keccak256(bytes(LibEtnaVectors.stringAt(_j, string.concat(_e, "signature")))),
-            topic0,
-            _name
-        );
-        assertEq(_log.topics[0], topic0, _name);
-        uint256 indexedCount = LibEtnaVectors.lengthAt(_j, string.concat(_e, "indexed_topics"));
-        assertEq(_log.topics.length, indexedCount + 1, _name);
-        for (uint256 t; t < indexedCount; ++t) {
-            assertEq(
-                _log.topics[t + 1],
-                LibEtnaVectors.bytes32At(
-                    _j, string.concat(_e, "indexed_topics[", vm.toString(t), "]")
-                ),
-                _name
-            );
-        }
-        assertEq(_log.data, LibEtnaVectors.bytesAt(_j, string.concat(_e, "data")), _name);
     }
 
     /// @dev Sends `_calldata` to the Inbox proxy as its owner and requires success.
