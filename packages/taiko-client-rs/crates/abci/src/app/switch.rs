@@ -32,7 +32,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Authenticates S only while it remains the latest L1 checkpoint; later landings settle
-    /// these facts, so imported nodes then need neither S's state nor the Unzen chain.
+    /// these facts, so imported nodes then need neither S's state nor the Unzen chain. Each
+    /// proxy's implementation proof at S that the EL does not serve yet keeps trust closed;
+    /// another implementation than the built-in one halts.
     pub(super) async fn verify_switch_origin(
         &self,
         genesis: &GenesisRecord,
@@ -106,23 +108,40 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?
         .ok_or(AbciError::ElBlockMissing(genesis.genesis_height))?;
         self.check_switch_header(genesis, &header)?;
-        let implementation = within(
-            "Etna start SignalService proof",
-            self.opts.engine_timeout,
-            self.engine.proxy_implementation(
+        // The L2 SignalService proxy, then the `EtnaStaking` proxy at the staking address the
+        // configuration hash commits, each holding its built-in implementation in S's state.
+        for (contract, what, proxy, built_in) in [
+            (
+                "SignalService",
+                "Etna start SignalService proof",
                 l2_signal_service_address(self.params.l2_chain_id),
-                genesis.genesis_hash,
-                genesis.genesis_state_root,
+                config.signal_service_implementation,
             ),
-        )
-        .await?
-        .ok_or_else(|| {
-            AbciError::TrustControl("Etna start SignalService state is unavailable".into())
-        })?;
-        if implementation != config.signal_service_implementation {
-            return Err(AbciError::SafetyHalt(
-                "Etna start L2 SignalService implementation differs from the built-in one".into(),
-            ));
+            (
+                "EtnaStaking",
+                "Etna start EtnaStaking proof",
+                self.params.staking,
+                config.staking_implementation,
+            ),
+        ] {
+            let implementation = within(
+                what,
+                self.opts.engine_timeout,
+                self.engine.proxy_implementation(
+                    proxy,
+                    genesis.genesis_hash,
+                    genesis.genesis_state_root,
+                ),
+            )
+            .await?
+            .ok_or_else(|| {
+                AbciError::TrustControl(format!("Etna start {contract} state is unavailable"))
+            })?;
+            if implementation != built_in {
+                return Err(AbciError::SafetyHalt(format!(
+                    "Etna start L2 {contract} implementation differs from the built-in one"
+                )));
+            }
         }
         Ok(())
     }
@@ -205,11 +224,15 @@ mod tests {
         config::SwitchConfig,
         store::Store,
         switch::SwitchOrigin,
-        test_utils::{Fixture, MockEngine, MockL1},
+        test_utils::{EngineCall, Fixture, MockEngine, MockL1},
     };
 
+    /// The built-in `EtnaStaking` implementation of [`switching_app`].
+    const STAKING_IMPLEMENTATION: Address = Address::with_last_byte(0x56);
+
     /// A switching app at S = 1 whose built-in L2 SignalService implementation is
-    /// `implementation`, with the start header in its EL.
+    /// `implementation` and `EtnaStaking` implementation [`STAKING_IMPLEMENTATION`], with the
+    /// start header in its EL.
     fn switching_app(
         fx: &Fixture,
         implementation: Address,
@@ -228,7 +251,7 @@ mod tests {
             unzen_inbox: Address::with_last_byte(1),
             fork_timestamp,
             signal_service_implementation: implementation,
-            staking_implementation: Address::with_last_byte(0x56),
+            staking_implementation: STAKING_IMPLEMENTATION,
         });
         let origin = SwitchOrigin {
             l1_number: fx.witness.l1_header.number(),
@@ -257,22 +280,86 @@ mod tests {
         let (app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
         let signal_service = l2_signal_service_address(fx.params.l2_chain_id);
         let verify = || app.verify_switch_origin(&genesis, &fx.witness.l1_header);
+        let prove = |proxy, implementation| {
+            app.engine().state().proxy_implementations.insert(proxy, Ok(implementation));
+        };
+        prove(fx.params.staking, STAKING_IMPLEMENTATION);
 
         assert!(matches!(verify().await, Err(AbciError::TrustControl(_))), "no proof yet");
         // The Anchor proxy is no longer the switch evidence.
-        app.engine().state().proxy_implementation =
-            Some((get_treasury_address(fx.params.l2_chain_id), implementation));
+        prove(get_treasury_address(fx.params.l2_chain_id), implementation);
         assert!(matches!(verify().await, Err(AbciError::TrustControl(_))));
-        app.engine().state().proxy_implementation =
-            Some((signal_service, Address::with_last_byte(3)));
+        prove(signal_service, Address::with_last_byte(3));
         let result = verify().await;
         assert!(
             matches!(result, Err(AbciError::SafetyHalt(ref reason))
             if reason.contains("SignalService implementation")),
             "{result:?}"
         );
-        app.engine().state().proxy_implementation = Some((signal_service, implementation));
+        prove(signal_service, implementation);
         verify().await.unwrap();
+    }
+
+    /// The `EtnaStaking` proxy at the configured staking address, the one the configuration
+    /// hash commits, must hold the built-in `EtnaStaking` implementation in S's state, read at
+    /// S's hash and proven under S's state root, after the SignalService proof: another
+    /// implementation halts, and a proof from another proxy is no evidence.
+    #[tokio::test]
+    async fn switch_origin_requires_the_built_in_staking_implementation_at_s() {
+        let fx = Fixture::genesis(1);
+        let implementation = Address::with_last_byte(2);
+        let fork_timestamp = fx.el_chain[0].timestamp + 1;
+        let (app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
+        let signal_service = l2_signal_service_address(fx.params.l2_chain_id);
+        let verify = || app.verify_switch_origin(&genesis, &fx.witness.l1_header);
+        let prove = |proxy, implementation| {
+            app.engine().state().proxy_implementations.insert(proxy, Ok(implementation));
+        };
+        let halted_on_staking = |result: &Result<(), AbciError>| {
+            matches!(result, Err(AbciError::SafetyHalt(reason))
+                if reason.contains("EtnaStaking implementation"))
+        };
+
+        // The SignalService is checked first: with both wrong, the halt names it.
+        prove(signal_service, Address::with_last_byte(3));
+        prove(fx.params.staking, Address::with_last_byte(4));
+        let result = verify().await;
+        assert!(
+            matches!(result, Err(AbciError::SafetyHalt(ref reason))
+            if reason.contains("SignalService implementation")),
+            "{result:?}"
+        );
+        prove(signal_service, implementation);
+        let result = verify().await;
+        assert!(halted_on_staking(&result), "{result:?}");
+        // The SignalService implementation in the staking proxy is another implementation too.
+        prove(fx.params.staking, implementation);
+        let result = verify().await;
+        assert!(halted_on_staking(&result), "{result:?}");
+        // The built-in implementation behind another proxy proves nothing about the staking one.
+        app.engine().state().proxy_implementations.remove(&fx.params.staking);
+        prove(Address::with_last_byte(0x99), STAKING_IMPLEMENTATION);
+        let result = verify().await;
+        assert!(
+            matches!(result, Err(AbciError::TrustControl(ref reason))
+            if reason.contains("EtnaStaking")),
+            "{result:?}"
+        );
+        prove(fx.params.staking, STAKING_IMPLEMENTATION);
+        app.engine().state().calls.clear();
+        verify().await.unwrap();
+        let reads: Vec<_> = app
+            .engine()
+            .calls()
+            .into_iter()
+            .filter(|call| matches!(call, EngineCall::ProxyImplementation { .. }))
+            .collect();
+        let at_s = |proxy| EngineCall::ProxyImplementation {
+            proxy,
+            hash: genesis.genesis_hash,
+            state_root: genesis.genesis_state_root,
+        };
+        assert_eq!(reads, [at_s(signal_service), at_s(fx.params.staking)]);
     }
 
     /// SYNC-9-5a 5a.j/5a.k/5a.m: the node's fork time must equal the switching EtnaInbox's

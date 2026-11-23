@@ -415,6 +415,7 @@ pub(crate) enum EngineCall {
     FinalizedHeader,
     HistoricalState(B256),
     StorageAt { address: Address, slots: Vec<B256>, hash: B256 },
+    ProxyImplementation { proxy: Address, hash: B256, state_root: B256 },
 }
 
 /// The scriptable state of a [`MockEngine`].
@@ -448,8 +449,9 @@ pub(crate) struct MockEngineState {
     /// Canonical blocks the EL lost (e.g. its tail) and backfills, all at once, when an
     /// unscripted `forkchoice` names a head it does not hold.
     pub(crate) backfill: BTreeMap<u64, Header>,
-    /// `(proxy, implementation)`: the proven implementation, answered only for that proxy.
-    pub(crate) proxy_implementation: Option<(Address, Address)>,
+    /// Each proxy's proven EIP-1967 implementation, or the error its proof read answers; a
+    /// proxy not listed has no proof (`None`).
+    pub(crate) proxy_implementations: BTreeMap<Address, Result<Address, EngineError>>,
     /// Storage words by block hash, then account and slot, served by `storage_at` for a block
     /// listed here or on the canonical `chain`; a slot not listed reads zero.
     pub(crate) storage: BTreeMap<B256, BTreeMap<(Address, B256), U256>>,
@@ -629,10 +631,12 @@ impl Engine for MockEngine {
     async fn proxy_implementation(
         &self,
         proxy: Address,
-        _hash: B256,
-        _state_root: B256,
+        hash: B256,
+        state_root: B256,
     ) -> Result<Option<Address>, EngineError> {
-        Ok(self.state().proxy_implementation.filter(|(at, _)| *at == proxy).map(|(_, to)| to))
+        let mut state = self.state();
+        state.calls.push(EngineCall::ProxyImplementation { proxy, hash, state_root });
+        state.proxy_implementations.get(&proxy).cloned().transpose()
     }
 
     async fn check_capabilities(&self) -> Result<(), EngineError> {

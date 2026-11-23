@@ -10,7 +10,10 @@ use crate::{
     config::SwitchConfig,
     envelope::EtnaEnvelope,
     l1::{L1Error, layout::inbox},
-    test_utils::{InboxStorage, L1Call, TestState, filler_accounts, inbox_account, l1_header},
+    switch::{SwitchOrigin, l2_signal_service_address},
+    test_utils::{
+        GenesisSpec, InboxStorage, L1Call, TestState, filler_accounts, inbox_account, l1_header,
+    },
 };
 use alloy_primitives::{Address, B256, U256};
 
@@ -951,6 +954,65 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
         "{result:?}"
     );
     assert!(!restarted.trust.snapshot().is_ready());
+}
+
+/// While the latest checkpoint is a nonzero Etna start S, trust also needs the `EtnaStaking`
+/// proxy's implementation proven in S's state. No proof, or one the EL cannot serve yet, keeps
+/// trust closed without halting, and the node becomes ready once the proof arrives.
+#[tokio::test]
+async fn missing_staking_proof_keeps_trust_closed() {
+    const S: u64 = 1;
+    let signal_service_implementation = Address::with_last_byte(0x55);
+    let staking_implementation = Address::with_last_byte(0x56);
+    let mut fx = super::finalize::started_at(S, GenesisSpec::new(1));
+    let fork_timestamp = fx.el_chain[1].timestamp + 1;
+    fx.params.switch = Some(SwitchConfig {
+        unzen_inbox: Address::with_last_byte(1),
+        fork_timestamp,
+        signal_service_implementation,
+        staking_implementation,
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path()).with_switch_origin(SwitchOrigin {
+        l1_number: fx.witness.l1_header.number(),
+        l1_hash: fx.witness.l1_header.hash(),
+        height: S,
+        hash: fx.genesis_hash(),
+    });
+    init_chain(&mut app, fx.request.clone()).await.unwrap();
+    app.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp));
+    // The start write's landing record at S names S itself as its parent.
+    let record = inbox::landing_record_slots(S)[0];
+    finalize_inbox_with_word(&app, &fx, &fx.inbox_with(S), record, U256::from(S));
+    let signal_service = l2_signal_service_address(fx.params.l2_chain_id);
+    app.engine()
+        .state()
+        .proxy_implementations
+        .insert(signal_service, Ok(signal_service_implementation));
+
+    let closed = |app: &App<MockL1, MockEngine>, needle: &str| {
+        let snapshot = app.trust.snapshot();
+        assert!(!snapshot.is_ready());
+        assert_ne!(snapshot.phase, TrustPhase::Halted);
+        let reason = snapshot.reason.unwrap_or_default();
+        assert!(reason.contains(needle), "{reason}");
+    };
+    app.refresh_trust().await.unwrap();
+    closed(&app, "Etna start EtnaStaking state is unavailable");
+    app.engine().state().proxy_implementations.insert(
+        fx.params.staking,
+        Err(crate::EngineError::Transport("proof past the EL's proof window".into())),
+    );
+    app.refresh_trust().await.unwrap();
+    closed(&app, "proof past the EL's proof window");
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+
+    app.engine()
+        .state()
+        .proxy_implementations
+        .insert(fx.params.staking, Ok(staking_implementation));
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, S);
 }
 
 #[tokio::test]

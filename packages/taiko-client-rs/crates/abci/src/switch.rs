@@ -20,8 +20,8 @@ pub fn l2_signal_service_address(l2_chain_id: u64) -> Address {
 /// This is an in-process attestation, never peer or operator input. Its producer must establish
 /// that proposals are closed at the configured Etna cutoff and execute every accepted proposal,
 /// including forced inclusions, before handing over. ABCI independently checks its finalized L1
-/// identity, the authenticated start record, the EL header and the L2 SignalService
-/// implementation proof.
+/// identity, the authenticated start record, the EL header and the L2 SignalService and
+/// `EtnaStaking` implementation proofs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwitchOrigin {
     /// Own finalized L1 observation that established proposal closure and completed derivation.
