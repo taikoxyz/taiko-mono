@@ -24,7 +24,10 @@
   all penalties to `slashSink` in one transfer, and writes the candidate snapshot (128 seat
   records, `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
   `taiko.etna.staking`. The proof of possession signs an EIP-712 domain named `EtnaStaking`, on the
-  L2 chain and the staking proxy.
+  L2 chain and the staking proxy. `forfeit(bondId, incidentId, validUntil)`, `forfeited(bondId)` and
+  `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by bond id alone, and
+  `slashDoubleSign` checks both signers through the lifetime key lookup `bondForKey` without
+  decompressing the stored key.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the Inbox holds the DAO fallback key set and
   `minTotalStake`. Slot 278 is `fallbackKeysHash` and slot 279 `minTotalStake`, and the list itself
   is the dynamic array at slot 275. `setFallbackKeys(FallbackKey[])` (1 to 128 keys, strictly
@@ -49,12 +52,16 @@
 - Etna (BREAKING, spec #22425 at 178d7a7a6): `recover(expectedGeneration, expectedC,
   expectedRecoveryNonce, validUntil, fiToClear, rules)` takes six arguments, and a slot 290 origin
   (`IEtnaInbox.Origin`) has four words, the fourth the slot 278 value when the record is written:
-  the fallback keys that sign the generation's first two blocks.
+  the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
+  take `expectedGeneration` first and revert `GenerationMismatch` for any other generation.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors move to schema 10. The registry,
   committee selection and committee config families and every epoch are gone: `val_state_chains`
   has no `epoch_length` and its updates no `epoch`, since FinalizeBlock may return validator updates
-  at any height, and its largest set is 128 members. `config` replaces `committee_config`, and
-  `fallback_keys`, `staking_layout`, `miss_bitmap`, `candidate` and `on_block_start` are new.
+  at any height, and its largest set is 128 members. `extra_data` grows from 13 to 29 bytes,
+  `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case adds its
+  `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). `config` replaces
+  `committee_config`, and `fallback_keys`, `staking_layout`, `miss_bitmap`, `candidate` and
+  `on_block_start` are new.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): a new network's genesis predeploys `EtnaStaking` at
   `getConstantAddress(chainId, 10003)` and its token, `BridgedTaikoToken`, at
   `getConstantAddress(chainId, 7)` (each implementation under the prefix "0"), configured by the
@@ -79,7 +86,7 @@
   every block before Etna and none from Etna on, and a failed read rejects. Proof roots resolve from
   a checkpoint first and otherwise from EIP-4788 (`blockId` an Etna block's L2 timestamp), so
   checkpoints saved before the fork stay provable after it. Missing roots revert
-  `SS_CHECKPOINT_NOT_FOUND`; `SS_INVALID_BLOCK_ID` and `SS_STATE_ROOT_NOT_FOUND` are removed. The new
+  `SS_CHECKPOINT_NOT_FOUND`, and `SS_INVALID_BLOCK_ID` is removed. The new
   `EtnaSignalServiceUpgradeGuard` and `LibEtnaReadinessL2Message` guard and build the readiness
   proposal's L2 message. The L2 deploy scripts and the genesis config (`usesBeaconRoots`) take no
   fork time. The `Anchor` is unchanged, and the switching L1 SignalService accepts checkpoints only
@@ -88,8 +95,8 @@
   `BuildEtnaReadinessL2Message` rebuild the L1 and L2 SignalService implementations' runtime code
   from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from the
   artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
-  byte, and require both guards to hold exactly this build's code; the L2 builder now runs against
-  L2 and also reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
+  byte, and require both guards to hold exactly this build's code; the L2 builder runs against L2
+  and reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
   and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
   hash and revert `UnexpectedCodeHash` on any other code.
 - Etna (BREAKING): `EtnaSwitchGuard.checkDeadline` takes the batch's `FI_MARGIN` and reverts
@@ -100,35 +107,16 @@
   EtnaInbox's current implementations, which `BuildEtnaSwitchProposals` reads when it builds the
   batch, and reverts `UnexpectedImplementation` if either proxy has been upgraded since, so a
   postponement cannot silently roll back another upgrade.
-- Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's new
+- Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's
   `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
-  state root from the SignalService checkpoint at S; the `originWriter` immutable and getter are
-  removed from `IEtnaInbox.Config`, and `land` no longer reads the Unzen Inbox. The checkpoint
-  forwarder reverts at every height once the start is written (`ForwardingClosed` replaces
-  `CheckpointAboveStart`; `StartCheckpointMismatch` is removed; `NotSwitching`,
-  `ProposalsNotClosed`, `CommitteeSnapshotRegressed`, `RecoveryCapacityExceeded`,
-  `InvalidRecoveryCapacity` and `UnissuedExclusion` are new).
-- Etna (BREAKING): `land` rejects an `activeCommitteeSnapshot` below the stored one before proof
-  verification. `init` reads the registry's `minStake()` (new in `IEtnaStakingRegistry`) for the
-  committee config hash's fifth word and requires `minStake >= vp_unit` and K = min(4096,
-  floor(10^27 / minStake)) <= F, the new `Config.recoveryCapacity` (131 for this bytecode, the
-  largest count whose recovery fits 2^24 on the DAO's costliest path, the Emergency Multisig's
-  `execute`, measured on a mainnet fork by `EtnaRecoveryDaoPathGas.t.sol`); `CommitteeConfig.sMin`
-  and `ETNA_S_MIN` are removed and the devnet default minimum stake is 7,600,000 TAIKO.
-- Etna (BREAKING): `recover` takes `uint256[] exclusions`, strictly increasing issued bond ids
-  (`IEtnaInbox.Exclusion` and the entry keys in `Recovered` are removed); `scheduleRules` and
-  `scheduleStop` take `expectedGeneration` first; the registry's `forfeit(bondId, incidentId,
-  validUntil)`, `forfeited(uint256 bondId)`, `Forfeited(bondId, incidentId, balanceBefore,
-  penalty)` and `forceExit(bondId)` drop the entry key, and `validateExclusion`,
-  `EntryKeyMismatch` and `LibEtnaKeys.entryKey` are removed. `slashDoubleSign` checks the
-  recovered signer through the lifetime key lookup instead of decompressing the stored key.
-- Etna (BREAKING): the registry checkpoint `count` is 0 or one plus the highest occupied slot and
-  shrinks on withdrawal (`LibEntriesTree.truncate`); `entryCount()` and `entriesRoot()` follow it.
-- Etna (BREAKING): the shared vectors move to schema 9 (setHash, minStake in the config hash, the
-  count rule, bond-id forfeiture flags and the new ABIs).
-- Fix Etna double-sign evidence encoding for present all-zero BlockID hashes. Vote hashes now use
-  `bytes` of length 0 or 32, changing the `slashDoubleSign` ABI; clients must refresh it and the
-  shared vectors.
+  state root from the SignalService checkpoint at S (`NotSwitching`, `ProposalsNotClosed`,
+  `UnzenNotFinalized`, `UnzenStartMismatch`). `IEtnaInbox.Config` has no `originWriter`, and `land`
+  reads no Unzen state. The Unzen checkpoint forwarder `saveCheckpoint` reverts `ForwardingClosed`
+  at every height once the start is written.
+- Etna (BREAKING): double-sign evidence keeps stock CometBFT's encoding of present all-zero BlockID
+  hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
+  a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,
+  and `votes.slash_abi` in the vectors pins its calldata.
 
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
