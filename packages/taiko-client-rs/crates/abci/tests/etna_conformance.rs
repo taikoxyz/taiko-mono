@@ -1,66 +1,87 @@
-//! Etna client conformance: the historical Lean model's decisions on client block rules.
+//! Etna client conformance: the client's block rules and signing-set decisions against vector
+//! files.
 //!
-//! The Etna formal PR (#22292) generates rule-level vectors from the model's executable
-//! definitions (`Forced.step`, `BlockValidity.HeaderValid`/`AnchorValid`) and documents their
-//! schema (`etna-client-conformance-1`) in
-//! `testdata/etna_conformance/README.md` there. This crate runs its own copy,
-//! `tests/fixtures/etna_conformance/*.json`, which adds only `provenance.formalCommit`, the pushed
-//! formal commit it was generated at. The fixture README records the exact source and scope:
-//! these historical families do not establish conformance to the latest Etna specification. The
-//! committee schedule family is gone with the registry and its epochs: every signing set now
-//! comes from the candidate snapshot or the fallback keys. Refresh the files from `formal/etna`
-//! of that commit with
+//! Five families, each a `tests/fixtures/etna_conformance/<family>.json` file in the
+//! `etna-client-conformance-1` schema that the formal model's vector generator documents
+//! (`testdata/etna_conformance/README.md` there):
+//! - `forced_step`, `block_rules` and `block_size` were generated from the historical Lean model's
+//!   executable definitions (`Forced.step`, `BlockValidity.HeaderValid`/`AnchorValid`) at
+//!   `provenance.formalCommit`. They are kept as regressions, adapted by hand for the specification
+//!   at `provenance.specCommit`: the block rules no longer carry an epoch length, and this harness
+//!   gives every block a 29-byte `extraData`, a parent LastCommit in which every signer committed,
+//!   and fallback keys as the set that signs it. The model's decisions are unchanged. They stay
+//!   until the formal model generates current families, which then replace them byte for byte
+//!   (`lake exe etna-vectors --write <this crate>/tests/fixtures/etna_conformance --families
+//!   <families> --provenance <formal commit>`).
+//! - `miss_bitmap` and `candidate` are written by hand from the specification's accept/reject
+//!   vectors at `provenance.specCommit`. Each vector names the row it transcribes, and some rows
+//!   have more than one vector.
 //!
-//! ```text
-//! lake exe etna-vectors --write <this crate>/tests/fixtures/etna_conformance \
-//!   --families forced_step,block_rules,block_size --provenance <formal commit>
-//! ```
-//!
-//! and never edit the files by hand. They record only what the model decides. Each test runs
-//! every vector of one family against this crate and compares the client's decision with the
-//! model's. A vector in [`known_divergences`] is checked against the client decision recorded
-//! there instead: each entry must name a vector of its family and must differ from the model's
+//! The fixture README records the sources and what each family leaves out. Each test runs every
+//! vector of one family against this crate and compares the client's decision with the file's.
+//! A vector in [`known_divergences`] is checked against the client decision recorded there
+//! instead: each entry must name a vector of its family and must differ from the file's
 //! decision, so a fixed divergence fails the suite until its entry is removed. Every mismatch of
 //! a family is listed before the test fails, and so is every vector the harness cannot encode
 //! (a rejection for a reason the vector does not vary is a harness fault, never a verdict).
 //!
 //! What runs, per family:
-//! - `block_rules`, `block_size` and `forced_step` build a whole envelope on a committed chain and
-//!   judge it with [`validate_block`], the deterministic validation `ProcessProposal`,
-//!   `FinalizeBlock` and the lander share: real raw L1 headers, EIP-1186 proofs of the Inbox under
-//!   them, the derived header fields and a signing set holding the certified proposer.
-//!   `forced_step` then completes the decision with [`verify_forced`] against an engine that builds
+//! - every family builds a whole envelope on a committed chain and judges it with
+//!   [`validate_block`], the deterministic validation `ProcessProposal`, `FinalizeBlock` and the
+//!   lander share: real raw L1 headers, EIP-1186 proofs of the Inbox under them, the derived header
+//!   fields, a set that signs the block holding the certified proposer, and the `missBitmap` the
+//!   client derives for the block ([`BlockCase::derived_bitmap`]), as both handlers do: the
+//!   validators of the set that signs the parent whose LastCommit flag is not a commit
+//!   ([`missing_addresses`]), their live key-to-seat words read at the parent's hash through
+//!   [`seat_words`] from an EL that holds the parent's and the block's own post-states, and
+//!   [`miss_bitmap`] over them.
+//! - `forced_step` then completes the decision with [`verify_forced`] against an engine that builds
 //!   the singleton from the attributes it is given, as both handlers do, and advances the cursor as
 //!   `FinalizeBlock` does. The node-local checks (L1 finality, the local checkpoint fence,
 //!   `newPayload`) are not run: the model's verdict leaves them out too (its `NodeValid` adds
 //!   them).
+//! - `miss_bitmap` reports the derived bitmap and whether a block whose header carries the vector's
+//!   bitmap, or its whole `extraData`, is valid.
+//! - `candidate` decides the set that signs H + 2 as `FinalizeBlock(H)` does: H's anchor, new or
+//!   inherited, comes from [`validate_block`] and proves the minimum total stake and the fallback
+//!   keys hash; [`fetch_fallback_keys`] obtains the list from an L1 that answers
+//!   `getFallbackKeys()` at the anchor hash and holds the Inbox's list logs; [`staking_words`]
+//!   reads the candidate snapshot at H's hash; [`committee::decide`] picks the set.
 //!
-//! The harness maps the model's abstract values to concrete client inputs:
+//! The harness maps the files' abstract values to concrete client inputs:
 //! - transaction kinds to concrete, really signed bytes ([`tx_bytes`]), checked against the file's
 //!   kind table; the model's "canonical" is the client's [`decode_eligible`];
+//! - key names to keys ([`named_key`]), and sets to `name:power` items, a run of consecutively
+//!   numbered names at one power written `first..last:power` ([`render`]);
+//! - LastCommit flags by the rule's text, only a commit flag committing: the handlers' reading of a
+//!   request's vote list, with its check against the replica's parent signers, is pinned by the
+//!   crate's handler tests;
 //! - an anchor number above `uint48` has no `extraData` encoding, so such a header carries its low
 //!   48 bits;
 //! - the vectors' `staleHeartbeat` and `content` inputs, which the model ignores, are ignored here
-//!   too: the client has no heartbeat rule and bounds the uncompressed block; so is their
-//!   `epochLen`, as the client has no epochs;
+//!   too: the client has no heartbeat rule and bounds the uncompressed block;
 //! - some vectors set U = 1, a value `ChainParams::validate` accepts; the rules under test read the
 //!   parameters directly, so the harness overrides them without validating.
 
-use std::{collections::BTreeMap, sync::OnceLock};
+use std::{collections::BTreeMap, ops::RangeInclusive, sync::OnceLock};
 
 use abci::{
     AccountWitness, AnchorState, AnchorWitness, ChainParams, ChainParamsExt, Engine, EngineError,
-    EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo,
-    RawL1Header, StorageProof,
-    app::{ChainContext, Rejection, validate_block},
+    EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, L1Error, L1Source,
+    ParentInfo, RawL1Header, StorageProof,
+    app::{ChainContext, Rejection, Validated, validate_block},
+    committee,
     engine::{
         PayloadVerdict, PoolSelection,
         forced::{ForcedBuildContext, ForcedBuildError, verify_forced},
+        staking::{seat_words, staking_words},
     },
+    fallback::{FALLBACK_KEYS_UPDATED, FallbackKeys, fetch_fallback_keys, getFallbackKeysCall},
     forced::{self, decode_eligible},
     key::ConsensusKey,
     l1::layout::inbox,
     rules::RuleViolation,
+    valstate::{ValEntry, comet_order},
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::signers::{SignerSync, local::PrivateKeySigner};
@@ -69,11 +90,16 @@ use alloy_consensus::{
     TxLegacy,
 };
 use alloy_eips::{eip2718::Encodable2718, eip7685::EMPTY_REQUESTS_HASH};
-use alloy_primitives::{Address, B64, B256, Bytes, TxKind, U256, keccak256};
+use alloy_primitives::{Address, B64, B256, Bytes, TxKind, U256, hex, keccak256};
 use alloy_rlp::Encodable;
+use alloy_sol_types::SolCall;
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
     proof::{ProofNodes, ProofRetainer},
+};
+use etna_core::{
+    miss::{miss_bitmap, missing_addresses},
+    staking::{RECORD_COUNT, key_to_seat_slot, record_slots, snapshot_slots},
 };
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use protocol::shasta::{
@@ -84,12 +110,13 @@ use protocol::shasta::{
     },
 };
 use serde_json::{Value, json};
+use tendermint::block::BlockIdFlag;
 
 // ---------------------------------------------------------------------------------------------
 // Known divergences.
 // ---------------------------------------------------------------------------------------------
 
-/// A vector on which this client is known to differ from the model: the vector id, the spec
+/// A vector on which this client is known to differ from the file: the vector id, the spec
 /// lines involved, why they differ, and the client's recorded decision on a subset of the
 /// vector's `expect` keys.
 struct KnownDivergence {
@@ -100,7 +127,7 @@ struct KnownDivergence {
 }
 
 /// Every known divergence of this client. Remove an entry once the spec, the model or the client
-/// changes so that the two agree; the suite fails while a listed vector matches the model.
+/// changes so that the two agree; the suite fails while a listed vector matches the file.
 fn known_divergences() -> Vec<KnownDivergence> {
     vec![KnownDivergence {
         id: "block_rules.hw.height-2pow48",
@@ -118,6 +145,12 @@ fn known_divergences() -> Vec<KnownDivergence> {
 // Vector files and the comparison shared by every family.
 // ---------------------------------------------------------------------------------------------
 
+/// The revision of the Etna specification every family follows.
+const SPEC_COMMIT: &str = "178d7a7a66b14305c2f6467ae77163f93dd677cf";
+
+/// The families generated by the formal model, each with its `provenance.formalCommit`.
+const GENERATED: [&str; 3] = ["forced_step", "block_rules", "block_size"];
+
 /// The parsed vector file of `family`.
 fn document(family: &str) -> &'static Value {
     static FILES: OnceLock<BTreeMap<&'static str, Value>> = OnceLock::new();
@@ -126,6 +159,8 @@ fn document(family: &str) -> &'static Value {
             ("forced_step", include_str!("fixtures/etna_conformance/forced_step.json")),
             ("block_rules", include_str!("fixtures/etna_conformance/block_rules.json")),
             ("block_size", include_str!("fixtures/etna_conformance/block_size.json")),
+            ("miss_bitmap", include_str!("fixtures/etna_conformance/miss_bitmap.json")),
+            ("candidate", include_str!("fixtures/etna_conformance/candidate.json")),
         ]
         .into_iter()
         .map(|(name, text)| {
@@ -136,18 +171,37 @@ fn document(family: &str) -> &'static Value {
     let doc = &files[family];
     assert_eq!(doc["schema"], "etna-client-conformance-1", "{family}: schema");
     assert_eq!(doc["family"], family);
-    let commit = doc["provenance"]["formalCommit"].as_str().expect("provenance.formalCommit");
-    assert!(
-        commit.len() == 40 &&
-            commit.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
-        "{family}: provenance.formalCommit {commit} is not a 40-digit lowercase hex commit"
-    );
+    let provenance = &doc["provenance"];
+    assert_eq!(provenance["specCommit"], SPEC_COMMIT, "{family}: provenance.specCommit");
+    match provenance["formalCommit"].as_str() {
+        Some(commit) => assert!(
+            GENERATED.contains(&family) &&
+                commit.len() == 40 &&
+                commit.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+            "{family}: provenance.formalCommit {commit} is not a 40-digit lowercase hex commit \
+             of a generated family"
+        ),
+        None => assert!(!GENERATED.contains(&family), "{family}: no provenance.formalCommit"),
+    }
     doc
 }
 
 /// `value` as a `u64`.
 fn u64_of(value: &Value) -> u64 {
     value.as_u64().unwrap_or_else(|| panic!("{value} is not a u64"))
+}
+
+/// The `0x`-prefixed hex string `value` as a word.
+fn u256_of(value: &Value) -> U256 {
+    let text = value.as_str().unwrap_or_else(|| panic!("{value} is not a hex string"));
+    text.parse().unwrap_or_else(|_| panic!("{text} is not a word"))
+}
+
+/// The `0x`-prefixed hex string `value` as a `u128`.
+fn u128_of(value: &Value) -> u128 {
+    let text = value.as_str().unwrap_or_else(|| panic!("{value} is not a hex string"));
+    let digits = text.strip_prefix("0x").unwrap_or_else(|| panic!("{text} has no 0x prefix"));
+    u128::from_str_radix(digits, 16).unwrap_or_else(|_| panic!("{text} is not a u128"))
 }
 
 /// `value` restricted to `keys`.
@@ -161,13 +215,13 @@ fn project(value: &Value, keys: &[String]) -> Value {
 type Decision = Result<Value, String>;
 
 /// Runs `client` on every vector of `family` (it receives the whole vector) and fails listing
-/// every vector whose client decision differs from the model's (or, for a known divergence, from
+/// every vector whose client decision differs from the file's (or, for a known divergence, from
 /// the recorded client decision) and every vector the harness could not encode. `compared`
 /// names the `expect` keys a decision is judged on.
-fn run_family(
+async fn run_family(
     family: &str,
     compared: impl Fn(&Value) -> Vec<String>,
-    mut client: impl FnMut(&Value) -> Decision,
+    mut client: impl AsyncFnMut(&Value) -> Decision,
 ) {
     let doc = document(family);
     let vectors = doc["vectors"].as_array().expect("vectors");
@@ -176,6 +230,9 @@ fn run_family(
     let by_id: BTreeMap<&str, &Value> =
         vectors.iter().map(|v| (v["id"].as_str().expect("id"), v)).collect();
     assert_eq!(by_id.len(), vectors.len(), "{family}: duplicate vector ids");
+    for id in by_id.keys() {
+        assert!(id.starts_with(&format!("{family}.")), "{id}: not an id of {family}");
+    }
 
     let mut known = BTreeMap::new();
     for d in known_divergences().into_iter().filter(|d| d.id.starts_with(&format!("{family}."))) {
@@ -186,14 +243,14 @@ fn run_family(
         for k in &keys {
             assert!(
                 v["expect"].get(k).is_some(),
-                "{}: the record names {k}, which the model does not decide",
+                "{}: the record names {k}, which the file does not decide",
                 d.id
             );
         }
         assert_ne!(
             project(&v["expect"], &keys),
             d.client,
-            "{}: the known divergence records the model's own decision",
+            "{}: the known divergence records the file's own decision",
             d.id
         );
         known.insert(d.id, d);
@@ -202,7 +259,7 @@ fn run_family(
     let (mut agreed, mut diverged, mut mismatches) = (0, Vec::new(), Vec::new());
     for v in vectors {
         let id = v["id"].as_str().expect("id");
-        let got = match client(v) {
+        let got = match client(v).await {
             Ok(got) => got,
             Err(fault) => {
                 mismatches.push(format!("{id}: harness cannot encode the vector: {fault}"));
@@ -216,7 +273,7 @@ fn run_family(
                     diverged.push(format!("{id} ({}): {}", d.spec, d.reason));
                 } else {
                     mismatches.push(format!(
-                        "{id}: recorded client decision {} changed to {} (model {})",
+                        "{id}: recorded client decision {} changed to {} (file {})",
                         d.client,
                         project(&got, &keys),
                         v["expect"]
@@ -229,7 +286,7 @@ fn run_family(
                 if want == have {
                     agreed += 1;
                 } else {
-                    mismatches.push(format!("{id}: model {want}, client {have}"));
+                    mismatches.push(format!("{id}: file {want}, client {have}"));
                 }
             }
         }
@@ -258,6 +315,109 @@ fn all_keys(expect: &Value) -> Vec<String> {
 /// The devnet chain parameters every family starts from.
 fn params() -> ChainParams {
     ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet parameters")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Named keys and sets.
+// ---------------------------------------------------------------------------------------------
+
+/// The consensus key a vector names: the public key of the secret
+/// `keccak256("etna conformance key " ‖ name)`.
+fn named_key(name: &str) -> ConsensusKey {
+    let secret = keccak256(format!("etna conformance key {name}"));
+    let secret = k256::SecretKey::from_slice(secret.as_slice()).expect("a valid secret");
+    ConsensusKey::from_slice(secret.public_key().to_encoded_point(true).as_bytes()).expect("key")
+}
+
+/// A name's letters and number: `C12` is `("C", 12)`.
+fn split_name(name: &str) -> (&str, u64) {
+    let at = name.find(|c: char| c.is_ascii_digit()).unwrap_or_else(|| panic!("{name}: no number"));
+    (&name[..at], name[at..].parse().unwrap_or_else(|_| panic!("{name}: not a number")))
+}
+
+/// The numbers `a..b` of a span, both included.
+fn span(text: &str) -> RangeInclusive<u64> {
+    let (a, b) = text.split_once("..").unwrap_or((text, text));
+    a.parse().expect("a span start")..=b.parse().expect("a span end")
+}
+
+/// The names of `list`: space-separated names, or runs `C0..C3` of the consecutively numbered
+/// names from the first to the last.
+fn names(list: &str) -> Vec<String> {
+    list.split_whitespace()
+        .flat_map(|item| match item.split_once("..") {
+            Some((first, last)) => {
+                let ((letters, a), (other, b)) = (split_name(first), split_name(last));
+                assert_eq!(letters, other, "{item}: one run of one letter");
+                (a..=b).map(|n| format!("{letters}{n}")).collect()
+            }
+            None => vec![item.to_string()],
+        })
+        .collect()
+}
+
+/// The fallback key list of the named keys `list` ([`names`]).
+fn fallback_list(list: &str) -> FallbackKeys {
+    let mut keys: Vec<_> = names(list).iter().map(|name| named_key(name)).collect();
+    keys.sort();
+    FallbackKeys::new(keys).expect("a valid fallback key list")
+}
+
+/// The fallback keys an anchor proves unless a vector says otherwise; with the minimum total
+/// stake of all ones the anchors prove, they also sign every block the harness judges.
+fn default_fallback() -> FallbackKeys {
+    fallback_list("F1..F4")
+}
+
+/// The keys and powers of a vector's `{name: power}` set.
+fn members(value: &Value) -> Vec<(ConsensusKey, u64)> {
+    let set = value.as_object().unwrap_or_else(|| panic!("{value} is not a set"));
+    set.iter().map(|(name, power)| (named_key(name), u64_of(power))).collect()
+}
+
+/// `members` as the vectors write a set: `name:power` items in name order, each run of names
+/// with consecutive numbers and one power written `first..last:power`. Keys are named over the
+/// names `C0` to `C255` and `F0` to `F255`; any other key is `?`.
+fn render(members: &[(ConsensusKey, u64)]) -> String {
+    static NAMES: OnceLock<BTreeMap<ConsensusKey, (char, u64)>> = OnceLock::new();
+    let table = NAMES.get_or_init(|| {
+        ['C', 'F']
+            .into_iter()
+            .flat_map(|letter| (0..256).map(move |n| (letter, n)))
+            .map(|(letter, n)| (named_key(&format!("{letter}{n}")), (letter, n)))
+            .collect()
+    });
+    let mut named: Vec<(char, u64, u64)> = members
+        .iter()
+        .map(|(key, power)| {
+            let (letter, n) = table.get(key).copied().unwrap_or(('?', 0));
+            (letter, n, *power)
+        })
+        .collect();
+    named.sort_unstable();
+    let mut runs: Vec<(char, u64, u64, u64)> = Vec::new();
+    for (letter, n, power) in named {
+        match runs.last_mut() {
+            Some(run) if run.0 == letter && run.2 + 1 == n && run.3 == power => run.2 = n,
+            _ => runs.push((letter, n, n, power)),
+        }
+    }
+    runs.iter()
+        .map(|&(letter, first, last, power)| {
+            if first == last {
+                format!("{letter}{first}:{power}")
+            } else {
+                format!("{letter}{first}..{letter}{last}:{power}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The two words of a snapshot seat record holding `key` at `power`: `ckX`, then
+/// `ckPrefix | power << 8`.
+fn record_words(key: ConsensusKey, power: u64) -> [U256; 2] {
+    [U256::from_be_bytes(key.x().0), U256::from(key.prefix()) | (U256::from(power) << 8usize)]
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -347,6 +507,74 @@ impl L1State {
     }
 }
 
+/// The node's own L1 as the fallback key lists need it: the Inbox's `getFallbackKeys()` at each
+/// anchor hash in `served` answers the list held there, and its `FallbackKeysUpdated` logs hold
+/// the lists in `logged`. Every other read is an error.
+struct ListL1 {
+    served: BTreeMap<B256, FallbackKeys>,
+    logged: Vec<FallbackKeys>,
+}
+
+/// The error of an L1 read [`ListL1`] does not serve.
+fn no_l1_read(name: &str) -> L1Error {
+    L1Error::Rpc(format!("unexpected L1 read {name}"))
+}
+
+#[async_trait::async_trait]
+impl L1Source for ListL1 {
+    async fn finalized_number(&self) -> Result<u64, L1Error> {
+        Err(no_l1_read("finalized_number"))
+    }
+
+    async fn canonical_hash(&self, _: u64) -> Result<B256, L1Error> {
+        Err(no_l1_read("canonical_hash"))
+    }
+
+    async fn header(&self, _: u64) -> Result<RawL1Header, L1Error> {
+        Err(no_l1_read("header"))
+    }
+
+    async fn account_witness(
+        &self,
+        _: Address,
+        _: &[B256],
+        _: u64,
+    ) -> Result<AccountWitness, L1Error> {
+        Err(no_l1_read("account_witness"))
+    }
+
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        if address != params().inbox || input[..] != (getFallbackKeysCall {}).abi_encode()[..] {
+            return Err(no_l1_read("call_at"));
+        }
+        let keys = self.served.get(&hash).ok_or_else(|| no_l1_read("call_at another hash"))?;
+        Ok(keys.abi_encode().into())
+    }
+
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        _: u64,
+        _: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        if inbox != params().inbox || topic0 != FALLBACK_KEYS_UPDATED {
+            return Err(no_l1_read("inbox_logs"));
+        }
+        let logs = self.logged.iter().filter(|keys| keys.hash() == topic1);
+        Ok(logs.map(|keys| keys.abi_encode().into()).collect())
+    }
+
+    async fn forced_transaction(&self, _: Address, _: u64, _: u64) -> Result<Bytes, L1Error> {
+        Err(no_l1_read("forced_transaction"))
+    }
+
+    async fn storage_at(&self, _: Address, _: B256, _: u64) -> Result<U256, L1Error> {
+        Err(no_l1_read("storage_at"))
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Blocks on a committed chain, judged by `validate_block`.
 // ---------------------------------------------------------------------------------------------
@@ -361,24 +589,39 @@ struct AnchorFacts {
     tail: u64,
     /// Forced inclusion queue entries by index: `(txHash, L1 timestamp, L1 block)`.
     queue: BTreeMap<u64, (B256, u64, u64)>,
+    /// The fallback key list whose hash the Inbox stores.
+    fallback_keys: FallbackKeys,
+    /// The minimum total stake, in all 256 bits.
+    min_total_stake: U256,
 }
 
 impl AnchorFacts {
-    /// An anchor with an empty forced inclusion queue.
+    /// An anchor with an empty forced inclusion queue, the default fallback keys and a minimum
+    /// total stake of all ones.
     fn new(number: u64, timestamp: u64, checkpoint_height: u64, generation: u64) -> Self {
-        Self { number, timestamp, checkpoint_height, generation, tail: 0, queue: BTreeMap::new() }
+        Self {
+            number,
+            timestamp,
+            checkpoint_height,
+            generation,
+            tail: 0,
+            queue: BTreeMap::new(),
+            fallback_keys: default_fallback(),
+            min_total_stake: U256::MAX,
+        }
     }
 
-    /// The L1 state at this anchor: the Inbox's anchor slots and queue. The fallback keys hash
-    /// and the minimum total stake use every bit of their words; the rules the vectors vary read
-    /// neither.
+    /// The L1 state at this anchor: the Inbox's anchor slots and queue.
     fn l1_state(&self) -> L1State {
         let mut words = BTreeMap::from([
             (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(self.generation)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(self.checkpoint_height)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HASH), U256::from_be_bytes([0x0c; 32])),
-            (inbox::slot(inbox::FALLBACK_KEYS_HASH), U256::from_be_bytes([0x0f; 32])),
-            (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
+            (
+                inbox::slot(inbox::FALLBACK_KEYS_HASH),
+                U256::from_be_bytes(self.fallback_keys.hash().0),
+            ),
+            (inbox::slot(inbox::MIN_TOTAL_STAKE), self.min_total_stake),
             (inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), U256::from(self.tail) << 48),
         ]);
         for (index, (hash, timestamp, l1_block)) in &self.queue {
@@ -424,27 +667,20 @@ impl AnchorFacts {
                 last_checkpoint_hash: B256::repeat_byte(0x0c),
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: self.tail,
-                fallback_keys_hash: B256::repeat_byte(0x0f),
-                min_total_stake: U256::MAX,
+                fallback_keys_hash: self.fallback_keys.hash(),
+                min_total_stake: self.min_total_stake,
             },
         }
     }
 }
 
-/// The certified proposer's consensus key.
-fn proposer_key() -> ConsensusKey {
-    let secret = k256::SecretKey::from_slice(&[0x0b; 32]).expect("private key");
-    ConsensusKey::from_slice(secret.public_key().to_encoded_point(true).as_bytes()).expect("key")
-}
-
 /// The 29-byte `extraData` `[fee share | generation (uint48) | anchor (uint48) | missBitmap
-/// (uint128)]` with an empty `missBitmap`, as every signer of the parent signed; a value above
-/// `uint48` keeps its low 48 bits (no header can encode it).
-fn extra_data(fee_share: u8, generation: u64, anchor: u64) -> Bytes {
+/// (uint128)]`; a value above `uint48` keeps its low 48 bits (no header can encode it).
+fn extra_data(fee_share: u8, generation: u64, anchor: u64, miss_bitmap: u128) -> Bytes {
     let mut out = vec![fee_share];
     out.extend_from_slice(&generation.to_be_bytes()[2..]);
     out.extend_from_slice(&anchor.to_be_bytes()[2..]);
-    out.extend_from_slice(&0u128.to_be_bytes());
+    out.extend_from_slice(&miss_bitmap.to_be_bytes());
     out.into()
 }
 
@@ -478,12 +714,31 @@ struct BlockCase {
     cursor: u64,
     forced: Option<ForcedWitness>,
     transactions: Vec<Bytes>,
+    /// The set that signs the block; it holds the certified proposer.
+    signers: Vec<(ConsensusKey, u64)>,
+    /// The certified proposer.
+    proposer: ConsensusKey,
+    /// The set that signs the parent, for every parent but the generation's origin.
+    parent_signers: Vec<(ConsensusKey, u64)>,
+    /// The LastCommit flag of a parent signer whose vote is not a commit; every other committed.
+    flags: BTreeMap<ConsensusKey, BlockIdFlag>,
+    /// The staking contract's words in the parent's post-state; every other slot is zero.
+    parent_post_state: BTreeMap<B256, U256>,
+    /// The staking contract's words in the block's own post-state; every other slot is zero.
+    block_post_state: BTreeMap<B256, U256>,
+    /// The header's `missBitmap`.
+    miss_bitmap: u128,
+    /// The header's whole `extraData`, in place of the one the fields above encode.
+    raw_extra_data: Option<Bytes>,
 }
 
 impl BlockCase {
     /// An ordinary valid block 5 on parent 4 that moves the anchor from 110 to 111, whose
-    /// timestamp is `anchor_timestamp` (so the anchor is not older than the block).
+    /// timestamp is `anchor_timestamp` (so the anchor is not older than the block). The default
+    /// fallback keys sign the block and its parent, every one of them committed the parent, and
+    /// the header's `missBitmap` is 0.
     fn ordinary(anchor_timestamp: u64) -> Self {
+        let fallback = default_fallback().validator_set();
         Self {
             generation: 0,
             l1_0: 100,
@@ -502,6 +757,14 @@ impl BlockCase {
             cursor: 0,
             forced: None,
             transactions: Vec::new(),
+            proposer: fallback[0].0,
+            signers: fallback.clone(),
+            parent_signers: fallback,
+            flags: BTreeMap::new(),
+            parent_post_state: BTreeMap::new(),
+            block_post_state: BTreeMap::new(),
+            miss_bitmap: 0,
+            raw_extra_data: None,
         }
     }
 
@@ -525,13 +788,22 @@ impl BlockCase {
         }
     }
 
+    /// The set that signs the parent, in CometBFT order: the validators the block's LastCommit
+    /// lists. The generation's first block, on the origin at height 0, has no LastCommit.
+    fn parent_set(&self) -> Vec<ValEntry> {
+        if self.parent_height == 0 {
+            return Vec::new();
+        }
+        comet_order(&self.parent_signers).expect("a valid parent signing set")
+    }
+
     /// Whether the block carries an anchor witness: the first block of the generation and every
     /// block that moves the anchor (3.3), as the model's `AnchorValid` requires.
     fn carries_anchor(&self) -> bool {
         self.parent_height == 0 || self.anchor.number != self.parent_anchor.number
     }
 
-    /// The header: the vector's height, timestamp and `extraData`, and every other field at the
+    /// The header: the case's height, timestamp and `extraData`, and every other field at the
     /// value 3.2 derives (the base fee and mix hash by the protocol formulas, the anchor's state
     /// root, the chain's gas limit and the fixed Etna fields).
     fn header(&self) -> Header {
@@ -547,12 +819,15 @@ impl BlockCase {
             min_base_fee_for_chain(p.l2_chain_id),
         )
         .expect("the parent carries a base fee");
+        let extra = self.raw_extra_data.clone().unwrap_or_else(|| {
+            extra_data(self.fee_share, self.extra_generation, self.anchor.number, self.miss_bitmap)
+        });
         Header {
             parent_hash: parent.hash,
             number: self.height,
             timestamp: self.timestamp,
             beneficiary: Address::repeat_byte(0x04),
-            extra_data: extra_data(self.fee_share, self.extra_generation, self.anchor.number),
+            extra_data: extra,
             parent_beacon_block_root: Some(self.anchor.l1_state().root()),
             gas_limit: p.block_gas_limit,
             base_fee_per_gas: Some(base_fee),
@@ -567,9 +842,51 @@ impl BlockCase {
         }
     }
 
-    /// Judges the block with [`validate_block`] on the committed chain the case describes.
+    /// An EL that holds the parent's and the block's post-states and builds singletons with
+    /// `singleton`.
+    fn engine(&self, singleton: Option<&str>) -> FixtureEngine {
+        FixtureEngine {
+            singleton: singleton.map(str::to_string),
+            post_states: BTreeMap::from([
+                (self.parent().hash, self.parent_post_state.clone()),
+                (self.header().hash_slow(), self.block_post_state.clone()),
+            ]),
+        }
+    }
+
+    /// The `missBitmap` the client derives for the block, as `ProcessProposal` and
+    /// `FinalizeBlock` do: the parent signers whose LastCommit flag is not a commit
+    /// ([`missing_addresses`]), each one's live key-to-seat word read at the parent's hash
+    /// ([`seat_words`]), and the bitmap of their seats ([`miss_bitmap`]). `Err` when the EL
+    /// could not serve a read.
+    async fn derived_bitmap(&self) -> Result<u128, String> {
+        let signers = self.parent_set();
+        let addresses: Vec<Address> = signers.iter().map(|entry| entry.key.address()).collect();
+        let committed: Vec<bool> = signers
+            .iter()
+            .map(|entry| self.flags.get(&entry.key).is_none_or(|f| *f == BlockIdFlag::Commit))
+            .collect();
+        let missing =
+            missing_addresses(&addresses, &committed).expect("one flag per parent signer");
+        let words = seat_words(&self.engine(None), params().staking, self.parent().hash, &missing)
+            .await
+            .map_err(|error| format!("the seat words cannot be read: {error}"))?;
+        Ok(miss_bitmap(&missing, |address| words[&address]))
+    }
+
+    /// Judges the block with [`validate_block`] on the committed chain the case describes, given
+    /// the derived `missBitmap` ([`BlockCase::derived_bitmap`]); `Err` when the EL could not
+    /// serve a read.
     #[allow(clippy::result_large_err, reason = "validate_block's own result")]
-    fn judge(&self) -> Result<abci::app::Validated, Rejection> {
+    async fn judge(&self) -> Result<Result<Validated, Rejection>, String> {
+        let bitmap = self.derived_bitmap().await?;
+        Ok(self.validate(bitmap))
+    }
+
+    /// Judges the block with [`validate_block`] on the committed chain the case describes, given
+    /// the `missBitmap` `miss_bitmap` the block must carry.
+    #[allow(clippy::result_large_err, reason = "validate_block's own result")]
+    fn validate(&self, miss_bitmap: u128) -> Result<Validated, Rejection> {
         let params = self.params();
         let genesis = GenesisRecord {
             config_hash: params.config_hash(),
@@ -581,9 +898,8 @@ impl BlockCase {
             max_anchor_age: self.max_anchor_age,
         };
         let (parent, parent_anchor) = (self.parent(), self.parent_anchor.anchor_state());
-        // The set that signs the block holds the certified proposer.
-        let signers =
-            abci::valstate::comet_order(&[(proposer_key(), 1)]).expect("a one-member set");
+        let signers = comet_order(&self.signers).expect("a valid signing set");
+        let parent_signers = self.parent_set();
         let chain = ChainContext {
             recovery: None,
             genesis: &genesis,
@@ -592,8 +908,7 @@ impl BlockCase {
             anchor: &parent_anchor,
             forced_cursor: self.cursor,
             signers: &signers,
-            // No case varies the parent's LastCommit: it misses nobody, so the bitmap is 0.
-            parent_signers: &[],
+            parent_signers: &parent_signers,
         };
         let env = EtnaEnvelope {
             block: ExecutionBlock {
@@ -603,8 +918,8 @@ impl BlockCase {
             anchor: self.carries_anchor().then(|| self.anchor.witness()),
             forced: self.forced.clone(),
         };
-        let proposer = tendermint::account::Id::new(proposer_key().address().into_array());
-        validate_block(&chain, &params, &env, self.height, self.bft, proposer, 0)
+        let proposer = tendermint::account::Id::new(self.proposer.address().into_array());
+        validate_block(&chain, &params, &env, self.height, self.bft, proposer, miss_bitmap)
     }
 }
 
@@ -699,16 +1014,22 @@ fn forced_step_transaction_kinds_match_their_bytes() {
     assert_eq!(hashes.len(), kinds.len(), "kinds must have distinct hashes");
 }
 
-/// An execution engine whose singleton build gives the vector's result. It builds from the
-/// attributes it is given, as alethia-reth does: an empty block with the requested header, a
-/// block retaining the transaction, an empty block for another context (a later timestamp), or
-/// a transport failure (no result yet). Every other engine call is an error.
-struct SingletonEngine {
-    result: String,
+/// An execution engine of fixed answers. Its singleton build gives the vector's result, building
+/// from the attributes it is given as alethia-reth does: an empty block with the requested
+/// header, a block retaining the transaction, an empty block for another context (a later
+/// timestamp), or a transport failure (no result yet). Its storage reads answer the staking
+/// contract's words in the post-state of each block it holds. Every other engine call is an
+/// error.
+struct FixtureEngine {
+    /// The singleton build's result; `None` when nothing may build.
+    singleton: Option<String>,
+    /// The staking contract's words in the post-state of each block, by block hash; every slot
+    /// absent there is zero.
+    post_states: BTreeMap<B256, BTreeMap<B256, U256>>,
 }
 
 #[async_trait::async_trait]
-impl Engine for SingletonEngine {
+impl Engine for FixtureEngine {
     async fn check_capabilities(&self) -> Result<(), EngineError> {
         Err(EngineError::BadReply("unexpected check_capabilities".into()))
     }
@@ -722,6 +1043,9 @@ impl Engine for SingletonEngine {
         parent_hash: B256,
         attrs: TaikoPayloadAttributes,
     ) -> Result<ExecutionBlock, EngineError> {
+        let Some(result) = self.singleton.as_deref() else {
+            return Err(EngineError::BadReply("unexpected build_block".into()));
+        };
         let eth = &attrs.payload_attributes;
         let mut header = Header {
             parent_hash,
@@ -744,7 +1068,7 @@ impl Engine for SingletonEngine {
         let given = attrs.block_metadata.tx_list.clone().expect("a singleton build gives its list");
         let given: Vec<TxEnvelope> = alloy_rlp::decode_exact(given).expect("the given list");
         assert_eq!(given.len(), 1, "a singleton build gives exactly [tx]");
-        match self.result.as_str() {
+        match result {
             "completedEmpty" => Ok(ExecutionBlock { header, transactions: vec![] }),
             "completedRetained" => {
                 Ok(ExecutionBlock { header, transactions: vec![given[0].encoded_2718().into()] })
@@ -772,8 +1096,19 @@ impl Engine for SingletonEngine {
     async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
         Err(EngineError::Setup("fixture has no historical state".into()))
     }
-    async fn storage_at(&self, _: Address, _: &[B256], _: B256) -> Result<Vec<U256>, EngineError> {
-        Err(EngineError::BadReply("unexpected storage_at".into()))
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError> {
+        if address != params().staking {
+            return Err(EngineError::BadReply(format!("unexpected storage read of {address}")));
+        }
+        let words = self.post_states.get(&hash).ok_or_else(|| {
+            EngineError::BadReply(format!("no post-state of block {hash} in the fixture"))
+        })?;
+        Ok(slots.iter().map(|slot| words.get(slot).copied().unwrap_or_default()).collect())
     }
     async fn header_by_number(&self, _: u64) -> Result<Option<Header>, EngineError> {
         Err(EngineError::BadReply("unexpected header_by_number".into()))
@@ -813,12 +1148,12 @@ async fn forced_step_client(input: &Value) -> Decision {
             tx: tx_bytes(w["tx"].as_str().unwrap()),
         });
     }
-    let validated = match case.judge() {
+    let validated = match case.judge().await? {
         Ok(validated) => validated,
         Err(Rejection::Forced(_)) => return Ok(json!({"result": "rejected"})),
         Err(other) => return Err(unexpected(&other)),
     };
-    let engine = SingletonEngine { result: input["singleton"].as_str().unwrap().into() };
+    let engine = case.engine(input["singleton"].as_str());
     let context =
         ForcedBuildContext { expected: &validated.expected, anchor_hash: validated.anchor.hash };
     match verify_forced(&engine, context, &validated.decision).await {
@@ -837,13 +1172,7 @@ async fn forced_step_client(input: &Value) -> Decision {
 
 #[tokio::test]
 async fn forced_step_vectors() {
-    // The decisions are asynchronous (the singleton build), so they are computed first.
-    let mut decisions = BTreeMap::new();
-    for v in document("forced_step")["vectors"].as_array().unwrap() {
-        decisions
-            .insert(v["id"].as_str().unwrap().to_string(), forced_step_client(&v["input"]).await);
-    }
-    run_family("forced_step", all_keys, |v| decisions[v["id"].as_str().unwrap()].clone());
+    run_family("forced_step", all_keys, async |v| forced_step_client(&v["input"]).await).await;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -855,7 +1184,7 @@ async fn forced_step_vectors() {
 /// model. A rejection must come from a rule the vectors vary: height linkage, the derived
 /// timestamp, the `extraData` (base-fee sharing byte, generation, anchor range), the generation
 /// triple, anchor progress, freshness or back-pressure.
-fn block_rules_client(input: &Value) -> Decision {
+async fn block_rules_client(input: &Value) -> Decision {
     let (p, b, a) = (&input["parent"], &input["block"], &input["anchor"]);
     let anchor = AnchorFacts::new(
         u64_of(&a["number"]),
@@ -884,7 +1213,7 @@ fn block_rules_client(input: &Value) -> Decision {
         extra_generation: u64_of(&b["generation"]),
         ..BlockCase::ordinary(1_700_000_000)
     };
-    match case.judge() {
+    match case.judge().await? {
         Ok(_) => Ok(json!({"valid": true})),
         Err(
             Rejection::Superseded { .. } |
@@ -908,9 +1237,9 @@ fn block_rules_client(input: &Value) -> Decision {
     }
 }
 
-#[test]
-fn block_rules_vectors() {
-    run_family("block_rules", all_keys, |v| block_rules_client(&v["input"]));
+#[tokio::test]
+async fn block_rules_vectors() {
+    run_family("block_rules", all_keys, async |v| block_rules_client(&v["input"]).await).await;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -955,7 +1284,7 @@ fn sized_filler(header: &Header, bytes: usize, incompressible: bool) -> Bytes {
 
 /// The client's decision: whether an otherwise valid block of exactly `blockBytes` passes
 /// [`validate_block`], whose first check is the block size bound.
-fn block_size_client(input: &Value) -> Decision {
+async fn block_size_client(input: &Value) -> Decision {
     let bytes = u64_of(&input["blockBytes"]) as usize;
     let incompressible = match input["content"].as_str() {
         Some("incompressible") => true,
@@ -964,16 +1293,224 @@ fn block_size_client(input: &Value) -> Decision {
     };
     let mut case = BlockCase::ordinary(1_700_000_000);
     case.transactions = vec![sized_filler(&case.header(), bytes, incompressible)];
-    match case.judge() {
+    match case.judge().await? {
         Ok(_) => Ok(json!({"valid": true})),
         Err(Rejection::BlockSizeBound { .. }) => Ok(json!({"valid": false})),
         Err(other) => Err(unexpected(&other)),
     }
 }
 
-#[test]
-fn block_size_vectors() {
-    run_family("block_size", all_keys, |v| block_size_client(&v["input"]));
+#[tokio::test]
+async fn block_size_vectors() {
+    run_family("block_size", all_keys, async |v| block_size_client(&v["input"]).await).await;
+}
+
+// ---------------------------------------------------------------------------------------------
+// miss_bitmap: the `missBitmap` a block must carry and the 29-byte `extraData` that holds it.
+// ---------------------------------------------------------------------------------------------
+
+/// The staking contract's words a vector's post-state names: the live key-to-seat word of each
+/// named key (`keyToSeat`), and each snapshot seat record that holds a named key at power 1
+/// (`records`, by seat).
+fn post_state(value: &Value) -> BTreeMap<B256, U256> {
+    let mut words = BTreeMap::new();
+    for (name, word) in value["keyToSeat"].as_object().expect("keyToSeat") {
+        words.insert(key_to_seat_slot(named_key(name).address()), u256_of(word));
+    }
+    for (seat, name) in value.get("records").and_then(Value::as_object).into_iter().flatten() {
+        let key = named_key(name.as_str().expect("a key name"));
+        let seat = seat.parse().expect("a seat number");
+        words.extend(record_slots(seat).into_iter().zip(record_words(key, 1)));
+    }
+    words
+}
+
+/// The LastCommit flag a vector names.
+fn block_id_flag(value: &Value) -> BlockIdFlag {
+    match value.as_str() {
+        Some("commit") => BlockIdFlag::Commit,
+        Some("absent") => BlockIdFlag::Absent,
+        Some("nil") => BlockIdFlag::Nil,
+        other => panic!("unknown LastCommit flag {other:?}"),
+    }
+}
+
+/// The client's decision on one block of an ordinary chain: the `missBitmap` it derives
+/// ([`BlockCase::derived_bitmap`]) from the vector's parent signers, their LastCommit flags and
+/// the parent's post-state (the block's own post-state also held by the EL), and whether a
+/// block whose header carries the vector's `missBitmap`, or its whole `extraData`, then passes
+/// [`validate_block`]. A first block of the generation sits on the origin, with no LastCommit.
+/// A rejection must come from the `missBitmap` comparison or, for a whole `extraData`, from its
+/// layout.
+async fn miss_bitmap_client(input: &Value) -> Decision {
+    let mut case = BlockCase::ordinary(1_700_000_000);
+    case.parent_signers = members(&input["parentSigners"]);
+    if input["firstBlock"] == true {
+        if !case.parent_signers.is_empty() {
+            return Err("the origin has no signers".into());
+        }
+        (case.parent_height, case.height) = (0, 1);
+    }
+    case.signers = match input.get("signers") {
+        Some(signers) => members(signers),
+        None => case.parent_signers.clone(),
+    };
+    case.proposer = case.signers.first().ok_or("no set signs the block")?.0;
+    let last_commit = input["lastCommit"].as_object().expect("lastCommit");
+    let listed: Vec<ConsensusKey> = last_commit.keys().map(|name| named_key(name)).collect();
+    if listed != case.parent_signers.iter().map(|(key, _)| *key).collect::<Vec<_>>() {
+        return Err("the LastCommit does not list exactly the parent signers".into());
+    }
+    case.flags = last_commit
+        .iter()
+        .map(|(name, flag)| (named_key(name), block_id_flag(flag)))
+        .filter(|(_, flag)| *flag != BlockIdFlag::Commit)
+        .collect();
+    case.parent_post_state = post_state(&input["parentPostState"]);
+    case.block_post_state = input.get("blockPostState").map(post_state).unwrap_or_default();
+    match (input.get("missBitmap"), input.get("extraData")) {
+        (Some(bitmap), None) => case.miss_bitmap = u128_of(bitmap),
+        (None, Some(raw)) => {
+            let raw = hex::decode(raw.as_str().expect("extraData hex")).expect("extraData hex");
+            case.raw_extra_data = Some(raw.into());
+        }
+        _ => return Err("the header needs exactly one of missBitmap and extraData".into()),
+    }
+    let derived = case.derived_bitmap().await?;
+    let raw = case.raw_extra_data.is_some();
+    let valid = match case.validate(derived) {
+        Ok(_) => true,
+        Err(Rejection::Rule(RuleViolation::MissBitmap { .. })) => false,
+        Err(Rejection::Rule(RuleViolation::ExtraDataLength { .. })) if raw => false,
+        Err(Rejection::Rule(RuleViolation::HeaderField { field, .. }))
+            if raw && field == "extra_data" =>
+        {
+            false
+        }
+        Err(other) => return Err(unexpected(&other)),
+    };
+    Ok(json!({"missBitmap": format!("{derived:#x}"), "valid": valid}))
+}
+
+#[tokio::test]
+async fn miss_bitmap_vectors() {
+    run_family("miss_bitmap", all_keys, async |v| miss_bitmap_client(&v["input"]).await).await;
+}
+
+// ---------------------------------------------------------------------------------------------
+// candidate: the set that signs H + 2, decided at H from H's candidate snapshot and anchor.
+// ---------------------------------------------------------------------------------------------
+
+/// The staking contract's words of a vector's candidate snapshot: `snapshotHeight`,
+/// `snapshotTotalStake` and the listed seat records, every other record empty. A record lists
+/// `seats`, a span of seats each holding the key named `C` and its seat number; or one `seat`
+/// with its two `words`; or one `seat` holding the named `key`, optionally with another
+/// `prefix` byte and with `orPacked` bits set in its second word. Each record but a raw one has
+/// a `power`.
+fn snapshot_state(snapshot: &Value) -> BTreeMap<B256, U256> {
+    let mut records = [[U256::ZERO; 2]; RECORD_COUNT];
+    for record in snapshot["records"].as_array().expect("records") {
+        if let Some(seats) = record["seats"].as_str() {
+            for seat in span(seats) {
+                records[seat as usize] =
+                    record_words(named_key(&format!("C{seat}")), u64_of(&record["power"]));
+            }
+            continue;
+        }
+        let seat = u64_of(&record["seat"]) as usize;
+        records[seat] = match record.get("words") {
+            Some(words) => [u256_of(&words[0]), u256_of(&words[1])],
+            None => {
+                let key = named_key(record["key"].as_str().expect("a key name"));
+                let [x, mut packed] = record_words(key, u64_of(&record["power"]));
+                if let Some(prefix) = record.get("prefix") {
+                    packed = (packed & !U256::from(0xff)) | U256::from(u64_of(prefix));
+                }
+                if let Some(bits) = record.get("orPacked") {
+                    packed |= u256_of(bits);
+                }
+                [x, packed]
+            }
+        };
+    }
+    let header = [u256_of(&snapshot["snapshotHeight"]), u256_of(&snapshot["totalStake"])];
+    let values = header.into_iter().chain(records.into_iter().flatten());
+    snapshot_slots().into_iter().zip(values).collect()
+}
+
+/// The anchor `base` proving a vector's `minTotalStake` and `fallbackKeys`.
+fn anchor_proving(value: &Value, base: AnchorFacts) -> AnchorFacts {
+    AnchorFacts {
+        min_total_stake: u256_of(&value["minTotalStake"]),
+        fallback_keys: fallback_list(value["fallbackKeys"].as_str().expect("fallbackKeys")),
+        ..base
+    }
+}
+
+/// The client's decision on the sets that sign H + 2, H + 3, …: one block per snapshot from
+/// height H on, each moving from the parent's anchor to H's (or inheriting the parent's), with
+/// that snapshot in its own post-state. Each block is judged with [`validate_block`], whose
+/// anchor gives the minimum total stake and the fallback keys hash; [`fetch_fallback_keys`]
+/// obtains the list from an L1 that answers `getFallbackKeys()` at each anchor hash with that
+/// anchor's list (H's with `servedList` when the vector gives one) and holds both anchors' lists
+/// in its logs; [`staking_words`] reads the snapshot at the block's hash; [`committee::decide`]
+/// picks the set.
+async fn candidate_client(input: &Value) -> Decision {
+    let height = u64_of(&input["height"]);
+    let ordinary = BlockCase::ordinary(1_700_000_000);
+    let anchor = anchor_proving(&input["anchor"], ordinary.anchor.clone());
+    let parent_anchor = match input.get("parentAnchor") {
+        _ if input["inheritsAnchor"] == true => anchor.clone(),
+        Some(parent) => anchor_proving(parent, ordinary.parent_anchor.clone()),
+        None => AnchorFacts {
+            fallback_keys: anchor.fallback_keys.clone(),
+            min_total_stake: anchor.min_total_stake,
+            ..ordinary.parent_anchor.clone()
+        },
+    };
+    let mut served = BTreeMap::new();
+    for facts in [&parent_anchor, &anchor] {
+        served.insert(facts.anchor_state().hash, facts.fallback_keys.clone());
+    }
+    if let Some(list) = input.get("servedList") {
+        let list = fallback_list(list.as_str().expect("servedList"));
+        served.insert(anchor.anchor_state().hash, list);
+    }
+    let l1 = ListL1 {
+        served,
+        logged: vec![parent_anchor.fallback_keys.clone(), anchor.fallback_keys.clone()],
+    };
+
+    let mut signs = Vec::new();
+    for (offset, snapshot) in (0..).zip(input["snapshots"].as_array().expect("snapshots")) {
+        let h = height + offset;
+        let case = BlockCase {
+            height: h,
+            parent_height: h - 1,
+            parent_anchor: parent_anchor.clone(),
+            anchor: anchor.clone(),
+            block_post_state: snapshot_state(snapshot),
+            ..BlockCase::ordinary(1_700_000_000)
+        };
+        let validated = case.judge().await?.map_err(|rejection| unexpected(&rejection))?;
+        let facts = &validated.anchor;
+        let (min_total_stake, list) = (facts.inbox.min_total_stake, facts.inbox.fallback_keys_hash);
+        let keys = fetch_fallback_keys(&l1, params().inbox, list, facts.hash, facts.number, 0)
+            .await
+            .map_err(|error| format!("no fallback key list: {error}"))?;
+        let hash = validated.block.header.hash_slow();
+        let words = staking_words(&case.engine(None), params().staking, hash, h, min_total_stake)
+            .await
+            .map_err(|error| format!("the snapshot cannot be read: {error}"))?;
+        let set = committee::decide(h, &words, min_total_stake, &keys);
+        signs.push(json!({"source": set.source, "members": render(&set.members)}));
+    }
+    Ok(json!({"signs": signs}))
+}
+
+#[tokio::test]
+async fn candidate_vectors() {
+    run_family("candidate", all_keys, async |v| candidate_client(&v["input"]).await).await;
 }
 
 // ---------------------------------------------------------------------------------------------

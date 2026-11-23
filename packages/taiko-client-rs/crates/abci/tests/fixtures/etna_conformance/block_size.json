@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "block_size",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5"},
+  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5", "specCommit": "178d7a7a66b14305c2f6467ae77163f93dd677cf"},
   "vectorCount": 14,
   "vectors": [
     {
