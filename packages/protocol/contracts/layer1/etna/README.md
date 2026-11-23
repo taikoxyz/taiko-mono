@@ -17,10 +17,10 @@ staking registry, committees and epochs, committee 0 and its genesis cutoff, the
 snapshot (slot 284), recovery exclusions and the recovery capacity F are gone. The L2 `EtnaStaking`
 contract seats at most 128 bonds of bridged TAIKO and, in a call the EL makes at the start of every
 Etna block, counts missed signatures, applies their penalties and writes the candidate snapshot. The
-Inbox holds a DAO fallback key set and a `minTotalStake` threshold: the candidate signs while it is
-a valid set whose total stake reaches the threshold, and the fallback keys sign otherwise and the
-first two blocks of every generation. Present all-zero vote hashes keep stock CometBFT's encoding,
-which that spec states.
+Inbox holds a DAO fallback key set and a `minTotalStake` threshold. The candidate that a block's call
+writes signs two blocks later if it is a valid set whose total stake reaches the threshold;
+otherwise, and for the first two blocks of every generation, the fallback keys sign. Present
+all-zero vote hashes keep stock CometBFT's encoding, which that spec states.
 
 ## Contracts
 
@@ -119,12 +119,12 @@ L2 and shared, under `contracts/`:
 - `setFallbackKeys(keys)` and `setMinTotalStake(value)`: owner only after initialization, with no
   generation argument and no lead time. `setFallbackKeys` requires 1 to 128 keys, each a valid
   compressed public key, in strictly ascending order of the 33-byte value `ckPrefix ‖ ckX`, prefix
-  first, so [K3, K9] (prefixes 0x02, 0x03) is accepted although K9's X is smaller; it stores the
-  list and slot 278, `keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), keys))`, and emits
-  `FallbackKeysUpdated`. `setMinTotalStake` stores any uint256 in slot 279 and emits
-  `MinTotalStakeUpdated`; 2^256 − 1 hands every block to the fallback key set. Origin records
-  already written keep the hash they hold. `getFallbackKeys()`, `fallbackKeysHash()` and
-  `minTotalStake()` read them back.
+  first, so every key with prefix 0x02 comes before every key with prefix 0x03, whatever their X.
+  It stores the list and, in slot 278,
+  `keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), keys))`, and emits `FallbackKeysUpdated`.
+  `setMinTotalStake` stores any uint256 in slot 279 and emits `MinTotalStakeUpdated`; 2^256 − 1
+  hands every block to the fallback key set. Origin records already written keep the hash they
+  hold. `getFallbackKeys()`, `fallbackKeysHash()` and `minTotalStake()` read them back.
 - `scheduleRules(expectedGeneration, rules, time)` and `scheduleStop(expectedGeneration, time)`:
   owner only after initialization; they first require `expectedGeneration == recoveryGeneration`
   (`GenerationMismatch`), so a queued authorization cannot change or cancel the schedule once a
@@ -372,10 +372,11 @@ cast call --rpc-url "$L2_RPC" --block 0 "$ETNA_STAKING" 'inbox()(address)'
 (ETNA_UNSETTLED_LIMIT, 151,200 if unset, empty or zero), then upgrades and initializes the proxy
 with the fallback keys (ETNA_FALLBACK_KEYS) and ETNA_MIN_TOTAL_STAKE if the deployer owns it, or
 logs that call for the owner. Use the same U for the genesis and the Inbox: the config hash commits
-it, and the withdrawal bound depends on it. No contract checks two spec 11 bounds, so the operator
-must: `withdrawalDelay` at least U + 2 + an evidence window that covers getting a double-sign report
-included through forced inclusion and detecting a bad landing and executing its rollback (suggested
-no less than seven days), and `MAX_ANCHOR_AGE` above the L1 finality delay. That delay is the age
+it, and the withdrawal bound depends on it. No contract checks two spec 11 bounds. The tooling
+checks that `withdrawalDelay` is at least U + 2 + the evidence window it is given, but the operator
+must choose a window that covers getting a double-sign report included through forced inclusion and
+detecting a bad landing and executing its rollback (suggested no less than seven days). The
+operator must also set `MAX_ANCHOR_AGE` above the L1 finality delay. That delay is the age
 the newest finalized L1 block reaches just before the next finalization while L1 finalizes on
 schedule (three epochs, 1152 s, on Ethereum), plus the deployment's allowance for slots missed at an
 epoch boundary and for nodes' delay in importing that finalization; `init` checks only the 1152 s
@@ -396,8 +397,9 @@ the proxy with CONTRACT_OWNER, the DAO's execution address on L2, so no one else
 and implementation addresses, so take them from the build that is released: any byte change to
 `EtnaStakingDeployer`, `EtnaStaking` or `ERC1967Proxy`, metadata included, moves both. The script
 reads the configuration through `LibEtnaStakingEnv`, defaults `minStake` to 7,812,500 TAIKO and
-refuses a `withdrawalDelay` below U + 2 + EVIDENCE_WINDOW_BLOCKS. [The switch scripts](#switching-from-unzen)
-list its inputs and the readiness builder's checks of the deployment.
+refuses a `withdrawalDelay` below U + 2 + EVIDENCE_WINDOW_BLOCKS.
+[The switch scripts](#switching-from-unzen) list its inputs and the readiness builder's checks of
+the deployment.
 
 ## Anchorless L2 contracts
 
