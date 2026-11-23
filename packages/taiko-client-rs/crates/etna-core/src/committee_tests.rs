@@ -3,7 +3,10 @@ use crate::{
     fallback::FallbackKeys,
     params::UINT48_MAX,
     staking::{RECORD_COUNT, StakingWords},
-    test_utils::{test_key, vectors},
+    test_utils::{
+        test_key, vectors,
+        vectors::{keys_at, word_at},
+    },
 };
 use alloy_primitives::hex;
 use proptest::{collection::vec, prelude::*};
@@ -198,25 +201,9 @@ fn shared_record_word_2_vectors_pack_prefix_and_power() {
     }
 }
 
-/// The word at `pointer`, a 32-byte hex string.
-fn word_at(pointer: &str) -> U256 {
-    U256::from_be_bytes(vectors::b256_at(pointer).0)
-}
-
 /// The decimal integer at `pointer`, of any width up to 256 bits.
 fn u256_at(pointer: &str) -> U256 {
     U256::from_str_radix(vectors::str_at(pointer), 10).unwrap()
-}
-
-/// The keys of the `{ck_prefix, ck_x}` array at `pointer`.
-fn keys_at(pointer: &str) -> Vec<ConsensusKey> {
-    (0..vectors::len_at(pointer))
-        .map(|index| {
-            let prefix = u8::try_from(vectors::u64_at(&format!("{pointer}/{index}/ck_prefix")));
-            let x = vectors::b256_at(&format!("{pointer}/{index}/ck_x"));
-            ConsensusKey::from_slice(&[&[prefix.unwrap()][..], x.as_slice()].concat()).unwrap()
-        })
-        .collect()
 }
 
 /// Every shared candidate vector decides its signers: the candidate's members when it is usable,

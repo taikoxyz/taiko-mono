@@ -7,8 +7,10 @@
 
 use std::sync::OnceLock;
 
-use alloy_primitives::B256;
+use alloy_primitives::{B256, U256};
 use serde_json::Value;
+
+use crate::key::{ConsensusKey, KeyError};
 
 /// The vectors document, parsed once.
 pub(crate) fn vectors() -> &'static Value {
@@ -47,4 +49,31 @@ pub(crate) fn usize_at(pointer: &str) -> usize {
 /// The 32-byte hex word at `pointer`.
 pub(crate) fn b256_at(pointer: &str) -> B256 {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
+}
+
+/// The 32-byte hex word at `pointer`, as a number.
+pub(crate) fn word_at(pointer: &str) -> U256 {
+    U256::from_be_bytes(b256_at(pointer).0)
+}
+
+/// The keys of the `{ck_prefix, ck_x}` array at `pointer`, each parsed as given: a vector key
+/// that is no valid compressed key is its error.
+pub(crate) fn key_results_at(pointer: &str) -> Vec<Result<ConsensusKey, KeyError>> {
+    (0..len_at(pointer))
+        .map(|index| {
+            let prefix = u8::try_from(u64_at(&format!("{pointer}/{index}/ck_prefix")))
+                .unwrap_or_else(|e| panic!("Etna vector {pointer}/{index}/ck_prefix: {e}"));
+            let x = b256_at(&format!("{pointer}/{index}/ck_x"));
+            ConsensusKey::from_slice(&[&[prefix][..], x.as_slice()].concat())
+        })
+        .collect()
+}
+
+/// The keys of the `{ck_prefix, ck_x}` array at `pointer`, every one a valid compressed key.
+pub(crate) fn keys_at(pointer: &str) -> Vec<ConsensusKey> {
+    key_results_at(pointer)
+        .into_iter()
+        .enumerate()
+        .map(|(index, key)| key.unwrap_or_else(|_| panic!("Etna vector {pointer}/{index}: no key")))
+        .collect()
 }

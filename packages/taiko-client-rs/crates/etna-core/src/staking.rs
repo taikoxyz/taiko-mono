@@ -127,15 +127,10 @@ impl StakingWords {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::vectors::{at as vector, b256_at, len_at, str_at, u64_at};
+    use crate::test_utils::vectors::{at as vector, b256_at, len_at, str_at, u64_at, word_at};
 
     fn at(offset: u64) -> B256 {
         B256::from(U256::from_be_bytes(BASE.0) + U256::from(offset))
-    }
-
-    /// The word at `pointer`, a 32-byte hex string.
-    fn word_at(pointer: &str) -> U256 {
-        U256::from_be_bytes(b256_at(pointer).0)
     }
 
     #[test]

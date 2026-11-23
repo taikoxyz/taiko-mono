@@ -186,7 +186,10 @@ impl From<FallbackKeys> for Vec<ConsensusKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::vectors;
+    use crate::test_utils::{
+        vectors,
+        vectors::{key_results_at, keys_at},
+    };
     use alloy_primitives::{U256, hex};
 
     /// The compressed public key of private key 1.
@@ -216,25 +219,13 @@ mod tests {
         U256::from(value).to_be_bytes()
     }
 
-    /// The keys of the `{ck_prefix, ck_x}` array at `pointer`, each as given, valid or not.
-    fn keys_at(pointer: &str) -> Vec<Result<ConsensusKey, ()>> {
-        (0..vectors::len_at(pointer))
-            .map(|index| {
-                let prefix = vectors::u64_at(&format!("{pointer}/{index}/ck_prefix"));
-                let x = vectors::b256_at(&format!("{pointer}/{index}/ck_x"));
-                let bytes = [&[u8::try_from(prefix).unwrap()][..], x.as_slice()].concat();
-                ConsensusKey::from_slice(&bytes).map_err(drop)
-            })
-            .collect()
-    }
-
     /// The shared accepted list named `name`, with its preimage and hash.
     fn accepted(name: &str) -> (FallbackKeys, Vec<u8>, B256) {
         let index = (0..vectors::len_at("/fallback_keys/accepted"))
             .find(|index| vectors::str_at(&format!("/fallback_keys/accepted/{index}/name")) == name)
             .unwrap_or_else(|| panic!("no accepted fallback key vector {name}"));
         let path = |field: &str| format!("/fallback_keys/accepted/{index}/{field}");
-        let keys = keys_at(&path("keys")).into_iter().map(Result::unwrap).collect();
+        let keys = keys_at(&path("keys"));
         let preimage = hex::decode(vectors::str_at(&path("preimage"))).unwrap();
         (FallbackKeys::new(keys).unwrap(), preimage, vectors::b256_at(&path("hash")))
     }
@@ -293,7 +284,7 @@ mod tests {
         for index in 0..vectors::len_at("/fallback_keys/rejected") {
             let path = |field: &str| format!("/fallback_keys/rejected/{index}/{field}");
             let name = vectors::str_at(&path("name"));
-            let keys = keys_at(&path("keys"));
+            let keys = key_results_at(&path("keys"));
             match vectors::str_at(&path("reason")) {
                 "key" => assert!(keys.iter().any(Result::is_err), "{name}"),
                 "count" => assert!(
