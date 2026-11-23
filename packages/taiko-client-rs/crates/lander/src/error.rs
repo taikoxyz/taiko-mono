@@ -12,7 +12,7 @@ pub enum LanderError {
     /// Invalid source data or an authenticated-chain contradiction.
     #[error("lander safety check failed: {0}")]
     Safety(String),
-    /// History is absent or pruned at the specified height or epoch.
+    /// History is absent or pruned at the specified height.
     #[error("unavailable lander history: {0}")]
     Unavailable(String),
     /// A temporary endpoint or finality condition; safe to retry.

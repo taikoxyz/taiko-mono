@@ -755,9 +755,7 @@ mod tests {
         );
     }
 
-    /// The delay must be positive and the maximum anchor age at least 1152 seconds.    /// The
-    /// delay must be positive and the maximum anchor age at least 1152 seconds; the check comes
-    /// after the genesis cutoff's.
+    /// The delay must be positive and the maximum anchor age at least 1152 seconds.
     #[test]
     fn genesis_rejects_invalid_forced_inclusion_config() {
         for (delay, max_anchor_age) in [(0, 7_200), (1, 1151), (3_600, 0)] {

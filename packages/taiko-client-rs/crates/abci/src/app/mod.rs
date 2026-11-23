@@ -263,8 +263,9 @@ pub enum AbciError {
     /// The request's representable consensus parameters differ from the canonical Etna values.
     #[error("genesis consensus parameters differ from the canonical Etna parameters")]
     GenesisConsensusParamsMismatch,
-    /// The genesis validators are not exactly the derived `e_0` committee; the value says how.
-    #[error("genesis validators differ from the derived committee: {0}")]
+    /// The genesis validators are not exactly the set that signs the generation's first two
+    /// blocks, its origin fallback keys each at power 1; the value says how.
+    #[error("genesis validators are not the generation's initial validator set: {0}")]
     GenesisValidatorsMismatch(String),
     /// The EL has no canonical block at a height it must serve.
     #[error("execution engine has no canonical block at height {0}")]

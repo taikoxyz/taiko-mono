@@ -549,8 +549,8 @@ pub fn payload_attributes(
 ///
 /// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]) and `anchor >=
 /// origin`, the current generation's L1 origin (`L1_0`, or R after a recovery;
-/// [`RuleViolation::AnchorBeforeActivation`]). Epochs place no further floor on the anchor:
-/// how far it lags the block's time is bounded by [`check_anchor_freshness`] instead.
+/// [`RuleViolation::AnchorBeforeActivation`]). Nothing else floors the anchor: how far it lags
+/// the block's time is bounded by [`check_anchor_freshness`] instead.
 pub fn check_anchor_progress(
     parent_anchor: u64,
     anchor: u64,

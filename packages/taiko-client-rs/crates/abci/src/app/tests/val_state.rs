@@ -39,7 +39,7 @@ async fn replica(
 }
 
 /// InitChain starts the replica from CometBFT's genesis state of the validators it matched, the
-/// `e_0` committee, at the origin (the Etna start S), and persists it with the state.
+/// origin fallback keys, at the origin (the Etna start S), and persists it with the state.
 #[tokio::test]
 async fn init_chain_sets_the_genesis_validator_state() {
     let fx = Fixture::genesis(3);

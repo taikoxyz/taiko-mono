@@ -475,7 +475,7 @@ impl LandingSource for RpcLandingSource {
             .map_err(|_| LanderError::Temporary(format!("fallback key list {hash} unavailable")))
     }
 
-    /// One EIP-1186 read of the built-in staking proxy on the public L2 endpoint, pinned with
+    /// One EIP-1186 read of the configured staking proxy on the public L2 endpoint, pinned with
     /// EIP-1898's canonical hash selector.
     async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness> {
         l2_staking_witness(&self.l2, self.params.staking, block_hash, slots).await

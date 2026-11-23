@@ -63,7 +63,7 @@ pub(crate) fn verify_start_witness(
     // ties the staking proxy checked below to the one the configuration hash commits.
     if snapshot.config_hash != params.config_hash() {
         return Err(LanderError::Configuration(
-            "Inbox configuration hash does not commit the built-in staking proxy".into(),
+            "Inbox configuration hash does not commit the configured staking proxy".into(),
         ));
     }
     for (contract, witness, proxy, built_in) in [

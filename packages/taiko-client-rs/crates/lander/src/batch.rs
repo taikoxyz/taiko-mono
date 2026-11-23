@@ -1535,12 +1535,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         request.batch.check_origin_sets().map_err(LanderError::Safety)?;
         let journaled = request_bytes(&request)?;
         if journaled > self.request_budget {
+            // A restart selects this prefix or a longer one again; only a lower cap selects a
+            // shorter one.
+            let (first, last, budget) =
+                (request.batch.snapshot.checkpoint_height + 1, last.number, self.request_budget);
+            let blocks = last + 1 - first;
+            let remedy = if blocks > 1 {
+                format!("; lower --max-blocks below {blocks} so a batch selects fewer blocks")
+            } else {
+                String::new()
+            };
             return Err(LanderError::Capacity(format!(
-                "the proof request of blocks {}..={} would journal {journaled} bytes, beyond the \
-                 {} a request may take",
-                request.batch.snapshot.checkpoint_height + 1,
-                last.number,
-                self.request_budget
+                "the proof request of blocks {first}..={last} would journal {journaled} bytes, \
+                 beyond the {budget} a request may take{remedy}"
             )));
         }
         Ok(Some(request))
@@ -2461,12 +2468,12 @@ mod tests {
             let prepared = b.prepare(fixture.snapshot.clone()).await;
             match prepared {
                 Ok(Some(prepared)) if fits => assert_eq!(prepared, request),
-                Err(LanderError::Capacity(reason)) if !fits => {
-                    assert!(
-                        reason.contains(&format!("would journal {journaled} bytes")),
-                        "{reason}"
-                    )
-                }
+                Err(LanderError::Capacity(reason)) if !fits => assert!(
+                    reason
+                        .contains(&format!("would journal {journaled} bytes, beyond the {budget}")) &&
+                        reason.contains("lower --max-blocks below 6"),
+                    "{reason}"
+                ),
                 other => panic!("budget {budget}: {other:?}"),
             }
         }

@@ -19,8 +19,7 @@ pub fn evidence_expired(
 /// height x <= s still within either stock evidence age limit at s (`s - x <= MaxAgeNumBlocks`
 /// or `Time(s) - Time(x) <= MaxAgeDuration`, by authenticated Comet header times) and the latest
 /// block at or below s carrying an anchor witness. The window stops at the origin (w = o) or at
-/// a w whose
-/// header, linked by w + 1's LastBlockID (`verify_boundary`), establishes both strict
+/// a w whose header, linked by w + 1's LastBlockID (`verify_boundary`), establishes both strict
 /// expiry inequalities; header times increase along the chain, so every lower height has expired
 /// too. ACCEPTANCE 7.5 rejects only a shorter window, so a longer one is accepted: the caller
 /// still checks w >= o. Only timestamps and heights are retained; no older block, set or commit
