@@ -49,6 +49,9 @@ type firstBlockApp struct {
 	pending       []byte
 	// salt changes the FinalizeBlock result, standing for an app that answers differently.
 	salt string
+	// updates are the validator updates FinalizeBlock of the first block returns, as the Etna app
+	// does when the set it decides there differs from the genesis validators.
+	updates []abci.ValidatorUpdate
 	// failInitChain makes that many InitChain calls fail, as an app that stops mid-repair.
 	failInitChain int
 	calls         []string
@@ -100,7 +103,9 @@ func (a *firstBlockApp) FinalizeBlock(_ context.Context, req *abci.RequestFinali
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.pending = a.resultHash(req.Hash)
-	return finalizeResponse(len(req.Txs), a.pending), nil
+	res := finalizeResponse(len(req.Txs), a.pending)
+	res.ValidatorUpdates = a.updates
+	return res, nil
 }
 
 func (a *firstBlockApp) Commit(context.Context, *abci.RequestCommit) (*abci.ResponseCommit, error) {
@@ -136,7 +141,7 @@ func serve(t *testing.T, app abci.Application) string {
 	return "tcp://" + listener.Addr().String()
 }
 
-// firstBlockFixture is one generation's genesis, committee keys and certified first block.
+// firstBlockFixture is one generation's genesis, its fallback keys and its certified first block.
 type firstBlockFixture struct {
 	genesis *types.GenesisDoc
 	keys    []secp256k1eth.PrivKey
@@ -150,8 +155,9 @@ type firstBlockFixture struct {
 	app    *firstBlockApp
 }
 
-// newFirstBlockFixture builds a genesis at firstHeight with n equal validators and a first
-// block carrying envelope, committed by the first signers validators in set order.
+// newFirstBlockFixture builds a genesis at firstHeight whose validators are n fallback keys at
+// power 1, as every generation's genesis validators are, and a first block carrying envelope,
+// committed by the first signers validators in set order.
 func newFirstBlockFixture(t *testing.T, n, signers int, envelope string) *firstBlockFixture {
 	t.Helper()
 	f := &firstBlockFixture{app: &firstBlockApp{genesisHash: bytes.Repeat([]byte{0x11}, 32)}}
@@ -159,7 +165,7 @@ func newFirstBlockFixture(t *testing.T, n, signers int, envelope string) *firstB
 	for i := 0; i < n; i++ {
 		key := secp256k1eth.PrivKey(bytes.Repeat([]byte{byte(7 + i)}, 32))
 		f.keys = append(f.keys, key)
-		genVals = append(genVals, types.GenesisValidator{PubKey: key.PubKey(), Power: 10})
+		genVals = append(genVals, types.GenesisValidator{PubKey: key.PubKey(), Power: 1})
 	}
 	f.genesis = &types.GenesisDoc{GenesisTime: time.Unix(100, 0).UTC(), ChainID: "etna-first-block", InitialHeight: firstHeight, ConsensusParams: etnaParams(), Validators: genVals, AppState: json.RawMessage(`{}`)}
 	if err := f.genesis.ValidateAndComplete(); err != nil {
@@ -178,7 +184,7 @@ func newFirstBlockFixture(t *testing.T, n, signers int, envelope string) *firstB
 }
 
 // makeBlock builds the first block with envelope as its one transaction, committed by the
-// first signers members of the committee in set order.
+// first signers genesis validators in set order.
 func (f *firstBlockFixture) makeBlock(t *testing.T, envelope string, signers int) (*types.Block, *types.PartSet, types.BlockID, *types.Commit) {
 	t.Helper()
 	block, err := f.state.MakeBlock(firstHeight, []types.Tx{types.Tx(envelope)}, &types.Commit{}, nil, f.vals.GetProposer().Address)
@@ -191,17 +197,16 @@ func (f *firstBlockFixture) makeBlock(t *testing.T, envelope string, signers int
 	}
 	id := types.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
 	commit := &types.Commit{Height: firstHeight, Round: 0, BlockID: id}
+	byAddress := map[string]secp256k1eth.PrivKey{}
+	for _, k := range f.keys {
+		byAddress[string(k.PubKey().Address())] = k
+	}
 	for index, val := range f.vals.Validators {
 		if index >= signers {
 			commit.Signatures = append(commit.Signatures, types.CommitSig{BlockIDFlag: types.BlockIDFlagAbsent})
 			continue
 		}
-		var key secp256k1eth.PrivKey
-		for _, k := range f.keys {
-			if bytes.Equal(k.PubKey().Address(), val.Address) {
-				key = k
-			}
-		}
+		key := byAddress[string(val.Address)]
 		vote := &types.Vote{Type: pb.PrecommitType, Height: firstHeight, Round: 0, BlockID: id, Timestamp: block.Time.Add(time.Second), ValidatorAddress: val.Address, ValidatorIndex: int32(index)}
 		if vote.Signature, err = key.Sign(types.VoteSignBytes(f.genesis.ChainID, vote.ToProto())); err != nil {
 			t.Fatal(err)
@@ -506,9 +511,231 @@ func TestRepairReplaysTheKeptResponseOfAnAppThatCommitted(t *testing.T) {
 	}
 }
 
-// A node whose block store never saved the first block, while the committee decided it, applies
-// exactly that certified block from a peer's export instead of letting fresh rounds replace it
-// (vector 9.t); the export is the blocks.jsonl line format.
+// decidedAtTheFirstBlock is the set f's first block decides for firstHeight + 2, a staking
+// candidate set that holds f's first fallback key at another power and two keys outside the
+// genesis, and the validator updates FinalizeBlock returns to turn the genesis validators into it:
+// the shared key re-weighted, the candidate keys added and the other fallback keys removed at
+// power 0.
+func decidedAtTheFirstBlock(f *firstBlockFixture) (*types.ValidatorSet, []abci.ValidatorUpdate) {
+	members := []*types.Validator{
+		types.NewValidator(f.keys[0].PubKey(), 5),
+		types.NewValidator(secp256k1eth.PrivKey(bytes.Repeat([]byte{0x55}, 32)).PubKey(), 3),
+		types.NewValidator(secp256k1eth.PrivKey(bytes.Repeat([]byte{0x56}, 32)).PubKey(), 2),
+	}
+	var updates []abci.ValidatorUpdate
+	for _, member := range members {
+		updates = append(updates, types.TM2PB.ValidatorUpdate(member))
+	}
+	for _, key := range f.keys[1:] {
+		updates = append(updates, types.TM2PB.ValidatorUpdate(types.NewValidator(key.PubKey(), 0)))
+	}
+	return types.NewValidatorSet(members), updates
+}
+
+// Every generation's genesis validators are its origin record's fallback keys at power 1, and
+// FinalizeBlock of its first block returns validator updates when the set it decides for
+// firstHeight + 2 differs from them. A response kept from before the crash that carries updates
+// must equal the app's new result byte for byte, updates included, before stock ApplyBlock
+// applies it; for an app that committed, the kept response is replayed as it is. Either way stock
+// keeps that response, installs the updated set for firstHeight + 2, and the unmodified stock
+// handshake then completes.
+func TestFirstBlockKeepsUpdates(t *testing.T) {
+	for _, tc := range []struct {
+		name, kept string
+		committed  bool
+		wantErr    bool
+	}{
+		{name: "executed without a kept response", kept: "none"},
+		{name: "executed against an equal kept response", kept: "same"},
+		{name: "kept updates with another power", kept: "other power", wantErr: true},
+		{name: "kept response without updates", kept: "no updates", wantErr: true},
+		{name: "replayed kept response", kept: "same", committed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+			decided, updates := decidedAtTheFirstBlock(f)
+			f.app.updates = updates
+			home := f.home(t, true)
+			after := f.app.resultHash(f.id.Hash)
+			if tc.committed {
+				f.app.committed, f.app.committedHash = firstHeight, after
+			}
+			if tc.kept != "none" {
+				kept := finalizeResponse(1, after)
+				switch tc.kept {
+				case "same":
+					kept.ValidatorUpdates = updates
+				case "other power":
+					kept.ValidatorUpdates = append([]abci.ValidatorUpdate(nil), updates...)
+					kept.ValidatorUpdates[1].Power++
+				}
+				f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+					if err := states.SaveFinalizeBlockResponse(firstHeight, kept); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+
+			report, _, err := f.repair(t, home, serve(t, f.app), "")
+			if tc.wantErr {
+				if !errors.Is(err, ErrFirstBlockContradiction) {
+					t.Fatalf("applied a result unlike the kept one: %+v, %v", report, err)
+				}
+				if h, _, _ := f.stored(t, home); h != 0 {
+					t.Fatal("stock saved the state after a result unlike the kept one")
+				}
+				if calls := strings.Join(f.app.callLog(), ","); calls != "InitChain,FinalizeBlock" {
+					t.Fatalf("the app committed a result unlike the kept one: %v", calls)
+				}
+				return
+			}
+			applied, calls := "executed", "InitChain,FinalizeBlock,Commit"
+			if tc.committed {
+				applied, calls = "replayed", ""
+			}
+			if err != nil || report.Applied != applied || report.AppHash != hexBytes(after) {
+				t.Fatalf("got %+v, %v", report, err)
+			}
+			if got := strings.Join(f.app.callLog(), ","); got != calls {
+				t.Fatalf("app calls %v, want %v", got, calls)
+			}
+			want := finalizeResponse(1, after)
+			want.ValidatorUpdates = updates
+			wantBytes, err := want.Marshal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+				state, err := states.Load()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(state.Validators.Hash(), f.vals.Hash()) || !bytes.Equal(state.NextValidators.Hash(), decided.Hash()) || state.LastHeightValidatorsChanged != firstHeight+2 {
+					t.Fatalf("state after the first block: validators %v, next %v, changed at %d", state.Validators, state.NextValidators, state.LastHeightValidatorsChanged)
+				}
+				stored, err := states.LoadValidators(firstHeight + 2)
+				if err != nil || !bytes.Equal(stored.Hash(), decided.Hash()) {
+					t.Fatalf("stored set for %d: %v, %v", firstHeight+2, stored, err)
+				}
+				kept, err := states.LoadLastFinalizeBlockResponse(firstHeight)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got, err := kept.Marshal(); err != nil || !bytes.Equal(got, wantBytes) {
+					t.Fatalf("kept response %v, want %v", kept, want)
+				}
+			})
+			if err = f.stockHandshake(t, home, f.app); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// A kept FinalizeBlock response the state store holds but stock cannot load for the first height,
+// here one saved for another height, is refused before anything changes, for an app at 0 as for
+// one that committed: the repair never takes a kept response it cannot read for an absent one.
+func TestRepairRefusesAKeptResponseItCannotLoad(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("committed %v", committed), func(t *testing.T) {
+			f := newFirstBlockFixture(t, 1, 1, "certified-envelope")
+			home := f.home(t, true)
+			after := f.app.resultHash(f.id.Hash)
+			if committed {
+				f.app.committed, f.app.committedHash = firstHeight, after
+			}
+			f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+				if err := states.SaveFinalizeBlockResponse(firstHeight-1, finalizeResponse(1, after)); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if _, _, err := f.repair(t, home, serve(t, f.app), ""); err == nil || !strings.Contains(err.Error(), "kept FinalizeBlock response") {
+				t.Fatalf("repaired over a kept response it cannot load: %v", err)
+			}
+			if h, _, _ := f.stored(t, home); h != 0 || len(f.app.callLog()) != 0 {
+				t.Fatal("a refused repair changed the state or called the app")
+			}
+			if _, err := os.Stat(filepath.Join(home, "data", StoreInstanceFile)); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("a refused repair wrote a store instance ID: %v", err)
+			}
+		})
+	}
+}
+
+// Every validator set the checkpoint tools read has at most 128 members, the most a staking
+// candidate set or a fallback key list holds: a window frame's or a peer export's validators, each
+// set of a validator-state preimage, and the genesis validators the first-block tools certify the
+// first block with. A 129th member is refused wherever a set is read, and 128 are accepted; a
+// preimage of two 128-member sets is exactly MaxValidatorStateBytes, 33,024 bytes.
+func TestSet129IsRefused(t *testing.T) {
+	keys := make([]Validator, 129)
+	members := make([]*types.Validator, 129)
+	for i := range keys {
+		key := secp256k1eth.PrivKey(bytes.Repeat([]byte{byte(7 + i)}, 32)).PubKey()
+		keys[i] = Validator{Key: hexBytes(key.Bytes()), Power: 1}
+		members[i] = types.NewValidator(key, 1)
+	}
+
+	t.Run("window frame and peer export validators", func(t *testing.T) {
+		if set, err := validatorSet(keys[:128]); err != nil || set.Size() != 128 {
+			t.Fatalf("refused 128 validators: %v", err)
+		}
+		if _, err := validatorSet(keys); err == nil || !strings.Contains(err.Error(), "invalid validator count") {
+			t.Fatalf("accepted 129 validators: %v", err)
+		}
+	})
+
+	t.Run("validator-state preimage", func(t *testing.T) {
+		full := types.NewValidatorSet(members[:128])
+		one := types.NewValidatorSet(members[:1])
+		over := types.NewValidatorSet(members)
+		if MaxValidatorStateBytes != 33024 {
+			t.Fatalf("MaxValidatorStateBytes %d", MaxValidatorStateBytes)
+		}
+		raw := makePreimage(100, full, full, 0, 0)
+		if len(raw) != MaxValidatorStateBytes {
+			t.Fatalf("two 128-member sets take %d bytes", len(raw))
+		}
+		if _, current, next, err := DecodeValState(raw); err != nil || current.Size() != 128 || next.Size() != 128 {
+			t.Fatalf("refused two 128-member sets: %v", err)
+		}
+		for name, raw := range map[string][]byte{
+			"129 members signing s + 1": makePreimage(100, over, one, 0, 0),
+			"129 members signing s + 2": makePreimage(100, one, over, 0, 0),
+		} {
+			if len(raw) > MaxValidatorStateBytes {
+				t.Fatalf("%s: %d bytes exceed the byte bound, which would refuse it first", name, len(raw))
+			}
+			if _, _, _, err := DecodeValState(raw); err == nil {
+				t.Fatalf("%s: accepted", name)
+			}
+		}
+	})
+
+	t.Run("first-block genesis validators", func(t *testing.T) {
+		accepted := newFirstBlockFixture(t, 128, 86, "certified-envelope")
+		home := accepted.home(t, true)
+		if _, err := ExportFirstBlock(home); err != nil {
+			t.Fatalf("refused to export a first block of 128 genesis validators: %v", err)
+		}
+
+		refused := newFirstBlockFixture(t, 129, 87, "certified-envelope")
+		home = refused.home(t, true)
+		if _, err := ExportFirstBlock(home); err == nil || !strings.Contains(err.Error(), "invalid validator count") {
+			t.Fatalf("exported a first block of 129 genesis validators: %v", err)
+		}
+		if _, _, err := refused.repair(t, home, serve(t, refused.app), ""); err == nil || !strings.Contains(err.Error(), "invalid validator count") {
+			t.Fatalf("repaired a first block of 129 genesis validators: %v", err)
+		}
+		if h, _, _ := refused.stored(t, home); h != 0 || len(refused.app.callLog()) != 0 {
+			t.Fatal("a refused repair changed the state or called the app")
+		}
+	})
+}
+
+// A node whose block store never saved the first block, while the genesis validators decided it,
+// applies exactly that certified block from a peer's export instead of letting fresh rounds
+// replace it (vector 9.t); the export is the blocks.jsonl line format.
 func TestRepairInstallsTheCertifiedBlockFromAPeerExport(t *testing.T) {
 	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
 	peerHome := f.home(t, true)
@@ -764,7 +991,7 @@ func TestRepairRefusesBeforeItWritesAndConvergesAfterALaterFailure(t *testing.T)
 	})
 }
 
-// Only a block that more than 2/3 of the genesis committee certified, for the full BlockID, is
+// Only a block that more than 2/3 of the genesis validators certified, for the full BlockID, is
 // applied; a peer's different certified block contradicts the stored one; an app whose result
 // differs from the one stock kept stops the repair before stock saves anything.
 func TestRepairRefusesUncertifiedAndContradictingFirstBlocks(t *testing.T) {

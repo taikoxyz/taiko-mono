@@ -22,9 +22,14 @@ import (
 	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
-const maxValidators = 65536
+// maxValidators is the most members a validator set has: every set that signs an Etna block is a
+// staking candidate set or a fallback key list, and each holds at most 128 keys
+// (etna_core::params::MAX_SET_MEMBERS). Window frames, peer exports and both sets of a
+// validator-state preimage are refused above it.
+const maxValidators = 128
 
-// MaxValidatorStateBytes bounds the two canonical ABI arrays before decoding keys.
+// MaxValidatorStateBytes bounds the two canonical ABI arrays before decoding keys: the head and
+// two sets of maxValidators members, 33,024 bytes.
 const MaxValidatorStateBytes = 192 + 2*(32+128*maxValidators)
 
 // Block is one blocks.jsonl line, the Rust WindowBlock shape: the original block bytes, its

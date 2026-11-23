@@ -8,12 +8,16 @@ package checkpoint
 //
 // RepairFirstBlock runs offline, with CometBFT stopped and the signer fenced. It preserves the
 // original stores, recovers the exact decided block and its commit (from the node's own block
-// store or a peer's export), verifies them against the fixed genesis, chain_id and first
-// committee, and applies that block exactly as the stock handshake would have had its height
+// store or a peer's export), verifies them against the fixed genesis, its chain_id and its
+// validators, and applies that block exactly as the stock handshake would have had its height
 // check used initial_height: InitChain if the app is at height 0, then stock BlockExecutor
 // ApplyBlock over the app's ABCI socket (FinalizeBlock and Commit on the real app, which aligns
 // its EL), or, when the app already committed the block, over the FinalizeBlock response the
 // state store kept, as stock's mock-app replay does. Stock code saves the response and the state.
+// The genesis validators are the generation's origin fallback keys at power 1, and the first
+// block's FinalizeBlock response carries validator updates whenever the set it decides for two
+// blocks later differs from them. The repair compares and replays that response whole, updates
+// included, without interpreting them, and stock applies them as it would have without the crash.
 // The block store changes only to receive the certified block from a peer, or a peer's commit for
 // the same BlockID as the seen commit when the stored one does not certify the block; the WAL
 // stays as it was. It never runs consensus, never signs and never accepts another block for the
@@ -97,7 +101,7 @@ type RepairReport struct {
 // ExportFirstBlock reads a generation's certified first block from a stopped node's stores and
 // returns it in the blocks.jsonl line format: the original block, its own-height commit (C:h
 // when the node saved the next block, else the seen commit) and the genesis validators. The
-// commit must certify the block under the genesis committee.
+// commit must certify the block under the genesis validators.
 func ExportFirstBlock(home string) (item Block, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -239,12 +243,17 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	case info.LastBlockHeight == 0:
 		report.Applied = "executed"
 		// A response kept from a FinalizeBlock before the crash, if any, which the app's new
-		// result must equal.
-		kept, _ = stateStore.LoadLastFinalizeBlockResponse(height)
+		// result must equal byte for byte, validator updates included.
+		if kept, err = keptFinalizeBlockResponse(stateDB, stateStore, height); err != nil {
+			return RepairReport{}, err
+		}
 	case info.LastBlockHeight == height:
 		report.Applied = "replayed"
-		if kept, err = stateStore.LoadLastFinalizeBlockResponse(height); err != nil {
-			return RepairReport{}, fmt.Errorf("the app committed block %d but the state store kept no FinalizeBlock response for it: %w", height, err)
+		if kept, err = keptFinalizeBlockResponse(stateDB, stateStore, height); err != nil {
+			return RepairReport{}, err
+		}
+		if kept == nil {
+			return RepairReport{}, fmt.Errorf("the app committed block %d but the state store kept no FinalizeBlock response for it", height)
 		}
 		if !bytes.Equal(kept.AppHash, info.LastBlockAppHash) {
 			return RepairReport{}, contradiction("the app reports app hash %X at %d, the kept FinalizeBlock response %X", info.LastBlockAppHash, height, kept.AppHash)
@@ -328,9 +337,9 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	return report, nil
 }
 
-// firstBlockGenesis reads the home's fixed genesis and its committee, once its Comet config is
-// known to keep the stores this tool reads. Only a generation whose initial_height is above 1 has
-// the first-block failure.
+// firstBlockGenesis reads the home's fixed genesis and its validator set, once its Comet config
+// is known to keep the stores this tool reads. Only a generation whose initial_height is above 1
+// has the first-block failure.
 func firstBlockGenesis(home string) (*types.GenesisDoc, *types.ValidatorSet, error) {
 	if err := requireStockStores(home); err != nil {
 		return nil, nil, err
@@ -395,10 +404,12 @@ func requireStockStores(home string) error {
 // certifiedFirstBlock returns the first block and the commit the repair applies it with, and
 // where they come from: "local" (the block store's block and seen commit), "peer" (the peer
 // export, when the block store holds no block) or "peer_commit" (the block store's block with
-// the peer export's commit, when the stored seen commit does not certify it). Each block is checked: canonical bytes, no evidence (CONS-3.1-10), the genesis
-// chain_id and initial height, and a commit holding more than 2/3 of the genesis committee's
-// power for its full BlockID. A certified peer block that differs from the stored one is a
-// contradiction: two blocks at one height, which is never resolved by taking either.
+// the peer export's commit, when the stored seen commit does not certify it). Each block is
+// checked: canonical bytes, no evidence (no Comet block of an Etna chain carries any), the
+// genesis chain_id and initial height, at most maxValidators genesis validators, and a commit
+// holding more than 2/3 of the genesis validators' power for its full BlockID. A certified peer
+// block that differs from the stored one is a contradiction: two blocks at one height, which is
+// never resolved by taking either.
 func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, blocks *bs.BlockStore, peer string) (*blockRecord, string, error) {
 	height := genesis.InitialHeight
 	certify := func(what string, record *blockRecord) error {
@@ -406,7 +417,7 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 			return fmt.Errorf("the %s block %s/%d is not the first block of %s/%d", what, b.ChainID, b.Height, genesis.ChainID, height)
 		}
 		if err := vals.VerifyCommit(genesis.ChainID, record.id, height, record.commit); err != nil {
-			return fmt.Errorf("the %s commit does not certify the first block under the genesis committee: %w", what, err)
+			return fmt.Errorf("the %s commit does not certify the first block under the genesis validators: %w", what, err)
 		}
 		return nil
 	}
@@ -448,7 +459,7 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 			return nil, "", fmt.Errorf("peer export: %w", err)
 		}
 		if !bytes.Equal(remote.set.Hash(), vals.Hash()) {
-			return nil, "", errors.New("peer export: its validators are not the genesis committee")
+			return nil, "", errors.New("peer export: its validators differ from the genesis validators")
 		}
 		if err = certify("peer export's", remote); err != nil {
 			return nil, "", err
@@ -456,7 +467,7 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 	}
 	switch {
 	case local == nil && remote == nil:
-		return nil, "", fmt.Errorf("the block store holds no block at %d: stock CometBFT handshakes from this store; supply --peer-export only to apply a block the committee already decided", height)
+		return nil, "", fmt.Errorf("the block store holds no block at %d: stock CometBFT handshakes from this store; supply --peer-export only to apply a block the genesis validators already decided", height)
 	case local == nil:
 		return remote, "peer", nil
 	case remote != nil && !remote.id.Equals(local.id):
@@ -472,6 +483,29 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 	repaired := *local
 	repaired.commit = remote.commit
 	return &repaired, "peer_commit", nil
+}
+
+// lastFinalizeBlockResponseKey is stock state/store.go's key for the last FinalizeBlock response,
+// which stock saves before the app's Commit for crash recovery.
+var lastFinalizeBlockResponseKey = []byte("lastABCIResponseKey")
+
+// keptFinalizeBlockResponse returns the FinalizeBlock response the state store kept for height, or
+// nil when it kept none. A failed read, or a kept response stock cannot load for height (one for
+// another height included), is an error: a kept response the repair cannot read is never taken
+// for an absent one, since the app's result must equal it byte for byte.
+func keptFinalizeBlockResponse(db dbm.DB, store sm.Store, height int64) (*abci.ResponseFinalizeBlock, error) {
+	raw, err := db.Get(lastFinalizeBlockResponseKey)
+	if err != nil {
+		return nil, fmt.Errorf("read the kept FinalizeBlock response: %w", err)
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	kept, err := store.LoadLastFinalizeBlockResponse(height)
+	if err != nil {
+		return nil, fmt.Errorf("the state store's kept FinalizeBlock response: %w", err)
+	}
+	return kept, nil
 }
 
 // saveSeenCommit writes commit as the seen commit of its height under stock SaveSeenCommit's key

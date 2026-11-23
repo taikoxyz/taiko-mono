@@ -117,7 +117,7 @@ func verifyExport(args []string) error {
 }
 
 // exportFirstBlock prints, as one blocks.jsonl line, the certified first block of a stopped
-// node's generation: the original block, its own-height commit and the genesis committee.
+// node's generation: the original block, its own-height commit and the genesis validators.
 func exportFirstBlock(args []string) error {
 	flags := flag.NewFlagSet("export-first-block", flag.ContinueOnError)
 	home := flags.String("home", "", "stopped stock home holding the generation's first block")
