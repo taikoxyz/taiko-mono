@@ -12,7 +12,10 @@
 //!
 //! As the Inbox holds the setter, forced inclusion entries cannot be submitted through
 //! `saveForcedInclusion`: [`Planter::plant_forced_transaction`] writes an entry's slots instead,
-//! and emits the admission event in the same mined transaction.
+//! and emits the admission event in the same mined transaction. Likewise a fallback key list is
+//! planted through the setter's `plantFallbackKeys` ([`Planter::plant_fallback_keys`]), which
+//! writes its hash at slot 278, serves it from `getFallbackKeys()` and emits
+//! `FallbackKeysUpdated`, as the Inbox's `setFallbackKeys` does.
 
 use std::{sync::Arc, time::Duration};
 
@@ -36,6 +39,12 @@ fn setter_code() -> Bytes {
     let artifact: Value = serde_json::from_str(include_str!("../contracts/InboxSetter.json"))
         .expect("generated artifact");
     artifact["deployedBytecode"]["object"].as_str().expect("runtime").parse().expect("runtime hex")
+}
+
+/// The setter's `plantFallbackKeys(keys)` calldata: its selector, then `abi.encode(keys)` as
+/// etna-core encodes the list.
+fn fallback_keys_input(keys: &FallbackKeys) -> Bytes {
+    [&InboxSetter::plantFallbackKeysCall::SELECTOR[..], &keys.abi_encode()].concat().into()
 }
 
 /// anvil's first dev account (unlocked), the sender of every planting transaction.
@@ -78,16 +87,18 @@ pub struct InboxValues {
     /// configuration hash (slot 269), the forced inclusion configuration (slot 282) and
     /// generation 0's origin start height and L1 block (slot 290).
     pub genesis: Option<GenesisRecord>,
-    /// The fallback key list whose hash is written whole at slot 278, as anchor witnesses prove
-    /// it, and, with `genesis`, as generation 0's origin record's fourth word, which the start
-    /// write takes from slot 278.
+    /// The fallback key list, planted through the setter's `plantFallbackKeys` (see
+    /// [`Planter::plant_fallback_keys`]), which writes its hash whole at slot 278, as anchor
+    /// witnesses prove it; with `genesis`, its hash is also generation 0's origin record's fourth
+    /// word, which the start write takes from slot 278.
     pub fallback_keys: Option<FallbackKeys>,
     /// `minTotalStake` at slot 279, the whole word, as anchor witnesses prove it.
     pub min_total_stake: Option<U256>,
 }
 
 impl InboxValues {
-    /// The `(slot, value)` writes of the present fields.
+    /// The raw `(slot, value)` writes of the present fields; the fallback key list is planted
+    /// apart, through the setter.
     fn writes(&self) -> Vec<(B256, U256)> {
         let slot = inbox::slot;
         let mut w = Vec::new();
@@ -122,9 +133,6 @@ impl InboxValues {
                 slot(inbox::FORCED_INCLUSION_CONFIG),
                 U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 48),
             ));
-        }
-        if let Some(keys) = &self.fallback_keys {
-            w.push((slot(inbox::FALLBACK_KEYS_HASH), keys.hash().into()));
         }
         if let Some(value) = self.min_total_stake {
             w.push((slot(inbox::MIN_TOTAL_STAKE), value));
@@ -189,13 +197,23 @@ impl Planter {
         }
     }
 
-    /// Writes the present fields of `v` into the Inbox and waits until the transaction is mined
-    /// (interval mining must be running); returns the block it landed in.
+    /// Writes the present fields of `v` into the Inbox, the fallback key list through the setter,
+    /// and waits until every transaction is mined (interval mining must be running); returns the
+    /// block the last one landed in.
     pub async fn plant_inbox(&self, v: &InboxValues) -> Result<Option<u64>> {
-        match self.submit(self.inbox, &v.writes()).await? {
-            Some(tx) => Ok(Some(self.mined_in(tx).await?)),
-            None => Ok(None),
+        let mut landed = None;
+        for tx in self.send_inbox(&v.writes(), v.fallback_keys.as_ref()).await? {
+            landed = landed.max(Some(self.mined_in(tx).await?));
         }
+        Ok(landed)
+    }
+
+    /// Plants `keys` as the Inbox's fallback key list through the setter's `plantFallbackKeys`:
+    /// slot 278 then holds its hash, `getFallbackKeys()` returns it and a `FallbackKeysUpdated`
+    /// log carries it. Waits until the transaction is mined and returns its block.
+    pub async fn plant_fallback_keys(&self, keys: &FallbackKeys) -> Result<u64> {
+        let tx = self.send_fallback_keys(keys).await?;
+        self.mined_in(tx).await
     }
 
     /// The raw storage word of the Inbox at `slot` in the latest block.
@@ -257,6 +275,33 @@ impl Planter {
             .block_id(BlockId::latest())
             .await
             .with_context(|| format!("reading {address} slot {slot}"))
+    }
+
+    /// Sends the setter transactions that write `writes` and plant `keys` into the Inbox, in that
+    /// order; none for nothing to write.
+    async fn send_inbox(
+        &self,
+        writes: &[(B256, U256)],
+        keys: Option<&FallbackKeys>,
+    ) -> Result<Vec<B256>> {
+        let mut sent = Vec::from_iter(self.submit(self.inbox, writes).await?);
+        if let Some(keys) = keys {
+            sent.push(self.send_fallback_keys(keys).await?);
+        }
+        Ok(sent)
+    }
+
+    /// Sends the setter's `plantFallbackKeys(keys)` transaction.
+    async fn send_fallback_keys(&self, keys: &FallbackKeys) -> Result<B256> {
+        // Two fresh words per key, the list length, slot 278 and the event.
+        let gas = 100_000 + 60_000 * keys.keys().len() as u64;
+        let tx = json!([{
+            "from": SENDER,
+            "to": self.inbox,
+            "data": fallback_keys_input(keys),
+            "gas": format!("{gas:#x}"),
+        }]);
+        anvil_request(&self.l1, "eth_sendTransaction", tx).await
     }
 
     /// Sends one setter transaction writing `writes` to `to`; `None` when there is nothing to
@@ -334,7 +379,7 @@ impl NextBlock {
         self.number
     }
 
-    /// Queues the Inbox writes of `v` into the block.
+    /// Queues the Inbox writes of `v`, the fallback key list through the setter, into the block.
     pub async fn plant_inbox(&mut self, v: &InboxValues) -> Result<()> {
         let mut writes = v.writes();
         if v.genesis.is_some() {
@@ -355,8 +400,8 @@ impl NextBlock {
             .await?;
             writes.push((inbox::origin_slots(0)[2], U256::from(timestamp)));
         }
-        let tx = self.planter.submit(self.planter.inbox, &writes).await?;
-        self.sent.extend(tx);
+        let sent = self.planter.send_inbox(&writes, v.fallback_keys.as_ref()).await?;
+        self.sent.extend(sent);
         Ok(())
     }
 
@@ -400,8 +445,14 @@ impl Drop for NextBlock {
 
 #[cfg(test)]
 mod tests {
+    use abci::fallback::{FALLBACK_KEYS_UPDATED, getFallbackKeysCall};
+    use alloy::sol_types::SolEvent;
+
     use super::*;
 
+    /// The committed artifact is the compiled source, and its ABI serves the Inbox's fallback
+    /// key interface as etna-core declares it: `getFallbackKeys()` and `FallbackKeysUpdated`
+    /// match, and `plantFallbackKeys` takes the list in its canonical encoding.
     #[test]
     fn generated_setter_matches_source_provenance() {
         let manifest: Value =
@@ -419,6 +470,23 @@ mod tests {
         );
         assert_eq!(manifest["compiler"]["version"], "0.8.30+commit.73712a01");
         assert!(!setter_code().is_empty());
+
+        assert_eq!(InboxSetter::getFallbackKeysCall::SELECTOR, getFallbackKeysCall::SELECTOR);
+        assert_eq!(InboxSetter::FallbackKeysUpdated::SIGNATURE_HASH, FALLBACK_KEYS_UPDATED);
+        let keys = k1_list();
+        let entries: Vec<_> = keys
+            .keys()
+            .iter()
+            .map(|key| InboxSetter::FallbackKey { ckPrefix: key.prefix(), ckX: key.x() })
+            .collect();
+        assert_eq!(
+            InboxSetter::getFallbackKeysCall::abi_encode_returns(&entries),
+            keys.abi_encode()
+        );
+        assert_eq!(
+            InboxSetter::plantFallbackKeysCall { _keys: entries }.abi_encode(),
+            fallback_keys_input(&keys)
+        );
     }
 
     #[test]
@@ -462,21 +530,18 @@ mod tests {
         FallbackKeys::new(vec![k1]).unwrap()
     }
 
-    /// A fallback key list writes its hash at slot 278: the one-key list of the spec's key K1
-    /// hashes to the spec's vector.
+    /// A fallback key list is planted only through the setter, which writes its hash at slot 278
+    /// itself: the list writes no raw word.
     #[test]
-    fn fallback_keys_write_the_hash_vector() {
+    fn fallback_keys_are_planted_through_the_setter() {
         let v = InboxValues { fallback_keys: Some(k1_list()), ..Default::default() };
-        let expected = alloy_primitives::b256!(
-            "9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f"
-        );
-        assert_eq!(v.writes(), vec![(inbox::slot(278), expected.into())]);
+        assert!(v.writes().is_empty());
     }
 
     /// The genesis record writes the start write (`S | L1_0 << 48` at slot 272), generation 0's
     /// origin start height, L1 block and, with a fallback key list, its hash as the fourth origin
     /// word, the start hash and state root, the configuration hash and the forced inclusion
-    /// configuration; the list's hash also goes to slot 278.
+    /// configuration; slot 278 is left to the setter, which plants the list.
     #[test]
     fn inbox_values_write_the_genesis_with_its_origin_and_forced_inclusion_config() {
         let genesis = GenesisRecord {
@@ -507,7 +572,6 @@ mod tests {
                 (inbox::slot(274), U256::from_be_bytes([6; 32])),
                 (inbox::slot(269), U256::from_be_bytes([9; 32])),
                 (inbox::slot(282), U256::from(10u64) | U256::from(11u64) << 48),
-                (inbox::slot(278), keys.hash().into()),
             ]
         );
     }

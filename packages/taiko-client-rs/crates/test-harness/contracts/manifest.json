@@ -1,15 +1,15 @@
 {
   "artifact": {
     "path": "crates/test-harness/contracts/InboxSetter.json",
-    "sha256": "63f14b104935f29c6a9bd0e4f542069fc8e6d159d5fa07e987d91749550d402e"
+    "sha256": "410cf88de833e7b33c7293137fde12241a4ccce0c2a85b925ea564c72dba1ddb"
   },
   "compiler": {
     "version": "0.8.30+commit.73712a01"
   },
   "foundryVersion": [
-    "forge Version: 1.5.1-stable",
-    "Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2",
-    "Build Timestamp: 2025-12-22T11:41:09.812070000Z (1766403669)",
+    "forge Version: 1.4.2-v1.4.2",
+    "Commit SHA: 828441d243f552f82c5a89bdc818e52bdd57b26b",
+    "Build Timestamp: 2025-10-18T06:43:54.536366183Z (1760769834)",
     "Build Profile: maxperf"
   ],
   "generator": "script/gen_test_harness_artifacts.sh",
@@ -29,8 +29,8 @@
     "remappings": []
   },
   "source": {
-    "keccak256": "0x6e4315485e9878f0e45889763e6e814d281a539f97975e4b029f80a4aa759286",
+    "keccak256": "0xc5017f321594e5c847d7c142764ba0ef4660c182c0977a8b5c857360d24242a6",
     "path": "crates/test-harness/contracts/InboxSetter.sol",
-    "sha256": "5974c815b1f2efc152959d867f74d90ca5728ad089d19820728a3aa70eb37ae0"
+    "sha256": "8d289e8e03e1abb2b5de2552977f081e9ee558452a0a30e253a04c849a08c9b7"
   }
 }

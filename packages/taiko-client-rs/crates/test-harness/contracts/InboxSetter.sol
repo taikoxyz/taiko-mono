@@ -1,10 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-/// @notice Test-only Inbox and staking-registry storage setter.
+/// @notice Test-only Inbox storage setter.
 /// @dev Installed by the test harness; never deploy this unrestricted setter in production.
 contract InboxSetter {
+    /// @notice One entry of the Inbox's fallback key list: the prefix byte and X coordinate of a
+    /// compressed secp256k1 public key.
+    struct FallbackKey {
+        uint8 ckPrefix;
+        bytes32 ckX;
+    }
+
+    /// @dev `bytes32("ETNA_FALLBACK_KEYS_V1")`, the domain tag of a fallback key list's hash.
+    bytes32 private constant FALLBACK_KEYS_TAG = "ETNA_FALLBACK_KEYS_V1";
+
+    /// @dev Every planted fallback key list by its hash. A mapping writes no word at its own slot,
+    /// so the lists stay apart from every Inbox slot.
+    mapping(bytes32 fallbackKeysHash => FallbackKey[] keys) private plantedFallbackKeys;
+
     event ForcedInclusionSaved(uint48 indexed index, bytes tx, uint256 feeWei);
+    event FallbackKeysUpdated(bytes32 indexed fallbackKeysHash, FallbackKey[] keys);
 
     /// @notice Plants a forced transaction and emits its protocol admission event.
     /// @dev Writes the Inbox's `ForcedInclusion` entry: the transaction hash, then the timestamp
@@ -26,8 +41,37 @@ contract InboxSetter {
         emit ForcedInclusionSaved(_index, _tx, uint256(_feeInGwei) * 1 gwei);
     }
 
+    /// @notice Plants a fallback key list as the Inbox's `setFallbackKeys` stores it, unchecked.
+    /// @dev Writes the list's hash, `keccak256(abi.encode(FALLBACK_KEYS_TAG, keys))`, at slot 278,
+    /// keeps the list for `getFallbackKeys` and emits `FallbackKeysUpdated`. A list planted again
+    /// is kept once.
+    /// @param _keys The fallback key list.
+    function plantFallbackKeys(FallbackKey[] calldata _keys) external {
+        bytes32 hash = keccak256(abi.encode(FALLBACK_KEYS_TAG, _keys));
+        FallbackKey[] storage planted = plantedFallbackKeys[hash];
+        if (planted.length == 0) {
+            for (uint256 i; i < _keys.length; ++i) {
+                planted.push(_keys[i]);
+            }
+        }
+        assembly {
+            sstore(278, hash)
+        }
+        emit FallbackKeysUpdated(hash, _keys);
+    }
+
+    /// @notice Returns the planted fallback key list whose hash slot 278 holds.
+    /// @return keys_ The list, empty when no list with that hash was planted.
+    function getFallbackKeys() external view returns (FallbackKey[] memory keys_) {
+        bytes32 hash;
+        assembly {
+            hash := sload(278)
+        }
+        keys_ = plantedFallbackKeys[hash];
+    }
+
     /// @notice Applies raw calldata pairs of storage slots and values.
-    /// @dev Preserves the generic Inbox and staking-registry planting interface.
+    /// @dev Preserves the generic Inbox planting interface.
     fallback() external {
         assembly {
             for { let offset := 0 } lt(offset, calldatasize()) { offset := add(offset, 64) } {

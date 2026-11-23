@@ -306,10 +306,11 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
 
 /// Plants the initialized Inbox into an L1 block `L1_0`: the genesis record over the L2 genesis
 /// `(hash, state root)`, `lastCheckpoint = (0, genesis hash)`, generation 0, the fallback key list
-/// `fallback_keys` at slot 278 and in generation 0's origin record, a minimum total stake of
-/// 2^256 − 1 (no candidate is usable, so the fallback keys sign), and the spec's forced
-/// inclusion delay and maximum anchor age; the forced inclusion queue stays empty. Returns the
-/// genesis record.
+/// `fallback_keys` in generation 0's origin record and planted through the setter (slot 278,
+/// `getFallbackKeys()` and its `FallbackKeysUpdated` log, whence the genesis takes it), a minimum
+/// total stake of 2^256 − 1 (no candidate is usable, so the fallback keys sign), and the spec's
+/// forced inclusion delay and maximum anchor age; the forced inclusion queue stays empty. Returns
+/// the genesis record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
