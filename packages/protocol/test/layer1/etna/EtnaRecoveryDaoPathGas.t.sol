@@ -116,8 +116,10 @@ interface IEtnaGasSignerList {
 /// recovers in one controller call, on the deployed DAO stack: the Etna Inbox is owned by the live
 /// `MainnetDAOController`, and the recovery is proposed and executed through the live Aragon DAO,
 /// its optimistic token voting plugin and the Standard and Emergency Multisigs on a mainnet fork.
-/// Each test sends one top-level transaction of a path, exactly as an operator sends it, prepared
-/// by `setUp`, so it starts cold, and requires it to fit the per-transaction gas cap. Each test
+/// Each test sends one top-level transaction of a path, prepared by `setUp`, so it starts cold,
+/// and requires it to fit the per-transaction gas cap. A Standard create or approval is sent from
+/// the multisig member's own address; a member that is a Safe would wrap it in
+/// `Safe.execTransaction`, which repeats the payload in calldata and is not measured. Each test
 /// also measures, first and from cold, the controller-only transaction the DAO itself would send,
 /// and requires the step to need at most `DAO_PATH_EXTRA` more: the value the local tests add to
 /// their controller-only transactions.

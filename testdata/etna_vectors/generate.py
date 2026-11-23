@@ -57,7 +57,7 @@ PRETTIER = ROOT / "node_modules" / ".bin" / "prettier"
 
 WORD_MOD = 2**256
 U48_MAX = 2**48 - 1
-NO_EXIT = U48_MAX  # exitEffectiveL1 = 2^48 - 1 means no exit is set
+NO_EXIT = U48_MAX  # exitHeight = 2^48 - 1 means no exit is set
 FI_STEP = 6  # the cut model's FI cursor advances once every FI_STEP heights
 
 # secp256k1 curve parameters (SEC 2).
@@ -3102,7 +3102,8 @@ PROPOSE_CUTOFF = 1_700_000_000 - 12
 # hands every block to the fallback keys.
 STORED_FALLBACK_KEYS = (K1, K2)
 MIN_TOTAL_STAKE = WORD_MOD - 1
-# The snapshot() example: seat 0 holds K1 at power 100,000 and seat 2 K2 at power 250,000.
+# The snapshot() example, encoding-only: seat 0 holds K1 at power 100,000 and seat 2 K2 at power
+# 250,000. A seated bond holds at least min_stake, so no deployment reaches a total this small.
 SNAPSHOT_MEMBERS = ((0, *K1, 100_000), (2, *K2, 250_000))
 SNAPSHOT_HEIGHT = 10
 
@@ -3353,8 +3354,8 @@ def view_abi(key_list, digests, cfg):
     }
 
 
-# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events and the
-# staking contract's top-up and forfeiture events.
+# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events, and the
+# keccak256 of the signatures the spec's staking interface gives its top-up and forfeiture events.
 SPEC_TOPICS = {
     "fallback_keys_updated": "0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c",
     "min_total_stake_updated": "0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1",

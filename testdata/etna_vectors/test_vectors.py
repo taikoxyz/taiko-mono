@@ -50,10 +50,6 @@ def words(value):
     return ["0x" + data[i : i + 32].hex() for i in range(0, len(data), 32)]
 
 
-def word(value, index):
-    return words(value)[index]
-
-
 def tag(name):
     """A right-zero-padded `bytes32` ASCII domain tag."""
     return "0x" + name.encode().ljust(32, b"\0").hex()
@@ -727,8 +723,8 @@ APPENDIX_A_LITERALS = {
     "enc_a_36a_a": "0x9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f",
     "enc_a_36a_b": "0x2bc20cdc8e87ed785fc8f8012165afba944fd223ecf8973e165e41f4cddf0cea",
 }
-# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events and the
-# staking contract's top-up and forfeiture events.
+# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events, and the
+# keccak256 of the signatures the spec's staking interface gives its top-up and forfeiture events.
 SPEC_TOPICS = {
     "fallback_keys_updated": "0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c",
     "min_total_stake_updated": "0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1",
@@ -1065,7 +1061,7 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(V["layout"]["inbox"]["slots"]["recovery_nonce"], "292")
 
     def test_entry_keys_are_removed(self):
-        # The lifetime forfeiture flag and recovery exclusions use bond ids, so no key hash remains.
+        # The lifetime forfeiture flag uses bond ids, so no key hash remains.
         self.assertTrue(all("entry_key" not in key for key in V["keys"]))
         self.assertNotIn("entry_key", json.dumps(V))
         self.assertNotIn("origin_writer", json.dumps(V))

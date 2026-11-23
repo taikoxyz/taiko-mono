@@ -54,9 +54,9 @@ abstract contract EtnaStakingOnBlockStartGasBase is EtnaStakingTestBase {
 
 /// @title EtnaStakingOnBlockStartWorstCaseGasTest
 /// @notice The worst case. missLimit is 1 and no call has run since the 128 registrations, so the
-/// measured call penalizes every bond, each bond of 2m keeps its seat, and every one of the 256
-/// snapshot record words, the 8 miss-count words and slashSink's balance goes from zero to
-/// nonzero.
+/// measured call penalizes every bond, each bond of 2m keeps its seat, every one of the 256
+/// snapshot record words and slashSink's balance goes from zero to nonzero, and the 8 miss-count
+/// words go from zero to nonzero and back to zero, since each penalty resets its count.
 contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingOnBlockStartGasBase {
     /// @dev The EIP-170 contract size limit in bytes.
     uint256 private constant _EIP170_LIMIT = 24_576;

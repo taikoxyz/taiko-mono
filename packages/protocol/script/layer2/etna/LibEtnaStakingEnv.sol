@@ -13,8 +13,8 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 /// and ETNA_FORFEIT_BPS. Optional, with the reference value when unset or empty: ETNA_MIN_STAKE
 /// in token base units (7,812,500 TAIKO), ETNA_VP_UNIT (10^9), ETNA_N_MAX (128), ETNA_MISS_LIMIT
 /// (3,600) and ETNA_MISS_SLASH_BPS (1,000). An optional variable that is set but malformed reverts
-/// instead of falling back to its default. The library checks no bounds: `EtnaStaking`'s
-/// constructor does.
+/// instead of falling back to its default. `readConfig` checks no bounds: `EtnaStaking`'s
+/// constructor does. `checkWithdrawalDelay` checks the one bound the constructor cannot see.
 /// @custom:security-contact security@taiko.xyz
 library LibEtnaStakingEnv {
     /// @dev `minStake` when ETNA_MIN_STAKE is unset or empty: 10^27 / 128, so 128 seats cover

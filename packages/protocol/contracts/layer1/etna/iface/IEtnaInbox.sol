@@ -22,8 +22,8 @@ interface IEtnaInbox {
         address proofVerifier;
         /// @notice The L1 SignalService that stores the landed L2 checkpoints.
         address signalService;
-        /// @notice The `EtnaStaking` proxy on L2 whose snapshots select the committees (spec 4.1);
-        /// non-zero. The third word of the config hash.
+        /// @notice The `EtnaStaking` proxy on L2 whose candidate snapshots decide the signing sets
+        /// (spec 4.1, 4.3); non-zero. The third word of the config hash.
         address etnaStaking;
         /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;

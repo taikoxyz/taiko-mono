@@ -12,11 +12,4 @@ abstract contract EtnaTestConstants {
 
     /// @dev `U`, the maximum number of unsettled L2 blocks: the target deployment's 151,200.
     uint64 internal constant UNSETTLED_LIMIT = 151_200;
-
-    /// @dev `keccak256(abi.encode(uint256(keccak256(_namespace)) - 1)) & ~0xff`.
-    function _erc7201(string memory _namespace) internal pure returns (bytes32) {
-        return
-            keccak256(abi.encode(uint256(keccak256(bytes(_namespace))) - 1))
-                & ~bytes32(uint256(0xff));
-    }
 }

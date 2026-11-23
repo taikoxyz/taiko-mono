@@ -1,14 +1,15 @@
 # Etna vectors
 
-`vectors.json` holds the values that the Etna L1 contracts, the Etna node and both proving guests
-must agree on byte for byte: storage layout, ABI encodings and hashes, signature and key formats,
+`vectors.json` holds the values that the Etna Inbox on L1, the `EtnaStaking` contract on L2, the
+Etna node and both proving guests must agree on byte for byte: storage layout, ABI encodings and hashes, signature and key formats,
 and the accept/reject cases of every boundary rule. Every implementation reads this one file
 instead of carrying its own copies of the literals. Section numbers below refer to the Etna
 specification; appendix A is the encodings and appendix B the storage layout (the Inbox on L1,
 the staking contract on L2).
 
 Schema version is `"10"`; clients refuse any other value. All integers are decimal strings, so
-values above 2^53 survive every JSON parser. Hex values are `0x`-prefixed. Clients must decode every
+values above 2^53 survive every JSON parser. Hex values are `0x`-prefixed. JSON null appears in two
+fields only, both under [Staking and the fallback key set](#staking-and-the-fallback-key-set). Clients must decode every
 input exactly: a decoder consumes all of its input and rejects trailing bytes, as the reject cases
 below require.
 
@@ -51,7 +52,8 @@ bond id indexed). `view_abi` gives the calldata and return data of the Inbox's `
 and `etnaStart()`, which returns (0, 0) before the start write; the Unzen Inbox's
 `proposeCutoff()` (contract `unzen_inbox`), 0 until a cutoff is installed; and the staking
 contract's lookups `bondForKey`, `seatOfBond` and `bondInSeat`, where `(true, 0)` names bond 0 or
-seat 0 and `(false, 0)` is absence, `snapshot()`, `registerDigest(owner)`, the lifetime
+seat 0 and `(false, 0)` is absence, `snapshot()` (an encoding-only example: its powers are far
+below what a stake of at least `min_stake` gives), `registerDigest(owner)`, the lifetime
 `forfeited(bondId)` flag and `minStake()`. `forfeitures` pins the rounded-up deduction
 `ceil(balance × forfeitBps / 10,000)` from the bond's whole principal, including uint256 boundary
 balances.
@@ -158,8 +160,9 @@ FinalizeBlock returns. Its hash enters only the app hash (`app_hashes`); no land
   2^48 + (i mod 64) − 32; member 127 takes the rest of the total, 3969·2^48 + 94, so 63 pairs of
   equal power each order by address. It lists the hash at genesis and one height later, both
   proposers, the first and last three rows of each set and the preimage size (33,024 bytes), not
-  all 512 rows: every Etna Solidity test loads this file, which stays well under 1 MB. Rebuild the
-  sets from the rules and compare the hash; the rows shown and the proposers locate a mismatch.
+  all 512 rows: the hash pins every row, and the family keeps the sampled shape it had before.
+  Rebuild the sets from the rules and compare the hash; the rows shown and the proposers locate a
+  mismatch.
 
 `valgen/` produces every state with CometBFT's own code: `state.MakeGenesisState` at a chain's
 start (state/state.go:344-345: `NewValidatorSet` and `CopyIncrementProposerPriority(1)`), and
@@ -234,7 +237,7 @@ calldata of the zero-parts-hash conflict; `governance_abi.slash_double_sign` rep
   records; every other record is zero. The candidate is usable exactly when `min_total_stake` (M) is
   not 2^256 − 1, `snapshot_height_word`, the whole word at T, equals H, the records form a valid set
   (1 to 128 members, valid and distinct keys, no bit of word 2 above `power`, every power at least
-  1, their exact sum at most MAX = (2^63 − 1) / 8) and `snapshot_total_stake` ≥ M. Only `usable` and
+  1, their exact sum at most MAX = ⌊(2^63 − 1) / 8⌋) and `snapshot_total_stake` ≥ M. Only `usable` and
   `signers` are normative: the members in seat order at their stored powers when usable, otherwise
   the fallback keys at power 1, each with its secp256k1eth address. `reason` is a diagnostic label
   for the first condition broken, in the order `min_total_stake_max`, `snapshot_height`,

@@ -16,7 +16,8 @@ import { Controller } from "src/shared/governance/Controller.sol";
 /// @notice Gas snapshots of the Inbox's entry points on the `EtnaLandTestBase` chain.
 /// @dev `setUp` and the measured test are separate transactions, so every contract's storage
 /// starts cold in the test. Each test loads its target, caller and arguments into memory before
-/// `vm.startSnapshotGas`, so the measured window holds only the call. Every landing suite lands
+/// `vm.startSnapshotGas`, so the measured window holds only the call; a test that snapshots with
+/// `vm.snapshotGasLastCall` instead records the callee frame's gas. Every landing suite lands
 /// (0, 6] in `setUp` first, so the measured landing starts from non-zero checkpoint slots. Landings
 /// carry two blobs and use the mock verifier, bound in `setUp` to the measured landing's honest
 /// statement.
@@ -178,8 +179,9 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
 /// forwards (EIP-150's 63/64 rule). Its gas before refunds is that intrinsic cost plus the gas of
 /// the call's frame, or EIP-7623's floor of 21,000 plus 10 gas per token if that is higher. The
 /// mainnet-fork tests in `EtnaRecoveryDaoPathGas.t.sol` measure each DAO path step against the
-/// controller-only transaction and require the difference to stay within `DAO_PATH_EXTRA`, so the
-/// value the local tests add cannot silently go stale.
+/// controller-only transaction and require the difference to stay within `DAO_PATH_EXTRA`. They
+/// run only by hand, with `L1_FORK_URL` set, so re-run them whenever the recovery payload, the
+/// fork block or the DAO stack changes.
 abstract contract EtnaTxGasCapBase is Test {
     /// @dev EIP-7825's per-transaction gas cap.
     uint256 internal constant TX_GAS_CAP = 2 ** 24;
@@ -493,7 +495,7 @@ contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
 
 /// @title EtnaInboxLandFromUnzenStartGasTest
 /// @notice The first landing (S, S + 6] on a switching network. `setOrigin` checked the Unzen tip,
-/// so the landing reads no Unzen state (vector 8a.e) and costs what a landing from S = 0 does.
+/// so the landing reads no Unzen state and costs what a landing from S = 0 does.
 contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
     function setUp() public override {
         super.setUp();
@@ -521,7 +523,7 @@ contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
 
 /// @title EtnaInboxSetOriginGasTest
 /// @notice The permissionless start write on a switching network, with the Unzen proposals
-/// closed and finalized up to S and its checkpoint forwarded (START-10-5a, LAND-6.1-8a).
+/// closed and finalized up to S and its checkpoint forwarded.
 contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
     function setUp() public override {
         super.setUp();
@@ -629,8 +631,9 @@ contract EtnaInboxSetMinTotalStakeGasTest is EtnaInboxGasBase {
 /// @notice The owner's transaction that upgrades a new network's Inbox proxy from the bootstrap
 /// implementation to `EtnaInbox` and calls `init` with the 128 keys of private keys 1 to 128, the
 /// longest fallback key list; `init` also performs the start write and saves the block-0
-/// SignalService checkpoint. A switch proposal runs this call through the DAO, so it must fit 2^24
-/// with `DAO_PATH_EXTRA` added. A snapshot is the gas of the proxy's frame, as
+/// SignalService checkpoint. Sent alone through the DAO, this call must fit 2^24 with
+/// `DAO_PATH_EXTRA` added; the switch proposal, which carries it with its other actions in one
+/// controller call, is not measured here. A snapshot is the gas of the proxy's frame, as
 /// `vm.snapshotGasLastCall` records it.
 contract EtnaInboxInit128KeysGasTest is EtnaInboxTestBase, EtnaTxGasCapBase {
     /// @dev The measured call, built in `setUp`, and the hash of its key list.
