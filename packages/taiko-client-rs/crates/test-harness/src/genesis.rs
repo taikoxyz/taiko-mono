@@ -1,18 +1,20 @@
 //! Reproducible alloc-only Etna genesis and an isolated EL for real L1 fixtures.
-use std::{fs, time::Duration};
+use std::{collections::BTreeMap, fs, time::Duration};
 
 use crate::{
     boot::{POLL, RETH_CMD, RETH_IMAGE, RPC_TIMEOUT, jwt_path, local_url},
     docker::{DockerEnv, host_port},
     wait_until,
 };
-use alloy::consensus::Header;
+use abci::{AccountWitness, StorageProof};
+use alloy::{consensus::Header, rlp};
 use alloy_eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH};
-use alloy_genesis::Genesis;
-use alloy_primitives::{Address, B256, U256, address, keccak256};
+use alloy_genesis::{Genesis, GenesisAccount};
+use alloy_primitives::{Address, B256, Bytes, KECCAK256_EMPTY, U256, address, keccak256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_trie::{
-    EMPTY_ROOT_HASH, TrieAccount,
+    EMPTY_ROOT_HASH, HashBuilder, Nibbles, TrieAccount,
+    proof::{ProofNodes, ProofRetainer},
     root::{state_root_unhashed, storage_root_unhashed},
 };
 use anyhow::{Context, Result, ensure};
@@ -61,23 +63,9 @@ impl EtnaGenesis {
         base.as_object_mut().context("genesis object")?.remove("stateRoot");
         let json = serde_json::to_string_pretty(&base)? + "\n";
         let genesis: Genesis = serde_json::from_str(&json)?;
-        let state_root = state_root_unhashed(genesis.alloc.iter().map(|(address, account)| {
-            (
-                *address,
-                TrieAccount {
-                    nonce: account.nonce.unwrap_or_default(),
-                    balance: account.balance,
-                    code_hash: keccak256(
-                        account.code.as_ref().map_or(&[][..], |code| code.as_ref()),
-                    ),
-                    storage_root: storage_root_unhashed(
-                        account.storage.iter().flatten().filter_map(|(key, value)| {
-                            (!value.is_zero()).then_some((*key, U256::from_be_bytes(value.0)))
-                        }),
-                    ),
-                },
-            )
-        }));
+        let state_root = state_root_unhashed(
+            genesis.alloc.iter().map(|(address, account)| (*address, trie_account(account))),
+        );
         // The pinned devnet activates Osaka at genesis. Only the state root differs from
         // its canonical header: do not add Ethereum fork fields to the source JSON.
         let header = Header {
@@ -124,6 +112,95 @@ impl EtnaGenesis {
         }
         Ok(())
     }
+
+    /// The EIP-1186 proof of `address` and its storage `slots` under block zero's state root, as
+    /// `eth_getProof` at block zero answers it. For an address the alloc does not hold it is the
+    /// exclusion proof, with empty account fields and every requested word zero, each without
+    /// storage proof nodes.
+    pub fn account_witness(&self, address: Address, slots: &[B256]) -> Result<AccountWitness> {
+        let genesis: Genesis = serde_json::from_str(&self.json)?;
+        let leaves = genesis
+            .alloc
+            .iter()
+            .map(|(address, account)| (keccak256(address), rlp::encode(trie_account(account))));
+        let (root, account_nodes) = proof_trie(leaves, &[keccak256(address)]);
+        ensure!(root == self.state_root, "genesis alloc root differs from block zero's");
+        let account_proof = proof_nodes(&account_nodes, keccak256(address));
+        let Some(account) = genesis.alloc.get(&address) else {
+            return Ok(AccountWitness {
+                address,
+                nonce: 0,
+                balance: U256::ZERO,
+                storage_root: EMPTY_ROOT_HASH,
+                code_hash: KECCAK256_EMPTY,
+                account_proof,
+                storage: slots
+                    .iter()
+                    .map(|slot| StorageProof { slot: *slot, value: U256::ZERO, proof: vec![] })
+                    .collect(),
+            });
+        };
+        let words = storage_words(account).collect::<BTreeMap<_, _>>();
+        let hashed = slots.iter().map(keccak256).collect::<Vec<_>>();
+        let (storage_root, storage_nodes) = proof_trie(
+            words.iter().map(|(slot, word)| (keccak256(slot), rlp::encode(word))),
+            &hashed,
+        );
+        let trie = trie_account(account);
+        ensure!(storage_root == trie.storage_root, "genesis storage root mismatch");
+        Ok(AccountWitness {
+            address,
+            nonce: trie.nonce,
+            balance: trie.balance,
+            storage_root,
+            code_hash: trie.code_hash,
+            account_proof,
+            storage: slots
+                .iter()
+                .map(|slot| StorageProof {
+                    slot: *slot,
+                    value: words.get(slot).copied().unwrap_or_default(),
+                    proof: proof_nodes(&storage_nodes, keccak256(slot)),
+                })
+                .collect(),
+        })
+    }
+}
+
+/// The state-trie account of a genesis alloc entry.
+fn trie_account(account: &GenesisAccount) -> TrieAccount {
+    TrieAccount {
+        nonce: account.nonce.unwrap_or_default(),
+        balance: account.balance,
+        code_hash: keccak256(account.code.as_ref().map_or(&[][..], |code| code.as_ref())),
+        storage_root: storage_root_unhashed(storage_words(account)),
+    }
+}
+
+/// The nonzero storage words of a genesis alloc entry.
+fn storage_words(account: &GenesisAccount) -> impl Iterator<Item = (B256, U256)> + '_ {
+    account.storage.iter().flatten().filter_map(|(key, value)| {
+        (!value.is_zero()).then_some((*key, U256::from_be_bytes(value.0)))
+    })
+}
+
+/// The root of the trie of `leaves`, keyed by hashed path, and the nodes that prove each of
+/// `targets`.
+fn proof_trie(
+    leaves: impl Iterator<Item = (B256, Vec<u8>)>,
+    targets: &[B256],
+) -> (B256, ProofNodes) {
+    let retainer = ProofRetainer::new(targets.iter().map(|key| Nibbles::unpack(key)).collect());
+    let mut builder = HashBuilder::default().with_proof_retainer(retainer);
+    for (key, value) in leaves.collect::<BTreeMap<_, _>>() {
+        builder.add_leaf(Nibbles::unpack(key), &value);
+    }
+    (builder.root(), builder.take_proof_nodes())
+}
+
+/// The proof nodes on the path to `key`, root first.
+fn proof_nodes(nodes: &ProofNodes, key: B256) -> Vec<Bytes> {
+    nodes.matching_nodes_sorted(&Nibbles::unpack(key)).into_iter().map(|(_, node)| node).collect()
 }
 
 /// A fresh custom-genesis EL. Real fixtures predict Inbox before starting this node.

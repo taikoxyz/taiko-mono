@@ -478,13 +478,7 @@ impl LandingSource for RpcLandingSource {
     /// One EIP-1186 read of the built-in staking proxy on the public L2 endpoint, pinned with
     /// EIP-1898's canonical hash selector.
     async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness> {
-        let response = self
-            .l2
-            .get_proof(self.params.staking, slots.to_vec())
-            .block_id(BlockId::hash_canonical(block_hash))
-            .await
-            .map_err(rpc_error)?;
-        Ok(account_witness(response))
+        l2_staking_witness(&self.l2, self.params.staking, block_hash, slots).await
     }
 
     async fn reference(
@@ -960,6 +954,25 @@ pub(crate) async fn obtain_fallback_list<L: LandingSource + ?Sized>(
         )));
     }
     Ok(keys)
+}
+
+/// The `EtnaStaking` proxy `staking`'s account proof and its storage proofs of `slots` in the
+/// post-state of the L2 block whose hash is `block_hash`, read from `l2` with `eth_getProof`
+/// pinned to that canonical hash, and unverified: [`verify_staking_witness`] checks them under
+/// that block's state root. A failed read, such as one of state the L2 has pruned, is
+/// [`LanderError::Temporary`].
+pub async fn l2_staking_witness(
+    l2: &RootProvider,
+    staking: Address,
+    block_hash: B256,
+    slots: &[B256],
+) -> Result<AccountWitness> {
+    let response = l2
+        .get_proof(staking, slots.to_vec())
+        .block_id(BlockId::hash_canonical(block_hash))
+        .await
+        .map_err(rpc_error)?;
+    Ok(account_witness(response))
 }
 
 /// Converts an EIP-1186 response into the witness the MPT verifier checks, keeping every node.

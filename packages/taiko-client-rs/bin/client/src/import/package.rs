@@ -47,10 +47,10 @@ pub(super) fn frames(dir: &Path) -> R<impl Iterator<Item = R<WindowBlock>>> {
 /// verifier has checked every frame it consumed and refused any trailing one, so that file holds
 /// exactly the authenticated window: the stock helper installs no byte that was not verified, and
 /// nothing is read from the package directory again.
-pub(super) async fn verify(
+pub(super) async fn verify<L: abci::L1Source + ?Sized>(
     dir: &Path,
     params: &abci::ChainParams,
-    l1: &abci::RpcL1Source,
+    l1: &L,
     stock: Option<&Path>,
 ) -> R<VerifiedImport> {
     let meta: ImportPackage = serde_json::from_slice(&read(&dir.join("package.json"), 256 << 20)?)

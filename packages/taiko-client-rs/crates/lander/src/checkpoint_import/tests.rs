@@ -97,8 +97,11 @@ fn commit_terminal(fx: &mut Fixture, s: u64, before: &abci::valstate::ValState, 
     fx.import_landings(&[(s, fx.headers[&s].hash_slow(), comet)]);
 }
 
-use crate::test_utils::consensus_mpt::{Fixture, import_package};
-use abci::{AccountWitness, L1Error, RawL1Header, config::MAX_SET_MEMBERS};
+use crate::test_utils::consensus_mpt::{Fixture, SigningPlan, import_package};
+use abci::{
+    AccountWitness, FallbackReason, L1Error, RawL1Header, SignerStatus, committee::SignerSource,
+    config::MAX_SET_MEMBERS, fallback::FallbackKeys,
+};
 use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
 use prost::Message;
@@ -135,9 +138,8 @@ fn frames(fx: &Fixture, height: u64) -> Vec<Result<WindowBlock, ImportError>> {
     (fx.snapshot.origin_height() + 1..=height)
         .map(|h| {
             let pair = &fx.blocks[&h];
-            // The generation's initial set signs every height; every fixture committee holds
-            // the same members.
-            let committee = &fx.committees[&0];
+            // The set 4.3 gave the height signs it.
+            let committee = &fx.signing_sets[&h];
             Ok(WindowBlock {
                 block: pair.raw_block.clone(),
                 commit: tendermint_proto::v0_38::types::Commit::from(pair.commit.clone())
@@ -246,9 +248,10 @@ async fn import_rejects_preimage_with_wrong_app_hash() {
 }
 
 /// At s the preimage for s - 1 verifies against header(s)'s app_hash, and block s's update
-/// list, the empty one, applies once: the state after s is the replay's, its current set is
-/// the one before s's next, and both its sets are the generation's initial set. The state after
-/// s is no valid preimage.
+/// list applies once. Every anchor here proves a minimum total stake of 2^256 - 1, so that list
+/// is the empty one: the state after s is the replay's, its current set is the one before s's
+/// next, and both its sets are the generation's initial set. The state after s is no valid
+/// preimage.
 #[tokio::test]
 async fn import_advances_s_once_with_no_updates() {
     let fx = std::sync::Arc::new(Fixture::with_epoch(12, 12, 0, 13));
@@ -419,7 +422,8 @@ async fn corrupt_bytes_reject_but_authenticated_envelope_contradiction_halts() {
 }
 
 /// The preimage for 11 that header(12) commits, its set for 13 included, so the derived state
-/// after 12 is authenticated; its keys/powers for 13 differ from the generation's initial set.
+/// after 12 is authenticated; its keys/powers for 13 are not the fallback key list that 11's
+/// anchor proves under a minimum total stake of 2^256 − 1.
 async fn contradicting_pending_set() -> (Fixture, ImportPackage) {
     let mut fx = Fixture::with_epoch(12, 12, 0, 13);
     let mut package = import_package(&fx, 12).await;
@@ -430,14 +434,15 @@ async fn contradicting_pending_set() -> (Fixture, ImportPackage) {
     (fx, package)
 }
 
-/// An authenticated validator state whose keys and powers differ from the generation's initial
-/// set, which signs every height, halts for safety.
+/// Under a minimum total stake of 2^256 − 1 at the anchor of s − 1, the fallback key list that
+/// anchor proves signs s + 1 whatever the candidate is (4.3): an authenticated validator state
+/// whose set for s + 1 is another halts for safety.
 #[tokio::test]
-async fn pending_set_other_than_the_initial_set_is_authenticated_safety_error() {
+async fn set_for_s_plus_1_other_than_the_list_a_maximal_minimum_selects_halts() {
     let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     assert!(
-        matches!(authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("initial set"))
+        matches!(authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("s + 1"))
     );
 }
 
@@ -577,6 +582,10 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
             fx.val_states[&(height - 1)].encode().into()
         },
         execution_headers: (0..=origin.height).map(|h| fx.headers[&h].clone()).collect(),
+        staking_witness: (height > origin.height)
+            .then(|| fx.package_staking_witness(height))
+            .flatten(),
+        fallback_keys: (height > origin.height).then(|| fx.package_fallback_keys(height)).flatten(),
     }
 }
 
@@ -1763,7 +1772,7 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
 }
 
 #[tokio::test]
-async fn review_trailing_reader_failure_cannot_hide_an_initial_set_contradiction() {
+async fn review_trailing_reader_failure_cannot_hide_a_contradicting_set_for_s_plus_1() {
     let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     let input = frames(&fx, 12)
@@ -1771,7 +1780,7 @@ async fn review_trailing_reader_failure_cannot_hide_an_initial_set_contradiction
         .chain(std::iter::once(Err(ImportError::Unavailable("trailing source fault".into()))));
     let err =
         authenticate_import(&package, input, &fx.params, &OwnL1(fx.clone())).await.unwrap_err();
-    assert!(matches!(err,ImportError::Safety(ref m) if m.contains("initial set")), "{err}");
+    assert!(matches!(err,ImportError::Safety(ref m) if m.contains("s + 1")), "{err}");
 }
 
 #[tokio::test]
@@ -1811,4 +1820,475 @@ async fn review_recovery_first_consensus_block_refuses_old_generation_commit() {
         matches!(result, Err(ImportError::Safety(ref m)) if m.contains("previous block/commit")),
         "{result:?}"
     );
+}
+
+/// The checkpoint of the 4.3 import tests below: L1 11 anchors 7 to 22, so s − 1 and s share
+/// its minimum total stake and fallback key list.
+const S: u64 = 12;
+
+/// Slots 278 and 279 of every L1 state: the origin list's hash and the minimum total stake
+/// `minimum`.
+fn minimum(minimum: u64) -> crate::test_utils::consensus_mpt::PlannedAnchorWords {
+    Box::new(move |_, origin| (origin.hash(), U256::from(minimum)))
+}
+
+/// The origin keys as a candidate, key `i` at power `i + 1 + offset`.
+fn origin_members(origin: &FallbackKeys, offset: u64) -> Vec<(abci::key::ConsensusKey, u64)> {
+    (1..).zip(origin.keys()).map(|(power, key)| (*key, power + offset)).collect()
+}
+
+/// The candidate words after `height` whose snapshot of `height` holds the origin keys at
+/// powers `1 + offset`, `2 + offset`, … with a total stake of `total`.
+fn origin_candidate(
+    height: u64,
+    total: u64,
+    origin: &FallbackKeys,
+    offset: u64,
+) -> Vec<(B256, U256)> {
+    crate::test_utils::consensus_mpt::candidate_words(
+        U256::from(height),
+        U256::from(total),
+        &origin_members(origin, offset),
+    )
+}
+
+/// The keys of a set with their powers, in key order, whatever its CometBFT order.
+fn powers(set: &abci::valstate::ValSet) -> BTreeMap<abci::key::ConsensusKey, u64> {
+    set.members().into_iter().collect()
+}
+
+/// Authenticate the honest package at `s` of `fx` over its frames.
+async fn import(fx: &std::sync::Arc<Fixture>, s: u64) -> Result<VerifiedImport, ImportError> {
+    let package = import_package(fx, s).await;
+    import_with(fx, s, &package).await
+}
+
+/// Authenticate `package` at `s` of `fx` over its frames.
+async fn import_with(
+    fx: &std::sync::Arc<Fixture>,
+    s: u64,
+    package: &ImportPackage,
+) -> Result<VerifiedImport, ImportError> {
+    authenticate_import(package, frames(fx, s).into_iter(), &fx.params, &OwnL1(fx.clone())).await
+}
+
+/// The set that signs s + 1 when the usable candidate of s − 1 signs it under the minimum
+/// `min`: its total stake is in a post-state the import does not hold.
+fn imported_candidate(s: u64, min: u64, size: usize) -> SignerStatus {
+    SignerStatus {
+        source: SignerSource::Candidate,
+        fallback_reason: None,
+        snapshot_height: Some(s - 1),
+        total_stake: None,
+        min_total_stake: Some(U256::from(min)),
+        fallback_keys_hash: None,
+        size,
+    }
+}
+
+/// Under a minimum total stake of 1000, the candidate of every height is usable and signs two
+/// heights later. Its powers change at s, so the import's one step at s returns updates: s's
+/// snapshot, proven by the package under s's EL stateRoot, signs s + 2 as the chain decided.
+#[tokio::test]
+async fn usable_candidate_at_s_signs_s_plus_2() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| {
+            let offset = if height == S { 10 } else { 0 };
+            origin_candidate(height, 1000 + height, origin, offset)
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let decided = origin_members(&fx.origin_keys, 10);
+    assert_eq!(fx.signing_sets[&(S + 2)].members, decided);
+    assert_ne!(fx.signing_sets[&(S + 1)].members, decided);
+    let imported = import(&fx, S).await.unwrap();
+    let state = imported.state();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    assert_eq!(powers(&state.val_state.next), decided.into_iter().collect());
+    assert_eq!(
+        powers(&state.val_state.current),
+        fx.signing_sets[&(S + 1)].members.iter().copied().collect()
+    );
+    assert_eq!(state.signers.next, imported_candidate(S, 1000, 2));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::candidate(S, U256::from(1000 + S), U256::from(1000), 2)
+    );
+    // The list s's anchor proves is kept, as FinalizeBlock(s) keeps it.
+    assert_eq!(
+        state.fallback_keys,
+        BTreeMap::from([(fx.origin_keys.hash(), fx.origin_keys.clone())])
+    );
+}
+
+/// A snapshot height that equals s in its low 64 bits but not in all 256 is not s's own: the
+/// fallback keys sign s + 2, each at power 1.
+#[tokio::test]
+async fn stale_snapshot_at_s_falls_back() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| {
+            let snapshot = U256::from(height) | (U256::from(u64::from(height == S)) << 64);
+            crate::test_utils::consensus_mpt::candidate_words(
+                snapshot,
+                U256::from(1000 + height),
+                &origin_members(origin, 0),
+            )
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    assert_eq!(powers(&state.val_state.next), fx.origin_keys.validator_set().into_iter().collect());
+    assert_eq!(state.signers.next, imported_candidate(S, 1000, 2));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &fx.origin_keys,
+            abci::committee::Unusable::StaleSnapshot,
+            U256::from(1000 + S),
+            U256::from(1000)
+        )
+    );
+}
+
+/// A total stake below the minimum leaves the fallback keys signing. Here s − 1's is below it
+/// too, so the list signs s + 1 for a reason the import cannot know.
+#[tokio::test]
+async fn total_below_m_falls_back() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| {
+            let total = if height >= S - 1 { 999 } else { 1000 + height };
+            origin_candidate(height, total, origin, 0)
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    let list = fx.origin_keys.validator_set().into_iter().collect::<BTreeMap<_, _>>();
+    assert_eq!(powers(&state.val_state.current), list);
+    assert_eq!(powers(&state.val_state.next), list);
+    assert_eq!(
+        state.signers.next,
+        SignerStatus {
+            fallback_reason: Some(FallbackReason::Imported),
+            min_total_stake: Some(U256::from(1000)),
+            ..SignerStatus::origin(&fx.origin_keys)
+        }
+    );
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &fx.origin_keys,
+            abci::committee::Unusable::BelowMinTotalStake,
+            U256::from(999),
+            U256::from(1000)
+        )
+    );
+}
+
+/// L1 11, which anchors 7 to 22, proves a minimum of 1000 and L1 12, which anchors 23, one of
+/// 2^256 − 1: the candidate decided at 22 signs 24 and the fallback keys sign 25 whatever s's
+/// snapshot holds.
+#[tokio::test]
+async fn m_max_falls_back() {
+    let s = 23;
+    let plan = SigningPlan {
+        anchor_words: Box::new(|number, origin| {
+            (origin.hash(), if number == 12 { U256::MAX } else { U256::from(1000) })
+        }),
+        staking: Box::new(|height, origin| origin_candidate(height, 1000 + height, origin, 0)),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(s, s, plan));
+    assert_eq!(fx.anchors[&s].inbox.min_total_stake, U256::MAX);
+    assert_eq!(fx.anchors[&(s - 1)].inbox.min_total_stake, U256::from(1000));
+    let state = import(&fx, s).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&s]);
+    assert_eq!(powers(&state.val_state.next), fx.origin_keys.validator_set().into_iter().collect());
+    assert_eq!(state.signers.next, imported_candidate(s, 1000, 2));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &fx.origin_keys,
+            abci::committee::Unusable::MinTotalStakeMax,
+            U256::from(1000 + s),
+            U256::MAX
+        )
+    );
+}
+
+/// A snapshot whose records repeat a key forms no valid set: the fallback keys sign s + 2.
+#[tokio::test]
+async fn invalid_candidate_falls_back() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| {
+            let mut members = origin_members(origin, 0);
+            if height == S {
+                members[1].0 = members[0].0;
+            }
+            crate::test_utils::consensus_mpt::candidate_words(
+                U256::from(height),
+                U256::from(1000 + height),
+                &members,
+            )
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &fx.origin_keys,
+            abci::committee::Unusable::InvalidSet,
+            U256::from(1000 + S),
+            U256::from(1000)
+        )
+    );
+}
+
+/// The package's staking proof is the publisher's: a word it claims that the proofs do not
+/// give, or a proof of fewer slots, rejects the candidate; it never halts.
+#[tokio::test]
+async fn tampered_staking_proof_rejects_the_candidate() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| origin_candidate(height, 1000 + height, origin, 0)),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let honest = import_package(&fx, S).await;
+    import_with(&fx, S, &honest).await.unwrap();
+    let mut raised = honest.clone();
+    raised.staking_witness.as_mut().unwrap().storage[1].value += U256::from(1);
+    let mut fewer = honest.clone();
+    fewer.staking_witness.as_mut().unwrap().storage.pop();
+    for package in [raised, fewer] {
+        let result = import_with(&fx, S, &package).await;
+        assert!(
+            matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("staking")),
+            "{result:?}"
+        );
+    }
+}
+
+/// A proof that verifies under another block's state root, s − 1's, is not s's post-state.
+#[tokio::test]
+async fn proof_under_another_state_root_rejects_the_candidate() {
+    let fx = std::sync::Arc::new(Fixture::new(S, S));
+    let mut package = import_package(&fx, S).await;
+    package.staking_witness = fx.package_staking_witness(S - 1);
+    assert_ne!(package.staking_witness, fx.package_staking_witness(S));
+    let result = import_with(&fx, S, &package).await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("staking")),
+        "{result:?}"
+    );
+}
+
+/// The package's list must be the one whose hash s's anchor proves, even while the candidate
+/// would sign; a missing list or proof is missing material.
+#[tokio::test]
+async fn list_with_another_hash_rejects_the_candidate() {
+    let fx = std::sync::Arc::new(Fixture::new(S, S));
+    let honest = import_package(&fx, S).await;
+    let mut other = honest.clone();
+    other.fallback_keys = Some(crate::test_utils::consensus::fallback_keys(&[
+        crate::test_utils::consensus_mpt::seed_key(9),
+    ]));
+    let result = import_with(&fx, S, &other).await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("fallback key list")),
+        "{result:?}"
+    );
+    for package in [
+        ImportPackage { fallback_keys: None, ..honest.clone() },
+        ImportPackage { staking_witness: None, ..honest.clone() },
+    ] {
+        let result = import_with(&fx, S, &package).await;
+        assert!(matches!(result, Err(ImportError::Unavailable(_))), "{result:?}");
+    }
+}
+
+/// 128 keys of one domain, each at power `power`, in key order.
+fn wide_set(domain: &[u8], power: u64) -> Vec<(abci::key::ConsensusKey, u64)> {
+    let mut members = (0u8..128)
+        .map(|i| {
+            let secret = keccak256([domain, &[i]].concat());
+            let key =
+                crate::test_utils::consensus::SigningKey::from_slice(secret.as_slice()).unwrap();
+            (crate::test_utils::consensus::public_key(&key), power)
+        })
+        .collect::<Vec<_>>();
+    members.sort();
+    members
+}
+
+/// The candidate of s − 1, 128 keys at power 2, signs s + 1, and s's falls below the minimum,
+/// so a fallback key list of 128 other keys signs s + 2: the one update list of s removes every
+/// key of the one set and adds every key of the other.
+#[tokio::test]
+async fn mode_switch_at_s_replaces_128_keys() {
+    let wide = wide_set(b"candidate", 2);
+    let list =
+        FallbackKeys::new(wide_set(b"fallback", 1).into_iter().map(|(key, _)| key).collect())
+            .unwrap();
+    let hash = list.hash();
+    let candidate = wide.clone();
+    let plan = SigningPlan {
+        // The origin record's list signs 1 and 2; L1 10 keeps its hash, as the start write does.
+        anchor_words: Box::new(move |number, origin| {
+            (if number == 10 { origin.hash() } else { hash }, U256::from(1000))
+        }),
+        staking: Box::new(move |height, origin| match height {
+            h if h == S - 1 => crate::test_utils::consensus_mpt::candidate_words(
+                U256::from(h),
+                U256::from(5000),
+                &candidate,
+            ),
+            h if h == S => origin_candidate(h, 999, origin, 0),
+            h => origin_candidate(h, 1000 + h, origin, 0),
+        }),
+        lists: vec![list.clone()],
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    let (current, next) = (powers(&state.val_state.current), powers(&state.val_state.next));
+    assert_eq!(current, wide.into_iter().collect());
+    assert_eq!(next, list.validator_set().into_iter().collect());
+    assert!(current.keys().all(|key| !next.contains_key(key)));
+    assert_eq!(state.signers.next, imported_candidate(S, 1000, 128));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &list,
+            abci::committee::Unusable::BelowMinTotalStake,
+            U256::from(999),
+            U256::from(1000)
+        )
+    );
+    assert_eq!(state.fallback_keys, BTreeMap::from([(hash, list)]));
+}
+
+/// s's block-start call failed, so s's post-state still holds the snapshot s − 1 stored: it
+/// signed s + 1, and it is stale at s, so the fallback keys sign s + 2.
+#[tokio::test]
+async fn s_at_a_failed_block_start_call() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| {
+            let stored = if height == S { S - 1 } else { height };
+            origin_candidate(stored, 1000 + stored, origin, stored)
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+    assert_eq!(
+        powers(&state.val_state.current),
+        origin_members(&fx.origin_keys, S - 1).into_iter().collect()
+    );
+    assert_eq!(powers(&state.val_state.next), fx.origin_keys.validator_set().into_iter().collect());
+    assert_eq!(state.signers.next, imported_candidate(S, 1000, 2));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &fx.origin_keys,
+            abci::committee::Unusable::StaleSnapshot,
+            U256::from(1000 + S - 1),
+            U256::from(1000)
+        )
+    );
+}
+
+/// Window blocks whose LastCommit misses a validator carry a nonzero `missBitmap` that depends
+/// on the parent's key-to-seat words. The import holds no such words, and none at all below s:
+/// it checks no bitmap at or below s (the landings' proofs cover them), reads no L2 state and
+/// imports.
+#[tokio::test]
+async fn window_blocks_are_not_bitmap_checked() {
+    let plan = SigningPlan {
+        origin_keys: 4,
+        missing: Box::new(|height| {
+            if [5, 9, S].contains(&height) {
+                vec![crate::test_utils::consensus_mpt::Missing::Absent(0)]
+            } else {
+                Vec::new()
+            }
+        }),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    for height in [5, 9, S] {
+        let extra = abci::rules::decode_extra_data(&fx.headers[&height].extra_data).unwrap();
+        assert_ne!(extra.miss_bitmap, 0, "height {height}");
+    }
+    let package = import_package(&fx, S).await;
+    assert_eq!(
+        package.staking_witness.as_ref().unwrap().storage.len(),
+        abci::staking::snapshot_slots().len(),
+        "the package proves s's snapshot alone, no key-to-seat word"
+    );
+    let state = import_with(&fx, S, &package).await.unwrap().state().clone();
+    assert_eq!(state.val_state, fx.val_states[&S]);
+}
+
+/// The set that signs s, the current set after s − 1 from the authenticated preimage, is the
+/// one s + 1's LastCommit lists, not the set that signs s + 1; here every height has a set of
+/// its own.
+#[tokio::test]
+async fn import_installs_the_set_that_signs_s_as_parent_signers() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| origin_candidate(height, 1000 + height, origin, height)),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    let before = &fx.val_states[&(S - 1)];
+    assert_eq!(state.parent_signers, before.current.entries);
+    assert_eq!(
+        state.parent_signers.iter().map(|e| (e.key, e.power as u64)).collect::<BTreeMap<_, _>>(),
+        fx.signing_sets[&S].members.iter().copied().collect()
+    );
+    assert_ne!(state.parent_signers, state.val_state.current.entries);
+    assert_eq!(state.val_state.current, before.next);
+    assert_eq!(
+        powers(&state.val_state.next),
+        origin_members(&fx.origin_keys, S).into_iter().collect()
+    );
+}
+
+/// At s = c + 1 the origin record's keys sign s + 1 = c + 2 whatever the candidate is, and s
+/// decides s + 2 under 4.3.
+#[tokio::test]
+async fn import_at_the_first_block_after_the_origin_reports_the_origin_keys_for_s_plus_1() {
+    let fx =
+        std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(8, 7, 7).await);
+    let package = recovery_package(&fx, 7).await;
+    let state = import_with(&fx, 7, &package).await.unwrap().state().clone();
+    let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
+    assert_eq!(state.val_state, fx.val_states[&7]);
+    assert_eq!(state.signers.next, SignerStatus::origin(&keys));
+    assert_eq!(
+        state.signers.after,
+        SignerStatus::fallback(
+            &keys,
+            abci::committee::Unusable::MinTotalStakeMax,
+            U256::from(1007),
+            U256::MAX
+        )
+    );
+    assert_eq!(state.fallback_keys, BTreeMap::from([(keys.hash(), keys)]));
 }

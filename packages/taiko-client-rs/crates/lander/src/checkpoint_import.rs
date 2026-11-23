@@ -43,11 +43,11 @@ pub enum ImportError {
 
 /// The only supported [`ImportPackage::schema`]. Version 3 carries a genesis whose witness is the
 /// `L1_0` header and Inbox proof alone and whose validators are the origin fallback keys at
-/// power 1, with the validator-state preimage for s − 1; versions 1 and 2 are refused, with no
-/// migration.
+/// power 1, the validator-state preimage for s − 1, and the staking proof at s and fallback key
+/// list that decide the set that signs s + 2; versions 1 and 2 are refused, with no migration.
 pub const IMPORT_SCHEMA: u32 = 3;
 
-/// Version-two metadata; block payloads are supplied separately as a streaming iterator.
+/// Version-three metadata; block payloads are supplied separately as a streaming iterator.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImportPackage {
@@ -72,6 +72,15 @@ pub struct ImportPackage {
     /// allowed when that range is only the separately supplied origin header. No execution state
     /// or trusted cache is accepted here.
     pub execution_headers: Vec<Header>,
+    /// The `EtnaStaking` proxy's account proof and its storage proofs of the candidate
+    /// snapshot's words ([`abci::staking::snapshot_slots`]) in s's post-state, under the
+    /// stateRoot of s's EL header, whose hash s's slot-285 record holds. With s's anchor they
+    /// decide the set that signs s + 2. Absent exactly at the fixed origin, whose first two sets
+    /// the origin record fixes.
+    pub staking_witness: Option<abci::AccountWitness>,
+    /// The fallback key list whose hash the `fallbackKeysHash` of s's anchor holds, the anchor
+    /// the window's latest anchor witness proves. Absent exactly at the fixed origin.
+    pub fallback_keys: Option<abci::fallback::FallbackKeys>,
 }
 
 /// One untrusted keys-and-powers entry; historical proposer priorities are intentionally absent.

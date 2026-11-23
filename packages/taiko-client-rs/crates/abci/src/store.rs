@@ -107,7 +107,8 @@ pub struct AppState {
     /// Where the sets that sign `last_height + 1` and `last_height + 2` come from:
     /// [`AppState::val_state`]'s current and next sets. The origin record's fallback keys sign
     /// a generation's first two blocks ([`Signers::origin`]); `FinalizeBlock(H)` shifts the pair
-    /// by one and records where the set it decided for H + 2 comes from. A node-local record
+    /// by one and records where the set it decided for H + 2 comes from; a checkpoint import at s
+    /// installs the pair for s + 1 and s + 2 as far as it can tell. A node-local record
     /// outside the app hash, which `/status` and `/signers` report. A required field: a state
     /// file without it is refused (no migration).
     pub signers: Signers,
@@ -158,7 +159,8 @@ pub struct SignerStatus {
     pub snapshot_height: Option<u64>,
     /// The stored `snapshotTotalStake` of the candidate snapshot in the deciding block's
     /// post-state, read whether or not the candidate signs; `None` at a generation's origin,
-    /// whose two sets no snapshot decides.
+    /// whose two sets no snapshot decides, and for the set that signs s + 1 after a checkpoint
+    /// import at s, which holds no post-state of s − 1.
     #[serde(deserialize_with = "Option::deserialize")]
     pub total_stake: Option<U256>,
     /// The `minTotalStake` the deciding block's anchor proves, which the candidate's total stake
@@ -238,16 +240,22 @@ pub enum FallbackReason {
     BelowMinTotalStake,
     /// The candidate's records form no valid set ([`Unusable::InvalidSet`]).
     InvalidSet,
+    /// The set signs s + 1 on a node that imported the checkpoint s, and the import cannot
+    /// tell why: s − 1 decided it, and the import holds no post-state of s − 1. It lasts until
+    /// s + 1 commits. A candidate with exactly the list's keys, each at power 1, would sign as
+    /// the same set and is reported as the list too.
+    Imported,
 }
 
 impl FallbackReason {
     /// Every reason, in declaration order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::GenerationOrigin,
         Self::MinTotalStakeMax,
         Self::StaleSnapshot,
         Self::BelowMinTotalStake,
         Self::InvalidSet,
+        Self::Imported,
     ];
 
     /// The reason's name, as JSON writes it and metrics label it.
@@ -258,6 +266,7 @@ impl FallbackReason {
             Self::StaleSnapshot => "stale_snapshot",
             Self::BelowMinTotalStake => "below_min_total_stake",
             Self::InvalidSet => "invalid_set",
+            Self::Imported => "imported",
         }
     }
 }

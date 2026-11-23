@@ -177,7 +177,8 @@ pub struct Fixture {
     /// `MAX_REFERENCE_HEADERS`.
     pub reference_bound: u64,
     /// The validator state after each height from the generation origin on, replayed
-    /// independently of the lander ([`replay_val_states`]).
+    /// independently of the lander: advanced at each height by the updates its 4.3 decision
+    /// returns ([`SigningPlan`]), or by none in the recovery fixture ([`replay_val_states`]).
     pub val_states: BTreeMap<u64, ValState>,
     /// Answers that replace the replica's at their heights: `None` is a rejected query.
     pub val_state_answers: BTreeMap<u64, Option<Vec<u8>>>,
@@ -307,9 +308,10 @@ pub fn app_hash(block_hash: B256, state: &ValState) -> tendermint::AppHash {
     tendermint::AppHash::try_from(hash.to_vec()).unwrap()
 }
 
-/// The validator states after heights `origin..=tip`, replayed as abci's app keeps them: the
-/// genesis state of `initial`, keys with their powers, at `origin`, then one advance per height
-/// by the empty update list every height returns.
+/// The validator states after heights `origin..=tip`, replayed as abci's app keeps them when
+/// `initial` signs every height: the genesis state of `initial`, keys with their powers, at
+/// `origin`, then one advance per height by the empty update list each height then returns, as
+/// when every anchor proves a minimum total stake of 2^256 − 1 and the hash of the origin list.
 pub fn replay_val_states(
     (origin, initial): (u64, &[(ConsensusKey, u64)]),
     tip: u64,
@@ -1856,6 +1858,24 @@ pub(crate) async fn import_package(
             fx.val_states[&(height - 1)].encode().into()
         },
         execution_headers: vec![],
+        staking_witness: (height > 0).then(|| fx.package_staking_witness(height)).flatten(),
+        fallback_keys: (height > 0).then(|| fx.package_fallback_keys(height)).flatten(),
+    }
+}
+
+impl Fixture {
+    /// The staking proof an import package at `height` carries: the proxy's proofs of the
+    /// candidate snapshot's words in the L2 post-state after `height`, when the fixture built it.
+    pub fn package_staking_witness(&self, height: u64) -> Option<AccountWitness> {
+        let slots = crate::l1::staking_slots(&[]);
+        self.l2_states.get(&height).map(|state| state.witness(self.params.staking, &slots))
+    }
+
+    /// The fallback key list an import package at `height` carries: the one whose hash
+    /// `height`'s anchor proves, when the fixture built that height.
+    pub fn package_fallback_keys(&self, height: u64) -> Option<FallbackKeys> {
+        let anchor = self.anchors.get(&height)?;
+        self.fallback_lists.get(&anchor.inbox.fallback_keys_hash).cloned()
     }
 }
 

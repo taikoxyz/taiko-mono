@@ -67,8 +67,9 @@ pub struct Own {
 }
 
 impl Own {
-    /// Bind the chain parameters to the endpoint's full-width L1 chain id and connect to it.
-    async fn connect(&self) -> R<(abci::ChainParams, abci::RpcL1Source)> {
+    /// Bind the chain parameters to the endpoint's full-width L1 chain id and connect to it
+    /// ([`own_l1`]).
+    async fn connect(&self) -> R<(abci::ChainParams, OwnL1)> {
         let (mut params, expected) =
             crate::commands::load_chain_params(self.l2_chain_id, self.chain_config.as_deref())
                 .map_err(|e| bad(format!("deployment configuration: {e}")))?;
@@ -76,14 +77,28 @@ impl Own {
             .await
             .map_err(|_| unavailable("own L1 chain id (l1.http)"))?;
         crate::commands::bind_l1_chain_id(&mut params, expected, actual).map_err(bad)?;
-        Ok((
-            params,
-            abci::RpcL1Source::new(rpc::client::connect_http_with_limits(
-                self.l1_http.clone(),
-                rpc::client::DEFAULT_HTTP_TIMEOUT,
-                32 << 20,
-            )),
-        ))
+        Ok((params, own_l1(self.l1_http.clone())))
+    }
+}
+
+/// The own L1 of `import` and `export`, every read bounded by its own deadline.
+type OwnL1 = abci::l1::ReadBounded<abci::RpcL1Source>;
+
+/// The own L1 at `url`, each read bounded by
+/// [`L1_READ_DEADLINE`](crate::recovery::prepare::L1_READ_DEADLINE) and the reads as a whole
+/// unbounded: the walk down the landed checkpoints and the log scan for a fallback key list
+/// stored long ago make many reads. The HTTP request timeout is at least that deadline, so the
+/// transport never cuts a read short of it.
+fn own_l1(url: Url) -> OwnL1 {
+    use crate::recovery::prepare::L1_READ_DEADLINE;
+    let transport = rpc::client::connect_http_with_limits(
+        url,
+        rpc::client::http_timeout_for(L1_READ_DEADLINE),
+        32 << 20,
+    );
+    abci::l1::ReadBounded {
+        l1: std::sync::Arc::new(abci::RpcL1Source::new(transport)),
+        limit: L1_READ_DEADLINE,
     }
 }
 
@@ -609,6 +624,47 @@ mod tests {
                 Err(ImportError::Candidate(_)) if !accepted => {}
                 other => panic!("{body:?}: {other:?}"),
             }
+        }
+    }
+
+    /// The own L1 of `import` and `export` lets each read run to its own deadline: a log query
+    /// that the L1 answers after 20 s, past the default 12 s HTTP request timeout but within the
+    /// 30 s of one read, completes instead of being cut by the transport; one answered after
+    /// the deadline is missing data. The server pauses the clock once the request has arrived,
+    /// so the connection is made in real time and only the wait runs on virtual time.
+    #[tokio::test]
+    async fn own_l1_transport_never_cuts_a_read_short_of_its_deadline() {
+        use crate::recovery::prepare::L1_READ_DEADLINE;
+        use abci::L1Source;
+        use alloy_primitives::Address;
+        use std::time::Duration;
+        for (answer, completes) in
+            [(Duration::from_secs(20), true), (L1_READ_DEADLINE + Duration::from_secs(1), false)]
+        {
+            assert!(rpc::client::DEFAULT_HTTP_TIMEOUT < answer);
+            let app = axum::Router::new().route(
+                "/",
+                axum::routing::post(move |axum::Json(body): axum::Json<Value>| async move {
+                    tokio::time::pause();
+                    tokio::time::sleep(answer).await;
+                    axum::Json(json!({"jsonrpc": "2.0", "id": body["id"], "result": []}))
+                }),
+            );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}/", listener.local_addr().unwrap());
+            let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let l1 = own_l1(url.parse().unwrap());
+            let start = tokio::time::Instant::now();
+            let logs = l1.inbox_logs(Address::ZERO, B256::ZERO, B256::ZERO, 1, 10_000).await;
+            if completes {
+                assert_eq!(logs, Ok(vec![]));
+                assert!(start.elapsed() >= answer, "{:?}", start.elapsed());
+            } else {
+                assert!(matches!(logs, Err(abci::L1Error::Rpc(_))), "{logs:?}");
+                assert!(start.elapsed() < answer, "{:?}", start.elapsed());
+            }
+            task.abort();
+            tokio::time::resume();
         }
     }
 

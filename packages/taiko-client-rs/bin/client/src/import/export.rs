@@ -24,7 +24,8 @@ pub struct Request {
     /// Stock read-only Comet RPC of an archive node of this generation.
     #[arg(long = "comet.http", value_parser = crate::flags::common::http_url)]
     pub comet_http: Url,
-    /// Canonical EL RPC of that node; only `debug_getRawHeader` and `eth_chainId` are read.
+    /// Canonical EL RPC of that node; only `debug_getRawHeader`, `eth_chainId` and the staking
+    /// proxy's `eth_getProof` at s are read.
     #[arg(long = "l2.http", value_parser = crate::flags::common::http_url)]
     pub l2_http: Url,
     /// The generation's original stock `genesis.json`.
@@ -67,8 +68,8 @@ async fn header(provider: &alloy_provider::RootProvider, n: u64) -> R<Header> {
 }
 /// Collect a portable package for `request.height`, authenticate it against own finalized L1
 /// exactly as `import` will (DATA-5.4-2) and publish it at `request.out` by one rename. It holds
-/// neither EL state nor validator secrets. An interrupted export leaves only a private
-/// `.<out>.export-*` directory beside `out`, which may be deleted.
+/// no validator secrets and no EL state beyond the staking proof at s. An interrupted export leaves
+/// only a private `.<out>.export-*` directory beside `out`, which may be deleted.
 pub async fn run(own: &Own, request: &Request) -> R<Value> {
     let (out, height, archived) =
         (&request.out, request.height, request.validator_state.as_deref());
@@ -117,17 +118,20 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     let mut boundary = None;
     let mut w = height;
     let mut terminal_header = None;
+    // The EL hash of s, whose post-state's staking proof the package carries, and the latest
+    // anchor witness at or below s, which proves s's anchor.
+    let mut terminal_el = None;
+    let mut latest_witness = None;
     if height > origin {
         // The window reaches the latest block at or below s carrying an anchor witness and every
         // height still within an evidence age limit at s.
-        let mut seen_anchor = false;
         let mut terminal_time = None;
         let mut cached = None;
         loop {
             if w == origin {
                 break
             }
-            if seen_anchor && height - w > abci::genesis::EVIDENCE_MAX_AGE_NUM_BLOCKS {
+            if latest_witness.is_some() && height - w > abci::genesis::EVIDENCE_MAX_AGE_NUM_BLOCKS {
                 let h = comet.archive_header(w).await.map_err(source)?;
                 if evidence_expired(height, terminal_time.expect("read terminal first"), w, h.time)
                 {
@@ -144,7 +148,12 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
                 block.block.data.first().ok_or_else(|| bad("missing envelope"))?,
             )
             .map_err(bad)?;
-            seen_anchor |= env.anchor.is_some();
+            if w == height {
+                terminal_el = Some(env.block.header.hash_slow());
+            }
+            if latest_witness.is_none() {
+                latest_witness = env.anchor;
+            }
             let hash = block.block.header.validators_hash;
             if cached.as_ref().is_none_or(|(h, _)| *h != hash) {
                 let validators = comet.archive_validators(w).await.map_err(source)?;
@@ -189,6 +198,14 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     }
 
     let preimage = preimage(&comet, height, origin, archived).await?;
+    let (staking_witness, fallback_keys) = if height > origin {
+        let el_hash = terminal_el.ok_or_else(|| unavailable("missing terminal block"))?;
+        let witness = latest_witness.ok_or_else(|| bad("window carries no anchor witness"))?;
+        let (staking, keys) = decision_inputs(&el, &l1, &params, el_hash, &witness).await?;
+        (Some(staking), Some(keys))
+    } else {
+        (None, None)
+    };
     let recovery_bootstrap = match &request.recovery_bootstrap {
         Some(p) => Some(
             serde_json::from_slice(&read(p, 16 << 20)?)
@@ -205,6 +222,8 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
         boundary_header: boundary,
         validator_state: preimage.into(),
         execution_headers: prefix,
+        staking_witness,
+        fallback_keys,
     };
     let mut package = create(&stage.path().join("package.json"))?;
     let bytes = serde_json::to_vec(&meta).map_err(|e| bad(format!("package metadata: {e}")))?;
@@ -270,6 +289,34 @@ async fn verify_stock(
         return Err(unavailable(format!("cannot verify stock Comet state ({status})")));
     }
     fs::remove_file(path).map_err(io)
+}
+
+/// What decides the set that signs s + 2: the staking proxy's proofs of the candidate snapshot
+/// in the post-state of s, whose EL hash is `el_hash`, read from the archive EL `el` pinned to
+/// that hash; and the fallback key list whose hash s's anchor holds, the anchor that `witness`,
+/// the latest anchor witness at or below s, proves, from the own L1 `l1`
+/// ([`abci::fallback::fetch_fallback_keys`]: `getFallbackKeys()` at the anchor's block, else the
+/// Inbox's logs, each read within its own deadline). Both stay unauthenticated until
+/// `package::verify` checks them.
+async fn decision_inputs<L: abci::L1Source + ?Sized>(
+    el: &alloy_provider::RootProvider,
+    l1: &L,
+    params: &abci::ChainParams,
+    el_hash: alloy_primitives::B256,
+    witness: &abci::AnchorWitness,
+) -> R<(abci::AccountWitness, abci::fallback::FallbackKeys)> {
+    let slots = abci::staking::snapshot_slots();
+    let staking = lander::l1::l2_staking_witness(el, params.staking, el_hash, &slots)
+        .await
+        .map_err(source)?;
+    let anchor = abci::l1::verify_anchor_witness(witness, params.inbox)
+        .map_err(|e| bad(format!("latest anchor witness: {e}")))?;
+    let hash = anchor.inbox.fallback_keys_hash;
+    let keys =
+        abci::fallback::fetch_fallback_keys(l1, params.inbox, hash, anchor.hash, anchor.number, 0)
+            .await
+            .map_err(|e| unavailable(format!("fallback key list {hash}: {e}")))?;
+    Ok((staking, keys))
 }
 
 /// The package's validator-state preimage for a checkpoint at `height`: the state after

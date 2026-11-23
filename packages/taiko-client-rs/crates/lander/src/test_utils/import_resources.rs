@@ -135,7 +135,7 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     // actual MDBX verification and sparse indexes without executing the source prefix.
     let original = test_harness::EtnaGenesis::build().unwrap();
     std::fs::write(dir.join("el-genesis.json"), &original.json).unwrap();
-    fx.headers.insert(0, original.header);
+    fx.headers.insert(0, original.header.clone());
     fx.snapshot.genesis.genesis_hash = original.hash;
     fx.snapshot.genesis.genesis_state_root = original.state_root;
     fx.snapshot.genesis.config_hash = fx.params.config_hash();
@@ -160,6 +160,11 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     before.height = s - 1;
     fx.val_states.insert(s - 1, before);
     let mut pkg = import_package(&fx, s).await;
+    // The set that signs s + 2 is decided from the staking proxy in s's post-state, block zero's
+    // materialized state here, and from the origin list every anchor proves.
+    pkg.staking_witness =
+        Some(original.account_witness(fx.params.staking, &crate::l1::staking_slots(&[])).unwrap());
+    pkg.fallback_keys = Some(fx.origin_keys.clone());
     let mut frames = BufWriter::new(File::create_new(dir.join("blocks.jsonl")).unwrap());
     let keys = [SigningKey::from_slice(&[1; 32]).unwrap()];
     let validators = fx.committees[&0]
@@ -434,4 +439,22 @@ async fn signed_checkpoint_resource_phase() {
         "boundary-failures" => boundary_failures(Path::new(&dir)).await,
         _ => panic!("unknown resource phase"),
     }
+}
+
+/// The resource window's s holds block zero's materialized state, so its package proves the
+/// staking proxy there: the devnet alloc holds no proxy, and that exclusion proof gives zero
+/// words. A proof of an account the alloc holds verifies under the same root.
+#[test]
+fn genesis_staking_proof_verifies_under_block_zero() {
+    let original = test_harness::EtnaGenesis::build().unwrap();
+    let params = parameters();
+    let slots = crate::l1::staking_slots(&[]);
+    let witness = original.account_witness(params.staking, &slots).unwrap();
+    let (words, _) =
+        crate::l1::verify_staking_witness(original.state_root, params.staking, &witness, 1, &[])
+            .unwrap();
+    assert!(words.snapshot_height.is_zero() && words.total_stake.is_zero());
+    let roots = test_harness::genesis::ROOTS;
+    let present = original.account_witness(roots, &[B256::ZERO]).unwrap();
+    abci::l1::mpt::verify_account_witness(original.state_root, &present, &[B256::ZERO]).unwrap();
 }

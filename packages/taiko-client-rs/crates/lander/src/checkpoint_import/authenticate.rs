@@ -8,8 +8,10 @@ use crate::{
     validate,
 };
 use abci::{
-    AnchorState, AnchorWitness,
+    AnchorState, AnchorWitness, FallbackReason, SignerStatus, Signers,
+    committee::{self, SignerSet, SignerSource},
     config::MAX_SET_MEMBERS,
+    fallback::FallbackKeys,
     l1::{
         OwnFinality,
         layout::{inbox, word_u48},
@@ -18,6 +20,7 @@ use abci::{
     },
     rules,
 };
+use alloy_primitives::U256;
 use prost::Message;
 use tendermint_proto::v0_38::types::Commit as RawCommit;
 
@@ -156,7 +159,11 @@ where
             frame?;
             return Err(candidate("origin import cannot contain consensus frames"));
         }
-        if package.boundary_header.is_some() || !package.validator_state.is_empty() {
+        if package.boundary_header.is_some() ||
+            !package.validator_state.is_empty() ||
+            package.staking_witness.is_some() ||
+            package.fallback_keys.is_some()
+        {
             return Err(candidate("origin import must use fixed-genesis initialization"));
         }
         let headers = execution_prefix(package, &fixed, origin, origin, params)?;
@@ -205,6 +212,11 @@ where
     let mut latest_anchor = None;
     let mut anchor_cache = BTreeMap::new();
     let mut terminal = None;
+    // The stateRoot of s's authenticated EL header, under which the package's staking proof
+    // verifies, and the anchor of s - 1, which decided the set that signs s + 1; that anchor is
+    // absent when s is the window's first block.
+    let mut terminal_root = None;
+    let mut anchor_below = None;
     // The validator state after s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
     let mut val_state_before = None;
     let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
@@ -333,6 +345,8 @@ where
         if h == landing.height {
             state.parent = parent_info(&env.block.header, parent.timestamp)?;
             terminal = Some(pair.commit.block_id);
+            terminal_root = Some(env.block.header.state_root);
+            anchor_below = latest_anchor.clone();
         }
         parent = env.block.header;
         latest_anchor = Some(anchor);
@@ -365,18 +379,9 @@ where
         val_state_before.ok_or_else(|| unavailable("window ended before selected checkpoint"))?;
     let latest_anchor_height =
         latest_anchor_height.ok_or_else(|| unavailable("window omits latest anchor witness"))?;
-    // One step of the per-height validator-state arithmetic, with the updates block s's
-    // FinalizeBlock returns: none, as every height returns an empty list. The generation's
-    // initial set therefore still signs s + 1 and s + 2.
-    let after = before.advance(&[]).map_err(safety)?;
-    let initial = fixed.initial_set();
-    for set in [&after.current, &after.next] {
-        if !same_powers(set, &initial) {
-            return Err(safety(
-                "committed validator-state keys/powers contradict the generation's initial set",
-            ));
-        }
-    }
+    // Header(s)'s next_validators_hash fixed the set that signs s + 1; where it comes from is
+    // read from the origin record or the anchor of s - 1, which decided it.
+    let next = next_signers(&fixed, landing.height, anchor_below.as_ref(), &before.next)?;
     super::window::verify_complete_window(
         w,
         &heights,
@@ -392,7 +397,6 @@ where
     state.forced_cursor = landing.forced_cursor;
     // s + 1's LastCommit lists the set that signs s, the current set after s - 1.
     state.parent_signers = before.current.entries.clone();
-    state.val_state = after;
     state.anchor = latest_anchor.expect("terminal block has anchor");
     // The installed EL block at s that startup checks the own EL still serves with its state
     // (DATA-5.4-4, DATA-5.4-6). An origin import keeps none: InitChain starts that store.
@@ -418,6 +422,20 @@ where
         // Every input here is authenticated: the hash-linked EL ancestry and the own-L1 anchor.
         return Err(safety("inherited anchor checkpoint contradicts authenticated EL ancestry"));
     }
+    // The authenticated comparisons above come first, so the publisher's staking proof and list
+    // cannot hide a contradiction. One step of the per-height validator-state arithmetic follows,
+    // with the updates block s's FinalizeBlock returns: the set that signs s + 2 against the one
+    // that signs s + 1.
+    let root = terminal_root.expect("the terminal block has an EL header");
+    let (decided, after, keys) =
+        decide_after(package, params, landing.height, root, &state.anchor)?;
+    let updates = committee::validator_updates(&before.next.members(), &decided.members);
+    state.val_state = before.advance(&updates).map_err(safety)?;
+    state.signers = Signers { next, after };
+    // The lists FinalizeBlock(s) keeps: a recovery origin record's and the one s's anchor proves.
+    let origin_list = state.recovery.as_ref().map(|origin| origin.fallback_keys_hash);
+    state.fallback_keys.retain(|hash, _| Some(*hash) == origin_list);
+    state.fallback_keys.insert(keys.hash(), keys);
     // Complete the authenticated comparisons before polling the publisher for trailing data.
     if let Some(trailing) = blocks.next() {
         trailing?;
@@ -834,6 +852,124 @@ fn check_metadata(
 fn same_powers(set: &abci::valstate::ValSet, powers: &[(abci::key::ConsensusKey, u64)]) -> bool {
     set.entries.iter().map(|e| (e.key, e.power as u64)).collect::<BTreeMap<_, _>>() ==
         powers.iter().copied().collect::<BTreeMap<_, _>>()
+}
+
+/// Where `set`, the set that signs s + 1 at `height` s, comes from. Header(s)'s
+/// `next_validators_hash` fixed its keys and powers.
+///
+/// At s = o + 1 it is the origin record's fallback keys, which sign o + 1 and o + 2 whatever
+/// the candidate is. Above, s − 1 decided it from its post-state, which an import does not hold,
+/// and from its anchor `below`, which the window holds: the fallback key list whose hash that
+/// anchor proves, each key at power 1, or else the candidate, whose snapshot height is s − 1
+/// and whose total stake the import cannot know. Under a minimum total stake of 2^256 − 1 the
+/// set is the list, for that reason ([`FallbackReason::MinTotalStakeMax`]); under any other the
+/// list signs for a reason the import cannot know ([`FallbackReason::Imported`]), and a
+/// candidate with exactly the list's keys, each at power 1, is reported as the list. A set
+/// other than the origin keys at o + 2, or other than the list under the maximal minimum,
+/// contradicts 4.3 in authenticated facts.
+fn next_signers(
+    fixed: &abci::genesis::VerifiedGenesis,
+    height: u64,
+    below: Option<&AnchorState>,
+    set: &abci::valstate::ValSet,
+) -> Result<SignerStatus, ImportError> {
+    if height - 1 == fixed.origin_height() {
+        if !same_powers(set, &fixed.initial_set()) {
+            return Err(safety(
+                "the committed set that signs s + 1 is not the origin record's fallback keys",
+            ));
+        }
+        return Ok(SignerStatus::origin(&fixed.fallback_keys));
+    }
+    let anchor = below.ok_or_else(|| unavailable("window omits s - 1"))?;
+    let (hash, min_total_stake) = (anchor.inbox.fallback_keys_hash, anchor.inbox.min_total_stake);
+    let members = set.members();
+    // The set's keys in ascending order, as a list holds them; the set keeps CometBFT's order.
+    let mut keys = members.iter().map(|(key, _)| *key).collect::<Vec<_>>();
+    keys.sort();
+    let list = members
+        .iter()
+        .all(|(_, power)| *power == 1)
+        .then(|| FallbackKeys::new(keys).ok())
+        .flatten()
+        .filter(|keys| keys.hash() == hash);
+    match list {
+        Some(keys) => Ok(SignerStatus {
+            fallback_reason: Some(if min_total_stake == U256::MAX {
+                FallbackReason::MinTotalStakeMax
+            } else {
+                FallbackReason::Imported
+            }),
+            min_total_stake: Some(min_total_stake),
+            ..SignerStatus::origin(&keys)
+        }),
+        None if min_total_stake == U256::MAX => Err(safety(
+            "the committed set that signs s + 1 is not the fallback key list that s - 1's \
+             anchor proves under a minimum total stake of 2^256 - 1",
+        )),
+        None => Ok(SignerStatus {
+            source: SignerSource::Candidate,
+            fallback_reason: None,
+            snapshot_height: Some(height - 1),
+            total_stake: None,
+            min_total_stake: Some(min_total_stake),
+            fallback_keys_hash: None,
+            size: members.len(),
+        }),
+    }
+}
+
+/// The set that signs s + 2, decided at `height` s under 4.3 as FinalizeBlock(s) decides it,
+/// where it comes from, and the fallback key list s's `anchor` proves.
+///
+/// The candidate is the snapshot in s's post-state that the package's staking proof proves
+/// under `state_root`, the stateRoot of s's authenticated EL header
+/// ([`crate::l1::verify_staking_witness`]; a proven-absent staking account holds zero words). It
+/// signs when it is usable under the minimum total stake `anchor` proves; otherwise the
+/// package's fallback key list signs, each key at power 1. The list must hash to the anchor's
+/// `fallbackKeysHash` whichever source wins. A missing proof or list is missing material; a
+/// proof that does not verify under the root or a list with another hash is the publisher's
+/// fault: an invalid candidate.
+fn decide_after(
+    package: &ImportPackage,
+    params: &ChainParams,
+    height: u64,
+    state_root: B256,
+    anchor: &AnchorState,
+) -> Result<(SignerSet, SignerStatus, FallbackKeys), ImportError> {
+    let witness = package
+        .staking_witness
+        .as_ref()
+        .ok_or_else(|| unavailable("missing staking proof at s"))?;
+    let keys = package
+        .fallback_keys
+        .clone()
+        .ok_or_else(|| unavailable("missing fallback key list of s's anchor"))?;
+    let (hash, min_total_stake) = (anchor.inbox.fallback_keys_hash, anchor.inbox.min_total_stake);
+    if keys.hash() != hash {
+        return Err(candidate(format!(
+            "fallback key list {} is not the list {hash} s's anchor proves",
+            keys.hash()
+        )));
+    }
+    let (words, _) =
+        crate::l1::verify_staking_witness(state_root, params.staking, witness, height, &[])
+            .map_err(|error| match error {
+                crate::LanderError::Safety(detail) => candidate(detail),
+                other => candidate(other),
+            })?;
+    Ok(match committee::candidate_members(height, &words, min_total_stake) {
+        Ok(members) => {
+            let status =
+                SignerStatus::candidate(height, words.total_stake, min_total_stake, members.len());
+            (SignerSet { source: SignerSource::Candidate, members }, status, keys)
+        }
+        Err(cause) => {
+            let status = SignerStatus::fallback(&keys, cause, words.total_stake, min_total_stake);
+            let members = keys.validator_set();
+            (SignerSet { source: SignerSource::Fallback, members }, status, keys)
+        }
+    })
 }
 
 /// Contradictory replies obtained from the own source are safety failures, unlike a peer fork.
