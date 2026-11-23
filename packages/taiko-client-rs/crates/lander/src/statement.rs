@@ -1,10 +1,10 @@
-//! Exact V1 ABI encoding binding chain state, cut leaves and the active committee snapshot.
+//! Exact V1 ABI encoding binding chain state, the deployment's configuration hash and cut leaves.
 
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
 
-/// Byte length of the static twenty-one-word public statement preimage (ENC-A-35).
-pub const PREIMAGE_BYTES: usize = 21 * 32;
+/// Byte length of the static nineteen-word public statement preimage.
+pub const PREIMAGE_BYTES: usize = 19 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
@@ -42,11 +42,13 @@ pub fn cut_hash(generation: u64, parent: U256, last: U256, leaves: &[B256]) -> B
     )
 }
 
-/// Encode the twenty-one static ABI words authenticated by the Inbox V1 statement, in ENC-A-35
-/// order. The parent words are the checkpoint record's values as stored, even at a generation's
-/// origin. They are taken at proof origin p (PROOF-6.2-8):
-/// `snapshot` is the one the batch was built on, so its `checkpoint_*` fields are p's, not the
-/// latest checkpoint c's at execution.
+/// Encode the nineteen static ABI words authenticated by the Inbox V1 statement, in order: the
+/// tag, l1ChainId, l2ChainId, inbox, generation, parentHeight, parentHash, parentCometHash,
+/// configHash, lastHeight, lastBlockHash, lastCometHash, lastStateRoot, l1ReferenceBlockNumber,
+/// l1ReferenceBlockHash, the packed blob hashes' hash, the forced inclusion heads before and
+/// after, and cutHash. The parent words are the checkpoint record's values as stored, even at a
+/// generation's origin. They are taken at proof origin p: `snapshot` is the one the batch was
+/// built on, so its `checkpoint_*` fields are p's, not the latest checkpoint c's at execution.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -58,14 +60,11 @@ pub fn preimage(
     tag[..b"TAIKO_ETNA_LAND_V1".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V1");
     let mut inbox = [0u8; 32];
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
-    let mut registry = [0u8; 32];
-    registry[12..].copy_from_slice(snapshot.registry.as_slice());
     let words = [
         tag,
         snapshot.l1_chain_id.to_be_bytes::<32>(),
         U256::from(snapshot.l2_chain_id).to_be_bytes::<32>(),
         inbox,
-        registry,
         U256::from(snapshot.generation).to_be_bytes::<32>(),
         input.parentHeight.to_be_bytes::<32>(),
         snapshot.checkpoint_hash.0,
@@ -80,7 +79,6 @@ pub fn preimage(
         blob_hashes_hash(blob_hashes).0,
         U256::from(snapshot.forced_inclusion_head).to_be_bytes::<32>(),
         input.forcedInclusionHead.to_be_bytes::<32>(),
-        input.activeCommitteeSnapshot.to_be_bytes::<32>(),
         cut_hash(snapshot.generation, input.parentHeight, input.lastHeight, leaves).0,
     ];
     let mut out = [0; PREIMAGE_BYTES];
@@ -106,19 +104,32 @@ mod tests {
     use super::*;
     use crate::test_utils::{protocol::request, vectors};
     use alloy::sol_types::SolCall;
+    use alloy_primitives::b256;
 
+    /// The configuration hash of the devnet's built-in L2 chain id, `EtnaStaking` proxy and U,
+    /// the one the pinned statements bind.
+    const DEVNET_CONFIG_HASH: B256 =
+        b256!("ce98efd6a337c78d7b268a407f9cd0dbfeee0e8724f07bc924087437497b4650");
+
+    /// The hashes of the pinned statements, in vector order, under the nineteen-word encoding.
+    const STATEMENT_HASHES: [B256; 2] = [
+        b256!("8a0f8fe6072214c4f2aa16338aca44d834982d61d8255b37c91d88cf2b9a5ec9"),
+        b256!("d33539cefca32052bc3bb80d1650b7f4727e09307a50b3f76e8d086c50eacbcb"),
+    ];
+
+    /// The pinned statement `index`: its snapshot, seven-field input, reference hash and blob
+    /// hashes, bound to [`DEVNET_CONFIG_HASH`].
     fn vector(index: usize) -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
         let path = |key: &str| format!("/land_statements/{index}/inputs/{key}");
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = vectors::u256_at(&path("l1_chain_id"));
         snapshot.l2_chain_id = vectors::u64_at(&path("l2_chain_id"));
         snapshot.inbox = vectors::address_at(&path("inbox"));
-        snapshot.registry = vectors::address_at(&path("registry"));
         snapshot.generation = vectors::u64_at(&path("generation"));
         snapshot.checkpoint_height = vectors::u64_at(&path("parent_height"));
         snapshot.checkpoint_hash = vectors::b256_at(&path("parent_hash"));
         snapshot.checkpoint_comet_hash = vectors::b256_at(&path("parent_comet_hash"));
-        snapshot.config_hash = vectors::b256_at(&path("committee_config_hash"));
+        snapshot.config_hash = DEVNET_CONFIG_HASH;
         snapshot.forced_inclusion_head = vectors::u64_at(&path("forced_inclusion_head_before"));
         let input = LandInput {
             parentHeight: vectors::u256_at(&path("parent_height")),
@@ -128,7 +139,6 @@ mod tests {
             lastStateRoot: vectors::b256_at(&path("last_state_root")),
             l1ReferenceBlockNumber: vectors::u256_at(&path("l1_reference_block_number")),
             forcedInclusionHead: vectors::u256_at(&path("forced_inclusion_head_after")),
-            activeCommitteeSnapshot: vectors::u256_at(&path("active_committee_snapshot")),
         };
         (
             snapshot,
@@ -150,36 +160,63 @@ mod tests {
             .collect()
     }
 
-    /// ENC-A-35: the statement preimage is 21 static ABI words, 672 bytes, and equals the
-    /// shared vectors' preimage and hash for every pinned statement, whose cut hash covers one
-    /// leaf per height strictly inside (p, h).
+    /// The statement preimage is 19 static ABI words, 608 bytes: the tag, l1ChainId, l2ChainId,
+    /// inbox, generation, parentHeight, parentHash, parentCometHash, configHash, lastHeight,
+    /// lastBlockHash, lastCometHash, lastStateRoot, l1ReferenceBlockNumber,
+    /// l1ReferenceBlockHash, the packed blob hashes' hash, the forced inclusion heads before and
+    /// after, and cutHash, in that order, with no staking word. Each pinned statement's cut hash
+    /// covers one leaf per height strictly inside (p, h).
     #[test]
-    fn statement_is_21_words() {
-        assert_eq!(PREIMAGE_BYTES, 672);
-        assert!(vectors::len_at("/land_statements") >= 2);
-        for index in 0..vectors::len_at("/land_statements") {
+    fn statement_is_19_words() {
+        assert_eq!(PREIMAGE_BYTES, 608);
+        assert_eq!(
+            DEVNET_CONFIG_HASH,
+            <abci::ChainParams as abci::ChainParamsExt>::builtin(167001).unwrap().config_hash(),
+            "the devnet's built-in chain id, staking proxy and U"
+        );
+        assert_eq!(vectors::len_at("/land_statements"), STATEMENT_HASHES.len());
+        for (index, expected_hash) in STATEMENT_HASHES.into_iter().enumerate() {
+            let path = |key: &str| format!("/land_statements/{index}/inputs/{key}");
             let (snapshot, input, reference, blobs) = vector(index);
             let leaves = leaves(index);
             assert_eq!(
                 leaves.len() as u64,
-                vectors::u64_at(&format!("/land_statements/{index}/inputs/last_height")) -
-                    vectors::u64_at(&format!("/land_statements/{index}/inputs/parent_height")) -
-                    1
+                vectors::u64_at(&path("last_height")) - vectors::u64_at(&path("parent_height")) - 1
             );
-            assert_eq!(
-                cut_hash(snapshot.generation, input.parentHeight, input.lastHeight, &leaves),
-                vectors::b256_at(&format!("/land_statements/{index}/inputs/cut_hash"))
-            );
+            let cut = cut_hash(snapshot.generation, input.parentHeight, input.lastHeight, &leaves);
+            assert_eq!(cut, vectors::b256_at(&path("cut_hash")));
+            let number = |key: &str| vectors::u256_at(&path(key)).to_be_bytes::<32>();
+            let hash_word = |key: &str| vectors::b256_at(&path(key)).0;
+            let mut tag = [0u8; 32];
+            tag[..b"TAIKO_ETNA_LAND_V1".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V1");
+            let expected = [
+                tag,
+                number("l1_chain_id"),
+                number("l2_chain_id"),
+                vectors::address_at(&path("inbox")).into_word().0,
+                number("generation"),
+                number("parent_height"),
+                hash_word("parent_hash"),
+                hash_word("parent_comet_hash"),
+                DEVNET_CONFIG_HASH.0,
+                number("last_height"),
+                hash_word("last_block_hash"),
+                hash_word("last_comet_hash"),
+                hash_word("last_state_root"),
+                number("l1_reference_block_number"),
+                hash_word("l1_reference_block_hash"),
+                vectors::b256_at(&format!("/land_statements/{index}/blob_hashes_hash")).0,
+                number("forced_inclusion_head_before"),
+                number("forced_inclusion_head_after"),
+                cut.0,
+            ]
+            .concat();
+            assert_eq!(expected.len(), 19 * 32);
             let encoded = preimage(&snapshot, &input, reference, &blobs, &leaves);
-            assert_eq!(encoded.len(), 21 * 32);
-            assert_eq!(
-                encoded.as_slice(),
-                vectors::bytes_at(&format!("/land_statements/{index}/preimage")).as_ref()
-            );
-            assert_eq!(
-                hash(&snapshot, &input, reference, &blobs, &leaves),
-                vectors::b256_at(&format!("/land_statements/{index}/hash"))
-            );
+            assert_eq!(encoded.len(), 19 * 32);
+            assert_eq!(encoded.as_slice(), expected.as_slice(), "statement {index}");
+            assert_eq!(hash(&snapshot, &input, reference, &blobs, &leaves), expected_hash);
+            assert_eq!(keccak256(&expected), expected_hash);
             assert_eq!(
                 blob_hashes_hash(&blobs),
                 vectors::b256_at(&format!("/land_statements/{index}/blob_hashes_hash"))
@@ -362,11 +399,14 @@ mod tests {
         }
     }
 
+    /// Every one of the 19 words after the tag takes its value from its own input, so changing
+    /// any one input changes exactly its word and the hash, and reordering the blobs changes the
+    /// hash.
     #[test]
     fn every_static_word_and_blob_order_is_bound() {
         let (snapshot, input, reference, blobs) = vector(1);
         let encoded = preimage(&snapshot, &input, reference, &blobs, &leaves(1));
-        for word in 1..21 {
+        for word in 1..19 {
             let mut snapshot = snapshot.clone();
             let mut input = input.clone();
             let mut reference = reference;
@@ -376,23 +416,21 @@ mod tests {
                 1 => snapshot.l1_chain_id ^= U256::from(1) << 200,
                 2 => snapshot.l2_chain_id ^= 1,
                 3 => snapshot.inbox[0] ^= 1,
-                4 => snapshot.registry[0] ^= 1,
-                5 => snapshot.generation ^= 1,
-                6 => input.parentHeight ^= U256::from(1),
-                7 => snapshot.checkpoint_hash[0] ^= 1,
-                8 => snapshot.checkpoint_comet_hash[0] ^= 1,
-                9 => snapshot.config_hash[0] ^= 1,
-                10 => input.lastHeight ^= U256::from(1),
-                11 => input.lastBlockHash[0] ^= 1,
-                12 => input.lastCometHash[0] ^= 1,
-                13 => input.lastStateRoot[0] ^= 1,
-                14 => input.l1ReferenceBlockNumber ^= U256::from(1),
-                15 => reference[0] ^= 1,
-                16 => blobs[0][0] ^= 1,
-                17 => snapshot.forced_inclusion_head ^= 1,
-                18 => input.forcedInclusionHead ^= U256::from(1),
-                19 => input.activeCommitteeSnapshot ^= U256::from(1),
-                20 => cuts[0][0] ^= 1,
+                4 => snapshot.generation ^= 1,
+                5 => input.parentHeight ^= U256::from(1),
+                6 => snapshot.checkpoint_hash[0] ^= 1,
+                7 => snapshot.checkpoint_comet_hash[0] ^= 1,
+                8 => snapshot.config_hash[0] ^= 1,
+                9 => input.lastHeight ^= U256::from(1),
+                10 => input.lastBlockHash[0] ^= 1,
+                11 => input.lastCometHash[0] ^= 1,
+                12 => input.lastStateRoot[0] ^= 1,
+                13 => input.l1ReferenceBlockNumber ^= U256::from(1),
+                14 => reference[0] ^= 1,
+                15 => blobs[0][0] ^= 1,
+                16 => snapshot.forced_inclusion_head ^= 1,
+                17 => input.forcedInclusionHead ^= U256::from(1),
+                18 => cuts[0][0] ^= 1,
                 _ => unreachable!(),
             }
             let changed = preimage(&snapshot, &input, reference, &blobs, &cuts);
@@ -419,17 +457,47 @@ mod tests {
         );
     }
 
+    /// `land(LandInput, bytes32[], bytes)` takes the seven named fields and no others: the
+    /// calldata is the selector, the seven input words in field order, the two offsets, then the
+    /// leaves and the proof, and it decodes back to the same call.
     #[test]
-    fn v1_eight_field_abi_matches_complete_pinned_calldata() {
+    fn seven_field_abi_matches_complete_calldata() {
         use crate::contracts::IEtnaInbox::landCall;
+        use alloy::sol_types::SolValue;
+        assert_eq!(vectors::str_at("/land_abi/statement"), "nonzero");
         let (_, input, _, _) = vector(1);
-        let call = landCall {
-            _input: input,
-            _leaves: vectors::b256s_at("/land_abi/leaves"),
-            _proof: vectors::bytes_at("/land_abi/proof"),
-        };
-        assert_eq!(landCall::SIGNATURE, vectors::str_at("/land_abi/signature"));
-        assert_eq!(call.abi_encode(), vectors::bytes_at("/land_abi/calldata"));
-        assert_eq!(landCall::abi_decode(&call.abi_encode()).unwrap(), call);
+        let leaves = vectors::b256s_at("/land_abi/leaves");
+        let proof = vectors::bytes_at("/land_abi/proof");
+        assert_eq!(
+            landCall::SIGNATURE,
+            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
+        );
+        assert_eq!(landCall::SELECTOR, [0x51, 0x85, 0xfd, 0x7a]);
+        let fields = [
+            input.parentHeight.to_be_bytes::<32>(),
+            input.lastHeight.to_be_bytes::<32>(),
+            input.lastBlockHash.0,
+            input.lastCometHash.0,
+            input.lastStateRoot.0,
+            input.l1ReferenceBlockNumber.to_be_bytes::<32>(),
+            input.forcedInclusionHead.to_be_bytes::<32>(),
+        ];
+        assert_eq!(input.abi_encode(), fields.concat());
+        assert_eq!(input.abi_encode().len(), 7 * 32);
+        let word = |value: usize| U256::from(value).to_be_bytes::<32>();
+        let leaves_offset = 9 * 32;
+        let proof_offset = leaves_offset + 32 * (1 + leaves.len());
+        let mut expected = landCall::SELECTOR.to_vec();
+        expected.extend(fields.concat());
+        expected.extend(word(leaves_offset));
+        expected.extend(word(proof_offset));
+        expected.extend(word(leaves.len()));
+        expected.extend(leaves.iter().flat_map(|leaf| leaf.0));
+        expected.extend(word(proof.len()));
+        expected.extend(proof.iter());
+        expected.resize(4 + (expected.len() - 4).div_ceil(32) * 32, 0);
+        let call = landCall { _input: input, _leaves: leaves, _proof: proof };
+        assert_eq!(call.abi_encode(), expected);
+        assert_eq!(landCall::abi_decode(&expected).unwrap(), call);
     }
 }

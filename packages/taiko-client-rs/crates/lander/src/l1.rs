@@ -127,7 +127,9 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Authenticate V1 initialization/configuration and read the Inbox's `maxBatchBlocks`.
+    /// Authenticate V1 initialization and the deployment, whose `configHash()` must be the hash
+    /// of the built-in L2 chain id, `EtnaStaking` proxy and U, and read the Inbox's
+    /// `maxBatchBlocks`.
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment>;
     /// The canonical L1 hash at a requested number, including receipt blocks.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
@@ -519,7 +521,9 @@ impl LandingSource for RpcLandingSource {
     }
 
     /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: five
-    /// `eth_call`s and no code read, since no rule pins the implementation (PROOF-6.2-2).
+    /// `eth_call`s and no code read, since no rule pins the implementation. The configuration
+    /// hash must open to the built-in L2 chain id, staking proxy and U; an Inbox that commits
+    /// another staking proxy or U is another deployment.
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment> {
         authenticate_snapshot(snapshot, &self.params)?;
         macro_rules! read {
@@ -542,11 +546,11 @@ impl LandingSource for RpcLandingSource {
         let version = read!(VERSIONCall);
         let initialized = read!(isInitializedCall);
         let chain = read!(l2ChainIdCall);
-        let config = read!(committeeConfigHashCall);
+        let config = read!(configHashCall);
         if version != 1 ||
             !initialized ||
             chain != snapshot.l2_chain_id ||
-            config != snapshot.config_hash
+            config != self.params.config_hash()
         {
             return Err(LanderError::Configuration(
                 "Inbox V1 deployment/configuration mismatch".into(),
@@ -758,7 +762,6 @@ pub(crate) fn decode_snapshot(
         l1_chain_id,
         l2_chain_id,
         inbox: params.inbox,
-        registry: Address::ZERO,
         recovery: None,
         recovery_witness: None,
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),

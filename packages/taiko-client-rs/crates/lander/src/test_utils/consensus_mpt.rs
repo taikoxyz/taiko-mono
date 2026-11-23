@@ -954,7 +954,6 @@ impl Fixture {
             l1_chain_id: U256::from(1),
             l2_chain_id: params.l2_chain_id,
             inbox: params.inbox,
-            registry: Address::ZERO,
             recovery: None,
             recovery_witness: None,
             generation: 0,

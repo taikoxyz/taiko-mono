@@ -141,9 +141,6 @@ pub struct LandingSnapshot {
     pub l2_chain_id: u64,
     /// Executing Inbox proxy identity.
     pub inbox: Address,
-    /// The statement's staking-registry word. The client configures no staking registry, so
-    /// it is zero.
-    pub registry: Address,
     /// Recovery generation from the pinned Inbox state.
     pub generation: u64,
     /// Independently verified fixed recovery origin, with the `fallbackKeysHash` whose list signs
@@ -338,8 +335,8 @@ pub struct PreparedBatch {
     pub anchors: Vec<AnchorState>,
     /// Exact raw L1 headers, newest-to-oldest from reference through oldest consumed anchor.
     pub reference_headers: Vec<Bytes>,
-    /// Eight canonical V1 ABI fields binding the original parent and the terminal EL and Comet
-    /// identity, reference block, terminal forced cursor and active committee cutoff.
+    /// The seven canonical V1 ABI fields binding the original parent and the terminal EL and
+    /// Comet identity, state root, reference block and terminal forced cursor.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
     /// Ordered cut leaves of every height strictly inside the immutable range (p, h), one per
@@ -377,11 +374,7 @@ impl PreparedBatch {
         };
         let parent = u48(self.input.parentHeight)?;
         let last = u48(self.input.lastHeight)?;
-        for value in [
-            self.input.l1ReferenceBlockNumber,
-            self.input.forcedInclusionHead,
-            self.input.activeCommitteeSnapshot,
-        ] {
+        for value in [self.input.l1ReferenceBlockNumber, self.input.forcedInclusionHead] {
             u48(value)?;
         }
         if parent != self.snapshot.checkpoint_height ||

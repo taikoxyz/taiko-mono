@@ -285,7 +285,6 @@ impl FixtureChain {
             l1_chain_id: U256::from(p.get_chain_id().await?),
             l2_chain_id: L2_CHAIN_ID,
             inbox: fixture.inbox,
-            registry: fixture.registry,
             recovery: None,
             recovery_witness: None,
             generation: 0,

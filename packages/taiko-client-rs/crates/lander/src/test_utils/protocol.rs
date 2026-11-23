@@ -43,7 +43,6 @@ pub(crate) fn request() -> ProofRequest {
                 l1_chain_id: U256::from(1),
                 l2_chain_id: 167001,
                 inbox: Address::repeat_byte(0x11),
-                registry: Address::ZERO,
                 recovery: None,
                 recovery_witness: None,
                 generation: 0,
@@ -93,7 +92,6 @@ pub(crate) fn request() -> ProofRequest {
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: U256::from(15),
                 forcedInclusionHead: U256::ZERO,
-                activeCommitteeSnapshot: U256::from(9),
             },
             blobs: PreparedBlobs {
                 payload_bytes: 0,

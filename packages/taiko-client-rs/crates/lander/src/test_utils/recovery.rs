@@ -211,9 +211,8 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     f
 }
 
-/// From the recovery origin c = 6 the batch to 12 reports R (20) as the active committee
-/// snapshot: the origin record's fallback keys, each at power 1, sign every height of the
-/// generation.
+/// From the recovery origin c = 6 the batch to 12 takes its anchors at or after R (20), and the
+/// origin record's fallback keys, each at power 1, sign every height of the generation.
 #[tokio::test]
 async fn recovery_origin_uses_retained_boundary_and_the_origin_keys() {
     for length in [6, 7, 8] {
@@ -225,7 +224,15 @@ async fn recovery_origin_uses_retained_boundary_and_the_origin_keys() {
         assert_eq!(snapshot.recovery.as_ref().unwrap().fallback_keys_hash, origin_keys().hash());
         let prepared = builder(f.clone()).prepare(snapshot.clone()).await.unwrap().unwrap();
         prepared.batch.verify_restored().unwrap();
-        assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
+        let origin_set =
+            crate::committee::Validators::from_powers(&origin_keys().validator_set()).unwrap();
+        assert!(
+            prepared
+                .batch
+                .blocks
+                .iter()
+                .all(|pair| pair.block.header.validators_hash == origin_set.hash())
+        );
         assert!(prepared.batch.anchors.iter().all(|a| a.number >= 20));
         assert!(prepared.batch.blocks[0].block.last_commit.is_none());
     }
@@ -260,8 +267,8 @@ async fn recovered_origin_binds_the_stored_parent_words() {
             &batch.blobs.versioned_hashes,
             &batch.leaves,
         );
-        assert_eq!(&words[7 * 32..8 * 32], origin.el_hash.as_slice(), "length {length}");
-        assert_eq!(&words[8 * 32..9 * 32], origin.comet_hash.as_slice(), "length {length}");
+        assert_eq!(&words[6 * 32..7 * 32], origin.el_hash.as_slice(), "length {length}");
+        assert_eq!(&words[7 * 32..8 * 32], origin.comet_hash.as_slice(), "length {length}");
         batch.verify_restored().unwrap();
     }
 }
@@ -276,7 +283,6 @@ async fn recovery_later_checkpoint_keeps_authenticated_origin_and_the_origin_key
         let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
         assert_eq!(prepared.batch.input.parentHeight, U256::from(checkpoint));
         assert_eq!(prepared.batch.input.lastHeight, U256::from(18));
-        assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
         prepared.batch.verify_restored().unwrap();
         if checkpoint == 6 {
             terminal_leaves.insert(

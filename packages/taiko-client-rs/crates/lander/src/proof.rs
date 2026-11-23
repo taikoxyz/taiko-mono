@@ -78,8 +78,8 @@ mod journal_tests {
     use crate::test_utils::protocol::request;
     use alloy::sol_types::SolValue;
 
-    /// The eight input fields are journaled as their
-    /// exact Solidity `abi.encode` bytes; truncated, extended or noncanonical bytes are refused.
+    /// The seven input fields are journaled as their exact Solidity `abi.encode` bytes;
+    /// truncated, extended or noncanonical bytes are refused, an eighth word included.
     #[test]
     fn immutable_request_round_trip_uses_canonical_abi_inputs() {
         let request = request();
@@ -87,7 +87,7 @@ mod journal_tests {
         let restored: ProofRequest = serde_json::from_value(json.clone()).unwrap();
         assert_eq!(restored, request);
         let bytes = request.batch.input.abi_encode();
-        assert_eq!(bytes.len(), 8 * 32);
+        assert_eq!(bytes.len(), 7 * 32);
         assert_eq!(
             json["batch"]["input"],
             serde_json::to_value(Bytes::from(bytes.clone())).unwrap()
@@ -98,7 +98,7 @@ mod journal_tests {
             vec![],
             bytes[..bytes.len() - 1].to_vec(),
             [bytes.as_slice(), &[0]].concat(),
-            bytes[..7 * 32].to_vec(),
+            bytes[..6 * 32].to_vec(),
             [bytes.as_slice(), &[0u8; 32]].concat(),
         ] {
             let mut bad = json.clone();

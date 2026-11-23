@@ -97,7 +97,7 @@ async fn now(p: &RootProvider) -> Result<u64> {
 
 /// Lands (S, S + 1] with one blob, signed by the dev account: the mock verifier accepts any
 /// statement, so this checks the Inbox's own landing rules at the start.
-async fn land_first(f: &ContractFixture, cutoff: u64) -> Result<TransactionReceipt> {
+async fn land_first(f: &ContractFixture) -> Result<TransactionReceipt> {
     let p = &f.anvil.provider;
     let signer = dev_signer();
     let blobs = lander::blob::build(&[0xc0], &limits(), SidecarMode::Eip7594)?;
@@ -109,7 +109,6 @@ async fn land_first(f: &ContractFixture, cutoff: u64) -> Result<TransactionRecei
         lastStateRoot: B256::repeat_byte(0x53),
         l1ReferenceBlockNumber: U256::from(p.get_block_number().await?),
         forcedInclusionHead: U256::ZERO,
-        activeCommitteeSnapshot: U256::from(cutoff),
     };
     let mut tx = TxEip4844 {
         chain_id: p.get_chain_id().await?,
@@ -262,7 +261,7 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     )
     .await?;
     transact(&p, f.admin, unzen, unproven.abi_encode()).await?;
-    let landed = land_first(&f, f.genesis_cutoff).await?;
+    let landed = land_first(&f).await?;
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("Landed")?;
     assert_eq!(event.data.parentHeight, U256::from(S));
     assert_eq!(f.checkpoint().await?, (S + 1, B256::repeat_byte(0x51)));

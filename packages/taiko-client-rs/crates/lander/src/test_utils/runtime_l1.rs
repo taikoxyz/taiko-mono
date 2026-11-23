@@ -199,7 +199,6 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         l1_chain_id: U256::from(1),
         l2_chain_id: 167001,
         inbox: params.inbox,
-        registry: alloy_primitives::Address::ZERO,
         recovery: None,
         recovery_witness: None,
         generation: 0,
@@ -871,7 +870,7 @@ async fn checkpoint_anchor_rejects_malformed_extra_data_generation_and_sharing_b
 }
 
 /// The deployment reads are the checked getters and `maxBatchBlocks` only, each pinned to the
-/// snapshot block; pauses and landing progress do not change them.
+/// snapshot block; landing progress does not change them, and no pause flag is read.
 #[tokio::test]
 async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
     use crate::contracts::IEtnaInbox;
@@ -911,10 +910,8 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
                 answer!(VERSIONCall, U256::from(if mode == 3 { 2 } else { 1 }));
                 answer!(isInitializedCall, true);
                 answer!(l2ChainIdCall, U256::from(chain_id));
-                answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
+                answer!(configHashCall, if mode == 5 { B256::ZERO } else { config });
                 answer!(maxBatchBlocksCall, U256::from(120));
-                // Even though this deployment can be paused, landing is not pause-gated.
-                answer!(pausedCall, mode == 1);
                 panic!("invented or unexpected ABI getter: {input}");
             }
             method => panic!("unexpected deployment RPC {method}"),
@@ -924,10 +921,8 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
     let source =
         RpcLandingSource::new(server.provider.clone(), server.provider.clone(), fixture.params);
     let calls = || server.requests.lock().unwrap().len();
-    for (paused, snapshot) in
-        [(0, &fixture.snapshot), (1, &fixture.snapshot), (1, &advanced.snapshot)]
-    {
-        mode.store(paused, Ordering::Relaxed);
+    for snapshot in [&fixture.snapshot, &advanced.snapshot] {
+        mode.store(0, Ordering::Relaxed);
         let before = calls();
         assert_eq!(
             source.deployment(snapshot).await.unwrap(),
@@ -942,6 +937,59 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
             source.deployment(&fixture.snapshot).await,
             Err(LanderError::Configuration(_))
         ));
+    }
+}
+
+/// The deployment is the one the built-in chain parameters name: an Inbox whose `configHash()`
+/// commits another staking proxy, another U or another L2 chain id is refused, though every other
+/// getter matches.
+#[tokio::test]
+async fn deployment_with_another_config_hash_is_refused() {
+    use crate::contracts::IEtnaInbox;
+    use alloy::sol_types::{SolCall, SolValue};
+    use alloy_primitives::{Address, Bytes};
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
+    let params = fixture.params.clone();
+    assert_eq!(fixture.snapshot.config_hash, params.config_hash());
+    let others = [
+        ChainParams { staking: Address::repeat_byte(0x11), ..params.clone() }.config_hash(),
+        ChainParams { unsettled_limit: params.unsettled_limit + 1, ..params.clone() }.config_hash(),
+        ChainParams { l2_chain_id: params.l2_chain_id + 1, ..params.clone() }.config_hash(),
+    ];
+    for answered in others.into_iter().chain([params.config_hash()]) {
+        let chain_id = params.l2_chain_id;
+        let server = rpc(move |request| {
+            let input = request["params"][0]
+                .get("input")
+                .or_else(|| request["params"][0].get("data"))
+                .unwrap();
+            let input: Bytes = serde_json::from_value(input.clone()).unwrap();
+            macro_rules! answer {
+                ($call:ident, $value:expr) => {
+                    if input.as_ref() == IEtnaInbox::$call::SELECTOR {
+                        return json!(Bytes::from(($value).abi_encode()));
+                    }
+                };
+            }
+            answer!(VERSIONCall, U256::from(1));
+            answer!(isInitializedCall, true);
+            answer!(l2ChainIdCall, U256::from(chain_id));
+            answer!(configHashCall, answered);
+            answer!(maxBatchBlocksCall, U256::from(120));
+            panic!("unexpected deployment getter: {input}");
+        })
+        .await;
+        let source =
+            RpcLandingSource::new(server.provider.clone(), server.provider.clone(), params.clone());
+        let result = source.deployment(&fixture.snapshot).await;
+        if answered == params.config_hash() {
+            assert_eq!(result.unwrap(), crate::l1::Deployment { max_batch_blocks: 120 });
+        } else {
+            assert!(
+                matches!(&result, Err(LanderError::Configuration(_))),
+                "another deployment's configuration hash {answered}: {result:?}"
+            );
+        }
     }
 }
 

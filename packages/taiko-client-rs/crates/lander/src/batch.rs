@@ -115,9 +115,6 @@ struct BatchStart {
     /// The generation's initial set, which signs every height until per-height set decisions
     /// land.
     validators: Validators,
-    /// The L1 block the initial set is fixed at (`L1_0` or R), the active committee snapshot
-    /// of the batch.
-    initial_cutoff: u64,
 }
 
 /// Immutable checkpoint identity; advancing the operational L1 head does not change it.
@@ -382,7 +379,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         crate::l1::authenticate_snapshot(snapshot, &self.params)?;
         if snapshot.l2_chain_id != self.params.l2_chain_id ||
             snapshot.inbox != self.params.inbox ||
-            !snapshot.registry.is_zero() ||
             snapshot.genesis.genesis_hash.is_zero() ||
             snapshot.genesis.genesis_state_root.is_zero() ||
             snapshot.config_hash != self.params.config_hash() ||
@@ -550,21 +546,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     }
 
     /// The generation's initial set, which signs every height until per-height set decisions
-    /// land, and the L1 block it is fixed at: the keys of the fallback key list whose hash the
-    /// generation's origin record holds, each at power 1. The batch's starting proof, under
-    /// `anchor`, proves that hash, `origin_hash` ([`crate::l1::verify_starting_inbox`]); a
-    /// recovery's must be the snapshot's authenticated origin's. So no root but the batch's own
-    /// anchors authenticates the set. The list is obtained by its hash
-    /// ([`BatchBuilder::fallback_list`]) at R for a recovery generation, whose set is fixed at R,
-    /// and at the batch's anchor, a block at or after `L1_0`, at generation zero, whose set is
-    /// fixed at `L1_0`.
+    /// land: the keys of the fallback key list whose hash the generation's origin record holds,
+    /// each at power 1. The batch's starting proof, under `anchor`, proves that hash,
+    /// `origin_hash` ([`crate::l1::verify_starting_inbox`]); a recovery's must be the snapshot's
+    /// authenticated origin's. So no root but the batch's own anchors authenticates the set. The
+    /// list is obtained by its hash ([`BatchBuilder::fallback_list`]) at R for a recovery
+    /// generation, and at the batch's anchor, a block at or after `L1_0`, at generation zero.
     async fn initial_set(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
         origin_hash: B256,
-    ) -> Result<(Validators, u64)> {
-        let ((at, at_number), fixed_at) = match &snapshot.recovery {
+    ) -> Result<Validators> {
+        let (at, at_number) = match &snapshot.recovery {
             Some(origin) => {
                 if origin_hash != origin.fallback_keys_hash {
                     return Err(LanderError::Safety(
@@ -573,14 +567,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     ));
                 }
                 let r = recovery_anchor(snapshot)?;
-                ((r.hash, r.number), origin.l1_number)
+                (r.hash, r.number)
             }
-            None => ((anchor.hash, anchor.number), snapshot.genesis.l1_0),
+            None => (anchor.hash, anchor.number),
         };
         let keys = self.fallback_list(origin_hash, at, at_number).await?;
-        let validators = Validators::from_powers(&keys.validator_set())
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        Ok((validators, fixed_at))
+        Validators::from_powers(&keys.validator_set())
+            .map_err(|e| LanderError::Safety(e.to_string()))
     }
 
     /// The fallback key list whose hash is `hash`, from the cache of lists already obtained or
@@ -719,7 +712,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "starting genesis/config proof contradicts snapshot".into(),
             ));
         }
-        let (validators, initial_cutoff) = self.initial_set(snapshot, &anchor, origin_hash).await?;
+        let validators = self.initial_set(snapshot, &anchor, origin_hash).await?;
         if at_origin {
             let (hash, root) = snapshot.recovery.as_ref().map_or(
                 (snapshot.genesis.genesis_hash, snapshot.genesis.genesis_state_root),
@@ -736,7 +729,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 inbox_witness: starting_inbox_witness,
                 previous: None,
                 validators,
-                initial_cutoff,
             });
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
@@ -775,7 +767,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             inbox_witness: starting_inbox_witness,
             previous: Some(pair),
             validators,
-            initial_cutoff,
         })
     }
 
@@ -1115,17 +1106,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         verify_reference_chain(&headers, &consumed)?;
         let reference = &headers[0];
         self.l1.validate_reference(&snapshot, reference.number(), reference.hash()).await?;
-        // The initial set signs every height of the batch, so its snapshot is the active one.
-        let active_snapshot = start.initial_cutoff;
-        if active_snapshot > reference.number() {
-            return Err(LanderError::Safety(
-                "active committee snapshot lies above the reference block".into(),
-            ));
-        }
         let input = LandInput {
             // Proof origin p: the latest checkpoint c of the snapshot this batch is built on.
             parentHeight: U256::from(snapshot.checkpoint_height),
-            activeCommitteeSnapshot: U256::from(active_snapshot),
             lastHeight: U256::from(last.number),
             lastBlockHash: last.hash_slow(),
             lastCometHash: B256::from_slice(terminal.block.header.hash().as_bytes()),
@@ -1767,7 +1750,7 @@ mod tests {
     }
 
     /// The start a checkpoint retains holds the generation's initial set, whatever descendants
-    /// an observation read: generation zero's origin keys, each at power 1, fixed at `L1_0`.
+    /// an observation read: generation zero's origin keys, each at power 1.
     #[tokio::test]
     async fn the_retained_start_holds_the_initial_set() {
         let source = TrackingSource::new(Fixture::new(18, 30));
@@ -1777,7 +1760,6 @@ mod tests {
         b.observe(&snapshot).await.unwrap();
         let start = b.checkpoint(&snapshot).await.unwrap();
         assert_eq!(start.validators.hash(), source.fixture().committees[&0].validators.hash());
-        assert_eq!(start.initial_cutoff, snapshot.genesis.l1_0);
         assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
     }
 
@@ -1818,11 +1800,10 @@ mod tests {
 
         let snapshot = fixture.snapshot.clone();
         let source = TrackingSource::new(fixture);
-        let (validators, fixed_at) =
+        let validators =
             source.builder(1).initial_set(&snapshot, &anchor, origin_hash).await.unwrap();
         let expected = Validators::from_powers(&origin.validator_set()).unwrap();
         assert_eq!(validators.hash(), expected.hash());
-        assert_eq!(fixed_at, snapshot.genesis.l1_0);
     }
 
     /// A recovery generation's initial set is the origin record's fallback keys, each at power
@@ -1837,7 +1818,6 @@ mod tests {
         let expected = Validators::from_powers(&keys.validator_set()).unwrap();
         let start = b.checkpoint(&snapshot).await.unwrap();
         assert_eq!(start.validators.hash(), expected.hash());
-        assert_eq!(start.initial_cutoff, snapshot.recovery.as_ref().unwrap().l1_number);
         *b.checkpoint_cache.lock().await = None;
         let rebuilt = b.checkpoint(&snapshot).await.unwrap();
         assert_eq!(rebuilt.validators.hash(), expected.hash());
@@ -2091,28 +2071,6 @@ mod tests {
         ));
     }
 
-    /// The initial set signs every height, so the active committee snapshot is the L1 block it
-    /// is fixed at, `L1_0` (10), at any cut.
-    #[tokio::test]
-    async fn terminal_active_committee_snapshot_is_the_initial_sets() {
-        use alloy::sol_types::SolValue;
-        for (checkpoint, tip, expected) in [(0, 6, 10), (6, 12, 10), (12, 18, 10), (18, 24, 10)] {
-            let fixture = Arc::new(Fixture::with_epoch(checkpoint, tip, 0, 12));
-            let request = builder(fixture.clone(), limits((tip - checkpoint) as usize))
-                .prepare(fixture.snapshot.clone())
-                .await
-                .unwrap()
-                .unwrap();
-            let encoded = request.batch.input.abi_encode();
-            assert_eq!(
-                encoded.get(7 * 32..),
-                Some(U256::from(expected).to_be_bytes::<32>().as_slice()),
-                "checkpoint {checkpoint}, terminal {tip}: eighth ABI word must name the active committee snapshot"
-            );
-            request.batch.verify_restored().unwrap();
-        }
-    }
-
     /// A batch start takes its base-fee grandparent timestamp from the header below the
     /// checkpoint, and the prepared batch round-trips through its journal form.
     #[tokio::test]
@@ -2356,7 +2314,6 @@ mod tests {
         let request = builder(fixture, limits(6)).prepare(snapshot).await.unwrap().unwrap();
         assert_eq!(request.batch.blocks.len(), 6);
         assert_eq!(request.batch.input.lastHeight, 6);
-        assert_eq!(request.batch.input.activeCommitteeSnapshot, 10);
         assert_eq!(request.batch.input.l1ReferenceBlockNumber, 14);
         assert_eq!(request.batch.parent_anchor.number, 10);
         assert!(request.batch.anchors.iter().all(|anchor| anchor.number == 10));
@@ -2562,8 +2519,8 @@ mod tests {
             &batch.leaves,
         );
         let three = U256::from(3).to_be_bytes::<32>();
+        assert_eq!(&preimage[16 * 32..17 * 32], &three);
         assert_eq!(&preimage[17 * 32..18 * 32], &three);
-        assert_eq!(&preimage[18 * 32..19 * 32], &three);
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -2782,7 +2739,6 @@ mod tests {
                 )
                 .is_err()
             );
-            assert_eq!(request.batch.input.activeCommitteeSnapshot, 10);
         }
     }
 
@@ -2827,8 +2783,8 @@ mod tests {
         }
 
         /// The forced inclusion heads before and after `request`'s batch, read from its statement
-        /// preimage (0-based words 17 and 18, ENC-A-35), which
-        /// must hash to the statement and carry the input's.
+        /// preimage (0-based words 16 and 17 of the nineteen), which must hash to the statement
+        /// and carry the input's.
         fn heads(request: &ProofRequest) -> (u64, u64) {
             let batch = &request.batch;
             let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
@@ -2844,8 +2800,8 @@ mod tests {
                 alloy_primitives::U256::from_be_slice(&preimage[index * 32..(index + 1) * 32])
                     .to::<u64>()
             };
-            assert_eq!(U256::from(word(18)), batch.input.forcedInclusionHead);
-            (word(17), word(18))
+            assert_eq!(U256::from(word(17)), batch.input.forcedInclusionHead);
+            (word(16), word(17))
         }
 
         /// Preparing the batch errors with a safety error naming `violation`; observation verifies

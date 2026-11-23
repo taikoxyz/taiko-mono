@@ -61,11 +61,6 @@ async fn assert_landed(
     assert_eq!(event.data.parentHeight, request.batch.input.parentHeight);
     assert_eq!(event.data.checkpointHeight, U256::from(request.batch.snapshot.checkpoint_height));
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
-    let batch = &request.batch;
-    assert_eq!(
-        view(p, fixture.inbox, EtnaInbox::activeCommitteeSnapshotCall {}, None).await?,
-        batch.input.activeCommitteeSnapshot
-    );
     let tx = p.get_transaction_by_hash(hash).await?.context("landing transaction")?;
     assert_eq!(
         tx.inner.blob_versioned_hashes(),
@@ -117,7 +112,6 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let mut chain = FixtureChain::new(&fixture).await?;
     chain.extend(&fixture, 6).await?;
     let first = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
-    assert_eq!(first.batch.input.activeCommitteeSnapshot, fixture.genesis.l1_0);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
@@ -159,7 +153,6 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
-        assert_eq!(next.batch.input.activeCommitteeSnapshot, fixture.genesis.l1_0);
         fixture.expect_statement(next.batch.statement_hash).await?;
         assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }

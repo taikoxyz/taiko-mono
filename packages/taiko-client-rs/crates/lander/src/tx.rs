@@ -488,10 +488,10 @@ mod tests {
         other.batch.blobs.versioned_hashes[0] = B256::repeat_byte(1);
         assert!(transaction.validate(&other, &proof).is_err());
         other = request.clone();
-        other.batch.input.activeCommitteeSnapshot ^= U256::from(1);
+        other.batch.input.forcedInclusionHead ^= U256::from(1);
         assert!(
             transaction.validate(&other, &proof).is_err(),
-            "active committee snapshot is signed"
+            "terminal forced inclusion head is signed"
         );
         other = request.clone();
         other.batch.input.lastCometHash = B256::repeat_byte(0x99);
