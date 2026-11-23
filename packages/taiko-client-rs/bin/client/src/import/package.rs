@@ -1,43 +1,87 @@
-//! A package directory: `package.json` and `blocks.jsonl`, one native window frame per line.
+//! A package directory: `package.json`, `execution_headers.jsonl`, one EL header per line, and
+//! `blocks.jsonl`, one native window frame per line.
 use super::*;
+use alloy_consensus::Header;
 use lander::checkpoint_import::{ImportPackage, WindowBlock, authenticate_import};
+use serde::de::DeserializeOwned;
 use std::io::{BufRead, BufReader, BufWriter};
 
 /// Hex-encoded original native block/commit plus the bounded complete validator set.
 const FRAME_LIMIT: u64 = 50 << 20;
 /// The stock dir's window file, one [`WindowBlock`] per line from w + 1 to s.
 const BLOCKS: &str = "blocks.jsonl";
+/// The package's ascending linked EL headers through w ([`ImportPackage::execution_headers`]),
+/// one per line, outside `package.json`.
+const HEADERS: &str = "execution_headers.jsonl";
+/// One header line's capacity; a canonical header's JSON line is under 2 KiB.
+const HEADER_LIMIT: u64 = 16 << 10;
+/// The most headers a package carries: U's largest value, 262,144, plus the inherited
+/// checkpoint just below the range.
+const MAX_HEADERS: u64 = abci::config::MAX_UNSETTLED_LIMIT + 1;
 
-/// Decode one bounded JSON frame at a time; fail on partial or overlong frames.
-pub(super) fn frames(dir: &Path) -> R<impl Iterator<Item = R<WindowBlock>>> {
-    let path = dir.join(BLOCKS);
-    let file = File::open(&path)
-        .map_err(|e| unavailable(format!("package {}: {:?}", path.display(), e.kind())))?;
-    let mut reader = BufReader::new(file);
+/// Open the package file `path`.
+fn open(path: &Path) -> R<BufReader<File>> {
+    File::open(path)
+        .map(BufReader::new)
+        .map_err(|e| unavailable(format!("package {}: {:?}", path.display(), e.kind())))
+}
+
+/// Decode JSON Lines from `reader` one bounded line at a time; fail on a partial or overlong
+/// line. `what` names one line in diagnostics.
+fn lines<T: DeserializeOwned>(
+    mut reader: impl BufRead,
+    limit: u64,
+    what: &'static str,
+) -> impl Iterator<Item = R<T>> {
     let mut done = false;
-    Ok(std::iter::from_fn(move || {
+    std::iter::from_fn(move || {
         if done {
             return None;
         }
         let mut bytes = Vec::new();
-        match (&mut reader).take(FRAME_LIMIT + 1).read_until(b'\n', &mut bytes) {
+        match (&mut reader).take(limit + 1).read_until(b'\n', &mut bytes) {
             Ok(0) => {
                 done = true;
                 None
             }
-            Ok(n) if n as u64 <= FRAME_LIMIT && bytes.last() == Some(&b'\n') => {
-                Some(serde_json::from_slice(&bytes).map_err(|_| bad("invalid consensus frame")))
+            Ok(n) if n as u64 <= limit && bytes.last() == Some(&b'\n') => {
+                Some(serde_json::from_slice(&bytes).map_err(|_| bad(format!("invalid {what}"))))
             }
             Ok(_) => {
                 done = true;
-                Some(Err(bad("overlong or incomplete consensus frame")))
+                Some(Err(bad(format!("overlong or incomplete {what}"))))
             }
             Err(e) => {
                 done = true;
                 Some(Err(io(e)))
             }
         }
-    }))
+    })
+}
+
+/// Decode one bounded JSON frame at a time; fail on partial or overlong frames.
+pub(super) fn frames(dir: &Path) -> R<impl Iterator<Item = R<WindowBlock>>> {
+    Ok(lines(open(&dir.join(BLOCKS))?, FRAME_LIMIT, "consensus frame"))
+}
+
+/// Read the package's EL headers one bounded line at a time, never the whole file; a header
+/// beyond [`MAX_HEADERS`] is refused. The lander authenticates them.
+fn headers(reader: impl BufRead) -> R<Vec<Header>> {
+    let mut headers = Vec::new();
+    for header in lines(reader, HEADER_LIMIT, "execution header") {
+        if headers.len() as u64 == MAX_HEADERS {
+            return Err(bad(format!("package holds more than {MAX_HEADERS} execution headers")));
+        }
+        headers.push(header?);
+    }
+    Ok(headers)
+}
+
+/// Durably write `headers` as the package's `execution_headers.jsonl` in `dir`.
+pub(super) fn write_headers(dir: &Path, headers: &[Header]) -> R<()> {
+    let mut out = BufWriter::new(create(&dir.join(HEADERS))?);
+    write_lines(&mut out, headers)?;
+    out.into_inner().map_err(|e| io(e.into_error()))?.sync_all().map_err(io)
 }
 
 /// Authenticate the package in `dir` against own finalized L1, reading each file once.
@@ -53,8 +97,10 @@ pub(super) async fn verify<L: abci::L1Source + ?Sized>(
     l1: &L,
     stock: Option<&Path>,
 ) -> R<VerifiedImport> {
-    let meta: ImportPackage = serde_json::from_slice(&read(&dir.join("package.json"), 256 << 20)?)
-        .map_err(|_| bad("invalid package metadata"))?;
+    let mut meta: ImportPackage =
+        serde_json::from_slice(&read(&dir.join("package.json"), 256 << 20)?)
+            .map_err(|_| bad("invalid package metadata"))?;
+    meta.execution_headers = headers(open(&dir.join(HEADERS))?)?;
     let frames = frames(dir)?;
     let Some(stock) = stock else {
         return authenticate_import(&meta, frames, params, l1).await;
@@ -89,5 +135,75 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join(BLOCKS), b"{}").unwrap();
         assert!(frames(dir.path()).unwrap().next().unwrap().is_err());
+    }
+
+    /// `count` copies of `line`, produced on demand rather than held.
+    struct Repeated {
+        line: Vec<u8>,
+        at: usize,
+        left: usize,
+    }
+
+    impl Read for Repeated {
+        fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+            if self.at == self.line.len() {
+                if self.left == 0 {
+                    return Ok(0);
+                }
+                (self.at, self.left) = (0, self.left - 1);
+            }
+            let n = out.len().min(self.line.len() - self.at);
+            out[..n].copy_from_slice(&self.line[self.at..self.at + n]);
+            self.at += n;
+            Ok(n)
+        }
+    }
+
+    /// A chain header with every optional field present.
+    fn header(number: u64) -> Header {
+        Header {
+            number,
+            base_fee_per_gas: Some(10_000_000),
+            extra_data: vec![0x5a; 29].into(),
+            withdrawals_root: Some(B256::repeat_byte(1)),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(B256::repeat_byte(2)),
+            requests_hash: Some(B256::repeat_byte(3)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn package_headers_stream_one_per_line_and_read_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let written = (5..9).map(header).collect::<Vec<_>>();
+        write_headers(dir.path(), &written).unwrap();
+        let bytes = fs::read(dir.path().join(HEADERS)).unwrap();
+        assert_eq!(bytes.iter().filter(|b| **b == b'\n').count(), written.len());
+        assert!(bytes.split(|b| *b == b'\n').all(|line| line.len() < 2048));
+        assert_eq!(headers(open(&dir.path().join(HEADERS)).unwrap()).unwrap(), written);
+        assert!(headers(&bytes[..bytes.len() - 1]).is_err(), "a partial last line is refused");
+        let long = format!("{}\n", " ".repeat(HEADER_LIMIT as usize));
+        assert!(headers(long.as_bytes()).is_err(), "an overlong line is refused");
+        assert!(matches!(open(&dir.path().join("absent.jsonl")), Err(ImportError::Unavailable(_))));
+    }
+
+    /// A full range of headers, U + 1 at U's largest value, exceeds the 256 MiB of
+    /// `package.json`; the package streams it, and one header more is refused.
+    #[test]
+    fn package_header_262146_is_refused() {
+        assert_eq!(MAX_HEADERS, 262_145);
+        let mut line = serde_json::to_vec(&header(7)).unwrap();
+        line.push(b'\n');
+        let reader =
+            |count| BufReader::new(Repeated { at: line.len(), left: count, line: line.clone() });
+        assert!(line.len() as u64 * MAX_HEADERS > 256 << 20);
+        assert_eq!(headers(reader(262_145)).unwrap().len(), 262_145);
+        let result = headers(reader(262_146));
+        assert!(
+            matches!(&result, Err(ImportError::Candidate(m)) if m.contains("262145")),
+            "{result:?}"
+        );
     }
 }

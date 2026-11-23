@@ -10,12 +10,13 @@ use etna_el_import::{
 };
 use std::{
     fs::File,
-    io::{Read, Write},
+    io::{BufReader, Read, Write},
     path::{Path, PathBuf},
     process::ExitCode,
 };
 
-/// Local JSON capacity, independent of a publisher's claimed file length.
+/// Capacity of the runtime chain JSON, independent of a publisher's claimed file length. The
+/// header manifest is not read whole: it streams one bounded line at a time.
 const JSON_LIMIT: u64 = 256 * 1024 * 1024;
 
 /// Command parser for the private helper process.
@@ -53,7 +54,8 @@ struct Inputs {
     /// Operator's original EL runtime Genesis JSON, distinct from Comet genesis.
     #[arg(long)]
     chain: PathBuf,
-    /// Strict authenticated ascending header context issued by the Rust verifier.
+    /// Strict authenticated ascending header context issued by the Rust verifier, as JSON Lines:
+    /// the head, then one header per line.
     #[arg(long)]
     manifest: PathBuf,
     /// L2 chain identity already checked by the caller's RPC/configuration binding.
@@ -116,6 +118,15 @@ fn load<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, ImportError> {
     serde_json::from_slice(&bytes).map_err(|_| ImportError::Invalid("invalid local JSON input"))
 }
 
+/// Open the header manifest, a local regular file, to stream it one bounded line at a time.
+fn read_manifest(path: &Path) -> Result<HeaderManifest, ImportError> {
+    let file = File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(ImportError::Invalid("header manifest is not a regular file"));
+    }
+    HeaderManifest::read(BufReader::new(file))
+}
+
 /// Read the selected runtime chain identity or install stores against independently supplied roots.
 fn execute(operation: Operation) -> Result<Receipt, ImportError> {
     let inputs = match operation {
@@ -132,7 +143,7 @@ fn execute(operation: Operation) -> Result<Receipt, ImportError> {
         Operation::Install(inputs) => inputs,
     };
     let genesis: Genesis = load(&inputs.chain)?;
-    let manifest: HeaderManifest = load(&inputs.manifest)?;
+    let manifest = read_manifest(&inputs.manifest)?;
     let trust = ElTrust {
         chain_id: inputs.chain_id,
         genesis_hash: inputs.trusted_genesis_hash,

@@ -469,10 +469,11 @@ async fn import_fixture(
     let exported = cli(base, "export", &args).await?;
     ensure!(exported["phase"] == "exported" && exported["height"] == export.s, "{exported}");
     eprintln!(
-        "checkpoint_fixture s={} frame_bytes={} metadata_bytes={}",
+        "checkpoint_fixture s={} frame_bytes={} metadata_bytes={} header_bytes={}",
         export.s,
         package.join("blocks.jsonl").metadata()?.len(),
         package.join("package.json").metadata()?.len(),
+        package.join("execution_headers.jsonl").metadata()?.len(),
     );
     Ok(Fixture { base: base.to_path_buf(), package, source, el_chain, config, proxy, rpc })
 }

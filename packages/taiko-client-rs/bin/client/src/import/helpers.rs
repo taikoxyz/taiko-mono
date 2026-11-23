@@ -109,7 +109,8 @@ pub(super) async fn comet_install(
     check_comet(&output.stdout, &expected, v.landing().comet_hash)
 }
 
-/// The EL helper's header manifest (`etna-el-import install --manifest`).
+/// The EL helper's header manifest (`etna-el-import install --manifest`), JSON Lines: these
+/// fields on the first line, then one header per line.
 #[derive(Debug, Serialize)]
 pub(super) struct Manifest<'a> {
     /// Helper input schema.
@@ -120,7 +121,9 @@ pub(super) struct Manifest<'a> {
     finalized_height: u64,
     /// The authenticated hash at q, for the post-install forkchoice.
     finalized_hash: B256,
-    /// The authenticated, parent-linked headers from the header floor through s.
+    /// The authenticated, parent-linked headers from the header floor through s, each on its own
+    /// line after the first.
+    #[serde(skip)]
     headers: &'a [Header],
 }
 
@@ -148,12 +151,20 @@ impl<'a> Manifest<'a> {
             &v.state().anchor
         };
         Ok(Self {
-            schema: 1,
+            schema: 2,
             chain_id: p.l2_chain_id,
             finalized_height: anchor.inbox.last_checkpoint_height,
             finalized_hash: anchor.inbox.last_checkpoint_hash,
             headers: v.execution_headers(),
         })
+    }
+
+    /// Write the manifest to the new file `path`, one line at a time.
+    fn write(&self, path: &Path) -> R<()> {
+        let mut out = std::io::BufWriter::new(create(path)?);
+        write_lines(&mut out, [self])?;
+        write_lines(&mut out, self.headers)?;
+        out.flush().map_err(io)
     }
 }
 
@@ -256,8 +267,8 @@ pub(super) async fn el_install(
         first_header: manifest.headers.first().ok_or_else(|| bad("missing first header"))?.number,
         last_header: v.landing().height,
     };
-    let path = stage.join("headers.json");
-    write_new(&path, &serde_json::to_vec(manifest).map_err(bad)?)?;
+    let path = stage.join("headers.jsonl");
+    manifest.write(&path)?;
     let mut command = helper_command(lock, &inputs.el_helper);
     command
         .arg("install")

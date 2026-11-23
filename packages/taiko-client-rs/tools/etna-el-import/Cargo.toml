@@ -47,5 +47,12 @@ alloy-trie = { version = "0.9.5", features = ["ethereum"] }
 debug = "line-tables-only"
 split-debuginfo = "unpacked"
 
+[profile.dev.package]
+# Every header is hashed several times on its way into the stores; unoptimized Keccak dominates
+# a debug run over a manifest at the 262,145-header limit.
+alloy-primitives.opt-level = 3
+keccak.opt-level = 3
+sha3.opt-level = 3
+
 [profile.release]
 overflow-checks = true

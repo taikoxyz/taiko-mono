@@ -1,13 +1,19 @@
-//! Validate the actual header context required by DATA-5.3/5.4 before touching stores.
+//! Validate the actual header context an import installs before touching stores.
+
+use std::io::{BufRead, Read, Write};
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::ImportError;
 
-/// Maximum unsettled range plus the inherited finalized checkpoint just below it.
-const MAX_HEADERS: u64 = 65_537;
+/// U's largest value, 262,144, plus the inherited finalized checkpoint just below the range.
+const MAX_HEADERS: u64 = 262_145;
+/// One manifest line's capacity; a canonical header's JSON line is under 2 KiB.
+const LINE_LIMIT: u64 = 16 * 1024;
+/// The only supported manifest schema: JSON Lines, the head and then one header per line.
+const SCHEMA: u32 = 2;
 /// Exclusive upper bound for a landed protocol height.
 const HEIGHT_LIMIT: u64 = 1 << 48;
 
@@ -27,10 +33,11 @@ pub struct ElTrust {
 /// Versioned local helper input, generated from the verified app-import context.
 ///
 /// The helper does not authenticate L1 or authorize signing. Its caller chooses the range's
-/// coverage floor (DATA-5.3/5.4) and must compare the receipt with the selected landed hashes
-/// and own trust target before publishing stores.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// coverage floor (the next block's `BLOCKHASH` context and the inherited checkpoint) and must
+/// compare the receipt with the selected landed hashes and own trust target before publishing
+/// stores. The file is JSON Lines, read one bounded line at a time ([`HeaderManifest::read`]):
+/// the first line holds every field but the headers, each later line one header.
+#[derive(Clone, Debug)]
 pub struct HeaderManifest {
     /// Local helper input schema; unsupported schemas are refused.
     pub schema: u32,
@@ -44,6 +51,39 @@ pub struct HeaderManifest {
     pub headers: Vec<Header>,
 }
 
+/// The manifest's first line: every [`HeaderManifest`] field but the headers.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManifestHead {
+    /// [`HeaderManifest::schema`].
+    schema: u32,
+    /// [`HeaderManifest::chain_id`].
+    chain_id: u64,
+    /// [`HeaderManifest::finalized_height`].
+    finalized_height: u64,
+    /// [`HeaderManifest::finalized_hash`].
+    finalized_hash: B256,
+}
+
+/// Decode the next line of `reader`, None at its end. A line longer than [`LINE_LIMIT`] or a
+/// last line without its newline is refused without decoding it.
+fn next_line<T: DeserializeOwned>(
+    reader: &mut impl BufRead,
+    line: &mut Vec<u8>,
+) -> Result<Option<T>, ImportError> {
+    line.clear();
+    let n = reader.take(LINE_LIMIT + 1).read_until(b'\n', line)?;
+    if n == 0 {
+        return Ok(None);
+    }
+    if n as u64 > LINE_LIMIT || line.last() != Some(&b'\n') {
+        return Err(ImportError::Invalid("overlong or incomplete header manifest line"));
+    }
+    serde_json::from_slice(line)
+        .map(Some)
+        .map_err(|_| ImportError::Invalid("invalid header manifest line"))
+}
+
 /// A strictly validated borrowed header plan; it cannot be restored from serialized metadata.
 pub struct VerifiedHeaders<'a> {
     /// Immutable complete manifest which was checked against the trusted terminal tuple.
@@ -53,11 +93,56 @@ pub struct VerifiedHeaders<'a> {
 }
 
 impl HeaderManifest {
+    /// Stream a manifest from `reader` one bounded line at a time, never the whole file: an
+    /// unsupported schema is refused at the head, and a header beyond [`MAX_HEADERS`] before it
+    /// is decoded. The result is unverified until [`HeaderManifest::verify`].
+    pub fn read(mut reader: impl BufRead) -> Result<Self, ImportError> {
+        let mut line = Vec::new();
+        let head: ManifestHead = next_line(&mut reader, &mut line)?
+            .ok_or(ImportError::Invalid("empty header manifest"))?;
+        if head.schema != SCHEMA {
+            return Err(ImportError::Invalid("unsupported header manifest schema"));
+        }
+        let mut headers = Vec::new();
+        while !reader.fill_buf()?.is_empty() {
+            if headers.len() as u64 == MAX_HEADERS {
+                return Err(ImportError::Invalid("header manifest holds more than 262,145 headers"));
+            }
+            headers.extend(next_line::<Header>(&mut reader, &mut line)?);
+        }
+        Ok(Self {
+            schema: head.schema,
+            chain_id: head.chain_id,
+            finalized_height: head.finalized_height,
+            finalized_hash: head.finalized_hash,
+            headers,
+        })
+    }
+
+    /// Write the manifest in the form [`HeaderManifest::read`] streams.
+    pub fn write(&self, writer: impl Write) -> Result<(), ImportError> {
+        let mut writer = std::io::BufWriter::new(writer);
+        let head = ManifestHead {
+            schema: self.schema,
+            chain_id: self.chain_id,
+            finalized_height: self.finalized_height,
+            finalized_hash: self.finalized_hash,
+        };
+        serde_json::to_writer(&mut writer, &head)?;
+        writer.write_all(b"\n")?;
+        for header in &self.headers {
+            serde_json::to_writer(&mut writer, header)?;
+            writer.write_all(b"\n")?;
+        }
+        writer.flush()?;
+        Ok(())
+    }
+
     /// Check original links back from the trusted terminal and the finalized identity.
     ///
     /// Coverage is the Rust caller's `header_floor`; any longer linked range is accepted.
     pub fn verify(&self, trust: &ElTrust) -> Result<VerifiedHeaders<'_>, ImportError> {
-        if self.schema != 1 ||
+        if self.schema != SCHEMA ||
             self.chain_id != trust.chain_id ||
             self.headers.is_empty() ||
             self.headers.len() as u64 > MAX_HEADERS

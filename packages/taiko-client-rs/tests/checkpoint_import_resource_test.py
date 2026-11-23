@@ -31,7 +31,19 @@ class CompletedPhaseDeadline(unittest.TestCase):
 
 
 class ProfileCommands(unittest.TestCase):
+    def test_profiles_cover_both_unsettled_limits(self):
+        self.assertEqual(bench.UNSETTLED_LIMITS, (151_200, 262_144))
+        # Every profile keeps a settled prefix below its U-frame window.
+        for unsettled in bench.UNSETTLED_LIMITS:
+            for height in bench.HEIGHTS:
+                self.assertGreater(height - unsettled, 1)
+
     def test_profile_uses_install_only_helpers(self):
+        for unsettled in (151_200, 262_144):
+            with self.subTest(unsettled=unsettled):
+                self.check_profile(unsettled)
+
+    def check_profile(self, unsettled):
         el_helper, stock_helper = "/opt/etna-el-import", "/opt/etna-comet-import"
         el_hash, state_root = "0x" + "11" * 32, "0x" + "22" * 32
         app_hash = "0x" + "77" * 32
@@ -41,15 +53,18 @@ class ProfileCommands(unittest.TestCase):
                         genesis_hash="0x" + "55" * 32, finalized_hash="0x" + "66" * 32, l1_calls=17,
                         frames=2, el_prefix_headers=1, terminal_q=4)
         receipts = {
-            "el-install": dict(header_count=65_533, first_header=4, height=5, block_hash=el_hash,
-                               state_root=state_root, finalized_hash=verified["finalized_hash"]),
+            # The EL installs q = s - U through s.
+            "el-install": dict(header_count=unsettled + 1, first_header=4, height=5,
+                               block_hash=el_hash, state_root=state_root,
+                               finalized_hash=verified["finalized_hash"]),
             "stock-install": dict(first_height=3, last_height=5, block_id=dict(
                 hash="0x" + "33" * 32, parts=dict(total=1, hash="0x" + "44" * 32))),
         }
-        calls = []
+        calls, envs = [], {}
 
-        def measure(phase, args, directory, _env):
+        def measure(phase, args, directory, env):
             calls.append([str(arg) for arg in args])
+            envs[phase] = env
             if phase == "el-source":
                 (directory / "source/db").mkdir(parents=True)
                 for name in ("mdbx.dat", "database.version"):
@@ -60,11 +75,14 @@ class ProfileCommands(unittest.TestCase):
             directory = Path(temp).resolve()
             (directory / "verified.json").write_text(json.dumps(verified))
             (directory / "package.json").write_text(json.dumps(dict(validator_state="0x00")))
-            for name in ("headers.json", "blocks.jsonl"):
+            for name in ("headers.jsonl", "blocks.jsonl"):
                 (directory / name).write_text("")
             with patch.object(bench, "measure", measure), \
                  patch.dict(os.environ, ETNA_EL_IMPORT_BIN=el_helper, ETNA_EL_BIN="/opt/alethia-reth"):
-                self.assertEqual(bench.profile(directory, "lander-tests", stock_helper, 5, 4), 17)
+                self.assertEqual(
+                    bench.profile(directory, "lander-tests", stock_helper, unsettled, 5, 4), 17)
+        for phase in ("generate", "verify", "boundary-failures"):
+            self.assertEqual(envs[phase]["ETNA_RESOURCE_UNSETTLED_LIMIT"], str(unsettled))
         helpers = [argv for argv in calls if argv[0] in (el_helper, stock_helper)]
         for argv in helpers:
             self.assertNotIn("verify", argv)
@@ -73,6 +91,7 @@ class ProfileCommands(unittest.TestCase):
         self.assertEqual(len(el), 1)
         self.assertEqual(el[0][1], "install")
         self.assertEqual(el[0][el[0].index("--source") + 1], str(directory / "source"))
+        self.assertEqual(el[0][el[0].index("--manifest") + 1], str(directory / "headers.jsonl"))
         self.assertEqual(len(stock), 1)
         self.assertEqual(stock[0][1], "install")
         self.assertEqual(stock[0][stock[0].index("--stock-dir") + 1], str(directory / "stock"))

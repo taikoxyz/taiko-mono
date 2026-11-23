@@ -47,16 +47,16 @@ fn fixture() -> Fixture {
         state_root: header.state_root,
     };
     let headers = HeaderManifest {
-        schema: 1,
+        schema: 2,
         chain_id: 167001,
         finalized_height: 0,
         finalized_hash: trust.genesis_hash,
         headers: vec![header],
     };
     let chain = root.path().join("chain.json");
-    let manifest = root.path().join("headers.json");
+    let manifest = root.path().join("headers.jsonl");
     std::fs::write(&chain, serde_json::to_vec(&genesis).unwrap()).unwrap();
-    std::fs::write(&manifest, serde_json::to_vec(&headers).unwrap()).unwrap();
+    headers.write(std::fs::File::create_new(&manifest).unwrap()).unwrap();
     Fixture { root, source, chain, manifest, trust }
 }
 

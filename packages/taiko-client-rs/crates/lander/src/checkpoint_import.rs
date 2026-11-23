@@ -47,7 +47,9 @@ pub enum ImportError {
 /// list that decide the set that signs s + 2; versions 1 and 2 are refused, with no migration.
 pub const IMPORT_SCHEMA: u32 = 3;
 
-/// Version-three metadata; block payloads are supplied separately as a streaming iterator.
+/// Version-three package: `package.json` serializes everything but the EL headers, which the
+/// package directory carries one per line in `execution_headers.jsonl`; block payloads are
+/// supplied separately as a streaming iterator.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImportPackage {
@@ -70,7 +72,9 @@ pub struct ImportPackage {
     pub validator_state: Bytes,
     /// Ascending linked EL prefix from at least min(w, [`header_floor`]) through w. Empty is
     /// allowed when that range is only the separately supplied origin header. No execution state
-    /// or trusted cache is accepted here.
+    /// or trusted cache is accepted here. Never part of `package.json`, whose bound a full
+    /// range can exceed: the package directory streams them in `execution_headers.jsonl`.
+    #[serde(skip)]
     pub execution_headers: Vec<Header>,
     /// The `EtnaStaking` proxy's account proof and its storage proofs of the candidate
     /// snapshot's words ([`abci::staking::snapshot_slots`]) in s's post-state, under the

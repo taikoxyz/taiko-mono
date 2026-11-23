@@ -232,13 +232,160 @@ fn header_manifest() -> (super::HeaderManifest, super::ElTrust) {
         state_root: headers.last().unwrap().state_root,
     };
     let manifest = super::HeaderManifest {
-        schema: 1,
+        schema: 2,
         chain_id: trust.chain_id,
         finalized_height: 610,
         finalized_hash: headers[10].hash_slow(),
         headers,
     };
     (manifest, trust)
+}
+
+/// A reader that produces a JSON Lines manifest one line at a time, so a test streams far more
+/// bytes than it holds, and counts the bytes it produced.
+struct GeneratedLines<I> {
+    lines: I,
+    line: Vec<u8>,
+    at: usize,
+    produced: u64,
+}
+
+impl<I: Iterator<Item = Vec<u8>>> GeneratedLines<I> {
+    fn new(lines: I) -> std::io::BufReader<Self> {
+        std::io::BufReader::new(Self { lines, line: Vec::new(), at: 0, produced: 0 })
+    }
+}
+
+impl<I: Iterator<Item = Vec<u8>>> std::io::Read for GeneratedLines<I> {
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        while self.at == self.line.len() {
+            let Some(line) = self.lines.next() else { return Ok(0) };
+            (self.line, self.at) = (line, 0);
+        }
+        let n = out.len().min(self.line.len() - self.at);
+        out[..n].copy_from_slice(&self.line[self.at..self.at + n]);
+        self.at += n;
+        self.produced += n as u64;
+        Ok(n)
+    }
+}
+
+/// One serialized manifest line.
+fn json_line(value: &impl serde::Serialize) -> Vec<u8> {
+    let mut line = serde_json::to_vec(value).unwrap();
+    line.push(b'\n');
+    line
+}
+
+/// A header as the chain writes it: every optional field present and a 29-byte `extraData`.
+fn chain_header(number: u64, parent_hash: B256) -> alloy_consensus::Header {
+    alloy_consensus::Header {
+        number,
+        parent_hash,
+        timestamp: 1_700_000_000 + number,
+        state_root: B256::repeat_byte(0x13),
+        transactions_root: B256::repeat_byte(0x21),
+        receipts_root: B256::repeat_byte(0x22),
+        beneficiary: Address::repeat_byte(0x23),
+        gas_limit: 45_000_000,
+        gas_used: 12_345_678,
+        base_fee_per_gas: Some(10_000_000),
+        extra_data: vec![0x5a; 29].into(),
+        mix_hash: B256::repeat_byte(0x24),
+        withdrawals_root: Some(B256::repeat_byte(0x25)),
+        blob_gas_used: Some(0),
+        excess_blob_gas: Some(0),
+        parent_beacon_block_root: Some(B256::repeat_byte(0x26)),
+        requests_hash: Some(B256::repeat_byte(0x27)),
+        ..Default::default()
+    }
+}
+
+/// The manifest's first line, as the client writes it.
+fn manifest_head(schema: u32, finalized_height: u64, finalized_hash: B256) -> Vec<u8> {
+    json_line(&serde_json::json!({
+        "schema": schema,
+        "chain_id": 167001,
+        "finalized_height": finalized_height,
+        "finalized_hash": finalized_hash,
+    }))
+}
+
+/// U's largest value, 262,144, plus the inherited checkpoint just below the range: the longest
+/// manifest a client writes. Its JSON exceeds the 256 MiB a whole-file read used to allow.
+#[test]
+fn manifest_of_262145_headers_streams() {
+    const COUNT: u64 = 262_145;
+    let (first, fence) = (1_000_000, B256::repeat_byte(0x31));
+    let mut parent = fence;
+    let headers = (first..first + COUNT).map(move |number| {
+        let header = chain_header(number, parent);
+        parent = header.hash_slow();
+        json_line(&header)
+    });
+    let mut reader =
+        GeneratedLines::new(std::iter::once(manifest_head(2, first - 1, fence)).chain(headers));
+    let manifest = super::HeaderManifest::read(&mut reader).unwrap();
+    assert!(reader.get_ref().produced > 256 << 20, "{} bytes", reader.get_ref().produced);
+    let terminal = manifest.headers.last().unwrap();
+    let trust = super::ElTrust {
+        chain_id: 167001,
+        genesis_hash: B256::repeat_byte(0x14),
+        terminal_hash: terminal.hash_slow(),
+        state_root: terminal.state_root,
+    };
+    let verified = manifest.verify(&trust).unwrap();
+    assert_eq!(verified.headers().len() as u64, COUNT);
+    assert_eq!(verified.finalized(), (first - 1, fence));
+    assert_eq!(verified.terminal().number, first + COUNT - 1);
+}
+
+/// One header beyond the longest range is refused while streaming, before it is decoded, and a
+/// manifest built in memory with that many headers fails the verifier's length limit.
+#[test]
+fn header_262146_is_refused() {
+    const COUNT: usize = 262_146;
+    let line = json_line(&chain_header(7, B256::repeat_byte(0x31)));
+    let lines = std::iter::once(manifest_head(2, 6, B256::repeat_byte(0x31)))
+        .chain(std::iter::repeat_n(line, COUNT));
+    let result = super::HeaderManifest::read(GeneratedLines::new(lines));
+    assert!(matches!(&result, Err(ImportError::Invalid(m)) if m.contains("262,145")), "{result:?}");
+    let (mut manifest, trust) = header_manifest();
+    let header = manifest.headers[0].clone();
+    manifest.headers = vec![header; COUNT];
+    let result = manifest.verify(&trust);
+    assert!(matches!(&result, Err(ImportError::Invalid(m)) if m.contains("limits")));
+}
+
+/// The manifest is JSON Lines, read one bounded line at a time: an overlong line, a partial last
+/// line, unknown head fields and the earlier single-document schema are refused, and a written
+/// manifest reads back unchanged.
+#[test]
+fn manifest_lines_are_bounded_and_round_trip() {
+    let (manifest, trust) = header_manifest();
+    let mut bytes = Vec::new();
+    manifest.write(&mut bytes).unwrap();
+    assert_eq!(bytes.iter().filter(|b| **b == b'\n').count(), manifest.headers.len() + 1);
+    let read = super::HeaderManifest::read(bytes.as_slice()).unwrap();
+    assert_eq!(read.headers, manifest.headers);
+    assert_eq!(read.verify(&trust).unwrap().finalized(), (610, manifest.finalized_hash));
+
+    let partial = &bytes[..bytes.len() - 1];
+    assert!(super::HeaderManifest::read(partial).is_err(), "a partial last line is refused");
+    let mut long = manifest_head(2, 610, manifest.finalized_hash);
+    long.extend(json_line(&serde_json::json!({ "pad": "x".repeat(64 * 1024) })));
+    assert!(super::HeaderManifest::read(long.as_slice()).is_err(), "an overlong line is refused");
+    let document = json_line(&serde_json::json!({
+        "schema": 2, "chain_id": 167001, "finalized_height": 610,
+        "finalized_hash": manifest.finalized_hash, "headers": [],
+    }));
+    assert!(super::HeaderManifest::read(document.as_slice()).is_err(), "one JSON document");
+    let mut old = manifest_head(1, 610, manifest.finalized_hash);
+    old.extend(bytes.splitn(2, |b| *b == b'\n').nth(1).unwrap());
+    assert!(super::HeaderManifest::read(old.as_slice()).is_err(), "schema 1 is refused");
+    let mut schema_one = manifest;
+    schema_one.schema = 1;
+    assert!(schema_one.verify(&trust).is_err(), "schema 1 is refused");
 }
 
 #[test]

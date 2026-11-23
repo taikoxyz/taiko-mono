@@ -11,6 +11,11 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST = "test_utils::consensus_mpt::import_resources::signed_checkpoint_resource_phase"
+# The unsettled limits U measured: the devnet's, and the largest U allows. Each profile's window
+# holds U frames and its EL installs the U + 1 headers q = s - U through s.
+UNSETTLED_LIMITS = (151_200, 262_144)
+# The checkpoints s measured at each U: two settled prefix lengths below the window.
+HEIGHTS = (400_008, 800_016)
 
 
 def disk(root):
@@ -71,12 +76,12 @@ def binary():
                 if row.get("target", {}).get("name") == "lander" and row.get("executable"))
 
 
-def profile(directory, executable, helper, height, period):
+def profile(directory, executable, helper, unsettled, height, period):
     directory = directory.resolve()
     (directory / "spool").mkdir()
-    print(f"height={height} period={period} fixture={directory}", flush=True)
+    print(f"unsettled={unsettled} height={height} period={period} fixture={directory}", flush=True)
     env = dict(os.environ, ETNA_RESOURCE_DIR=str(directory), ETNA_RESOURCE_HEIGHT=str(height),
-               ETNA_RESOURCE_PERIOD=str(period))
+               ETNA_RESOURCE_PERIOD=str(period), ETNA_RESOURCE_UNSETTLED_LIMIT=str(unsettled))
     for phase in ("generate", "verify", "boundary-failures"):
         measure(phase, [executable, TEST, "--exact", "--ignored", "--nocapture"],
                 directory, dict(env, ETNA_RESOURCE_PHASE=phase))
@@ -93,17 +98,17 @@ def profile(directory, executable, helper, height, period):
     source_digest = file_digest(source / "db/mdbx.dat")
     receipt = json.loads(measure("el-install", [el_helper, "install", "--source", source,
         "--datadir", el, "--chain", directory / "el-genesis.json",
-        "--manifest", directory / "headers.json", "--chain-id", "167001",
+        "--manifest", directory / "headers.jsonl", "--chain-id", "167001",
         "--trusted-el-hash", v["el_hash"], "--trusted-state-root", v["state_root"],
         "--trusted-genesis-hash", v["genesis_hash"], "--scratch-parent", directory / "spool"],
         directory, env))
-    assert receipt["header_count"] == 65_533 and receipt["first_header"] == v["terminal_q"]
+    assert receipt["header_count"] == unsettled + 1 and receipt["first_header"] == v["terminal_q"]
     assert receipt["finalized_hash"] == v["finalized_hash"] and receipt["block_hash"] == v["el_hash"]
     assert receipt["height"] == height and receipt["state_root"] == v["state_root"]
     assert file_digest(source / "db/mdbx.dat") == source_digest
     print("el_installed", json.dumps(dict(whole_el_bytes=disk(el),
           static_file_bytes=disk(el / "static_files"),
-          manifest_bytes=(directory / "headers.json").stat().st_size)), flush=True)
+          manifest_bytes=(directory / "headers.jsonl").stat().st_size)), flush=True)
     # Rust authentication wrote the stock dir from exactly the frames it verified. The install
     # reopens the stores it wrote for its own read-back checks before it reports.
     stock = directory / "stock"
@@ -115,7 +120,7 @@ def profile(directory, executable, helper, height, period):
     assert r["block_id"]["hash"].removeprefix("0x").lower() == v["comet_hash"][2:]
     assert r["block_id"]["parts"]["total"] == v["part_total"]
     assert r["block_id"]["parts"]["hash"].removeprefix("0x").lower() == v["part_hash"].lower()
-    print("profile", json.dumps(dict(s=height, period=period, frames=v["frames"],
+    print("profile", json.dumps(dict(u=unsettled, s=height, period=period, frames=v["frames"],
           el_prefix_headers=v["el_prefix_headers"], terminal_q=v["terminal_q"],
           l1_calls=v["l1_calls"], blocks_bytes=(directory/"blocks.jsonl").stat().st_size,
           stock_bytes=disk(stock), installed_bytes=disk(installed),
@@ -137,12 +142,13 @@ def main():
         raise SystemExit("build the pinned helper with script/build_etna_signer.sh")
     print("verifier_sha256", file_digest(exe),
           "stock_sha256", file_digest(helper), flush=True)
-    for period in (4, 1):
-        calls = []
-        for height in (200_004, 400_008):
-            with tempfile.TemporaryDirectory(prefix="etna-signed-window-") as temp:
-                calls.append(profile(Path(temp), exe, helper, height, period))
-        assert calls[0] == calls[1], "a longer prefix added own-L1 requests"
+    for unsettled in UNSETTLED_LIMITS:
+        for period in (4, 1):
+            calls = []
+            for height in HEIGHTS:
+                with tempfile.TemporaryDirectory(prefix="etna-signed-window-") as temp:
+                    calls.append(profile(Path(temp), exe, helper, unsettled, height, period))
+            assert calls[0] == calls[1], "a longer prefix added own-L1 requests"
 
 
 if __name__ == "__main__":

@@ -18,18 +18,26 @@ use std::{
     sync::Mutex,
 };
 
-const U: u64 = 65_532;
+/// The unsettled limits U the profiles measure: the devnet's, and the largest U allows.
+const UNSETTLED_LIMITS: [u64; 2] = [151_200, 262_144];
+/// The checkpoints s each U is measured at: two settled prefix lengths below the window.
+const HEIGHTS: [u64; 2] = [400_008, 800_016];
 
-/// The frame count s − w of the shortest window DATA-5.4-2 allows here, with block `h` at
+/// The frame count s − w of the shortest window the import allows here, with block `h` at
 /// `100 + period · h` s. Block s − U + 1 carries the latest anchor witness, so the window
-/// reaches it and w = s − U. START-10-21's evidence limits (16 blocks, 3 min) reach back less
-/// far: the newest expired height is s − 46 at 4 s per block and s − 181 at 1 s.
-fn window(s: u64, period: u64) -> u64 {
+/// reaches it and w = s − U. The stock evidence limits (16 blocks, 3 min) reach back less far:
+/// the newest expired height is s − 46 at 4 s per block and s − 181 at 1 s.
+fn window(s: u64, period: u64, u: u64) -> u64 {
     let time =
         |h: u64| tendermint::Time::from_unix_timestamp((100 + period * h) as i64, 0).unwrap();
     let evidence = (1..=s).find(|n| evidence_expired(s, time(s), s - n, time(s - n))).unwrap();
-    assert!(evidence < U, "the evidence limits, not the latest anchor, bound the window");
-    U
+    assert!(evidence < u, "the evidence limits, not the latest anchor, bound the window");
+    u
+}
+
+/// The deployment parameters of a profile at unsettled limit `u`.
+fn profile_parameters(u: u64) -> ChainParams {
+    ChainParams { unsettled_limit: u, ..parameters() }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -91,6 +99,25 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> T {
     serde_json::from_reader(BufReader::new(File::open(path).unwrap())).unwrap()
 }
 
+/// Append each of `values` to `out` as one JSON line.
+fn write_lines<T: Serialize>(out: &mut impl Write, values: impl IntoIterator<Item = T>) {
+    for value in values {
+        serde_json::to_writer(&mut *out, &value).unwrap();
+        out.write_all(b"\n").unwrap();
+    }
+}
+
+/// The package in `dir`: `package.json` and its streamed `execution_headers.jsonl`.
+fn read_package(dir: &Path) -> ImportPackage {
+    let mut package: ImportPackage = read_json(&dir.join("package.json"));
+    package.execution_headers =
+        BufReader::new(File::open(dir.join("execution_headers.jsonl")).unwrap())
+            .lines()
+            .map(|line| serde_json::from_str(&line.unwrap()).unwrap())
+            .collect();
+    package
+}
+
 // Build one real MPT observation and connect its header to the preceding observation.
 fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> AnchorState {
     let queue = Queue { head: 0, tail: 0, entries: vec![] };
@@ -125,12 +152,13 @@ fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> 
     a
 }
 
-async fn generate(dir: &Path, s: u64, period: u64) {
-    let w = s - window(s, period);
+async fn generate(dir: &Path, s: u64, period: u64, u: u64) {
+    let w = s - window(s, period, u);
     let q0 = w - 1;
-    let terminal_q = s - U;
-    let mut fx = Fixture::with_epoch(0, 0, 0, 600_000);
-    fx.params.unsettled_limit = U;
+    let terminal_q = s - u;
+    // One origin fallback key, seed 1, signs every block of the generation.
+    let mut fx = Fixture::with_origin_keys(0, 0, 1);
+    fx.params.unsettled_limit = u;
     // This synthetic window binds a locally materializable terminal account state. It measures
     // actual MDBX verification and sparse indexes without executing the source prefix.
     let original = test_harness::EtnaGenesis::build().unwrap();
@@ -303,6 +331,10 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     observe(&mut fx, a.number + 1, time(s), (s, parent.hash, comet));
     frames.flush().unwrap();
     write_json(&dir.join("package.json"), &pkg);
+    let mut headers =
+        BufWriter::new(File::create_new(dir.join("execution_headers.jsonl")).unwrap());
+    write_lines(&mut headers, &pkg.execution_headers);
+    headers.flush().unwrap();
     write_json(
         &dir.join("own-l1.json"),
         &OwnFinality {
@@ -313,21 +345,21 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     );
 }
 
-/// The EL helper's header manifest (`etna-el-import install --manifest`).
+/// The first line of the EL helper's header manifest (`etna-el-import install --manifest`);
+/// one header per line follows it.
 #[derive(Serialize)]
-struct HeaderManifest<'a> {
+struct ManifestHead {
     schema: u32,
     chain_id: u64,
     finalized_height: u64,
     finalized_hash: B256,
-    headers: &'a [Header],
 }
 
-async fn verify(dir: &Path, s: u64, period: u64) {
+async fn verify(dir: &Path, s: u64, period: u64, u: u64) {
     let own: OwnFinality = read_json(&dir.join("own-l1.json"));
-    let params = parameters();
-    let pkg: ImportPackage = read_json(&dir.join("package.json"));
-    let w = s - window(s, period);
+    let params = profile_parameters(u);
+    let pkg = read_package(dir);
+    let w = s - window(s, period, u);
     assert_eq!(pkg.execution_headers.len(), 1);
     assert_eq!(pkg.execution_headers[0].number, w);
     // As `abci-import import` does, the one authentication pass writes the stock dir's frames
@@ -352,7 +384,8 @@ async fn verify(dir: &Path, s: u64, period: u64) {
     assert_eq!(count, s - w);
     assert_eq!(v.first_height(), Some(w + 1));
     let headers = v.execution_headers();
-    assert_eq!(headers.first().unwrap().number, s - U);
+    assert_eq!(headers.first().unwrap().number, s - u);
+    assert_eq!(headers.len() as u64, u + 1);
     assert_eq!(headers.first().unwrap().hash_slow(), v.state().anchor.inbox.last_checkpoint_hash);
     assert_eq!(headers.last().unwrap().hash_slow(), v.landing().el_hash);
     assert!(
@@ -369,14 +402,16 @@ async fn verify(dir: &Path, s: u64, period: u64) {
     // so nothing below the window is read.
     assert!(calls.iter().any(|(tag, n, _)| tag == "canonical" && *n == 12));
     assert!(!calls.iter().any(|(_, n, _)| *n == 11));
-    let manifest = HeaderManifest {
-        schema: 1,
+    let head = ManifestHead {
+        schema: 2,
         chain_id: params.l2_chain_id,
-        finalized_height: s - U,
+        finalized_height: s - u,
         finalized_hash: headers[0].hash_slow(),
-        headers,
     };
-    write_json(&dir.join("headers.json"), &manifest);
+    let mut manifest = BufWriter::new(File::create_new(dir.join("headers.jsonl")).unwrap());
+    write_lines(&mut manifest, [head]);
+    write_lines(&mut manifest, headers);
+    manifest.flush().unwrap();
     let parts = v.block_id().unwrap().part_set_header;
     write_json(
         &dir.join("verified.json"),
@@ -394,16 +429,17 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "l1_calls": calls.len(),
             "frames": count,
             "el_prefix_headers": 1,
-            "terminal_q": s-U,
+            "terminal_q": s-u,
         }),
     );
 }
 
 /// Both failures are decidable at w+1. A verifier reading ahead would panic.
-async fn boundary_failures(dir: &Path) {
+async fn boundary_failures(dir: &Path, u: u64) {
     use crate::checkpoint_import::ImportError;
     let own: OwnFinality = read_json(&dir.join("own-l1.json"));
-    let pkg: ImportPackage = read_json(&dir.join("package.json"));
+    let params = profile_parameters(u);
+    let pkg = read_package(dir);
     let line = BufReader::new(File::open(dir.join("blocks.jsonl")).unwrap())
         .lines()
         .next()
@@ -416,13 +452,13 @@ async fn boundary_failures(dir: &Path) {
     };
     let mut missing = pkg.clone();
     missing.boundary_header = None;
-    assert!(matches!(authenticate_import(&missing,input(),&parameters(),&own).await,
+    assert!(matches!(authenticate_import(&missing,input(),&params,&own).await,
         Err(ImportError::Unavailable(message)) if message.contains("predecessor header")));
     let mut wrong = pkg;
     wrong.execution_headers[0].state_root = B256::ZERO;
     // The prefix hash can be rejected before the ordinary AppHash check. Its
     // category and bounded read are the contract, rather than diagnostic wording.
-    let result = authenticate_import(&wrong, input(), &parameters(), &own).await;
+    let result = authenticate_import(&wrong, input(), &params, &own).await;
     assert!(matches!(result, Err(ImportError::Candidate(_))), "{result:?}");
 }
 
@@ -432,11 +468,12 @@ async fn signed_checkpoint_resource_phase() {
     let dir = std::env::var_os("ETNA_RESOURCE_DIR").unwrap();
     let s: u64 = std::env::var("ETNA_RESOURCE_HEIGHT").unwrap().parse().unwrap();
     let period: u64 = std::env::var("ETNA_RESOURCE_PERIOD").unwrap().parse().unwrap();
-    assert!([200_004, 400_008].contains(&s) && [1, 4].contains(&period));
+    let u: u64 = std::env::var("ETNA_RESOURCE_UNSETTLED_LIMIT").unwrap().parse().unwrap();
+    assert!(HEIGHTS.contains(&s) && [1, 4].contains(&period) && UNSETTLED_LIMITS.contains(&u));
     match std::env::var("ETNA_RESOURCE_PHASE").unwrap().as_str() {
-        "generate" => generate(Path::new(&dir), s, period).await,
-        "verify" => verify(Path::new(&dir), s, period).await,
-        "boundary-failures" => boundary_failures(Path::new(&dir)).await,
+        "generate" => generate(Path::new(&dir), s, period, u).await,
+        "verify" => verify(Path::new(&dir), s, period, u).await,
+        "boundary-failures" => boundary_failures(Path::new(&dir), u).await,
         _ => panic!("unknown resource phase"),
     }
 }

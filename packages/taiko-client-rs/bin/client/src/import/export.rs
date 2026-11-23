@@ -228,6 +228,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     let mut package = create(&stage.path().join("package.json"))?;
     let bytes = serde_json::to_vec(&meta).map_err(|e| bad(format!("package metadata: {e}")))?;
     package.write_all(&bytes).and_then(|()| package.sync_all()).map_err(io)?;
+    package::write_headers(stage.path(), &meta.execution_headers)?;
     // The same authentication `import` runs, before anything is published.
     let verified = package::verify(stage.path(), &params, &l1, None).await?;
     if let Some(stock) = stock {

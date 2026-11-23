@@ -8,7 +8,7 @@
 //! - `ROOT/import.lock`: the one flock. `import` holds it and its helper children inherit it.
 //! - `ROOT/halted.json`: the Safety latch, the serialized [`ImportError`].
 //! - `ROOT/stage/`: the private 0700 working tree (`ready/{app,comet,el}`, `stock/`,
-//!   `headers.json`, `scratch/`).
+//!   `headers.jsonl`, `scratch/`).
 //! - `ROOT/ready/{app,comet,el}`: published by one `rename(stage/ready, ROOT/ready)`.
 //!
 //! Publication makes ROOT and `ready` traverse-only ([`TRAVERSE_ONLY`]), so stock Comet can run as
@@ -105,7 +105,8 @@ fn own_l1(url: Url) -> OwnL1 {
 /// The local inputs of one import. None of them may lie inside ROOT.
 #[derive(clap::Args, Clone, Debug)]
 pub struct Inputs {
-    /// Package directory holding `package.json` and `blocks.jsonl` (from `export`).
+    /// Package directory holding `package.json`, `execution_headers.jsonl` and `blocks.jsonl`
+    /// (from `export`).
     #[arg(long)]
     pub package: PathBuf,
     /// A stopped EL datadir holding the state at the checkpoint. No alethia-reth may run on it
@@ -420,6 +421,18 @@ fn create(path: &Path) -> R<File> {
 /// Create a new private file holding `bytes`.
 fn write_new(path: &Path, bytes: &[u8]) -> R<()> {
     create(path)?.write_all(bytes).map_err(io)
+}
+
+/// Append each of `values` to `out` as one JSON line.
+fn write_lines<T: serde::Serialize>(
+    out: &mut impl Write,
+    values: impl IntoIterator<Item = T>,
+) -> R<()> {
+    for value in values {
+        serde_json::to_writer(&mut *out, &value).map_err(|e| bad(format!("JSON line: {e}")))?;
+        out.write_all(b"\n").map_err(io)?;
+    }
+    Ok(())
 }
 
 /// Durably create `path` holding `bytes` through a fsynced temporary file and its directory. An
