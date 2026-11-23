@@ -10,9 +10,20 @@ when the Etna start S is above 0, see the [Unzen to Etna handoff](unzen-etna-han
 crash after CometBFT saved the first block and before it saved that block's state leaves the
 block store at `initial_height` and the state at 0, and the handshake panics with
 `StoreBlockHeight (<initial_height>) > StateBlockHeight + 1 (1)` whatever the app reports. The block was decided: more than 2/3 of the
-first committee precommitted it. Never wipe the stores and let the committee propose again, and
-never start fresh rounds to replace it (vector 9.t); keep the signers of affected validators
-fenced until a recovered node holds that exact block.
+generation's genesis validators precommitted it. They are the keys of the fallback key list whose
+hash the generation's origin record holds, each at power 1, and they sign the generation's first
+two blocks whatever the staking candidate is. Never wipe the stores and let the validators propose
+again, and never start fresh rounds to replace it (vector 9.t); keep the signers of affected
+validators fenced until a recovered node holds that exact block.
+
+The repair does not depend on which keys sign: it reads the validator set from the home's
+genesis and checks the block's commit against it. Nor does it read the validator updates in the
+app's FinalizeBlock response for the first block, which can carry some: when the candidate in the
+first block's post-state is usable, that candidate signs the generation's third block, and the
+response lists the changes from the genesis validators to it. The repair compares a new result
+with the response the state store kept, if any, byte for byte and leaves stock code to apply it,
+so the node's state names the same validators for the second and third blocks as on the nodes
+that never crashed.
 
 `etna-comet-import repair-first-block` installs it. It is the offline store tool CONS-3.1-1
 permits: it links the pinned CometBFT module, runs with CometBFT stopped and the signer fenced,
@@ -41,7 +52,7 @@ never runs consensus or signs, and the official executable starts only on the re
    `data/`. It copies `data/` to `--backup` and syncs the copy. It reads the first block and its
    seen commit from the block store and checks them against the home's fixed genesis: the
    chain_id and height, an empty evidence list, and a commit holding more than 2/3 of the
-   genesis committee's power for the block's full BlockID (block hash and part set). If the
+   genesis validators' power for the block's full BlockID (block hash and part set). If the
    stored seen commit does not certify the block, it stops unless `--peer-export` holds the same
    block with a commit that does (see [Committee-wide crash](#committee-wide-crash)). It then
    asks the app for its committed boundary and, before it writes anything, refuses an app at
@@ -53,9 +64,10 @@ never runs consensus or signs, and the official executable starts only on the re
    check used `initial_height`: with the app at 0, InitChain from the genesis and stock
    `ApplyBlock`, so the app runs FinalizeBlock and Commit and executes the block on its EL; with
    the app already at the first height, stock's replay of the kept response. If the state store
-   kept a response, a new FinalizeBlock result must equal it. Stock code saves the response and
-   the state; the WAL stays as it is. It finally reads back the state, the block store (the
-   block and a seen commit that certifies it) and the app's Info at the first height, and prints
+   kept a response, a new FinalizeBlock result must equal it byte for byte, validator updates
+   included. Stock code saves the response and the state; the WAL stays as it is. It finally
+   reads back the state, the block store (the block and a seen commit that certifies it) and the
+   app's Info at the first height, and prints
    one JSON line naming the height, the BlockID, the app hash, `"source"` (`local`, `peer` or
    `peer_commit`), `"applied"` (`executed`, `replayed` or `already_repaired`), the backup and the
    new store instance ID (empty when the run changed nothing).
@@ -87,23 +99,26 @@ etna-comet-import export-first-block --home /var/lib/etna/comet-g1 > first-block
 ```
 
 The export is one `blocks.jsonl` line (the original block, its own-height commit, the genesis
-keys and powers), and only a block the genesis committee certified is exported. Give the same
+keys and powers), and only a block the genesis validators certified is exported. Give the same
 file to every affected node. A node whose block store is empty installs exactly that block with
 `repair-first-block ... --peer-export first-block.json`. A node that holds a block may pass the
 export too: the repair refuses one that differs from its own (exit 2), and when the node's own
 seen commit does not certify its block, it installs the export's commit as the seen commit
-(`"source": "peer_commit"`). Restart the validators
-only after enough of them, with more than 2/3 of the power, hold the block and its state. If no node retained the block and a
+(`"source": "peer_commit"`). Restart the validators only after enough of them, with more than
+2/3 of the genesis validators' power, hold the block and its state: the genesis validators sign
+the second block too. If no node retained the block and a
 certificate for it, keep the signers fenced: the height cannot be decided again, and the
 chain proceeds only through another governance recovery (spec section 8).
 
 ## A single affected node
 
 A single affected node may instead move its stores aside and catch up with signing disabled
-while the rest of the committee keeps committing: install a fresh home and app directory for
+while the other validators keep committing: install a fresh home and app directory for
 the same generation and genesis, as for a new full node, and let it block-sync from that genesis
 through the first block and beyond, or import an authenticated 5.4 checkpoint on the decided
-chain ([checkpoint import](checkpoint-import.md)). Either is a rebuilt store: the signer
+chain ([checkpoint import](checkpoint-import.md)). A checkpoint at the first block itself
+installs the validator state after it, the updates its FinalizeBlock returned included. Either
+is a rebuilt store: the signer
 stays fenced through the last height its key signed until the node has committed it
 (RECOV-8.2-2).
 

@@ -29,14 +29,30 @@ fn builder(f: Arc<Fixture>) -> BatchBuilder<Fixture, Fixture> {
 }
 
 /// The fallback key list generation two's origin record holds the hash of: the keys of the
-/// fixture's two signers, which sign every height of the generation, each at power 1. It is
-/// generation zero's origin list too.
+/// fixture's two signers, which sign the generation's first two heights and every later one
+/// whose candidate is not usable, each at power 1. It is generation zero's origin list too.
 pub(crate) fn origin_keys() -> abci::fallback::FallbackKeys {
     fallback_keys(&[1u8, 2].map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap()))
 }
 
-/// Retains generation-zero c=6 and starts generation two at c+1, using R=20.
+/// Retains generation-zero c=6 and starts generation two at c+1, using R=20. Every Inbox state
+/// of generation two proves a minimum total stake of 2^256 − 1, so the origin keys sign every
+/// height.
 pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
+    fixture_with_minimum(length, checkpoint, tip, U256::MAX).await
+}
+
+/// As [`fixture`], with every Inbox state of generation two proving the minimum total stake
+/// `minimum` beside the origin list's hash. The origin keys sign c + 1 and c + 2; from c + 1 on,
+/// each height decides the set that signs two above it from its [`staking_words`] candidate,
+/// which a minimum of at most 1007 makes usable at c + 1: FinalizeBlock(c + 1) then returns
+/// updates, and that candidate signs c + 3.
+pub(crate) async fn fixture_with_minimum(
+    length: u64,
+    checkpoint: u64,
+    tip: u64,
+    minimum: U256,
+) -> Fixture {
     let mut f = Fixture::with_epoch(6, 6, 0, length);
     let genesis = f.snapshot.genesis.clone();
     let genesis_witness = abci::GenesisWitness {
@@ -46,25 +62,26 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let old_el = f.headers[&6].clone();
     let old_comet = f.snapshot.checkpoint_comet_hash;
     let epoch = 6 / length;
-    // The origin keys, each at power 1, sign every height after c. The set takes every slot
-    // the fixture's committees are keyed by, so every committee the tests index is the set that
-    // signs the generation.
+    // The origin keys, each at power 1, sign c + 1 and c + 2, and every later height whose
+    // candidate is not usable. The set takes every slot the fixture's committees are keyed by,
+    // so every committee the tests index is the generation's genesis set.
     let keys = origin_keys();
     let origin_set = FixtureCommittee::fallback(&keys);
     for e in 0..=((tip + 1) / length).max(epoch + 2) {
         f.committees.insert(e, origin_set.clone());
     }
-    // Every anchor proves a minimum total stake of 2^256 − 1 and the origin list's hash, so
-    // the origin keys sign c + 1 and c + 2 and every set decided later.
-    for height in 7..=tip + 2 {
-        f.signing_sets.insert(height, origin_set.clone());
-    }
-    f.val_states = replay_val_states((6, &origin_set.members), tip);
+    // The new generation discards the old one's pending sets and starts on its genesis state.
+    f.signing_sets.insert(7, origin_set.clone());
+    f.signing_sets.insert(8, origin_set.clone());
+    f.val_states = BTreeMap::from([(6, ValState::genesis(6, &origin_set.members).unwrap())]);
     f.fallback_lists.insert(keys.hash(), keys.clone());
+    // The words of slots 278 and 279 every Inbox state of the generation holds.
+    let fallback = (keys.hash(), minimum);
     let state_at = |height: u64, hash: B256, comet: B256| {
-        let base = state_with_queue(
+        let base = state_with_words(
             &f.params,
             &f.origin_keys,
+            fallback,
             (height, hash, comet),
             &genesis,
             &Queue { head: 0, tail: 0, entries: vec![] },
@@ -98,8 +115,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let r_state = state_at(6, old_el.hash_slow(), old_comet);
     let r_header = l1_header(20, &r_state, B256::repeat_byte(19));
     let empty = Queue { head: 0, tail: 0, entries: vec![] };
-    let words = fallback_words(&f.origin_keys);
-    let mut r_anchor = anchor(&r_header, 6, old_el.hash_slow(), &empty, words);
+    let mut r_anchor = anchor(&r_header, 6, old_el.hash_slow(), &empty, fallback);
     r_anchor.inbox.recovery_generation = 2;
     let witness = abci::recovery::RecoveryWitness {
         version: abci::recovery::RECOVERY_WITNESS_VERSION,
@@ -114,10 +130,14 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     };
     let origin = abci::recovery::verify_recovery_witness(&witness, &f.params).unwrap();
     let next_header = l1_header(21, &r_state, r_header.hash());
-    let mut next_anchor = anchor(&next_header, 6, old_el.hash_slow(), &empty, words);
+    let mut next_anchor = anchor(&next_header, 6, old_el.hash_slow(), &empty, fallback);
     next_anchor.inbox.recovery_generation = 2;
     for height in 7..=tip {
-        f.l2_states.insert(height, l2_state(&f.params, staking_words(height, &keys)));
+        let words = staking_words(height, &keys);
+        let a = if height == 7 { &r_anchor } else { &next_anchor };
+        let values = words.iter().copied().collect();
+        decide_at(height, &values, a, &keys, &mut f.signing_sets, &mut f.val_states);
+        f.l2_states.insert(height, l2_state(&f.params, words));
     }
     let keys =
         vec![SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()];
@@ -175,13 +195,13 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             }),
             forced: None,
         };
-        let mut pair =
-            pair_with_envelope(envelope, &f.committees[&epoch], &keys, f.blocks.get(&(height - 1)));
+        let set = &f.signing_sets[&height];
+        let mut pair = pair_with_envelope(envelope, set, &keys, f.blocks.get(&(height - 1)));
         pair.block.header.chain_id = rules::chain_id_for(&f.params, 2).unwrap().parse().unwrap();
-        pair.block.header.next_validators_hash = f.committees[&epoch].validators.hash();
+        pair.block.header.next_validators_hash = f.signing_sets[&(height + 1)].validators.hash();
         // At c + 1 the parent state is generation two's genesis state (RECOV-8.4-7).
         pair.block.header.app_hash = app_hash(parent.hash_slow(), &f.val_states[&(height - 1)]);
-        super::super::consensus::resign(&mut pair, &f.committees[&epoch], &keys);
+        super::super::consensus::resign(&mut pair, set, &keys);
         f.blocks.insert(height, pair);
         f.headers.insert(height, el);
         f.anchors.insert(height, a.clone());

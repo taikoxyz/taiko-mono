@@ -178,7 +178,7 @@ pub struct Fixture {
     pub reference_bound: u64,
     /// The validator state after each height from the generation origin on, replayed
     /// independently of the lander: advanced at each height by the updates its 4.3 decision
-    /// returns ([`SigningPlan`]), or by none in the recovery fixture ([`replay_val_states`]).
+    /// returns ([`decide_at`]).
     pub val_states: BTreeMap<u64, ValState>,
     /// Answers that replace the replica's at their heights: `None` is a rejected query.
     pub val_state_answers: BTreeMap<u64, Option<Vec<u8>>>,
@@ -308,20 +308,32 @@ pub fn app_hash(block_hash: B256, state: &ValState) -> tendermint::AppHash {
     tendermint::AppHash::try_from(hash.to_vec()).unwrap()
 }
 
-/// The validator states after heights `origin..=tip`, replayed as abci's app keeps them when
-/// `initial` signs every height: the genesis state of `initial`, keys with their powers, at
-/// `origin`, then one advance per height by the empty update list each height then returns, as
-/// when every anchor proves a minimum total stake of 2^256 − 1 and the hash of the origin list.
-pub fn replay_val_states(
-    (origin, initial): (u64, &[(ConsensusKey, u64)]),
-    tip: u64,
-) -> BTreeMap<u64, ValState> {
-    let mut states = BTreeMap::from([(origin, ValState::genesis(origin, initial).unwrap())]);
-    for height in origin + 1..=tip {
-        let next = states[&(height - 1)].advance(&[]).unwrap();
-        states.insert(height, next);
-    }
-    states
+/// FinalizeBlock(`height`) in a fixture's independent replay: the set 4.3 decides at `height`
+/// from the candidate snapshot among `words`, the staking words of `height`'s post-state, and
+/// from `anchor`, `height`'s anchor, with `list` the fallback key list whose hash it proves. That
+/// set signs `height + 2`, and the validator state after `height` is the one after `height - 1`
+/// advanced by the updates that turn the set signing `height + 1` into it.
+fn decide_at(
+    height: u64,
+    words: &BTreeMap<B256, U256>,
+    anchor: &AnchorState,
+    list: &FallbackKeys,
+    signing_sets: &mut BTreeMap<u64, FixtureCommittee>,
+    val_states: &mut BTreeMap<u64, ValState>,
+) {
+    assert_eq!(list.hash(), anchor.inbox.fallback_keys_hash, "the list the anchor proves");
+    let snapshot =
+        abci::staking::snapshot_slots().map(|slot| words.get(&slot).copied().unwrap_or_default());
+    let decided = abci::committee::decide(
+        height,
+        &abci::staking::StakingWords::from_snapshot_values(&snapshot).unwrap(),
+        anchor.inbox.min_total_stake,
+        list,
+    );
+    let updates =
+        abci::committee::validator_updates(&signing_sets[&(height + 1)].members, &decided.members);
+    val_states.insert(height, val_states[&(height - 1)].advance(&updates).unwrap());
+    signing_sets.insert(height + 2, FixtureCommittee::new(decided.members));
 }
 
 fn l1_header(number: u64, state: &State, parent: B256) -> RawL1Header {
@@ -1142,23 +1154,15 @@ impl Fixture {
             // and the validator state after it.
             pair.block.header.app_hash = app_hash(parent.hash, &val_states[&(height - 1)]);
             super::consensus::resign(&mut pair, &signing_sets[&height], &keys);
-            // The set that signs height + 2, decided at height from its post-state's snapshot
-            // and its anchor, and the validator state FinalizeBlock(height) leaves.
-            let values = &staking_values[&height];
-            let snapshot = abci::staking::snapshot_slots()
-                .map(|slot| values.get(&slot).copied().unwrap_or_default());
-            let decided = abci::committee::decide(
+            // The set that signs height + 2 and the validator state FinalizeBlock(height) leaves.
+            decide_at(
                 height,
-                &abci::staking::StakingWords::from_snapshot_values(&snapshot).unwrap(),
-                a.inbox.min_total_stake,
+                &staking_values[&height],
+                &a,
                 &lists[&a.inbox.fallback_keys_hash],
+                &mut signing_sets,
+                &mut val_states,
             );
-            let updates = abci::committee::validator_updates(
-                &signing_sets[&(height + 1)].members,
-                &decided.members,
-            );
-            val_states.insert(height, val_states[&(height - 1)].advance(&updates).unwrap());
-            signing_sets.insert(height + 2, FixtureCommittee::new(decided.members));
             parent = ParentInfo {
                 number: height,
                 hash: el.hash_slow(),

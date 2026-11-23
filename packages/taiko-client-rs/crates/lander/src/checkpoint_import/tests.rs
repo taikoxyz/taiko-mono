@@ -589,6 +589,51 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
     }
 }
 
+/// A recovery generation starts on its origin record's fallback keys: the package's genesis
+/// holds exactly those keys, each at power 1, header(c + 1)'s `validators_hash` and
+/// `next_validators_hash` both commit them, and an import at s = c + 1 installs them as the set
+/// that signs s + 1. A genesis of another list is not the generation's.
+#[tokio::test]
+async fn recovery_package_uses_the_origin_list() {
+    let fx =
+        std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(8, 7, 7).await);
+    let origin = fx.snapshot.recovery.clone().unwrap();
+    let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
+    assert_eq!(keys.hash(), origin.fallback_keys_hash);
+    let package = recovery_package(&fx, 7).await;
+    let genesis_validators = |list: &FallbackKeys| {
+        list.keys()
+            .iter()
+            .map(|key| abci::genesis::GenesisValidator::new(*key, 1))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(package.genesis.validators, genesis_validators(&keys));
+    let origin_set =
+        crate::committee::Validators::from_powers(&keys.validator_set()).unwrap().hash();
+    let header = &fx.blocks[&7].block.header;
+    assert_eq!(header.validators_hash, origin_set);
+    assert_eq!(header.next_validators_hash, origin_set);
+
+    let imported = import_with(&fx, 7, &package).await.unwrap();
+    let genesis = ValState::genesis(6, &keys.validator_set()).unwrap();
+    assert_eq!(imported.val_state_before(), Some(&genesis));
+    let state = imported.state();
+    assert_eq!(state.val_state, fx.val_states[&7]);
+    assert_eq!(powers(&state.val_state.current), keys.validator_set().into_iter().collect());
+
+    let other_key = crate::test_utils::consensus_mpt::seed_key(9);
+    let other = crate::test_utils::consensus::fallback_keys(&[other_key]);
+    let mut forged = package.clone();
+    forged.genesis.validators = genesis_validators(&other);
+    forged.genesis.app_hash =
+        abci::genesis::genesis_app_hash(6, origin.el_hash, &other.validator_set()).unwrap();
+    let result = import_with(&fx, 7, &forged).await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("origin record holds")),
+        "{result:?}"
+    );
+}
+
 #[tokio::test]
 async fn recovery_origin_and_later_import_preserve_r_floor_and_historical_anchor() {
     for length in [6, 7, 8] {
@@ -646,6 +691,36 @@ async fn origin_import_installs_the_verified_genesis_origin_state() {
     let parent = abci::recovery::recovery_parent(&history.witness);
     let origin = fixed.origin_state(package.genesis.chain_id.clone(), parent, history.anchor);
     assert_eq!(imported.state(), &origin.unwrap());
+}
+
+/// The fixed genesis alone gives an origin import its state, the sets of o + 1 and o + 2
+/// included: a package at o that also carries a staking proof or a fallback key list is an
+/// invalid candidate, at generation 0 and at a recovery origin.
+#[tokio::test]
+async fn origin_package_with_a_staking_proof_or_a_fallback_list_is_refused() {
+    let initial = std::sync::Arc::new(Fixture::new(0, 0));
+    let recovered =
+        std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 6).await);
+    for (fx, honest) in [
+        (&initial, import_package(&initial, 0).await),
+        (&recovered, recovery_package(&recovered, 6).await),
+    ] {
+        let origin = fx.snapshot.origin_height();
+        import_with(fx, origin, &honest).await.unwrap();
+        let witness = fx.package_staking_witness(origin);
+        let list = fx.package_fallback_keys(origin);
+        assert!(witness.is_some() && list.is_some(), "origin {origin}");
+        for package in [
+            ImportPackage { staking_witness: witness, ..honest.clone() },
+            ImportPackage { fallback_keys: list, ..honest.clone() },
+        ] {
+            let result = import_with(fx, origin, &package).await;
+            assert!(
+                matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("fixed-genesis")),
+                "origin {origin}: {result:?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -2322,4 +2397,65 @@ async fn import_at_the_first_block_after_the_origin_reports_the_origin_keys_for_
         )
     );
     assert_eq!(state.fallback_keys, BTreeMap::from([(keys.hash(), keys)]));
+}
+
+/// At s = c + 1 the origin record's fallback keys sign s + 1 whatever the candidate is: a
+/// validator state after c that header(s) commits with another set for s + 1 is an
+/// authenticated contradiction, and the import halts.
+#[tokio::test]
+async fn set_for_s_plus_1_other_than_the_origin_keys_at_the_first_block_halts() {
+    let mut fx = crate::test_utils::consensus_mpt::recovery::fixture(8, 7, 7).await;
+    let mut before = fx.val_states[&6].clone();
+    before.next.entries[0].power += 1;
+    commit_terminal(&mut fx, 7, &before, true);
+    let fx = std::sync::Arc::new(fx);
+    let package =
+        ImportPackage { validator_state: before.encode().into(), ..recovery_package(&fx, 7).await };
+    let result = import_with(&fx, 7, &package).await;
+    assert!(
+        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("origin record")),
+        "{result:?}"
+    );
+}
+
+/// Under a minimum total stake of 1000, which every height's candidate reaches, the candidate in
+/// c + 1's post-state, the origin keys at powers 1 and 2, is usable at c + 1: FinalizeBlock(c + 1)
+/// returns updates, and the candidate signs c + 3. An import at s = c + 1 applies them once over
+/// the genesis state; one at s = c + 2 keeps them, from the preimage whose set for c + 3 header(s)
+/// commits. Both reach the chain's state.
+#[tokio::test]
+async fn first_block_response_with_updates_is_kept() {
+    let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
+    let candidate = origin_members(&keys, 0);
+    let updates = abci::committee::validator_updates(&keys.validator_set(), &candidate);
+    assert!(!updates.is_empty());
+    for s in [7, 8] {
+        let fx = std::sync::Arc::new(
+            crate::test_utils::consensus_mpt::recovery::fixture_with_minimum(
+                8,
+                s,
+                s,
+                U256::from(1000),
+            )
+            .await,
+        );
+        assert_eq!(fx.val_states[&7], fx.val_states[&6].advance(&updates).unwrap());
+        assert_eq!(fx.signing_sets[&9].members, candidate);
+        let package = recovery_package(&fx, s).await;
+        let state = import_with(&fx, s, &package).await.unwrap().state().clone();
+        assert_eq!(state.val_state, fx.val_states[&s], "s = {s}");
+        let (current, signs_next) = if s == 7 {
+            (keys.validator_set(), SignerStatus::origin(&keys))
+        } else {
+            (candidate.clone(), imported_candidate(s, 1000, 2))
+        };
+        assert_eq!(powers(&state.val_state.current), current.into_iter().collect(), "s = {s}");
+        assert_eq!(powers(&state.val_state.next), candidate.iter().copied().collect(), "s = {s}");
+        assert_eq!(state.signers.next, signs_next, "s = {s}");
+        assert_eq!(
+            state.signers.after,
+            SignerStatus::candidate(s, U256::from(1000 + s), U256::from(1000), 2),
+            "s = {s}"
+        );
+    }
 }
