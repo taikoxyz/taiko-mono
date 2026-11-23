@@ -7881,3 +7881,8 @@ See [current stage report](L2_COMMITTEE_RECOVERY.md),
 Final independent/publication/exact-head CI receipts are maintained after the
 immutable commit in the monitor ledger.14runtimeWAITING/19historicalINCONCLUSIVE,
 full lifecycle, anchor lag, no-code/repair, fairness and implementation remain.
+
+
+## Source178 Free operational-view follow-up
+
+See [current evidence](L2_FREE_VIEW_REVIEW.md). Added a reviewed wrapper and exact12-class cover over byte-identical kernel6de. All12 nonempty class histories, fullcandidate,11 projection paths and6normal/6fault/6restored controls independently verified. Stronger monolithic45.060s and all12 class45s safety attempts INCONCLUSIVE; no Free safety or protocol-defect claim. Default516=old503+13named witnesses excludes all exploratory safety configs.817 regressions each360/f556 pass; independent whole-stage review and exact-head hosted/publication receipts are recorded separately in monitor ledger. Previous archived results, source classifications,14WAITING/19historicalINCONCLUSIVE remain unchanged.

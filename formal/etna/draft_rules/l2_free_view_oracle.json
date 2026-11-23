@@ -1,0 +1,44 @@
+{
+  "kernel": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+  "profile": "Free",
+  "bonds": ["a","b","c","d"],
+  "operational": {
+    "chain": ["height","generation","origin","originFallback","ledger","current","next","pending","cert"],
+    "ledger": ["balance","occupied","exitHeight","forfeited","misses","sink"],
+    "exitHeight": "zero stays zero, every positive becomes one",
+    "cert": ["generation","height","round","blockID","members","votes"],
+    "votes": "intersect the four stake atoms",
+    "checkpoint": ["present","height","ledger"],
+    "env": "complete"
+  },
+  "verdicts": ["TypeOK","PipelineSafe","SnapshotOrderSafe","QuorumSafe","RecoverySafe","LedgerSafe"],
+  "prefixes": {
+    "snap_effects": ["disabled","effects","land"],
+    "snap_revert": ["disabled","revert","land"],
+    "exit_early": ["exit_revert","revert","land","forfeit_revert"],
+    "exit_late": ["revert","exit_revert","land","forfeit_revert"],
+    "fallback_all": ["effects"],
+    "fallback_f0": ["omit_F0"],
+    "fallback_f1": ["omit_F1"],
+    "fallback_f2": ["omit_F2"],
+    "fallback_f3": ["omit_F3"],
+    "stake_all": ["effects","effects","effects","effects"],
+    "stake_less": ["effects","effects","omit_a","effects"]
+  },
+  "pairs": {
+    "snap_effects/snap_revert": {"same_phase":[2,3],"field":"chain.snapshot.height","values":[11,0],"saved_phase":3},
+    "exit_early/exit_late":{"same_phase":[2,3,4],"field":"chain.ledger.exitHeight[a]","values":[11,12],"saved_phases":[3,4],"forfeit_phase":4},
+    "fallback_all/fallback_f0..3":{"same_phase":[1],"field":"chain.cert.votes","values":"all F versus each distinct singleton omitted"},
+    "stake_all/stake_less":{"different_phase":[3,4],"field":"chain.cert.votes","values":"all stakes versus a omitted at 13","successor_misses_a":[0,1]}
+  },
+  "faults": {
+    "parent":{"prefix":[],"path":"chain.parentCert","before":"EmptyCert","after":"Certificate(0,10,Fallback,Fallback)","failure":"QuorumSafe"},
+    "snapshot":{"prefix":["disabled","effects"],"path":"chain.snapshot","before":"Snapshot(11,all four bonds)","after":"InitialSnapshot","failure":"SnapshotOrderSafe"},
+    "exit":{"prefix":["revert","exit_revert"],"path":"chain.ledger.exitHeight[a]","before":12,"after":11,"failure":"LedgerSafe"},
+    "votes":{"prefix":["effects"],"path":"chain.cert.votes","before":["F0","F1","F2","F3"],"after":["F1","F2","F3"],"failure":"QuorumSafe"},
+    "saved":{"prefix":["effects","land"],"path":"landed.state.snapshot","before":"Snapshot(11,all four bonds)","after":"InitialSnapshot","failure":"RecoverySafe"},
+    "stored":{"prefix":["effects","land","authorize","recover","revert"],"path":"chain.storedGeneration","before":0,"after":1,"failure":"SnapshotOrderSafe"}
+  },
+  "red":{"fault":"parent","graph":"Init, hidden fault, stutter; no phase in view","expected":"QuorumSafe","actual":"complete, one distinct, queue zero, missing violation"},
+  "restoration":"private deterministic prefix normal and restored complete, immutable bytes; full Free timeouts do not constitute a passing restoration"
+}

@@ -1,0 +1,20 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 54 and seed 1 with 1 worker on 8 cores with 462MB heap and 64MB offheap memory [pid: 320] (Linux 6.5.0-1019-oem amd64, Eclipse Adoptium 17.0.21 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/source/formal/etna/EtnaL2CommitteeFreeView.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/Sequences.tla
+Parsing file /tmp/source/formal/etna/EtnaL2CommitteeRecovery.tla
+Parsing file /tmp/TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module EtnaL2CommitteeRecovery
+Semantic processing of module EtnaL2CommitteeFreeView
+Starting... (2026-11-23 03:35:24)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-23 03:35:24.
+Progress(5) at 2026-11-23 03:35:27: 8,880 states generated (8,880 s/min), 1,330 distinct states found (1,330 ds/min), 1,192 states left on queue.
+
+CHECKER TIMEOUT

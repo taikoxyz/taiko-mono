@@ -1,0 +1,1 @@
+In the frozen oracle 6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31, the external input "authorize" denotes Authorize(TRUE).

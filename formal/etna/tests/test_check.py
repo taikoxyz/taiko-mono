@@ -173,7 +173,7 @@ class ConfigDirectoryTests(unittest.TestCase):
         self.assertEqual(result, 0)
         command = run.call_args.args[0]
         self.assertEqual(Path(command[command.index("-config") + 1]), CHECK.Path(CHECK.__file__).parent / "configs/baseline.cfg")
-        self.assertEqual(len(list((Path(CHECK.__file__).parent / "configs").glob("*.cfg"))), 503)
+        self.assertEqual(len(list((Path(CHECK.__file__).parent / "configs").glob("*.cfg"))), 516)
 
     def test_relative_custom_directory_resolves_before_subprocess_cwd(self):
         # A config-adjacent module must never shadow the local model.

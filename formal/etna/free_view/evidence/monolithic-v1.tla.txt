@@ -1,0 +1,47 @@
+-------------------- MODULE EtnaL2CommitteeFreeView --------------------
+EXTENDS Naturals
+
+CONSTANTS Profile, SymmetricBonds
+VARIABLES chain, landed, env, cursor, receipt
+vars == <<chain, landed, env, cursor, receipt>>
+
+K == INSTANCE EtnaL2CommitteeRecovery
+     WITH Profile <- Profile, SymmetricBonds <- SymmetricBonds,
+          chain <- chain, landed <- landed, env <- env,
+          cursor <- cursor, receipt <- receipt
+
+Init == K!Init
+Next == K!Next
+Spec == Init /\ [][Next]_vars
+
+TypeOK == K!TypeOK
+PipelineSafe == K!PipelineSafe
+SnapshotOrderSafe == K!SnapshotOrderSafe
+QuorumSafe == K!QuorumSafe
+RecoverySafe == K!RecoverySafe
+LedgerSafe == K!LedgerSafe
+NoCandidate == K!NoCandidate
+StakePermutations == K!StakePermutations
+
+CoreLedger(l) ==
+    [l EXCEPT !.exitHeight = [i \in DOMAIN l.exitHeight |->
+                                 IF l.exitHeight[i] = 0 THEN 0 ELSE 1]]
+
+CoreChain(s) ==
+    [height |-> s.height, generation |-> s.generation, origin |-> s.origin,
+     originFallback |-> s.originFallback, ledger |-> CoreLedger(s.ledger),
+     current |-> s.current, next |-> s.next, pending |-> s.pending,
+     cert |-> [s.cert EXCEPT !.votes = @ \cap K!StakeKeys]]
+
+CoreCheckpoint(cp) ==
+    [present |-> cp.present, height |-> cp.state.height,
+     ledger |-> CoreLedger(cp.state.ledger)]
+
+\* TLC evaluates each original predicate on the complete state and receipt.
+SafetyView ==
+    IF K!Free
+    THEN <<CoreChain(chain), CoreCheckpoint(landed), env,
+           <<TypeOK, PipelineSafe, SnapshotOrderSafe, QuorumSafe, RecoverySafe, LedgerSafe>>>>
+    ELSE vars
+
+========================================================================

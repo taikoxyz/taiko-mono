@@ -5,6 +5,21 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current Free operational-view stage
+
+[Evidence report](L2_FREE_VIEW_REVIEW.md) records the selected source178 stage.
+The original kernel and previous evidence remain unchanged.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| L2FV-1 projection and exact input cover | IMPLEMENTED; INDEPENDENT SOURCE REVIEW PASS | Actual wrapper and all 12 input classes reviewed; no transition copies or kernel edits. |
+| L2FV-2 actual exploration and controls | CHECKS EXECUTED; FREE SAFETY OPEN | Twelve nonempty class histories, full candidate, 11 projection paths and six normal/fault/restored controls independently read; all 12 safety classes timed out. |
+| L2FV-3 accumulated review/publication | LOCAL REGRESSIONS PASS; CLOSING RECEIPTS IN MONITOR | 817 checks each360/f556; draft publication and exact-head hosted artifact audit have separate post-commit receipts. |
+
+Default516 = previous503 + 13 named witnesses. The12 safety cases remain outside
+default CI, EXPECT PASS unchanged. No finite Free safety closure or full-protocol
+percentage increase follows from this stage.
+
 ## Current L2 committee and recovery TLA stage
 
 Direct user continuation now targets latest-source whole-protocol TLA/property
@@ -16,7 +31,7 @@ files are not evidence for source178's new L2 staking composition.
 | --- | --- | --- |
 | L2CR-1 source contract and literal histories | COMPLETE selected source scope | Independent corev2 oracle and reviewedv3 supplement, exact finite denomination/readiness;3Q/4Q oracle error and NoCode scope mismatch corrected with preserved evidence. |
 | L2CR-2 committee/halt/recovery TLA product | MODEL AND CONDITIONAL HISTORIES VERIFIED; FREE OPEN | Ten scheduled histories reached on corrected6de kernel, including budget-exhausted stale refusal. Free height14 remains OPEN after three pre-fix and one corrected45s timeout; defaults503 exclude it. |
-| L2CR-3 independent verification/publication | LOCAL GATES VERIFIED; POST-COMMIT RECEIPTS IN MONITOR | Real TLC outputs, raw literal-history readback, semantic faults/restorations, old-byte audit, full regressions/review and exact new-head publication/CI. |
+| L2CR-3 independent verification/publication | COMPLETE at03cdafc9 | Independent source/raw gates, full regressions and exact-head CI45033700419 official artifacts verified; Free safety remained OPEN. |
 
 [Stage report](L2_COMMITTEE_RECOVERY.md) keeps recovery without max, threshold-only
 stall, stale-snapshot delay after revert and suffix rollback as distinct required histories.
