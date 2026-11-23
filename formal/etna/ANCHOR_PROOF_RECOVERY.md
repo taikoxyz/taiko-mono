@@ -219,3 +219,14 @@ parameters remain outside the fresh recipe. Unrestricted composition,
 fair/temporal progress, actual proof construction and verification, deployed
 or implementation behavior, archive restoration, and resource bounds require
 separate evidence.
+
+
+## Post-publication CI follow-up
+
+The draft's automatic credential check at publication commit `3c5c1a4640b2`
+flagged 32 inventory entries. Each entry matches the SHA-256 of its referenced
+source file, verified against the historical Git blob and retained input bytes.
+Following the existing exact-match convention, the repair adds those 32
+commit/file/rule/line fingerprints to the ignore file. The cost is maintaining
+32 exclusions specific to that historical commit. New matches continue through
+the same rule. [CI run 45180879942](https://github.com/taikoxyz/taiko-mono/actions/runs/45180879942).

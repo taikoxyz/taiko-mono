@@ -30,3 +30,40 @@
 # matched to the retained contract manifest and compiled source bytes.
 # Only this historical commit/file/rule/line; no broader exemption.
 ee18ad8e1ebe2248bf901884409a73a8e7bbe0a0:formal/etna/conformance/registry_funding/pins.json:generic-api-key:79
+
+# Exact Etna anchor/proof/recovery false positives from CI run 45180879942.
+# Each recorded match is the SHA-256 of a source file in an evidence inventory.
+# Verified against the historical blobs and retained input bytes.
+# Only these 32 historical commit/file/rule/line fingerprints.
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:254
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:255
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:256
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:257
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:258
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:276
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:449
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:471
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:474
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:532
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:959
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:253
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:254
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:255
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:256
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:257
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:275
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:448
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:470
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:473
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:531
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:958
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:1150
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:1151
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6012
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6013
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6014
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6015
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6088
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6089
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6090
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6091
