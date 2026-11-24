@@ -182,7 +182,7 @@ latter at the staking address the configuration hash commits, read as
 only for development deployments; a real backend must verify this witness as well as the
 remaining private inputs.
 
-Lander journal schema 21 includes these witnesses (`start_staking_witness` for the staking
+Lander journal schema 22 includes these witnesses (`start_staking_witness` for the staking
 proxy). Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the

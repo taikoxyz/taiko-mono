@@ -75,7 +75,7 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It implements the Etna
-specification at `b01356ddc` (#22425 with #22428) and is aligned with the protocol revision
+specification at `9325677de` (#22425 with #22428) and is aligned with the protocol revision
 `0025465c33b1079bedb9f4ca336152dfaa8be7f8` (#22286; `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh`, the Inbox and the other pinned contract artifacts)
 and alethia-reth commit `7174fd0064c69fa75ce784b8ec13702fffa5d429` (#248). Start the EL and verify its block 0 before the Inbox
@@ -115,9 +115,9 @@ absent, and the app refuses to append to that segment, which stops the node. Rep
 importing a checkpoint into a fresh app directory ([checkpoint import](docs/checkpoint-import.md));
 do not delete, truncate or edit these files by hand: without them trust stays closed and the node
 cannot serve the state at a height to `abci-import export`, whose package at s carries the state
-after s − 1. `abci-state.json` (schema 22) also holds the fallback key lists the node keeps by
-hash (the committed anchor's and a recovery origin's), the set that signed the head
-(`parent_signers`) and where the sets of the next two heights come from (`signers`). `fatal-evidence.txt`
+after s − 1. `abci-state.json` (schema 23) also holds the fallback key lists the node keeps by
+hash (the committed anchor's and a recovery origin's) and where the sets of the next two heights
+come from (`signers`). `fatal-evidence.txt`
 survives restarts and records the first safety failure, such as an unknown-execution-state Engine
 error (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -199,8 +199,8 @@ implementation proofs at S for the proof backend. The supplied backend still emi
 real proving and switch deployment remain separate work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 22; lander journals use schema 21; checkpoint import
-packages use schema 3.
+separate work. App state uses schema 23; lander journals use schema 22; checkpoint import
+packages use schema 4.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -305,8 +305,7 @@ first landing is final in own L1, keep S's state and set a proof window of at le
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness pauses (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, a fallback key list the own L1 cannot serve
-(`fallback_keys_unavailable`), `EtnaStaking` words the own EL cannot serve
-(`el_state_unavailable`), a due forced inclusion event unavailable; spec section 8, Halts and
+(`fallback_keys_unavailable`), a due forced inclusion event unavailable; spec section 8, Halts and
 recovery) keep the process running and CometBFT rounding; the ABCI query `/status` reports the
 head, generation, where the next two signing sets come from and, as `halt_reason`, the cause of
 the current liveness pause. A superseded generation is
@@ -335,7 +334,7 @@ every height under the staking rules as nodes do (the origin fallback keys for a
 first two blocks, the sets of p and p + 1 from its Comet node's archived `/validators` checked
 against header(p), and each later set from the verified `EtnaStaking` proof of the deciding
 block's post-state and its anchor's `minTotalStake` and fallback key list), checks every block's
-validator hashes, commit and `missBitmap` against them, authenticates execution/FI rules, and
+validator hashes, LastCommit and commit against them, authenticates execution/FI rules, and
 submits `land(input, leaves, proof)` blob transactions. `DummyProofProvider` returns exactly `0x00`; use an explicitly compatible dummy
 verifier on a disposable devnet. This does not establish validity-proof soundness.
 
@@ -372,7 +371,7 @@ lander refuses to start with a batch cap above 2,275 blocks (set `--max-blocks` 
 unless the Inbox's `maxBatchBlocks` already lowers the cap), ends a batch's selection early when
 the next block's request bytes (its block and commit protobufs plus 48 KiB of staking reads and
 lists) would pass the budget, and refuses, before proving, a request that would journal beyond
-240 MiB. A 300-block worst-case request journals about 40 MB.
+240 MiB. A 300-block worst-case request journals about 27 MB.
 
 `--land-to HEIGHT` runs the lander once: it lands exactly one batch from the latest checkpoint p
 to HEIGHT, with the same selection, leaves and journal as any batch, and exits 0 once that
@@ -413,7 +412,7 @@ input and statement are spec section 6.1 (land). At startup and for each batch t
 the Inbox's `VERSION`, initialization, L2 chain id, configuration hash and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
 rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 21 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 22 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
@@ -519,8 +518,7 @@ satisfies `ceil(totalPower / 3) * vp_unit * P_REF / 10^18 >= C_CAP_MIN`. Only th
 of seated bonds counts. A candidate below `minTotalStake` does not sign and the fallback keys do,
 so launch needs no staked committee: the fallback keys sign S + 1 and S + 2 and every block whose
 candidate is not usable. Verify that the deployed `EtnaStaking` has the pinned `minStake`,
-`vp_unit`, `n_max`, `missLimit` and `missSlashBps` and that the configuration hash names its
-proxy. Concentration is monitored, not enforced: each bond and known common controller should
+`vp_unit` and `n_max` and that the configuration hash names its proxy. Concentration is monitored, not enforced: each bond and known common controller should
 stay strictly below one third of the signing set's power, and no party should hold one third or
 more of the fallback keys. `C_CAP_MIN` and `P_REF` are a launch gate, not a price oracle; only
 `minTotalStake` is on chain. Preserve the separate real-two-proof and resource acceptance
@@ -617,7 +615,7 @@ enough of them return or governance recovery replaces them.
    type = "nop"                          # user transactions travel over the EL's devp2p
 
    [consensus]
-   timeout_commit = "4s"                 # block cadence; at least the deployment manifest's floor
+   timeout_commit = "4s"                 # block cadence, for the ~4 s block-time target
 
    [p2p]
    persistent_peers = "<sentry id>@<host>:26656,…"   # the only nodes this validator dials
@@ -671,22 +669,11 @@ enough of them return or governance recovery replaces them.
    anyway, its consensus stops, and its block sync stalls, until it is restarted after its clock is
    corrected.
 
-   Every validator also sets `[consensus] timeout_commit`, the block cadence, no lower than the
-   floor the deployment manifest pins, `configuration["consensus.timeout_commit"].min` in
-   `comet-manifest.json` (`4s`, for the ~4 s block-time target); the supervisor refuses to start
-   a validator below it. On a validator the same setting is how long Comet waits for late
-   precommits after a block before the next height starts: a precommit it processes after that
-   counts as a miss, and a candidate member that misses `missLimit` consecutive blocks this way is
-   penalized like an offline one. Comet reads the value as a Go duration string (`"4s"`,
-   `"4000ms"`) or a bare integer in nanoseconds, and uses its stock `1s` when it is unset, which
-   the shipped floor refuses. Full nodes do not check the floor.
-
    These checks read the effective values: every spelling in `config.toml` (Viper folds key case
    and reads literal dotted keys), or the stock default when there is none, and every `CMT_*`
    override in the supervisor's environment, which Comet inherits, in both the `CMT_P2P_PEX` and
-   the copied `CMTP2P_PEX` spelling (`CMT_CONSENSUS_TIMEOUT_COMMIT` and
-   `CMTCONSENSUS_TIMEOUT_COMMIT` for the floor). Each candidate must pass, an override that cannot
-   be evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
+   the copied `CMTP2P_PEX` spelling. Each candidate must pass, an override that cannot be
+   evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
    `ETNA_COMET_HOME` and an explicit Comet argv (`ETNA_COMET_COMMAND_JSON`) that sets any of these
    settings, `db_dir`, `db_backend`, `node_key_file` or `priv_validator_laddr` by flag. Keep the
    values in `config.toml`. The supervisor reads `config.toml` and `genesis.json` again and repeats
@@ -774,9 +761,8 @@ committing those values to the Inbox.
    (CONS-3.1-1). [`comet-manifest.json`](comet-manifest.json), installed as
    `/app/comet-manifest.json`, is the deployment manifest: for each supported platform it names
    the upstream release artifact, the executable's digest, the source commit, the published build
-   recipe and flags, and the configuration the supervisor enforces, including the validators'
-   `timeout_commit` floor; a manifest of another schema than 2 is refused. On linux/amd64 the
-   image copies `/usr/bin/cometbft` from the official image
+   recipe and flags, and the configuration the supervisor enforces; a manifest of another schema
+   than 3 is refused. On linux/amd64 the image copies `/usr/bin/cometbft` from the official image
    `cometbft/cometbft:v0.40.0@sha256:0703fb88…` (platform manifest `sha256:53421974…`) and checks
    its sha256 `5fbb1bf5…`; the supervisor checks the digest again before every Comet start, since
    a reported version string alone does not identify the build (the official executable also
@@ -1128,13 +1114,12 @@ committing those values to the Inbox.
 
 - **Staking reads.** `FinalizeBlock(H)` reads the `EtnaStaking` candidate snapshot
   (`snapshotHeight` and `snapshotTotalStake`, then the 128 seat records when they can matter) from
-  H's post-state, after the forkchoice update that makes H the head, and the key-to-seat word of
-  each validator missing from a block's LastCommit from the parent's post-state. Each read is one
+  H's post-state, after the forkchoice update that makes H the head. Each read is one
   `eth_getStorageAt` batch on alethia-reth's `--l2.http` pinned to the exact block hash
-  (`{blockHash, requireCanonical: true}`), never a tag, so the EL must serve the state of its head
-  and the block below it. An EL error or an unknown block is a liveness pause
-  (`el_state_unavailable`); a malformed reply is a safety halt. A staking address that holds no
-  account reads as zero words, so the fallback keys sign.
+  (`{blockHash, requireCanonical: true}`), never a tag, so the EL must serve the state of its
+  head. An EL error or an unknown block makes `FinalizeBlock` wait and retry; a malformed reply is
+  a safety halt. A staking address that holds no account reads as zero words, so the fallback keys
+  sign.
 - Cold replay judges each decided block from its authenticated parent. Inclusion and ineligible-byte
   skips need no singleton build. A due eligible entry absent from position zero requires a
   historical singleton and therefore the parent's execution state. Landers need the same history
@@ -1177,11 +1162,11 @@ or under another parent context needs a suitable collection path.
 
 A future guest must bind the V1 statement, cut leaves, execution-only public payload, native
 certificates and the signing set of every height under the staking rules: the origin fallback
-keys, header(p) with the sets of p and p + 1, the `EtnaStaking` words of each deciding post-state,
-read through its execution witness, every fallback key list a decision used, and each block's
-`missBitmap`. The beneficiary is proposer-selected; full execution must establish its fee credit.
+keys, header(p) with the set of p + 1, the `EtnaStaking` words of each deciding post-state, read
+through its execution witness, and every fallback key list a decision used. The beneficiary is
+proposer-selected; full execution must establish its fee credit.
 Prove FI behavior and L1 reference ancestry. The lander's proof request carries these inputs
-(about 40 MB for a 300-block batch, up to the 240 MiB journal bound), so a proof service must
+(about 27 MB for a 300-block batch, up to the 240 MiB journal bound), so a proof service must
 accept requests of that size. No real guest is implemented; the dummy verifier cannot establish
 these claims, so this version is restricted to disposable development chains.
 
@@ -1197,12 +1182,11 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/README.md) hold
 257 historical model regressions regenerated from #22292 at `4f38cfcc8` and adapted by hand to
-the 29-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
+the 13-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
 documented height-bound divergence and establish no conformance to the latest Etna
-specification, and two client-owned families transcribed from the specification at
-`b01356ddc`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
-`missBitmap` derivation and signing-set decision. Staking contract vectors belong to the
-contract harness.
+specification, and one client-owned family transcribed from the specification at `9325677de`:
+`candidate` (25 vectors), which runs the client's signing-set decision. Staking contract vectors
+belong to the contract harness.
 
 - `just test-dev` prints and runs native tests and Docker scenarios selected from local changes.
   It includes staged, unstaged and untracked files. Pass a Git ref to include commits since its
@@ -1230,9 +1214,9 @@ contract harness.
   The test-harness devnets plant a `minTotalStake` of 2^256 − 1, and the contract-backed fixtures
   initialize the real Inbox with it, so their origin fallback keys sign every height unless a
   scenario lowers it. The staking scenarios do: they register bonds on the L2 `EtnaStaking`
-  predeploy from the harness genesis's premint and cover the candidate taking over, missed
-  signatures, exits, the maximum `minTotalStake`, both DAO recovery sequences, and landing and
-  checkpoint import across a switch.
+  predeploy from the harness genesis's premint and cover the candidate taking over, an offline
+  member keeping its seat, exits, the maximum `minTotalStake`, both DAO recovery sequences, and
+  landing and checkpoint import across a switch.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
