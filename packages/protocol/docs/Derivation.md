@@ -322,9 +322,8 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | `proposalId`         | uint48  | Bytes 1..6 in `extraData` (before Etna)                |
 | `generation`         | uint48  | Bytes 1..6 in `extraData` (Etna only)                  |
 | `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only)                 |
-| `missBitmap`         | uint128 | Bytes 13..28 in `extraData` (Etna only)                |
 
-For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 29 bytes as specified in [the Etna PoS + ZK spec, 3.2](./etna/SPEC.md#32-block-header): `[basefeeSharingPctg(1) | generation(6) | anchorBlockNumber(6) | missBitmap(16)]`, with `basefeeSharingPctg` always 100. Offsets are zero-based and inclusive. Every `uint48` field and the `uint128` `missBitmap` are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance. `missBitmap` is not proposal metadata: it is the value [SPEC.md 3.4](./etna/SPEC.md#34-block-validity) rule 6 gives, which considers only the validators of the set that signed the parent. For each of them that has no precommit for the parent block in the block's LastCommit, it sets the bit of the seat its key holds in the L2 staking contract's live key-to-seat mapping in the parent's post-state, if any, with seat s at bit s ([appendix A](./etna/SPEC.md#appendix-a-encodings)); every other bit is 0.
+For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes as specified in [the Etna PoS + ZK spec, 3.2](./etna/SPEC.md#32-block-header): `[basefeeSharingPctg(1) | generation(6) | anchorBlockNumber(6)]`, with `basefeeSharingPctg` always 100. Offsets are zero-based and inclusive. Every `uint48` field is big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
 
 For Etna, `metadata.generation` is the authenticated recovery generation of the current CometBFT chain. The anchor witness proves the Inbox's `recoveryGeneration` under [SPEC.md 3.3](./etna/SPEC.md#33-anchor); an inherited anchor retains its authenticated state. [SPEC.md 3.4](./etna/SPEC.md#34-block-validity) checks the header's generation against both that state and the CometBFT `chain_id`. Governance recovery establishes a new chain generation under [SPEC.md 8.4](./etna/SPEC.md#84-fixed-origin-and-genesis-of-a-new-generation), rather than inheriting the old generation from the parent header. This field does not come from `proposalId` or a `Proposed` payload.
 
@@ -388,7 +387,7 @@ Etna replaces the anchor transaction with header commitments to the L1 anchor bl
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
-- In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 29-byte layout.
+- In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 13-byte layout.
 - A block that keeps its parent's anchor carries the parent's number and root. The first Etna block always carries an anchor witness ([the Etna PoS + ZK spec, 3.3](./etna/SPEC.md#33-anchor)), so no Etna block inherits an anchor from an Unzen parent; on a new network the L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
 
 ## L1 Proof and Liveness Bond Settlement
