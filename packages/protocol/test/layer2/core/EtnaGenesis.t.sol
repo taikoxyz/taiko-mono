@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 import { Test } from "forge-std/src/Test.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @dev Tests the alloc-only Etna genesis builder and its canonical system bytecode in a local
 /// EVM. Execution-client fork activation and block-0 commitments require separate integration
@@ -64,14 +64,15 @@ contract EtnaGenesisTest is Test {
     }
 
     /// @dev Vector 5.aa: on a new network the genesis block makes no EIP-4788 call and every later
-    /// block is an Etna block, whose call records its anchor's state root. The L2 SignalService has
-    /// `usesBeaconRoots` true, so with the installed EIP-4788 contract it accepts a checkpoint in
-    /// none of them, and fails closed in a block whose engine skipped the write.
+    /// block is an Etna block, whose call records its anchor's state root. The L2 SignalService is
+    /// the `EtnaSignalService` with `usesBeaconRoots` true, so with the installed EIP-4788 contract
+    /// it accepts a checkpoint in none of them, and fails closed in a block whose engine skipped
+    /// the write.
     function test_systemContracts_CloseTheSignalServiceCheckpointsAfterGenesis() external {
         _build();
         address anchor = makeAddr("anchor");
-        SignalService signalService =
-            new SignalService(anchor, makeAddr("l1SignalService"), address(0), true);
+        EtnaSignalService signalService =
+            new EtnaSignalService(anchor, makeAddr("l1SignalService"), address(0), true);
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
         });
@@ -81,13 +82,13 @@ contract EtnaGenesisTest is Test {
         (bool ok,) = _ROOTS.call(abi.encode(bytes32(uint256(0xabc))));
         assertTrue(ok);
         vm.prank(anchor);
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         signalService.saveCheckpoint(checkpoint);
 
         vm.roll(2);
         vm.warp(24);
         vm.prank(anchor);
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         signalService.saveCheckpoint(checkpoint);
     }
 

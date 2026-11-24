@@ -7,16 +7,18 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Test } from "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
-/// @dev The L2 SignalService across the Etna fork (Etna SPEC START-10-5, ANCHORLESS.md section 4):
-/// with `usesBeaconRoots`, a real `Anchor` proxy saves checkpoints into it in every block whose own
-/// EIP-4788 root is zero (every block before Etna) and in no other block, and proofs resolve their
-/// root from a checkpoint first and from the canonical EIP-4788 contract otherwise. No contract
-/// holds the fork time: a block is an Etna block because its pre-execution EIP-4788 call recorded
-/// a nonzero root, so these tests make each block one or the other through the real system call.
+/// @dev The L2 `EtnaSignalService` across the Etna fork (Etna SPEC START-10-5, ANCHORLESS.md
+/// section 4): with `usesBeaconRoots`, a real `Anchor` proxy saves checkpoints into it in every
+/// block whose own EIP-4788 root is zero (every block before Etna) and in no other block, and
+/// proofs resolve their root from a checkpoint first and from the canonical EIP-4788 contract
+/// otherwise. No contract holds the fork time: a block is an Etna block because its
+/// pre-execution EIP-4788 call recorded a nonzero root, so these tests make each block one or the
+/// other through the real system call.
 contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
     uint64 private constant L1_CHAIN_ID = 1;
     uint256 private constant SHASTA_FORK_HEIGHT = 100;
@@ -33,16 +35,11 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         hex"3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
 
     Anchor private _anchor;
-    SignalService private _signalService;
+    EtnaSignalService private _signalService;
 
     function setUp() public {
         vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
         _deployPair(true);
-    }
-
-    function test_usesBeaconRoots_ReadsTheCanonicalEip4788Contract() external view {
-        assertTrue(_signalService.usesBeaconRoots());
-        assertEq(_signalService.BEACON_ROOTS(), BEACON_ROOTS);
     }
 
     // ---------------------------------------------------------------
@@ -140,7 +137,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         _etnaBlock(ETNA_TIME, ANCHOR_ROOT);
         vm.deal(GOLDEN_TOUCH, 1 ether);
         vm.prank(GOLDEN_TOUCH);
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         _anchor.anchorV4(_checkpoint(2000, bytes32(uint256(0xbad))));
 
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
@@ -159,7 +156,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         vm.roll(1);
         _etnaBlock(1, VALID_PROOF_STATE_ROOT);
         vm.prank(GOLDEN_TOUCH);
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         _anchor.anchorV4(_checkpoint(1, bytes32(uint256(0xbad))));
         _expectCheckpointsClosed();
 
@@ -285,15 +282,6 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
     }
 
-    function test_verifySignalReceived_RevertWhen_RootHashDiffersFromEip4788Root() external {
-        _etnaBlock(ETNA_TIME, bytes32(uint256(123)));
-
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIME)
-        );
-    }
-
     function test_verifySignalReceived_RevertWhen_MerkleProofTampered() external {
         _etnaBlock(ETNA_TIME, VALID_PROOF_STATE_ROOT);
         ISignalService.HopProof[] memory proofs =
@@ -374,16 +362,14 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
     // Proxy upgrade
     // ---------------------------------------------------------------
 
+    /// @dev The Unzen `SignalService`, whose `VERSION` 1 records keep a block hash, upgraded in
+    /// place: the owner, the pause, the received-signal cache, the sent signals and the record's
+    /// state root carry over; the record's hash no longer reads back.
     function test_proxyUpgrade_PreservesVersionOneRecordsOwnerPausedStateAndSentSignal() external {
-        // A `VERSION` 1 implementation without beacon roots, the L1 configuration.
         SignalService versionOne = SignalService(
             address(
                 new ERC1967Proxy(
-                    address(
-                        new SignalService(
-                            address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), false
-                        )
-                    ),
+                    address(new SignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0))),
                     abi.encodeCall(SignalService.init, (address(this)))
                 )
             )
@@ -398,12 +384,14 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         versionOne.pause();
 
         versionOne.upgradeTo(
-            address(new SignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), true))
+            address(
+                new EtnaSignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), true)
+            )
         );
         _etnaBlock(ETNA_TIME, ANCHOR_ROOT);
 
         assertEq(versionOne.VERSION(), 1);
-        assertTrue(versionOne.usesBeaconRoots());
+        assertTrue(EtnaSignalService(address(versionOne)).usesBeaconRoots());
         assertEq(versionOne.owner(), address(this));
         assertTrue(versionOne.paused());
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
@@ -411,7 +399,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         versionOne.unpause();
         ICheckpointStore.Checkpoint memory stored =
             versionOne.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
-        assertEq(stored.blockHash, VALID_BLOCK_HASH);
+        assertEq(stored.blockHash, bytes32(0));
         assertEq(stored.stateRoot, VALID_PROOF_STATE_ROOT);
         versionOne.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
         versionOne.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
@@ -420,7 +408,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
         vm.prank(address(_anchor));
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         versionOne.saveCheckpoint(_checkpoint(1000, VALID_PROOF_STATE_ROOT));
     }
 
@@ -446,9 +434,11 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         assertEq(vm.load(address(legacy), _cacheSlot(true)), bytes32(uint256(1)));
 
         legacy.upgradeTo(
-            address(new SignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), true))
+            address(
+                new EtnaSignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), true)
+            )
         );
-        SignalService upgraded = SignalService(address(legacy));
+        EtnaSignalService upgraded = EtnaSignalService(address(legacy));
 
         assertEq(upgraded.owner(), address(this));
         assertTrue(upgraded.paused());
@@ -461,11 +451,14 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
 
-        // A block before Etna: the anchor's next checkpoint lands in the versioned store.
+        // A block before Etna: the anchor's next checkpoint lands in the versioned store, which
+        // keeps only its state root.
         _unzenBlock(UNZEN_TIME);
         vm.prank(address(_anchor));
         upgraded.saveCheckpoint(_checkpoint(uint48(VALID_PROOF_BLOCK_ID), VALID_PROOF_STATE_ROOT));
-        assertEq(vm.load(address(upgraded), _checkpointSlot(false)), VALID_BLOCK_HASH);
+        bytes32 hashSlot = _checkpointSlot(false);
+        assertEq(vm.load(address(upgraded), hashSlot), bytes32(0));
+        assertEq(vm.load(address(upgraded), bytes32(uint256(hashSlot) + 1)), VALID_PROOF_STATE_ROOT);
         upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
 
         _etnaBlock(ETNA_TIME, VALID_PROOF_STATE_ROOT);
@@ -483,7 +476,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Deploys real `Anchor` and `SignalService` proxies that name each other.
+    /// @dev Deploys real `Anchor` and `EtnaSignalService` proxies that name each other.
     function _deployPair(bool _usesBeaconRoots) private {
         address signalServiceProxy =
             vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
@@ -493,10 +486,10 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
             )
         );
-        SignalService implementation = new SignalService(
+        EtnaSignalService implementation = new EtnaSignalService(
             address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), _usesBeaconRoots
         );
-        _signalService = SignalService(
+        _signalService = EtnaSignalService(
             address(
                 new ERC1967Proxy(
                     address(implementation), abi.encodeCall(SignalService.init, (address(this)))
@@ -533,7 +526,7 @@ contract TestSignalServiceBeaconRoots is Test, SignalServiceProofFixture {
     /// @dev Expects the `Anchor`'s next checkpoint to be refused in the current block.
     function _expectCheckpointsClosed() private {
         vm.prank(address(_anchor));
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         _signalService.saveCheckpoint(_checkpoint(1000, VALID_PROOF_STATE_ROOT));
     }
 

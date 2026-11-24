@@ -18,8 +18,8 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @notice The L1 Inbox of an Etna PoS chain; see `IEtnaInbox`.
 /// @dev The proxy first runs `EtnaInboxBootstrap`; its owner then upgrades to this contract and
 /// calls `init`. On a new network `init` also writes the Etna start at block 0; on a switching
-/// network anyone writes it later with `setOrigin`, once the Unzen Inbox's proposals are closed
-/// and fully proven. Storage follows spec appendix B
+/// network the designated origin multisig writes it later with `setOrigin`, once the Unzen
+/// Inbox's proposals are closed and fully proven. Storage follows spec appendix B
 /// exactly: its named slots 258, 268-274, 278-282, 285, 290, 292 and 293 sit where it lists them,
 /// the fallback key list that `getFallbackKeys` returns, which no anchor witness proves, is the
 /// dynamic array at slot 275, reserved slots 283, 284, 286-289 and 291 are never read or written,
@@ -163,6 +163,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint48 public immutable override etnaForkTime;
 
     /// @inheritdoc IEtnaInbox
+    address public immutable override originMultisig;
+
+    /// @inheritdoc IEtnaInbox
     uint64 public immutable override unsettledLimit;
 
     // ---------------------------------------------------------------
@@ -238,12 +241,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
     /// [1, 12,952], non-zero forced inclusion fee parameters, `unsettledLimit` in [1, 262,144],
-    /// and either no switching parameters (a new network) or both with an Unzen Inbox that has
-    /// code (a switching network).
+    /// and either no switching parameters (a new network) or all three, the Unzen Inbox, the fork
+    /// time and the origin multisig, with an Unzen Inbox that has code (a switching network).
     constructor(Config memory _config) {
         bool switching = _config.unzenInbox != address(0);
         require(
             (_config.etnaForkTime != 0) == switching
+                && (_config.originMultisig != address(0)) == switching
                 && (!switching || _config.unzenInbox.code.length != 0),
             InvalidSwitchConfig()
         );
@@ -275,6 +279,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         protocolFeeRecipient = _config.protocolFeeRecipient;
         unzenInbox = _config.unzenInbox;
         etnaForkTime = _config.etnaForkTime;
+        originMultisig = _config.originMultisig;
         unsettledLimit = _config.unsettledLimit;
     }
 
@@ -324,6 +329,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// static reads: the Unzen Inbox's `proposeCutoff()` and `getCoreState()` and the
     /// SignalService's `getCheckpoint(S)`.
     function setOrigin(uint48 _s) external nonReentrant {
+        require(msg.sender == originMultisig, NotOriginMultisig());
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         require(_genesis.startBlockHash == 0, StartAlreadyWritten());
         require(unzenInbox != address(0) && etnaForkTime != 0, NotSwitching());
@@ -340,17 +346,16 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             uint256(unzen.nextProposalId) == uint256(unzen.lastFinalizedProposalId) + 1,
             UnzenNotFinalized()
         );
-        // Reverts if the SignalService holds no checkpoint at S.
+        // Reverts if the SignalService holds no checkpoint at S. Only its state root is used: the
+        // hash comes from Unzen's finalized tip, and the root-only SignalService returns zero in
+        // the checkpoint's hash field.
         ICheckpointStore.Checkpoint memory checkpoint = _signalService.getCheckpoint(_s);
-        require(
-            checkpoint.blockHash != 0 && checkpoint.blockHash == unzen.lastFinalizedBlockHash,
-            UnzenStartMismatch()
-        );
+        require(unzen.lastFinalizedBlockHash != 0, UnzenTipHashZero());
         require(checkpoint.stateRoot != 0, InvalidStart());
         require(
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
         );
-        _writeStart(_s, checkpoint.blockHash, checkpoint.stateRoot);
+        _writeStart(_s, unzen.lastFinalizedBlockHash, checkpoint.stateRoot);
     }
 
     /// @notice Forwards a checkpoint from the Unzen Inbox's `prove` to the SignalService on a

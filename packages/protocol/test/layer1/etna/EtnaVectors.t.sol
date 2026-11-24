@@ -1400,7 +1400,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         );
         (uint48 head,) = IEtnaInbox(_target).getForcedInclusionState();
         assertEq(head, headAfter, "queue head");
-        assertEq(signalService.getCheckpoint(18).blockHash, lastBlockHash, "signal block hash");
+        // The root-only SignalService keeps the state root and returns no hash.
+        assertEq(signalService.getCheckpoint(18).blockHash, 0, "signal block hash");
         assertEq(
             signalService.getCheckpoint(18).stateRoot,
             _bytes32(_j, _in, "last_state_root"),

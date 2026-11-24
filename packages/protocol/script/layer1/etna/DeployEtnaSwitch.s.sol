@@ -17,6 +17,7 @@ import { EtnaSwitchGuard } from "src/layer1/etna/switch/EtnaSwitchGuard.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @notice Chain identity shared by the SGX, RISC0 and SP1 sub-verifiers.
@@ -32,12 +33,13 @@ interface IEtnaVerifierIdentity {
 /// @dev Reuses the new-network initialization parameters. ETNA_STAKING is the `EtnaStaking` proxy
 /// that `DeployEtnaStaking` deploys on L2 at a CREATE2 address; it is taken as given and must be
 /// non-zero. Additional environment: UNZEN_INBOX, SIGNAL_SERVICE (the existing L1 proxy),
-/// ETNA_FORK_TIME, PROPOSE_MARGIN and FI_MARGIN. Export the deployed cutoff implementation as
+/// ETNA_FORK_TIME, PROPOSE_MARGIN, FI_MARGIN and ORIGIN_MULTISIG, the non-zero designated multisig
+/// that alone may call `setOrigin` and supplies S. Export the deployed cutoff implementation as
 /// UNZEN_INBOX_IMPLEMENTATION before deployInbox. REMOTE_SIGNAL_SERVICE is the existing L2 proxy.
 /// GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT are not read: the start remains unwritten until
-/// anyone calls `setOrigin`. Deploy the bootstrap, then dedicated verifiers, the three
-/// implementations and the switch guard. Every deployment entry point only creates contracts; the DAO batches that
-/// install them are built by `BuildEtnaSwitchProposals`, and `setOrigin` is permissionless. The
+/// the origin multisig calls `setOrigin`. Deploy the bootstrap, then dedicated verifiers, the
+/// three implementations and the switch guard. Every deployment entry point only creates
+/// contracts; the DAO batches that install them are built by `BuildEtnaSwitchProposals`. The
 /// live Unzen Inbox may be in either switch state (Etna SWITCH.md section 3): before the
 /// scheduling proposal executes it saves checkpoints in SIGNAL_SERVICE, after it through
 /// INBOX_PROXY, as when a postponement is prepared. Once the Etna Inbox is initialized, a new
@@ -114,9 +116,10 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         console2.log("FI_CUTOFF:", InboxWithEtnaCutoffs(inboxImpl_).FI_CUTOFF());
     }
 
-    /// @notice Deploys the shared SignalService implementation in its L1 configuration, without
-    /// upgrading the proxy: the Etna Inbox proxy as its only syncer and `usesBeaconRoots` false
-    /// (START-10-5). It keeps `VERSION`, so the Unzen Inbox's checkpoints stay readable.
+    /// @notice Deploys the `EtnaSignalService` implementation, which L2 also runs, in its L1
+    /// configuration, without upgrading the proxy: the Etna Inbox proxy as its only syncer and
+    /// `usesBeaconRoots` false (START-10-5). It keeps `VERSION` and stores only state roots, so the
+    /// Unzen Inbox's checkpoint roots stay readable.
     /// @return signalImpl_ New implementation, preserving the existing extra pause authority.
     function deploySignalServiceImplementation() external returns (address signalImpl_) {
         _liveUnzenConfig();
@@ -128,7 +131,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         );
         address pauser = _signalPauser(vm.envAddress("SIGNAL_SERVICE"));
         vm.startBroadcast(_privateKey());
-        signalImpl_ = address(new SignalService(proxy, remote, pauser, false));
+        signalImpl_ = address(new EtnaSignalService(proxy, remote, pauser, false));
         vm.stopBroadcast();
         console2.log("SIGNAL_SERVICE_IMPLEMENTATION (VERSION=1):", signalImpl_);
         console2.log("Existing pauser:", pauser);
@@ -160,13 +163,16 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     }
 
     /// @dev Checks the switching identities and that every Etna verifier instance is isolated.
-    /// @return config_ Etna configuration with all three switching immutables populated.
+    /// @return config_ Etna configuration with all three switching immutables populated: the
+    /// Unzen Inbox, the fork time and ORIGIN_MULTISIG.
     function _inboxConfig() internal view override returns (IEtnaInbox.Config memory config_) {
         IInbox.Config memory cutoffConfig = _cutoffConfig();
         EtnaSwitchGuard.Schedule memory schedule = _schedule();
         config_ = super._inboxConfig();
         config_.unzenInbox = vm.envAddress("UNZEN_INBOX");
         config_.etnaForkTime = schedule.etnaForkTime;
+        config_.originMultisig = vm.envAddress("ORIGIN_MULTISIG");
+        require(config_.originMultisig != address(0), OriginMultisigRequired());
         _checkCutoffImplementation(
             vm.envAddress("UNZEN_INBOX_IMPLEMENTATION"), cutoffConfig, schedule
         );
@@ -402,4 +408,5 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     error SwitchAlreadyStarted();
     error ScheduleMismatch();
     error ForkTimeNotLater();
+    error OriginMultisigRequired();
 }

@@ -9,6 +9,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -163,7 +164,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     MockLandProofVerifier internal verifier;
     ConformanceRefundRejecter internal rejecter;
     address internal inbox;
-    SignalService internal signalService;
+    EtnaSignalService internal signalService;
     address internal recipient;
     /// @dev The highest `lastHeight` this vector landed, which bounds the record and signal checks.
     uint256 internal maxLanded;
@@ -318,10 +319,12 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 abi.encodeCall(EtnaInboxBootstrap.init, (address(this)))
             )
         );
-        signalService = SignalService(
+        signalService = EtnaSignalService(
             address(
                 new ERC1967Proxy(
-                    address(new SignalService(inbox, _REMOTE_SIGNAL_SERVICE, address(0), false)),
+                    address(
+                        new EtnaSignalService(inbox, _REMOTE_SIGNAL_SERVICE, address(0), false)
+                    ),
                     abi.encodeCall(SignalService.init, (address(this)))
                 )
             )
@@ -339,6 +342,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 protocolFeeRecipient: recipient,
                 unzenInbox: address(0),
                 etnaForkTime: 0,
+                originMultisig: address(0),
                 unsettledLimit: uint64(_d.unsettled)
             })
         );
@@ -643,7 +647,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     }
 
     /// @dev Compares the model's SignalService checkpoints with the contract's, and checks that
-    /// every other height up to `_maxHeight` has none.
+    /// every other height up to `_maxHeight` has none. The L1 SignalService stores only state
+    /// roots and returns a zero hash, so the model's `hash` is not observable there: every
+    /// checkpoint must read back with a zero hash. The landing records still carry the hash.
     function _checkSignals(
         string memory _j,
         string memory _path,
@@ -669,7 +675,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             string memory at = string.concat("signal[", vm.toString(h), "].");
             p_ = string.concat(
                 p_,
-                _cmp(string.concat(at, "hash"), g.hash, uint256(c.blockHash)),
+                _cmp(string.concat(at, "hash"), 0, uint256(c.blockHash)),
                 _cmp(string.concat(at, "stateRoot"), g.stateRoot, uint256(c.stateRoot))
             );
         }

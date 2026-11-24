@@ -313,7 +313,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertEq(_inboxWord(RECOVERY_GENERATION_SLOT), 0, "generation");
         ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(6);
         assertEq(saved.blockNumber, 6, "signal height");
-        assertEq(saved.blockHash, bytes32(uint256(106)), "signal block hash");
+        assertEq(saved.blockHash, 0, "root-only signal checkpoint");
         assertEq(saved.stateRoot, bytes32(uint256(306)), "signal state root");
     }
 

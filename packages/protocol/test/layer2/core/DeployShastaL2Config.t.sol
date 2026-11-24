@@ -9,6 +9,7 @@ import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalService
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -99,9 +100,9 @@ contract TestDeployShastaL2Config is CommonTest {
         loader.validateConfig(config);
     }
 
-    /// @dev The SignalService implementation accepts checkpoints only from the Anchor proxy and
-    /// has `usesBeaconRoots` true (vector 5.v), proves against the L1 SignalService and accepts no
-    /// checkpoint in an Etna block. A wrong syncer would make every Unzen `anchorV4` revert once
+    /// @dev The SignalService implementation is the `EtnaSignalService`, accepts checkpoints only
+    /// from the Anchor proxy and has `usesBeaconRoots` true (vector 5.v), proves against the L1
+    /// SignalService, stores only state roots and accepts no checkpoint in an Etna block. A wrong syncer would make every Unzen `anchorV4` revert once
     /// the DAO message installs it; a wrong remote would make every L1 to L2 proof fail. The
     /// script also deploys the upgrade guard the L2 message calls.
     function test_deploy_WiresSignalServiceToAnchorAndBeaconRoots() external {
@@ -121,7 +122,7 @@ contract TestDeployShastaL2Config is CommonTest {
             keccak256(type(EtnaSignalServiceUpgradeGuard).runtimeCode),
             "upgrade guard"
         );
-        SignalService signalService = SignalService(impl);
+        EtnaSignalService signalService = EtnaSignalService(impl);
         assertTrue(signalService.usesBeaconRoots(), "usesBeaconRoots");
         assertEq(signalService.VERSION(), 1, "VERSION");
         assertEq(signalService.pauser(), Alice, "pauser");
@@ -140,11 +141,12 @@ contract TestDeployShastaL2Config is CommonTest {
         _recordBeaconRoot(1_800_000_000, bytes32(0));
         vm.prank(config.anchorProxy);
         signalService.saveCheckpoint(checkpoint);
-        assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
+        assertEq(signalService.getStateRoot(1), checkpoint.stateRoot, "saved");
+        assertEq(signalService.getCheckpoint(1).blockHash, 0, "root only");
         // An Etna block: its own EIP-4788 root is the anchor block's state root.
         _recordBeaconRoot(1_800_000_012, bytes32(uint256(2)));
         vm.prank(config.anchorProxy);
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         signalService.saveCheckpoint(checkpoint);
     }
 
@@ -194,12 +196,12 @@ contract TestDeployShastaL2Config is CommonTest {
         vm.etch(_signalService, "");
         _expectLoaderRevert(_loader);
 
-        SignalService implementation = new SignalService(address(this), address(1), Alice, true);
+        SignalService implementation = new SignalService(address(this), address(1), Alice);
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, Alice);
 
         // A versioned implementation must expose its immutable pauser, even when it is zero.
-        implementation = new SignalService(address(this), address(1), address(0), true);
+        implementation = new SignalService(address(this), address(1), address(0));
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, address(0));
         vm.mockCall(_signalService, abi.encodeWithSignature("pauser()"), "");

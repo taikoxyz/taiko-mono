@@ -42,27 +42,14 @@ contract SignalService is EssentialContract, ISignalService {
     /// @notice Address authorized to pause/unpause alongside the owner. Optional (may be zero).
     address public immutable pauser;
 
-    /// @notice False on L1. True on L2, where EIP-4788 holds L1 state roots from Etna on: the
-    /// checkpoint store then accepts a checkpoint only in a block whose own EIP-4788 root is zero,
-    /// which is every block before Etna and none from Etna on, and proof roots resolve from a
-    /// checkpoint or, when none is held for the proof's block id, from EIP-4788.
-    bool public immutable usesBeaconRoots;
-
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
     /// @notice Version of the received-signal cache and checkpoint mappings.
-    /// @dev Bumping this value in a future implementation hides every old cached signal and
-    /// checkpoint at once without touching the old storage slots, including the checkpoints an
-    /// Etna verifier-failure rollback must keep usable; that rollback therefore cannot be only a
-    /// bump (Etna spec RECOV-8-27).
+    /// @dev Bumping this value in a future implementation invalidates old cached signals and
+    /// checkpoints without touching the old storage slots.
     uint256 public constant VERSION = 1;
-
-    /// @notice The canonical EIP-4788 beacon roots contract. On L2 it records each block's
-    /// `parentBeaconBlockRoot`: zero before Etna, the execution state root of the block's L1 anchor
-    /// from Etna on.
-    address public constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -82,7 +69,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps checkpoint version => block number => checkpoint data.
-    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
+    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) internal
         _checkpoints;
 
     uint256[46] private __gap;
@@ -96,20 +83,13 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param remoteSignalService Address of the remote signal service.
     /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
     /// zero).
-    /// @param _usesBeaconRoots False on L1; true on L2 (Etna ANCHORLESS.md section 4).
-    constructor(
-        address authorizedSyncer,
-        address remoteSignalService,
-        address _pauser,
-        bool _usesBeaconRoots
-    ) {
+    constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
         pauser = _pauser;
-        usesBeaconRoots = _usesBeaconRoots;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -191,22 +171,10 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ICheckpointStore
-    /// @dev With `usesBeaconRoots`, rejects a checkpoint unless the EIP-4788 root of the current
-    /// block's own timestamp reads as zero. An Etna block has a nonzero root, so no checkpoint can
-    /// be saved from Etna on and the public golden touch key cannot forge one through `anchorV4`.
-    /// A failed read rejects as well, so a missing EIP-4788 contract fails closed.
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
-        if (usesBeaconRoots) {
-            (bool ok, bytes32 root) = _beaconRoot(block.timestamp);
-            if (!ok || root != 0) revert SS_CHECKPOINTS_CLOSED();
-        }
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
-        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
-
-        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
-            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
-        });
+        _storeCheckpoint(_checkpoint);
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -228,40 +196,23 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
-    /// @dev Resolves the state root against which a signal proof is checked. A checkpoint answers
-    /// first; with `usesBeaconRoots`, an id with no checkpoint then reads EIP-4788. Both stores
-    /// hold only L1 state roots, so either may answer, and the choice does not depend on the block
-    /// that verifies the proof.
-    /// @param _blockId The block number of a checkpoint, or on L2 the timestamp of an Etna block.
-    /// The `uint48` bound applies only to the checkpoint lookup.
-    /// @return stateRoot_ The authenticated, nonzero state root; reverts with
-    /// `SS_CHECKPOINT_NOT_FOUND` if neither store holds one.
-    function _getStateRoot(uint64 _blockId) private view returns (bytes32 stateRoot_) {
-        if (_blockId <= type(uint48).max) {
-            stateRoot_ = _checkpoints[VERSION][uint48(_blockId)].stateRoot;
-        }
-        if (stateRoot_ == 0 && usesBeaconRoots) (, stateRoot_) = _beaconRoot(_blockId);
-        if (stateRoot_ == 0) revert SS_CHECKPOINT_NOT_FOUND();
-    }
+    /// @dev Stores an authorized checkpoint with a nonzero state root.
+    /// @param _checkpoint The checkpoint supplied by the syncer.
+    function _storeCheckpoint(Checkpoint calldata _checkpoint) internal virtual {
+        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-    /// @dev Reads EIP-4788. Its whole calldata is the 32-byte timestamp, with no selector. It
-    /// reverts for a timestamp it does not hold, and a call to an address without code succeeds
-    /// with no return data; both give `ok_` false. A block before Etna reads as a zero root.
-    /// @param _timestamp The L2 block timestamp.
-    /// @return ok_ Whether the read returned one word.
-    /// @return root_ The recorded root; zero unless `ok_`.
-    function _beaconRoot(uint256 _timestamp) private view returns (bool ok_, bytes32 root_) {
-        (bool success, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(_timestamp));
-        ok_ = success && ret.length == 32;
-        if (ok_) root_ = abi.decode(ret, (bytes32));
+        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
+            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
+        });
     }
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
     function _getCheckpoint(uint48 _blockNumber)
-        private
+        internal
         view
+        virtual
         returns (Checkpoint memory checkpoint_)
     {
         CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
@@ -271,6 +222,14 @@ contract SignalService is EssentialContract, ISignalService {
         checkpoint_ = Checkpoint({
             blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
         });
+    }
+
+    /// @dev Resolves the root used by both the proof commitment check and trie verification.
+    /// @param _blockId The checkpoint identifier in the hop proof.
+    /// @return stateRoot_ The authenticated remote state root.
+    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
+        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
+        return _getCheckpoint(uint48(_blockId)).stateRoot;
     }
 
     function _sendSignal(
@@ -306,11 +265,6 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @dev Verifies a cached signal, or a proof against the root `_getStateRoot` resolves.
-    /// @param _chainId Source chain ID.
-    /// @param _app Source application that sent the signal.
-    /// @param _signal Signal being proven.
-    /// @param _proof ABI-encoded hop proofs, or empty bytes for a cached signal.
     function _verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -353,8 +307,8 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_CHECKPOINT_NOT_FOUND();
-    error SS_CHECKPOINTS_CLOSED();
     error SS_EMPTY_PROOF();
+    error SS_INVALID_BLOCK_ID();
     error SS_INVALID_CHECKPOINT();
     error SS_INVALID_PROOF_LENGTH();
     error SS_SIGNAL_NOT_RECEIVED();

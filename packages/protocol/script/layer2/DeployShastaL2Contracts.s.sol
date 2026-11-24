@@ -2,13 +2,13 @@
 pragma solidity ^0.8.26;
 
 import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts
-/// @notice Deploys the Etna L2 SignalService implementation without upgrading the proxy: the shared
-/// SignalService with the `Anchor` proxy as its syncer and `usesBeaconRoots` true (Etna SPEC
-/// START-10-5). No L2 contract holds the Etna fork time. Also deploys the
+/// @notice Deploys the Etna L2 SignalService implementation without upgrading the proxy: the
+/// `EtnaSignalService` that L1 also runs, with the `Anchor` proxy as its syncer and
+/// `usesBeaconRoots` true (Etna SPEC START-10-5). No L2 contract holds the Etna fork time. Also deploys the
 /// `EtnaSignalServiceUpgradeGuard` whose checks bracket the upgrade. The `Anchor` needs no Etna
 /// change, so the readiness proposal's L2 message upgrades only the SignalService proxy (Etna
 /// SWITCH.md section 3); `script/layer2/etna/BuildEtnaReadinessL2Message.s.sol` builds it.
@@ -115,13 +115,13 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         returns (address signalServiceImpl_, address upgradeGuard_)
     {
         signalServiceImpl_ = address(
-            new SignalService(
+            new EtnaSignalService(
                 config.anchorProxy, config.l1SignalService, config.signalServicePauser, true
             )
         );
         upgradeGuard_ = address(new EtnaSignalServiceUpgradeGuard());
         console2.log("New signalServiceImpl deployed:", signalServiceImpl_);
-        console2.log("usesBeaconRoots:", SignalService(signalServiceImpl_).usesBeaconRoots());
+        console2.log("usesBeaconRoots:", EtnaSignalService(signalServiceImpl_).usesBeaconRoots());
         console2.log("New EtnaSignalServiceUpgradeGuard deployed:", upgradeGuard_);
     }
 }

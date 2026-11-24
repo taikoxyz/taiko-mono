@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 
 /// @title EtnaSignalServiceUpgradeGuard
 /// @notice Read-only checks around the L2 readiness message's `SignalService` upgrade (Etna
@@ -38,12 +38,12 @@ contract EtnaSignalServiceUpgradeGuard {
     }
 
     /// @notice Reverts unless `_proxy` uses `_expectedImpl`, whose runtime code hashes to
-    /// `_expectedCodeHash`, and that implementation reports `usesBeaconRoots()` true. The syncer and
-    /// remote are immutables without getters; the builder computes the hash from the
-    /// implementation rebuilt with the expected syncer, remote, pauser and flag, so the batch
-    /// itself rejects any other code.
+    /// `_expectedCodeHash`, and that `EtnaSignalService` implementation reports `usesBeaconRoots()`
+    /// true. The syncer and remote are immutables without getters; the builder computes the hash
+    /// from the implementation rebuilt with the expected syncer, remote, pauser and flag, so the
+    /// batch itself rejects any other code.
     /// @param _proxy The L2 `SignalService` proxy.
-    /// @param _expectedImpl The Etna L2 `SignalService` implementation.
+    /// @param _expectedImpl The Etna L2 `SignalService` implementation, an `EtnaSignalService`.
     /// @param _expectedCodeHash `keccak256` of that implementation's runtime code.
     function checkAfterUpgrade(
         address _proxy,
@@ -55,7 +55,7 @@ contract EtnaSignalServiceUpgradeGuard {
     {
         if (EssentialContract(_proxy).impl() != _expectedImpl) revert UnexpectedImplementation();
         if (_expectedImpl.codehash != _expectedCodeHash) revert UnexpectedCodeHash();
-        if (!SignalService(_proxy).usesBeaconRoots()) revert BeaconRootsUnused();
+        if (!EtnaSignalService(_proxy).usesBeaconRoots()) revert BeaconRootsUnused();
     }
 
     // ---------------------------------------------------------------

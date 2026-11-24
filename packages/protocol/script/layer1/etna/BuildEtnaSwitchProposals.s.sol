@@ -16,7 +16,7 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 
 /// @title LibEtnaSwitchActions
 /// @notice Builds the L1 DAO actions of an Unzen to Etna switch (Etna SWITCH.md sections 3 and 7):
@@ -59,7 +59,8 @@ library LibEtnaSwitchActions {
         address unzenInboxImpl;
         /// @notice The L1 SignalService proxy.
         address signalService;
-        /// @notice Its L1 implementation: syncer the EtnaInbox, `usesBeaconRoots` false.
+        /// @notice Its L1 `EtnaSignalService` implementation: syncer the EtnaInbox,
+        /// `usesBeaconRoots` false.
         address signalServiceImpl;
         /// @notice `keccak256` of that implementation's runtime code, which the guard pins.
         bytes32 signalServiceCodeHash;
@@ -69,6 +70,8 @@ library LibEtnaSwitchActions {
         address etnaInboxImpl;
         /// @notice The `EtnaInbox.init` calldata.
         bytes etnaInit;
+        /// @notice The multisig the switching EtnaInbox implementation names for `setOrigin`.
+        address originMultisig;
         /// @notice The Unzen verifier pins for this schedule.
         TrustChange[] unzenTrust;
         /// @notice The EtnaInbox verifier's image trust.
@@ -99,15 +102,17 @@ library LibEtnaSwitchActions {
         address currentEtnaInboxImpl;
         /// @notice Its new implementation.
         address etnaInboxImpl;
+        /// @notice The multisig both EtnaInbox implementations name for `setOrigin`.
+        address originMultisig;
         /// @notice The Unzen verifier changes the new schedule needs.
         TrustChange[] unzenTrust;
         /// @notice The EtnaInbox verifier changes the new schedule needs.
         TrustChange[] etnaTrust;
     }
 
-    /// @dev The readiness proposal's L1 actions: the Unzen trust changes for guests that read both
-    /// checkpoint layouts (ANCHORLESS.md section 8, steps 2 and 3). Its L2 message is
-    /// `LibEtnaReadinessL2Message.buildActions`.
+    /// @dev The readiness proposal's L1 actions: the Unzen trust changes for guests that take the
+    /// inherited checkpoint from the parent block's anchor transaction (ANCHORLESS.md section 8,
+    /// steps 2 and 3). Its L2 message is `LibEtnaReadinessL2Message.buildActions`.
     /// @param _unzenTrust The Unzen verifier trust changes.
     /// @return actions_ One action per change.
     function readinessActions(TrustChange[] memory _unzenTrust)
@@ -155,7 +160,8 @@ library LibEtnaSwitchActions {
         );
         uint256 next = _appendTrust(actions_, 5, _s.unzenTrust);
         next = _appendTrust(actions_, next, _s.etnaTrust);
-        actions_[next] = _scheduleCheck(_s.guard, _s.unzenInbox, _s.etnaInbox, _s.schedule);
+        actions_[next] =
+            _scheduleCheck(_s.guard, _s.unzenInbox, _s.etnaInbox, _s.schedule, _s.originMultisig);
     }
 
     /// @dev Returns `[guard.checkPostponement(..., current implementations),
@@ -191,7 +197,9 @@ library LibEtnaSwitchActions {
             _action(_p.etnaInbox, abi.encodeCall(UUPSUpgradeable.upgradeTo, (_p.etnaInboxImpl)));
         uint256 next = _appendTrust(actions_, 3, _p.unzenTrust);
         next = _appendTrust(actions_, next, _p.etnaTrust);
-        actions_[next] = _scheduleCheck(_p.guard, _p.unzenInbox, _p.etnaInbox, _p.newSchedule);
+        actions_[next] = _scheduleCheck(
+            _p.guard, _p.unzenInbox, _p.etnaInbox, _p.newSchedule, _p.originMultisig
+        );
     }
 
     /// @dev Writes one action per trust change from `_start` on.
@@ -223,17 +231,19 @@ library LibEtnaSwitchActions {
         }
     }
 
-    /// @dev The fork-time cross-check that ends both schedule batches.
+    /// @dev The fork-time and origin multisig cross-check that ends both schedule batches.
     /// @param _guard The `EtnaSwitchGuard`.
     /// @param _unzenInbox The Unzen Inbox proxy.
     /// @param _etnaInbox The EtnaInbox proxy.
     /// @param _schedule The schedule the batch installs.
+    /// @param _originMultisig The multisig the installed EtnaInbox must name for `setOrigin`.
     /// @return The action.
     function _scheduleCheck(
         address _guard,
         address _unzenInbox,
         address _etnaInbox,
-        EtnaSwitchGuard.Schedule memory _schedule
+        EtnaSwitchGuard.Schedule memory _schedule,
+        address _originMultisig
     )
         private
         pure
@@ -241,7 +251,9 @@ library LibEtnaSwitchActions {
     {
         return _action(
             _guard,
-            abi.encodeCall(EtnaSwitchGuard.checkSchedule, (_unzenInbox, _etnaInbox, _schedule))
+            abi.encodeCall(
+                EtnaSwitchGuard.checkSchedule, (_unzenInbox, _etnaInbox, _schedule, _originMultisig)
+            )
         );
     }
 
@@ -341,6 +353,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
             _signalServiceImplementation(s_.signalService);
         s_.etnaInboxImpl = _etnaImplementation(config);
         s_.etnaInit = _initCall();
+        s_.originMultisig = config.originMultisig;
         s_.unzenTrust = _trustChanges("UNZEN", unzen.proofVerifier);
         s_.etnaTrust = _trustChanges("ETNA", config.proofVerifier);
     }
@@ -377,6 +390,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         IEtnaInbox.Config memory config = _etnaConfigOf(p_.etnaInbox);
         config.etnaForkTime = p_.newSchedule.etnaForkTime;
         p_.etnaInboxImpl = _etnaImplementation(config);
+        p_.originMultisig = config.originMultisig;
         p_.unzenTrust = _trustChanges("UNZEN", unzen.proofVerifier);
         p_.etnaTrust = _trustChanges("ETNA", config.proofVerifier);
     }
@@ -427,11 +441,11 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         require(IEtnaInbox(_etnaInbox).etnaForkTime() == schedule_.etnaForkTime, ScheduleMismatch());
     }
 
-    /// @dev Reads SIGNAL_SERVICE_IMPLEMENTATION and requires exactly this build's `SignalService` in
-    /// its L1 configuration, the one `deploySignalServiceImplementation` creates: the EtnaInbox
-    /// proxy as syncer, the L2 SignalService of L2_CHAIN_ID as remote, the live proxy's pauser and
-    /// `usesBeaconRoots` false. The syncer and remote have no getters, so the implementation's
-    /// runtime code is compared with a reference built from those arguments.
+    /// @dev Reads SIGNAL_SERVICE_IMPLEMENTATION and requires exactly this build's
+    /// `EtnaSignalService` in its L1 configuration, the one `deploySignalServiceImplementation`
+    /// creates: the EtnaInbox proxy as syncer, the L2 SignalService of L2_CHAIN_ID as remote, the
+    /// live proxy's pauser and `usesBeaconRoots` false. The syncer and remote have no getters, so
+    /// the implementation's runtime code is compared with a reference built from those arguments.
     /// @param _signalService The L1 SignalService proxy.
     /// @return impl_ The implementation.
     /// @return codeHash_ `keccak256` of its runtime code.
@@ -441,7 +455,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
     {
         impl_ = vm.envAddress("SIGNAL_SERVICE_IMPLEMENTATION");
         address expected = address(
-            new SignalService(
+            new EtnaSignalService(
                 _etnaProxy(),
                 l2SignalServiceAddress(_envUint64("L2_CHAIN_ID")),
                 _signalPauser(_signalService),
@@ -484,6 +498,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
             protocolFeeRecipient: inbox.protocolFeeRecipient(),
             unzenInbox: inbox.unzenInbox(),
             etnaForkTime: inbox.etnaForkTime(),
+            originMultisig: inbox.originMultisig(),
             unsettledLimit: inbox.unsettledLimit()
         });
     }

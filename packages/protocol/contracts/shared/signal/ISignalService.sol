@@ -7,10 +7,9 @@ import "./ICheckpointStore.sol";
 /// @notice The SignalService contract serves as a secure cross-chain message
 /// passing system. It defines methods for sending and verifying signals with
 /// merkle proofs. The trust assumption is that the target chain has secure
-/// access to the source chain's state root: on L1, the checkpoints the Inbox
-/// saves; on L2, the checkpoints the anchor transaction saves before Etna and
-/// the EIP-4788 roots the block headers commit to from Etna on. With this,
-/// verifying a signal is reduced to simply verifying a merkle proof.
+/// access to the merkle root (such as Taiko injects it in the anchor
+/// transaction). With this, verifying a signal is reduced to simply verifying
+/// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService is ICheckpointStore {
     /// @dev DEPRECATED
@@ -26,18 +25,17 @@ interface ISignalService is ICheckpointStore {
         /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
         /// hop's source chain ID.
         uint64 chainId;
-        /// @notice Source block number for checkpoint proofs, or L2 timestamp for Etna L2 proofs.
-        /// @dev Checkpoint proofs use a block at or after the signal was sent. Etna L2 proofs use
-        /// the timestamp of the L2 block that recorded the L1 anchor state root.
+        /// @notice Remote checkpoint height, or on Etna L2 the local timestamp that recorded
+        /// the remote root through EIP-4788.
         uint64 blockId;
-        /// @notice The source-chain state root, authenticated by a checkpoint or by EIP-4788.
-        /// @dev Must match the root resolved for blockId.
+        /// @notice The remote state root for blockId against which to verify the signal.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
         /// current chain.
         /// @dev DEPRECATED - this value will be ignored
         CacheOption cacheOption;
-        /// @notice The remote signal service's nonempty account proof against rootHash.
+        /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
+        /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
         bytes[] accountProof;
         /// @notice The signal service's storage proof.
         bytes[] storageProof;
@@ -62,8 +60,8 @@ interface ISignalService is ICheckpointStore {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, the signal must already have been proven and
-    /// cached as received.
+    /// source chain. If this proof is empty, then we check if this signal has been marked as
+    /// received by TaikoL2.
     /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
@@ -81,8 +79,8 @@ interface ISignalService is ICheckpointStore {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, the signal must already have been proven and
-    /// cached as received.
+    /// source chain. If this proof is empty, then we check if this signal has been marked as
+    /// received by TaikoL2.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,

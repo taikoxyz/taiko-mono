@@ -96,8 +96,8 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     }
 
     /// @notice 1. The checkpoint c is the last landed height; landed heights strictly increase,
-    /// one per successful landing; slots 270-271 hold c; the SignalService holds the block hash
-    /// and state root of every landed height, genesis included.
+    /// one per successful landing; slots 270-271 hold c; the SignalService holds the state root of
+    /// every landed height, genesis included, and returns a zero hash for each.
     function invariant_checkpointOnlyForward() external view {
         _assertModelHeld();
         uint256 count = handler.checkpointCount();
@@ -114,7 +114,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
             if (i != 0) assertGt(height, handler.checkpointAt(i - 1), "strictly increasing");
             EtnaInboxHandler.Cut memory cut = handler.cutAt(height);
             ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(uint48(height));
-            assertEq(saved.blockHash, cut.elHash, "SignalService block hash");
+            assertEq(saved.blockHash, 0, "SignalService block hash");
             assertEq(saved.stateRoot, cut.stateRoot, "SignalService state root");
         }
     }

@@ -15,14 +15,17 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @dev The committed chain is the base's from the start S = 1000 on, with forced inclusion
 /// cursor 0 throughout and Comet hash 0 at S. `_finalizeUnzen` closes the Unzen proposals at
 /// `PROPOSE_CUTOFF` and finalizes them up to S, whose checkpoint the final proof saves through the
-/// forwarder; `_writeStart` then has Carol, any caller, latch S at `FORK_TIME` (START-10-5a,
-/// LAND-6.1-8a).
+/// forwarder; `_writeStart` then has `ORIGIN_MULTISIG`, the only allowed caller, latch S at
+/// `FORK_TIME` (START-10-5a, LAND-6.1-8a).
 abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     /// @dev The Etna start, the last Unzen block.
     uint256 internal constant S = 1000;
 
     /// @dev `ETNA_FORK_TIME`.
     uint48 internal constant FORK_TIME = 1_000_000;
+
+    /// @dev The designated multisig that alone may call `setOrigin`.
+    address internal constant ORIGIN_MULTISIG = address(0x5AFE);
 
     /// @dev The Unzen Inbox's propose cutoff, `ETNA_FORK_TIME - PROPOSE_MARGIN` with a 12 s margin.
     uint48 internal constant PROPOSE_CUTOFF = FORK_TIME - 12;
@@ -50,10 +53,11 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         return (bytes32(100 + _x), _x == S ? bytes32(0) : bytes32(200 + _x), 0);
     }
 
-    /// @dev The default configuration with the mock Unzen Inbox and `FORK_TIME`.
+    /// @dev The default configuration with the mock Unzen Inbox, `FORK_TIME` and `ORIGIN_MULTISIG`.
     function _switchConfig() internal view returns (IEtnaInbox.Config memory config_) {
         config_ = _defaultConfig();
-        (config_.unzenInbox, config_.etnaForkTime) = (address(unzen), FORK_TIME);
+        (config_.unzenInbox, config_.etnaForkTime, config_.originMultisig) =
+            (address(unzen), FORK_TIME, ORIGIN_MULTISIG);
     }
 
     /// @dev The default inputs without a genesis hash or state root.
@@ -70,12 +74,12 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         return _stateRoot(S);
     }
 
-    /// @dev Finalizes Unzen up to S (`_finalizeUnzen`), then Carol, an unrelated caller, latches
-    /// the start S at `FORK_TIME`.
+    /// @dev Finalizes Unzen up to S (`_finalizeUnzen`), then the origin multisig latches the start
+    /// S at `FORK_TIME`.
     function _writeStart() internal {
         _finalizeUnzen();
         vm.warp(FORK_TIME);
-        vm.prank(Carol);
+        vm.prank(ORIGIN_MULTISIG);
         _inbox().setOrigin(uint48(S));
     }
 

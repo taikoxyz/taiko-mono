@@ -8,6 +8,7 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
@@ -117,7 +118,7 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
 
     MockLandProofVerifier internal landVerifier;
     address internal inboxProxy;
-    SignalService internal signalService;
+    EtnaSignalService internal signalService;
     /// @dev The `EtnaInbox` implementation of the latest `_deployFreshInbox`.
     EtnaInbox internal inboxImpl;
 
@@ -181,10 +182,11 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
         );
     }
 
-    /// @dev Deploys a SignalService proxy that accepts checkpoints only from `_inbox`.
-    function _deploySignalService(address _inbox) internal returns (SignalService) {
-        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), false);
-        return SignalService(
+    /// @dev Deploys the L1 `EtnaSignalService` proxy, which accepts checkpoints only from `_inbox`.
+    function _deploySignalService(address _inbox) internal returns (EtnaSignalService) {
+        EtnaSignalService impl =
+            new EtnaSignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), false);
+        return EtnaSignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))
             )
@@ -207,6 +209,7 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
             protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT,
             unzenInbox: address(0),
             etnaForkTime: 0,
+            originMultisig: address(0),
             unsettledLimit: UNSETTLED_LIMIT
         });
     }

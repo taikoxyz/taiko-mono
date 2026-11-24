@@ -18,6 +18,7 @@ import { IBridge } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibBytes } from "src/shared/libs/LibBytes.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { Layer2Test } from "test/layer2/Layer2Test.sol";
@@ -94,7 +95,8 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         super.setUp();
         vm.chainId(taikoChainId);
         _deployAnchorAndSignalService();
-        etnaImpl = address(new SignalService(address(tAnchor), l1SignalService, address(0), true));
+        etnaImpl =
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, address(0), true));
         guard = new EtnaSignalServiceUpgradeGuard();
         vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
         vm.etch(CREATE2_FACTORY, CREATE2_FACTORY_CODE);
@@ -158,25 +160,32 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     /// with one rebuilt from the expected arguments, so each wrong immutable is refused.
     function test_buildChecked_RevertWhen_TheImplementationHasAnotherSyncer() external {
         _expectImplementationRefused(
-            address(new SignalService(Bob, l1SignalService, address(0), true))
+            address(new EtnaSignalService(Bob, l1SignalService, address(0), true))
         );
     }
 
     function test_buildChecked_RevertWhen_TheImplementationHasAnotherRemote() external {
         _expectImplementationRefused(
-            address(new SignalService(address(tAnchor), Bob, address(0), true))
+            address(new EtnaSignalService(address(tAnchor), Bob, address(0), true))
         );
     }
 
     function test_buildChecked_RevertWhen_TheImplementationHasAnotherPauser() external {
         _expectImplementationRefused(
-            address(new SignalService(address(tAnchor), l1SignalService, Bob, true))
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, Bob, true))
         );
     }
 
     function test_buildChecked_RevertWhen_TheImplementationDoesNotUseBeaconRoots() external {
         _expectImplementationRefused(
-            address(new SignalService(address(tAnchor), l1SignalService, address(0), false))
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, address(0), false))
+        );
+    }
+
+    /// @dev The Unzen `SignalService`, which stores block hashes, is not the Etna implementation.
+    function test_buildChecked_RevertWhen_TheImplementationIsNotTheEtnaSignalService() external {
+        _expectImplementationRefused(
+            address(new SignalService(address(tAnchor), l1SignalService, address(0)))
         );
     }
 
@@ -310,7 +319,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         _assertStatus(_relay(_actions(preEtnaImpl, etnaImpl)), IBridge.Status.DONE);
 
         assertEq(EssentialContract(tSignalService).impl(), etnaImpl);
-        assertTrue(SignalService(tSignalService).usesBeaconRoots());
+        assertTrue(EtnaSignalService(tSignalService).usesBeaconRoots());
         assertEq(tDelegateController.lastExecutionId(), 0);
 
         vm.prank(GOLDEN_TOUCH);
@@ -319,7 +328,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
 
         _etnaBlock(ETNA_TIME);
         vm.prank(address(tAnchor));
-        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        vm.expectRevert(EtnaSignalService.SS_CHECKPOINTS_CLOSED.selector);
         SignalService(tSignalService).saveCheckpoint(_checkpoint(1001));
     }
 
@@ -331,7 +340,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     {
         _unzenBlock(UNZEN_TIME);
         address replacementImpl =
-            address(new SignalService(address(tAnchor), l1SignalService, address(0), true));
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, address(0), true));
         Controller.Action[] memory superseded = _actions(preEtnaImpl, etnaImpl);
         _assertStatus(_relay(_actions(preEtnaImpl, replacementImpl)), IBridge.Status.DONE);
 
@@ -398,7 +407,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         _unzenBlock(UNZEN_TIME);
         Controller.Action[] memory actions = _actions(preEtnaImpl, etnaImpl);
         address otherImpl =
-            address(new SignalService(address(tAnchor), l1SignalService, address(0), true));
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, address(0), true));
         actions[1].data = abi.encodeWithSignature("upgradeTo(address)", otherImpl);
         _expectRetriable(actions, EtnaSignalServiceUpgradeGuard.UnexpectedImplementation.selector);
     }
@@ -411,11 +420,28 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     {
         _unzenBlock(UNZEN_TIME);
         address l1ConfiguredImpl =
-            address(new SignalService(address(tAnchor), l1SignalService, address(0), false));
+            address(new EtnaSignalService(address(tAnchor), l1SignalService, address(0), false));
         _expectRetriable(
             _actions(preEtnaImpl, l1ConfiguredImpl),
             EtnaSignalServiceUpgradeGuard.BeaconRootsUnused.selector
         );
+    }
+
+    /// @dev The Unzen `SignalService`, which stores block hashes, has no `usesBeaconRoots()`: the
+    /// postcondition's read reverts, so the message stays retriable and the proxy unchanged.
+    function test_readinessMessage_RevertWhen_TheNewImplementationIsNotTheEtnaSignalService()
+        external
+        onTaiko
+    {
+        _unzenBlock(UNZEN_TIME);
+        address unzenImpl =
+            address(new SignalService(address(tAnchor), l1SignalService, address(0)));
+        Controller.Action[] memory actions = _actions(preEtnaImpl, unzenImpl);
+        vm.expectRevert();
+        tDelegateController.dryrun(abi.encode(actions));
+        _assertStatus(_relay(actions), IBridge.Status.RETRIABLE);
+        assertEq(EssentialContract(tSignalService).impl(), preEtnaImpl);
+        assertEq(tDelegateController.lastExecutionId(), 0);
     }
 
     /// @dev The upgrade installs the expected address, but the postcondition pins another code
@@ -425,7 +451,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         onTaiko
     {
         _unzenBlock(UNZEN_TIME);
-        address otherSyncer = address(new SignalService(Bob, l1SignalService, address(0), true));
+        address otherSyncer = address(new EtnaSignalService(Bob, l1SignalService, address(0), true));
         Controller.Action[] memory actions = LibEtnaReadinessL2Message.buildActions(
             address(guard), tSignalService, preEtnaImpl, etnaImpl, otherSyncer.codehash
         );

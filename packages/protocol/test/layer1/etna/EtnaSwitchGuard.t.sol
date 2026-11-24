@@ -7,7 +7,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaSwitchGuard } from "src/layer1/etna/switch/EtnaSwitchGuard.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { InboxTestBase } from "test/layer1/core/inbox/InboxTestBase.sol";
 
 /// @title EtnaSwitchGuardTest
@@ -28,6 +28,8 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     /// @dev The EIP-1967 implementation slot.
     bytes32 private constant _IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    /// @dev The designated multisig the EtnaInbox names for `setOrigin`.
+    address private constant _ORIGIN_MULTISIG = address(0x5AFE);
     /// @dev Slot 273: the start block hash, zero until the start write.
     bytes32 private constant _START_HASH_SLOT = bytes32(uint256(273));
 
@@ -88,13 +90,13 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     // checkL1SignalService (SWITCH.md section 3, action 2)
     // ---------------------------------------------------------------
 
-    function test_checkL1SignalService_AcceptsTheL1Implementation() external view {
-        address impl = signalService.impl();
+    function test_checkL1SignalService_AcceptsTheL1Implementation() external {
+        address impl = _installL1EtnaSignalService();
         _guard.checkL1SignalService(address(signalService), impl, impl.codehash);
     }
 
     function test_checkL1SignalService_RevertWhen_UnexpectedImplementation() external {
-        address impl = signalService.impl();
+        address impl = _installL1EtnaSignalService();
         vm.expectRevert(EtnaSwitchGuard.UnexpectedImplementation.selector);
         _guard.checkL1SignalService(address(signalService), address(_etna), impl.codehash);
     }
@@ -102,18 +104,26 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     /// @dev The installed implementation is the expected address, but its code is not the one the
     /// builder rebuilt: here, another syncer.
     function test_checkL1SignalService_RevertWhen_UnexpectedCodeHash() external {
-        address impl = signalService.impl();
+        address impl = _installL1EtnaSignalService();
         address otherSyncer =
-            address(new SignalService(Bob, REMOTE_SIGNAL_SERVICE, address(0), false));
+            address(new EtnaSignalService(Bob, REMOTE_SIGNAL_SERVICE, address(0), false));
         vm.expectRevert(EtnaSwitchGuard.UnexpectedCodeHash.selector);
         _guard.checkL1SignalService(address(signalService), impl, otherSyncer.codehash);
     }
 
     function test_checkL1SignalService_RevertWhen_UsesBeaconRoots() external {
         address impl =
-            address(new SignalService(address(_etna), REMOTE_SIGNAL_SERVICE, address(0), true));
+            address(new EtnaSignalService(address(_etna), REMOTE_SIGNAL_SERVICE, address(0), true));
         signalService.upgradeTo(impl);
         vm.expectRevert(EtnaSwitchGuard.BeaconRootsUsed.selector);
+        _guard.checkL1SignalService(address(signalService), impl, impl.codehash);
+    }
+
+    /// @dev The Unzen implementation, which stores block hashes, has no `usesBeaconRoots()`, so a
+    /// batch that left it installed reverts even with its own address and code hash.
+    function test_checkL1SignalService_RevertWhen_NotTheEtnaSignalService() external {
+        address impl = signalService.impl();
+        vm.expectRevert();
         _guard.checkL1SignalService(address(signalService), impl, impl.codehash);
     }
 
@@ -122,46 +132,53 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function test_checkSchedule_AcceptsTheInstalledSchedule() external view {
-        _guard.checkSchedule(address(inbox), address(_etna), _schedule());
+        _guard.checkSchedule(address(inbox), address(_etna), _schedule(), _ORIGIN_MULTISIG);
     }
 
     function test_checkSchedule_RevertWhen_EtnaInboxNamesAnotherUnzenInbox() external {
         EtnaInbox other = _deployEtna(address(signalService), _FORK_TIME);
         vm.expectRevert(EtnaSwitchGuard.UnzenInboxMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(other), _schedule());
+        _guard.checkSchedule(address(inbox), address(other), _schedule(), _ORIGIN_MULTISIG);
     }
 
     function test_checkSchedule_RevertWhen_EtnaForkTimeDiffers() external {
         EtnaSwitchGuard.Schedule memory schedule = _schedule();
         schedule.etnaForkTime += 1;
         vm.expectRevert(EtnaSwitchGuard.EtnaForkTimeMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(_etna), schedule);
+        _guard.checkSchedule(address(inbox), address(_etna), schedule, _ORIGIN_MULTISIG);
     }
 
     function test_checkSchedule_RevertWhen_UnzenForkTimeDiffers() external {
         _installCutoffs(_FORK_TIME + 1, address(_etna));
         vm.expectRevert(EtnaSwitchGuard.UnzenForkTimeMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(_etna), _schedule());
+        _guard.checkSchedule(address(inbox), address(_etna), _schedule(), _ORIGIN_MULTISIG);
     }
 
     function test_checkSchedule_RevertWhen_ProposeCutoffDiffers() external {
         EtnaSwitchGuard.Schedule memory schedule = _schedule();
         schedule.proposeMargin += 1;
         vm.expectRevert(EtnaSwitchGuard.ProposeCutoffMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(_etna), schedule);
+        _guard.checkSchedule(address(inbox), address(_etna), schedule, _ORIGIN_MULTISIG);
     }
 
     function test_checkSchedule_RevertWhen_ForcedInclusionCutoffDiffers() external {
         EtnaSwitchGuard.Schedule memory schedule = _schedule();
         schedule.fiMargin += 1;
         vm.expectRevert(EtnaSwitchGuard.ForcedInclusionCutoffMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(_etna), schedule);
+        _guard.checkSchedule(address(inbox), address(_etna), schedule, _ORIGIN_MULTISIG);
+    }
+
+    function test_checkSchedule_RevertWhen_OriginMultisigDiffers() external {
+        vm.expectRevert(EtnaSwitchGuard.OriginMultisigMismatch.selector);
+        _guard.checkSchedule(address(inbox), address(_etna), _schedule(), Carol);
+        vm.expectRevert(EtnaSwitchGuard.OriginMultisigMismatch.selector);
+        _guard.checkSchedule(address(inbox), address(_etna), _schedule(), address(0));
     }
 
     function test_checkSchedule_RevertWhen_UnzenSavesCheckpointsElsewhere() external {
         _installCutoffs(_FORK_TIME, address(signalService));
         vm.expectRevert(EtnaSwitchGuard.CheckpointPathMismatch.selector);
-        _guard.checkSchedule(address(inbox), address(_etna), _schedule());
+        _guard.checkSchedule(address(inbox), address(_etna), _schedule(), _ORIGIN_MULTISIG);
     }
 
     // ---------------------------------------------------------------
@@ -315,6 +332,14 @@ contract EtnaSwitchGuardTest is InboxTestBase {
         });
     }
 
+    /// @dev Upgrades the L1 SignalService to the `EtnaSignalService` in its L1 configuration.
+    function _installL1EtnaSignalService() private returns (address impl_) {
+        impl_ = address(
+            new EtnaSignalService(address(_etna), REMOTE_SIGNAL_SERVICE, address(0), false)
+        );
+        signalService.upgradeTo(impl_);
+    }
+
     /// @dev Upgrades the Unzen Inbox to cutoffs for `_forkTime` whose `prove` saves its
     /// checkpoints in `_checkpointStore`.
     function _installCutoffs(uint48 _forkTime, address _checkpointStore) private {
@@ -339,6 +364,7 @@ contract EtnaSwitchGuardTest is InboxTestBase {
                 protocolFeeRecipient: Emma,
                 unzenInbox: _unzenInbox,
                 etnaForkTime: _forkTime,
+                originMultisig: _ORIGIN_MULTISIG,
                 unsettledLimit: 151_200
             })
         );

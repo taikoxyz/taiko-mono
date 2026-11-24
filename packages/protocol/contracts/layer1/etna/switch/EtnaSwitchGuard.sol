@@ -5,7 +5,7 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxWithEtnaCutoffs } from "src/layer1/core/impl/InboxWithEtnaCutoffs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 
 /// @title EtnaSwitchGuard
 /// @notice Read-only checks that the L1 DAO batches of an Unzen to Etna switch run as actions
@@ -51,11 +51,12 @@ contract EtnaSwitchGuard {
 
     /// @notice Runs after the L1 SignalService upgrade (SWITCH.md section 3, action 2): reverts
     /// unless `_signalService` uses `_expectedImpl`, whose runtime code hashes to
-    /// `_expectedCodeHash`, and reports `usesBeaconRoots()` false. The syncer and remote are
-    /// immutables without getters; the builder computes the hash from the implementation rebuilt
-    /// with the expected syncer, remote, pauser and flag, so the batch itself rejects any other
-    /// code. With the flag set on L1, every `saveCheckpoint` would read L1's own EIP-4788 roots and
-    /// revert.
+    /// `_expectedCodeHash`, and reports `usesBeaconRoots()` false. The implementation is the
+    /// `EtnaSignalService` that L2 also runs, so both store only state roots. The syncer and remote
+    /// are immutables without getters; the builder computes the hash from the implementation
+    /// rebuilt with the expected syncer, remote, pauser and flag, so the batch itself rejects any
+    /// other code. With the flag set on L1, every `saveCheckpoint` would read L1's own EIP-4788
+    /// roots and revert.
     /// @param _signalService The L1 SignalService proxy.
     /// @param _expectedImpl The SignalService implementation the batch installs.
     /// @param _expectedCodeHash `keccak256` of that implementation's runtime code.
@@ -71,24 +72,30 @@ contract EtnaSwitchGuard {
             EssentialContract(_signalService).impl() == _expectedImpl, UnexpectedImplementation()
         );
         require(_expectedImpl.codehash == _expectedCodeHash, UnexpectedCodeHash());
-        require(!SignalService(_signalService).usesBeaconRoots(), BeaconRootsUsed());
+        require(!EtnaSignalService(_signalService).usesBeaconRoots(), BeaconRootsUsed());
     }
 
     /// @notice The fork-time cross-check that ends the scheduling and postponement batches: reverts
     /// unless the Unzen Inbox's cutoffs and the EtnaInbox's `ETNA_FORK_TIME` derive from the same
-    /// fork time, `_schedule`'s, and the Unzen Inbox saves its checkpoints through the EtnaInbox.
+    /// fork time, `_schedule`'s, the Unzen Inbox saves its checkpoints through the EtnaInbox, and
+    /// the EtnaInbox names `_originMultisig` as the only caller of `setOrigin`.
     /// @param _unzenInbox The Unzen Inbox proxy, on an `InboxWithEtnaCutoffs` implementation.
     /// @param _etnaInbox The EtnaInbox proxy.
     /// @param _schedule The schedule both must hold.
+    /// @param _originMultisig The designated multisig the EtnaInbox must hold.
     function checkSchedule(
         address _unzenInbox,
         address _etnaInbox,
-        Schedule calldata _schedule
+        Schedule calldata _schedule,
+        address _originMultisig
     )
         external
         view
     {
         _checkSchedule(_unzenInbox, _etnaInbox, _schedule);
+        require(
+            IEtnaInbox(_etnaInbox).originMultisig() == _originMultisig, OriginMultisigMismatch()
+        );
     }
 
     /// @notice The postponement batch's first action (SWITCH.md section 7): reverts unless the
@@ -197,6 +204,7 @@ contract EtnaSwitchGuard {
     error EtnaForkTimeMismatch();
     error ForcedInclusionCutoffMismatch();
     error ForkTimeNotLater();
+    error OriginMultisigMismatch();
     error PostponementDeadlinePassed();
     error ProposalLeadMissed();
     error ProposalLeadNotAboveFiMargin();

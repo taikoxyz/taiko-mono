@@ -12,7 +12,7 @@ import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
 import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 
 /// @title LibEtnaReadinessL2Message
 /// @notice Builds the actions of the readiness proposal's one L2 message to the
@@ -29,8 +29,8 @@ library LibEtnaReadinessL2Message {
     /// @param _guard The deployed `EtnaSignalServiceUpgradeGuard`.
     /// @param _signalService The L2 `SignalService` proxy.
     /// @param _preEtnaImpl The implementation the proxy uses before the message.
-    /// @param _etnaImpl The Etna L2 `SignalService` implementation: `_authorizedSyncer` the `Anchor`
-    /// proxy and `usesBeaconRoots` true.
+    /// @param _etnaImpl The Etna L2 `SignalService` implementation, an `EtnaSignalService`:
+    /// `_authorizedSyncer` the `Anchor` proxy and `usesBeaconRoots` true.
     /// @param _etnaImplCodeHash `keccak256` of `_etnaImpl`'s runtime code.
     /// @return actions_ The three actions, in execution order.
     function buildActions(
@@ -90,7 +90,7 @@ library LibEtnaReadinessL2Message {
 /// - EVIDENCE_WINDOW_BLOCKS: the double-sign evidence window, in L2 blocks; nonzero
 /// - the `EtnaStaking` configuration, which `LibEtnaStakingEnv` reads; its INBOX_PROXY is the
 ///   Etna Inbox proxy on L1
-/// ETNA_SIGNAL_SERVICE_IMPL must hold exactly this build's `SignalService` constructed as
+/// ETNA_SIGNAL_SERVICE_IMPL must hold exactly this build's `EtnaSignalService` constructed as
 /// `DeployShastaL2Contracts` does: syncer ANCHOR_PROXY, remote L1_SIGNAL_SERVICE, the live
 /// proxy's pauser and `usesBeaconRoots` true. The syncer and remote have no getters, so its runtime
 /// code is compared with a reference built from those arguments, and the message's postcondition
@@ -183,7 +183,7 @@ contract BuildEtnaReadinessL2Message is Script {
         );
         require(_inputs.l1SignalService != address(0), SignalServiceImplementationMismatch());
         address expected = address(
-            new SignalService(
+            new EtnaSignalService(
                 _inputs.anchor, _inputs.l1SignalService, _readPauser(_inputs.signalService), true
             )
         );

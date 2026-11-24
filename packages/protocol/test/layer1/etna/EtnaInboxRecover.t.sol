@@ -436,7 +436,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertCheckpoint(18, bytes32(uint256(1118)));
         _assertQueue(3, LEAN_FORCED_INCLUSIONS);
         ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(18);
-        assertEq(saved.blockHash, bytes32(uint256(1118)), "signal block hash");
+        assertEq(saved.blockHash, 0, "root-only signal checkpoint");
         assertEq(saved.stateRoot, bytes32(uint256(318)), "signal state root");
     }
 
@@ -538,7 +538,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertLanding(18, _record(12, 1, 3, 18));
         _assertLanding(6, _record(0, 0, 1, 6));
         ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(12);
-        assertEq(saved.blockHash, bytes32(uint256(112)), "signal block hash at 12");
+        assertEq(saved.blockHash, 0, "root-only signal checkpoint at 12");
         assertEq(saved.stateRoot, bytes32(uint256(312)), "signal state root at 12");
     }
 

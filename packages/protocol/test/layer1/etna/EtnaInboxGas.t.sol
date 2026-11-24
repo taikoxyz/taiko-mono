@@ -515,7 +515,7 @@ contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
 }
 
 /// @title EtnaInboxSetOriginGasTest
-/// @notice The permissionless start write on a switching network, with the Unzen proposals
+/// @notice The origin multisig's start write on a switching network, with the Unzen proposals
 /// closed and finalized up to S and its checkpoint forwarded.
 contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
     function setUp() public override {
@@ -527,7 +527,7 @@ contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
     function test_gas_SetOrigin() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         uint48 s = uint48(S);
-        vm.prank(Carol);
+        vm.prank(ORIGIN_MULTISIG);
         target.setOrigin(s);
         uint256 gasUsed = vm.snapshotGasLastCall("set_origin");
         emit log_named_uint("set_origin", gasUsed);

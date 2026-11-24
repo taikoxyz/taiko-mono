@@ -24,6 +24,7 @@ import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerif
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibBytes } from "src/shared/libs/LibBytes.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { InboxTestBase } from "test/layer1/core/inbox/InboxTestBase.sol";
@@ -49,6 +50,8 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
     /// @dev The CREATE2 address of the EtnaStaking proxy on the switching L2, which DeployEtnaSwitch
     /// takes as given.
     address private constant _ETNA_STAKING = address(0xE7A5);
+    /// @dev The designated multisig that alone may call `setOrigin`.
+    address private constant _ORIGIN_MULTISIG = address(0x5AFE);
     /// @dev U, set explicitly rather than taken from the scripts' default.
     uint64 private constant _UNSETTLED_LIMIT = 64;
     /// @dev The initial fallback keys K1 and K2, the compressed keys of private keys 1 and 2, as
@@ -59,12 +62,13 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         hex"02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
     uint256 private constant _MIN_TOTAL_STAKE = 50_000_000 ether;
 
-    /// @dev Unzen images: trusted before the readiness proposal, the readiness images that read
-    /// both checkpoint layouts, and the ones the scheduling and postponement batches pin.
+    /// @dev Unzen images: trusted before the readiness proposal, the readiness images that take the
+    /// inherited checkpoint from the parent block's anchor transaction, and the ones the
+    /// scheduling and postponement batches pin.
     bytes32 private constant _UNZEN_LEGACY_R0 = keccak256("unzen legacy risc0");
-    bytes32 private constant _UNZEN_DUAL_R0 = keccak256("unzen dual-layout risc0");
-    bytes32 private constant _UNZEN_DUAL_SP1 = keccak256("unzen dual-layout sp1");
-    bytes32 private constant _UNZEN_DUAL_SGX = keccak256("unzen dual-layout mrenclave");
+    bytes32 private constant _UNZEN_PARENT_ANCHOR_R0 = keccak256("unzen parent-anchor risc0");
+    bytes32 private constant _UNZEN_PARENT_ANCHOR_SP1 = keccak256("unzen parent-anchor sp1");
+    bytes32 private constant _UNZEN_PARENT_ANCHOR_SGX = keccak256("unzen parent-anchor mrenclave");
     bytes32 private constant _UNZEN_SCHEDULED_R0 = keccak256("unzen scheduled risc0");
     bytes32 private constant _UNZEN_POSTPONED_R0 = keccak256("unzen postponed risc0");
     /// @dev Etna images under the first and the postponed schedule.
@@ -190,12 +194,19 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(EtnaInbox(implementation_).unsettledLimit(), _UNSETTLED_LIMIT);
         assertEq(EtnaInbox(implementation_).proofVerifier(), _etnaVerifiers.proofVerifier);
         assertEq(EtnaInbox(implementation_).etnaForkTime(), _FORK_TIME);
+        assertEq(EtnaInbox(implementation_).originMultisig(), _ORIGIN_MULTISIG);
         assertFalse(EtnaInbox(proxy_).isInitialized());
+
+        // A switching Inbox needs the origin multisig.
+        vm.setEnv("ORIGIN_MULTISIG", vm.toString(address(0)));
+        vm.expectRevert(DeployEtnaSwitch.OriginMultisigRequired.selector);
+        _switch.deployInbox();
+        vm.setEnv("ORIGIN_MULTISIG", vm.toString(_ORIGIN_MULTISIG));
 
         signalImpl_ = _switch.deploySignalServiceImplementation();
         vm.setEnv("SIGNAL_SERVICE_IMPLEMENTATION", vm.toString(signalImpl_));
-        assertFalse(SignalService(signalImpl_).usesBeaconRoots());
-        assertEq(SignalService(signalImpl_).VERSION(), 1);
+        assertFalse(EtnaSignalService(signalImpl_).usesBeaconRoots());
+        assertEq(EtnaSignalService(signalImpl_).VERSION(), 1);
 
         _guard = _switch.deploySwitchGuard();
         assertEq(_guard.codehash, address(new EtnaSwitchGuard()).codehash);
@@ -235,18 +246,19 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
     // Proposal 1: readiness
     // ---------------------------------------------------------------
 
-    /// @dev The readiness proposal's L1 actions trust the Unzen images that read both checkpoint
-    /// layouts while Unzen stays unscheduled; its L2 message is built separately.
+    /// @dev The readiness proposal's L1 actions trust the Unzen images that take the inherited
+    /// checkpoint from the parent block's anchor transaction while Unzen stays unscheduled; its L2
+    /// message is built separately.
     function _readiness() private {
-        vm.setEnv("UNZEN_SGX_RETH_TRUST", vm.toString(_UNZEN_DUAL_SGX));
-        vm.setEnv("UNZEN_RISC0_TRUST", vm.toString(_UNZEN_DUAL_R0));
-        vm.setEnv("UNZEN_SP1_TRUST", vm.toString(_UNZEN_DUAL_SP1));
+        vm.setEnv("UNZEN_SGX_RETH_TRUST", vm.toString(_UNZEN_PARENT_ANCHOR_SGX));
+        vm.setEnv("UNZEN_RISC0_TRUST", vm.toString(_UNZEN_PARENT_ANCHOR_R0));
+        vm.setEnv("UNZEN_SP1_TRUST", vm.toString(_UNZEN_PARENT_ANCHOR_SP1));
 
         // An id may not be both trusted and untrusted, and a slot Unzen lacks has no trust.
-        vm.setEnv("UNZEN_RISC0_UNTRUST", vm.toString(_UNZEN_DUAL_R0));
+        vm.setEnv("UNZEN_RISC0_UNTRUST", vm.toString(_UNZEN_PARENT_ANCHOR_R0));
         vm.expectRevert(
             abi.encodeWithSelector(
-                BuildEtnaSwitchProposals.ConflictingTrust.selector, _UNZEN_DUAL_R0
+                BuildEtnaSwitchProposals.ConflictingTrust.selector, _UNZEN_PARENT_ANCHOR_R0
             )
         );
         _proposals.readinessActions();
@@ -258,9 +270,9 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(actions[1].target, _unzenSubs[2]);
         assertEq(actions[2].target, _unzenSubs[3]);
         _execute(actions);
-        assertTrue(SecureSgxVerifier(_unzenSubs[1]).trustedUserMrEnclave(_UNZEN_DUAL_SGX));
-        assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_DUAL_R0));
-        assertTrue(SP1Verifier(_unzenSubs[3]).isProgramTrusted(_UNZEN_DUAL_SP1));
+        assertTrue(SecureSgxVerifier(_unzenSubs[1]).trustedUserMrEnclave(_UNZEN_PARENT_ANCHOR_SGX));
+        assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_PARENT_ANCHOR_R0));
+        assertTrue(SP1Verifier(_unzenSubs[3]).isProgramTrusted(_UNZEN_PARENT_ANCHOR_SP1));
         assertEq(inbox.getConfig().signalService, address(signalService), "still unscheduled");
         _setTrust("UNZEN", "", "", "", "");
     }
@@ -319,6 +331,18 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(actions[4].target, _proxy);
         assertEq(actions[4].data, _switch.ownerUpgradeCall(_implementation));
         assertEq(actions[10].target, _guard);
+        assertEq(
+            actions[10].data,
+            abi.encodeCall(
+                EtnaSwitchGuard.checkSchedule,
+                (
+                    address(inbox),
+                    _proxy,
+                    EtnaSwitchGuard.Schedule(_FORK_TIME, _PROPOSE_MARGIN, _FI_MARGIN),
+                    _ORIGIN_MULTISIG
+                )
+            )
+        );
         _setTrust("UNZEN", "", "", "", "");
         vm.setEnv("UNZEN_RISC0_UNTRUST", "");
         _setTrust("ETNA", "", "", "", "");
@@ -369,7 +393,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _execute(actions);
         assertEq(_unzenImplementation(), _cutoff);
         assertEq(signalService.impl(), _signalImpl);
-        assertFalse(signalService.usesBeaconRoots());
+        assertFalse(EtnaSignalService(address(signalService)).usesBeaconRoots());
         EtnaInbox etna = EtnaInbox(_proxy);
         assertEq(EssentialContract(_proxy).impl(), _implementation);
         assertTrue(etna.isInitialized());
@@ -398,7 +422,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(InboxWithEtnaCutoffs(address(inbox)).proposeCutoff(), _FORK_TIME - 12);
         assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_SCHEDULED_R0));
         assertFalse(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_LEGACY_R0));
-        assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_DUAL_R0));
+        assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_PARENT_ANCHOR_R0));
         assertTrue(SecureSgxVerifier(_etnaVerifiers.sgxReth).trustedUserMrEnclave(_ETNA_SGX));
         assertTrue(Risc0Verifier(_etnaVerifiers.risc0Reth).isImageTrusted(_ETNA_R0));
         assertTrue(SP1Verifier(_etnaVerifiers.sp1Reth).isProgramTrusted(_ETNA_SP1));
@@ -417,10 +441,10 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         address remote = _switch.l2SignalServiceAddress(_L2_CHAIN_ID);
         address pauser = signalService.pauser();
         address[4] memory wrong = [
-            address(new SignalService(Bob, remote, pauser, false)),
-            address(new SignalService(_proxy, Carol, pauser, false)),
-            address(new SignalService(_proxy, remote, Bob, false)),
-            address(new SignalService(_proxy, remote, pauser, true))
+            address(new EtnaSignalService(Bob, remote, pauser, false)),
+            address(new EtnaSignalService(_proxy, Carol, pauser, false)),
+            address(new EtnaSignalService(_proxy, remote, Bob, false)),
+            address(new EtnaSignalService(_proxy, remote, pauser, true))
         ];
         for (uint256 i; i < wrong.length; ++i) {
             vm.setEnv("SIGNAL_SERVICE_IMPLEMENTATION", vm.toString(wrong[i]));
@@ -505,10 +529,14 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _proveThroughEtna(_proxy, _input);
         EtnaInbox etna = EtnaInbox(_proxy);
         vm.warp(_FORK_TIME - 1);
+        vm.prank(_ORIGIN_MULTISIG);
         vm.expectRevert(IEtnaInbox.BeforeEtnaForkTime.selector);
         etna.setOrigin(_unzenTip);
         vm.warp(_FORK_TIME);
         vm.prank(Carol);
+        vm.expectRevert(IEtnaInbox.NotOriginMultisig.selector);
+        etna.setOrigin(_unzenTip);
+        vm.prank(_ORIGIN_MULTISIG);
         etna.setOrigin(_unzenTip);
         assertEq(etna.generationStartHeight(), _unzenTip);
         _expectGuardRevert(EtnaSwitchGuard.StartAlreadyWritten.selector);
@@ -564,10 +592,11 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
 
         // The start latches the tip only from the installed fork time on.
         vm.warp(_NEW_FORK_TIME);
+        vm.prank(_ORIGIN_MULTISIG);
         vm.expectRevert(IEtnaInbox.BeforeEtnaForkTime.selector);
         etna.setOrigin(_unzenTip);
         vm.warp(_LATER_FORK_TIME);
-        vm.prank(Carol);
+        vm.prank(_ORIGIN_MULTISIG);
         etna.setOrigin(_unzenTip);
         assertEq(etna.generationStartHeight(), _unzenTip);
         vm.expectRevert(DeployEtnaSwitch.SwitchAlreadyStarted.selector);
@@ -619,6 +648,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
             protocolFeeRecipient: etna.protocolFeeRecipient(),
             unzenInbox: etna.unzenInbox(),
             etnaForkTime: etna.etnaForkTime(),
+            originMultisig: etna.originMultisig(),
             unsettledLimit: etna.unsettledLimit()
         });
     }
@@ -652,7 +682,8 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("POSTPONEMENT_DEADLINE", vm.toString(_deadline));
     }
 
-    /// @dev Both L1 configurations hold `_forkTime`, and the start is still unwritten.
+    /// @dev Both L1 configurations hold `_forkTime`, the EtnaInbox keeps the origin multisig, and
+    /// the start is still unwritten.
     function _assertSchedule(
         address _proxy,
         address _cutoff,
@@ -664,6 +695,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(_unzenImplementation(), _cutoff);
         assertEq(EssentialContract(_proxy).impl(), _implementation);
         assertEq(EtnaInbox(_proxy).etnaForkTime(), _forkTime);
+        assertEq(EtnaInbox(_proxy).originMultisig(), _ORIGIN_MULTISIG);
         assertEq(InboxWithEtnaCutoffs(address(inbox)).ETNA_FORK_TIME(), _forkTime);
         assertEq(InboxWithEtnaCutoffs(address(inbox)).proposeCutoff(), _forkTime - 12);
         assertEq(inbox.getConfig().signalService, _proxy);
@@ -709,9 +741,10 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         );
         vm.expectCall(_proxy, abi.encodeCall(EtnaInbox.saveCheckpoint, (checkpoint)));
         _prove(_input);
+        // The root-only L1 SignalService keeps the state root and returns no hash.
         ICheckpointStore.Checkpoint memory saved =
             signalService.getCheckpoint(checkpoint.blockNumber);
-        assertEq(saved.blockHash, checkpoint.blockHash);
+        assertEq(saved.blockHash, bytes32(0));
         assertEq(saved.stateRoot, checkpoint.stateRoot);
         assertEq(inbox.getCoreState().lastFinalizedProposalId, _input.commitment.firstProposalId);
 
@@ -799,6 +832,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("ETNA_FORK_TIME", vm.toString(_FORK_TIME));
         vm.setEnv("PROPOSE_MARGIN", vm.toString(_PROPOSE_MARGIN));
         vm.setEnv("FI_MARGIN", vm.toString(_FI_MARGIN));
+        vm.setEnv("ORIGIN_MULTISIG", vm.toString(_ORIGIN_MULTISIG));
         vm.setEnv(
             "REMOTE_SIGNAL_SERVICE", vm.toString(_switch.l2SignalServiceAddress(_L2_CHAIN_ID))
         );

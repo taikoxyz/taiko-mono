@@ -47,19 +47,21 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(impl.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
         assertEq(impl.unzenInbox(), address(0), "new network: no Unzen Inbox");
         assertEq(impl.etnaForkTime(), 0, "new network: no fork time");
+        assertEq(impl.originMultisig(), address(0), "new network: no origin multisig");
         assertEq(impl.unsettledLimit(), UNSETTLED_LIMIT, "U");
     }
 
-    /// @dev PARAM-11-12a: the two switching immutables are both zero (a new network) or both
-    /// non-zero (a switching network), and the Unzen Inbox must have code. There is no
-    /// originWriter (vector 11 12a).
+    /// @dev PARAM-11-12a: the three switching immutables, the Unzen Inbox, the fork time and the
+    /// origin multisig, are all zero (a new network) or all non-zero (a switching network), and the
+    /// Unzen Inbox must have code (vector 11 12a).
     function test_constructor_RevertWhen_SwitchConfigIsMixed() external {
         address unzen = address(landVerifier); // any contract
         IEtnaInbox.Config memory cfg = _defaultConfig();
-        (cfg.unzenInbox, cfg.etnaForkTime) = (unzen, 1);
+        (cfg.unzenInbox, cfg.etnaForkTime, cfg.originMultisig) = (unzen, 1, Carol);
         EtnaInbox impl = _newInboxImpl(cfg);
         assertEq(impl.unzenInbox(), unzen, "Unzen Inbox");
         assertEq(impl.etnaForkTime(), 1, "fork time");
+        assertEq(impl.originMultisig(), Carol, "origin multisig");
 
         cfg.etnaForkTime = 0;
         vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
@@ -70,6 +72,15 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _newInboxImpl(cfg);
 
         cfg.unzenInbox = address(0x1234); // no code
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
+
+        (cfg.unzenInbox, cfg.originMultisig) = (unzen, address(0));
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
+
+        cfg = _defaultConfig();
+        cfg.originMultisig = Carol;
         vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
         _newInboxImpl(cfg);
     }
@@ -313,7 +324,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
         ICheckpointStore.Checkpoint memory checkpoint = signalService.getCheckpoint(0);
         assertEq(checkpoint.blockNumber, 0, "checkpoint number");
-        assertEq(checkpoint.blockHash, GENESIS_BLOCK_HASH, "checkpoint hash");
+        assertEq(checkpoint.blockHash, 0, "root-only checkpoint");
         assertEq(checkpoint.stateRoot, GENESIS_STATE_ROOT, "checkpoint state root");
     }
 

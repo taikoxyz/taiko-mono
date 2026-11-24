@@ -13,6 +13,7 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -123,6 +124,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(EssentialContract(proxy).owner(), Bob, "configured owner");
         assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
         assertEq(SignalService(signals).pauser(), address(0), "no pauser besides the owner");
+        // The root-only `EtnaSignalService` in its L1 configuration.
+        assertFalse(EtnaSignalService(signals).usesBeaconRoots(), "usesBeaconRoots");
         // Only the Inbox proxy may save checkpoints, before and after its upgrade.
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
@@ -443,6 +446,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         // A new network: no switch from Unzen.
         assertEq(_inbox.unzenInbox(), address(0), "no Unzen Inbox");
         assertEq(_inbox.etnaForkTime(), 0, "no fork time");
+        assertEq(_inbox.originMultisig(), address(0), "no origin multisig");
     }
 
     /// @dev Checks the initialized genesis state against the environment, with the config hash
@@ -460,7 +464,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(_inbox.origins(0).fallbackKeysHash, DEFAULT_FALLBACK_KEYS_HASH, "origins(0)");
         assertEq(_inbox.minTotalStake(), MIN_TOTAL_STAKE, "minTotalStake");
         ICheckpointStore.Checkpoint memory checkpoint = _signals.getCheckpoint(0);
-        assertEq(checkpoint.blockHash, GENESIS_BLOCK_HASH, "block-0 checkpoint hash");
+        assertEq(checkpoint.blockHash, 0, "root-only block-0 checkpoint");
         assertEq(checkpoint.stateRoot, GENESIS_STATE_ROOT, "block-0 checkpoint root");
     }
 
@@ -493,8 +497,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(landed.blockHash, input.lastBlockHash, "block six hash");
         assertEq(_inbox.landings(6).parentHeight, 0, "settled on genesis");
         ICheckpointStore.Checkpoint memory saved = _signals.getCheckpoint(6);
-        assertEq(saved.blockHash, input.lastBlockHash, "SignalService accepts the proxy");
-        assertEq(saved.stateRoot, input.lastStateRoot, "block six state root");
+        assertEq(saved.blockHash, 0, "root-only checkpoint");
+        assertEq(saved.stateRoot, input.lastStateRoot, "SignalService accepts the proxy");
     }
 
     /// @dev The landing statement of `_input` over `landings(0)`, with a reference hash set for

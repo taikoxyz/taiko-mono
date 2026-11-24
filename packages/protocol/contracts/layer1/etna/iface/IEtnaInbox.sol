@@ -42,6 +42,10 @@ interface IEtnaInbox {
         /// @notice `ETNA_FORK_TIME` in L1 Unix seconds on a switching network; zero on a new
         /// network (PARAM-11-12a).
         uint48 etnaForkTime;
+        /// @notice The designated multisig that alone may call `setOrigin` and is trusted to supply
+        /// S, the height of the Unzen Inbox's finalized tip, on a switching network; zero on a new
+        /// network. Not part of the config hash.
+        address originMultisig;
         /// @notice `U`, the maximum number of unsettled L2 blocks (spec 6.4), in [1, 262,144]; the
         /// fourth word of the config hash.
         uint64 unsettledLimit;
@@ -285,22 +289,28 @@ interface IEtnaInbox {
     /// START-10-5b, START-10-5c).
     /// @dev The one-time start write that records the Etna start S (the spec's "start write").
     /// "Origin" in the name is that start, not the slot 290 `Origin` record and not the proof
-    /// origin `p` of `land`. Permissionless. Before writing anything it requires, in order: an
-    /// initialized Inbox whose start is unwritten (`NotInitialized`, `StartAlreadyWritten`); a
-    /// switching network, `unzenInbox()` and `etnaForkTime()` non-zero (`NotSwitching`); S != 0
+    /// origin `p` of `land`. Only `originMultisig()` may call it, which is checked first
+    /// (`NotOriginMultisig`); the multisig is trusted only to supply S, the height of the Unzen
+    /// Inbox's finalized tip. Before writing anything it then requires, in order: an initialized
+    /// Inbox whose start is unwritten (`NotInitialized`, `StartAlreadyWritten`); a switching
+    /// network, `unzenInbox()` and `etnaForkTime()` non-zero (`NotSwitching`); S != 0
     /// (`InvalidStart`); block.timestamp >= etnaForkTime() (`BeforeEtnaForkTime`); the live Unzen
     /// Inbox's `proposeCutoff()` non-zero and reached, block.timestamp >= cutoff
     /// (`ProposalsNotClosed`); its `getCoreState()` with nextProposalId ==
-    /// lastFinalizedProposalId + 1 (`UnzenNotFinalized`); the L1 SignalService's
-    /// `getCheckpoint(S)` with a non-zero block hash equal to the Unzen Inbox's
-    /// lastFinalizedBlockHash (`UnzenStartMismatch`) and a non-zero state root (`InvalidStart`);
-    /// and block.number and block.timestamp below 2^48 (`ValueOverflow`). A failing read reverts
-    /// the call. The start write takes the hash and state root from that checkpoint and sets slot
-    /// 272 to (S, L1_0 = block.number), slots 273/274 to them, origins[0] = (S, L1_0,
-    /// block.timestamp, fallbackKeysHash()), the checkpoint to (S, hash) and landings[S] =
-    /// (S, 0, 0, hash, 0), closes the checkpoint forwarder, opens the forced inclusion queue and
-    /// emits `StartWritten`. It leaves the SignalService checkpoint at S untouched. A new-network
-    /// Inbox reverts every call.
+    /// lastFinalizedProposalId + 1 (`UnzenNotFinalized`); a checkpoint at S in the L1
+    /// SignalService, whose `getCheckpoint(S)` reverts without one; a non-zero Unzen
+    /// lastFinalizedBlockHash (`UnzenTipHashZero`); a non-zero state root in that checkpoint
+    /// (`InvalidStart`); and block.number and block.timestamp below 2^48 (`ValueOverflow`). A
+    /// failing read reverts the call. The start write takes its hash from the Unzen Inbox's
+    /// lastFinalizedBlockHash and its state root from the checkpoint at S; the checkpoint's hash
+    /// field is not read, since the root-only SignalService returns zero there. Nothing on L1 ties
+    /// the two to one height: if the multisig supplies another checkpointed height, the one-time
+    /// write succeeds, and nodes and guests reject the mismatch later. It sets slot 272 to
+    /// (S, L1_0 = block.number), slots 273/274 to them, origins[0] = (S, L1_0, block.timestamp,
+    /// fallbackKeysHash()), the checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0),
+    /// closes the checkpoint forwarder, opens the forced inclusion queue and emits
+    /// `StartWritten`. It leaves the SignalService checkpoint at S untouched. A new-network Inbox
+    /// reverts every call, since its origin multisig is zero.
     /// @param _s The Etna start S, the last Unzen block.
     function setOrigin(uint48 _s) external;
 
@@ -591,6 +601,11 @@ interface IEtnaInbox {
     /// @return The fork time in L1 Unix seconds.
     function etnaForkTime() external view returns (uint48);
 
+    /// @notice Returns the designated multisig that alone may call `setOrigin` and supplies S on a
+    /// switching network; zero on a new network.
+    /// @return The origin multisig.
+    function originMultisig() external view returns (address);
+
     /// @notice Returns `U`, the maximum number of unsettled L2 blocks, the config hash's fourth
     /// word.
     /// @return The limit, in [1, 262,144].
@@ -615,8 +630,8 @@ interface IEtnaInbox {
     error InvalidStart();
     /// @notice `setOrigin` is called on a new network, which has no Unzen Inbox or fork time.
     error NotSwitching();
-    /// @notice The switching-network immutables are neither both zero nor both non-zero, or the
-    /// Unzen Inbox has no code.
+    /// @notice The switching-network immutables (Unzen Inbox, fork time and origin multisig) are
+    /// neither all zero nor all non-zero, or the Unzen Inbox has no code.
     error InvalidSwitchConfig();
     /// @notice `U` is zero or above 262,144.
     error InvalidUnsettledLimit();
@@ -624,9 +639,10 @@ interface IEtnaInbox {
     error ProposalsNotClosed();
     /// @notice The Unzen Inbox has an unfinalized proposal.
     error UnzenNotFinalized();
-    /// @notice The SignalService checkpoint at S has a zero block hash or one that differs from
-    /// the Unzen Inbox's last finalized block hash.
-    error UnzenStartMismatch();
+    /// @notice `setOrigin` is called by an address other than `originMultisig()`.
+    error NotOriginMultisig();
+    /// @notice The Unzen Inbox's last finalized block hash is zero at `setOrigin`.
+    error UnzenTipHashZero();
     /// @notice The Unzen Inbox forwarded a checkpoint after the start write, which closes the
     /// forwarder at every height.
     error ForwardingClosed();
