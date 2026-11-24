@@ -1,9 +1,10 @@
-//! Inject one private-check timeout while forwarding genuine app observations unchanged.
+//! Withhold the signer's private session checks for longer than its whole trust hold while
+//! forwarding genuine app observations unchanged.
 use anyhow::{Context, Result, ensure};
 use std::{
     path::{Path, PathBuf},
     sync::{
-        Arc,
+        Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
     time::Duration,
@@ -12,7 +13,15 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
     task::JoinHandle,
+    time::Instant,
 };
+
+/// How long after the first withheld check every check stays unanswered. The guarded signer holds
+/// a pending signing request for at most 3.5 s and asks again every 100 ms, each query bounded by
+/// its one-second deadline, so one late reply is only retried and the request is signed on the
+/// same session. Holding every reply past the whole hold makes the signer refuse the request,
+/// which the supervisor recovers with a fresh pair and session.
+const STALL: Duration = Duration::from_secs(4);
 
 pub struct TrustTimeout {
     path: PathBuf,
@@ -43,6 +52,7 @@ impl TrustTimeout {
         let target = backend.clone();
         let triggered = fired.clone();
         let observed = ready_when_delayed.clone();
+        let stall_end = Arc::new(OnceLock::<Instant>::new());
         let task = tokio::spawn(async move {
             let mut children = tokio::task::JoinSet::new();
             loop {
@@ -52,17 +62,21 @@ impl TrustTimeout {
                         let target = target.clone();
                         let triggered = triggered.clone();
                         let observed = observed.clone();
+                        let stall_end = stall_end.clone();
                         children.spawn(async move {
                             let result: Result<()> = async {
                                 let mut peer = BufReader::new(peer);
                                 let mut line = String::new();
                                 peer.read_line(&mut line).await?;
                                 let request: serde_json::Value = serde_json::from_str(&line)?;
-                                if request["op"] == "check_session" && !triggered.swap(true, Ordering::SeqCst) {
-                                    let status = observe(&target).await?;
-                                    observed.store(status["phase"] == "ready", Ordering::SeqCst);
-                                    // Beyond the actual signer's one-second private-control deadline.
-                                    tokio::time::sleep(Duration::from_millis(1500)).await;
+                                if request["op"] == "check_session" {
+                                    let until = *stall_end.get_or_init(|| Instant::now() + STALL);
+                                    if !triggered.swap(true, Ordering::SeqCst) {
+                                        let status = observe(&target).await?;
+                                        observed.store(status["phase"] == "ready", Ordering::SeqCst);
+                                    }
+                                    // Once the stall has ended this returns at once.
+                                    tokio::time::sleep_until(until).await;
                                 }
                                 let mut upstream = UnixStream::connect(target).await?;
                                 upstream.write_all(line.as_bytes()).await?;
@@ -71,7 +85,7 @@ impl TrustTimeout {
                                 peer.get_mut().write_all(line.as_bytes()).await?;
                                 Ok(())
                             }.await;
-                            let _ = result; // The timed-out peer deliberately closes before its reply.
+                            let _ = result; // A timed-out peer closes before its reply.
                         });
                     }
                     _ = children.join_next(), if !children.is_empty() => {}

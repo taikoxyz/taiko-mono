@@ -81,13 +81,18 @@ impl AppNode {
     }
 
     /// Loads a caller-owned store with real L1 and the selected Engine adapter.
+    ///
+    /// The app has no anchor hold. A fresh app first sees the own L1's finalized block at its
+    /// first `PrepareProposal`, so the default hold would keep the parent's anchor there, and a
+    /// test that waited for L1 to finalize a new anchor would get a proposal without it. The
+    /// hold is proposer policy only: no validity rule depends on it.
     pub(crate) fn detached_app<E: Engine>(
         &self,
         store: Store,
         engine: E,
     ) -> Result<App<RpcL1Source, E>> {
         ensure!(!self.is_running(), "stop the live app before detached ABCI requests");
-        let opts = AppOptions::default();
+        let opts = AppOptions { anchor_hold: Duration::ZERO, ..AppOptions::default() };
         let l1 = RpcL1Source::new(connect_http_with_timeout(
             self.config.l1_http.clone(),
             http_timeout_for(opts.l1_timeout),

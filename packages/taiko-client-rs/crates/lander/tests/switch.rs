@@ -68,7 +68,12 @@ async fn assert_reverts(
 }
 
 /// Sends EtnaInbox `saveCheckpoint` as the Unzen Inbox, which anvil impersonates: the
-/// forwarder accepts calls from the immutable Unzen Inbox only (START-10-5).
+/// forwarder accepts calls from the immutable Unzen Inbox only.
+///
+/// Only the first call funds the Unzen Inbox. anvil keeps the state of its latest block for
+/// historical reads as it stands when it mines the next one, so a balance set after the start
+/// write would become part of the state of `L1_0`, the start write's block, and the genesis
+/// proofs read there would no longer match its state root.
 async fn forward(
     f: &ContractFixture,
     unzen: Address,
@@ -77,12 +82,14 @@ async fn forward(
     let p = &f.anvil.provider;
     anvil_request::<serde_json::Value>(p, "anvil_impersonateAccount", serde_json::json!([unzen]))
         .await?;
-    anvil_request::<serde_json::Value>(
-        p,
-        "anvil_setBalance",
-        serde_json::json!([unzen, "0xde0b6b3a7640000"]),
-    )
-    .await?;
+    if p.get_balance(unzen).await?.is_zero() {
+        anvil_request::<serde_json::Value>(
+            p,
+            "anvil_setBalance",
+            serde_json::json!([unzen, "0xde0b6b3a7640000"]),
+        )
+        .await?;
+    }
     transact(
         p,
         unzen,

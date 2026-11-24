@@ -176,7 +176,9 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(167001),
             })?;
-            ensure!(expected.base_fee == 10_416_666);
+            // Every Etna block targets 4 s blocks, so the parent's 2 s interval halves its 22.5M
+            // gas target to 11.25M: 10_000_000 + floor(10_000_000 · 18.75M / 22.5M / 8).
+            ensure!(expected.base_fee == 11_041_666);
             let attrs = rules::payload_attributes(
                 &expected,
                 anchor.hash,
