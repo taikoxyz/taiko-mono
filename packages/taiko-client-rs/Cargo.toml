@@ -58,9 +58,9 @@ alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429", default-features = false, features = [
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86", default-features = false, features = [
     "serde",
 ] }
 
@@ -95,7 +95,7 @@ sha2 = "0.10"
 tempfile = "3"
 
 # Unzen sync/derivation dependencies, sharing the Etna Alloy version.
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86" }
 alloy-contract = { version = "2.4.2", default-features = false }
 alloy-hardforks = { version = "0.4.8", default-features = false }
 alloy-json-rpc = { version = "2.4.2", default-features = false }

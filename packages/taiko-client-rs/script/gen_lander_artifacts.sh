@@ -7,7 +7,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=0025465c33b1079bedb9f4ca336152dfaa8be7f8
+PINNED_REVISION=dcada2ae2982f06bafa2a6da489d129b66ef6d4f
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"

@@ -37,7 +37,7 @@ use crate::{
 const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
 /// Image built from the pinned EL source by `tests/entrypoint.sh`; an explicit
 /// `ALETHIA_RETH_IMAGE` overrides it.
-pub(crate) const RETH_IMAGE: &str = "alethia-reth:etna-7174fd0064c69fa75ce784b8ec13702fffa5d429";
+pub(crate) const RETH_IMAGE: &str = "alethia-reth:etna-aa89a01aad2f127e342e39fd069352b2e4ebcf86";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
 const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798";
 
