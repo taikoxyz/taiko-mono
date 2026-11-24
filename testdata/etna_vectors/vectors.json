@@ -1,5 +1,5 @@
 {
-  "schema_version": "10",
+  "schema_version": "11",
   "deployment": {
     "l1_chain_id": "1",
     "l2_chain_id": "167001",
@@ -10,8 +10,6 @@
     "min_stake": "7812500000000000000000000",
     "vp_unit": "1000000000",
     "n_max": "128",
-    "miss_limit": "3600",
-    "miss_slash_bps": "1000",
     "slash_bounty_bps": "1000",
     "forfeit_bps": "1000",
     "withdrawal_delay": "302402",
@@ -4509,37 +4507,20 @@
     {
       "generation": "0",
       "anchor_number": "0",
-      "miss_bitmap": "0",
-      "extra_data": "0x6400000000000000000000000000000000000000000000000000000000",
-      "on_block_start_calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      "extra_data": "0x64000000000000000000000000",
+      "on_block_start_calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000000"
     },
     {
       "generation": "1",
       "anchor_number": "258",
-      "miss_bitmap": "170141183460469231731687303715884105729",
-      "extra_data": "0x6400000000000100000000010280000000000000000000000000000001",
-      "on_block_start_calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000080000000000000000000000000000001"
+      "extra_data": "0x64000000000001000000000102",
+      "on_block_start_calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
     },
     {
       "generation": "281474976710655",
       "anchor_number": "281474976710655",
-      "miss_bitmap": "340282366920938463463374607431768211455",
-      "extra_data": "0x64ffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-      "on_block_start_calldata": "0xea9875920000000000000000000000000000000000000000000000000000ffffffffffff00000000000000000000000000000000ffffffffffffffffffffffffffffffff"
-    },
-    {
-      "generation": "5",
-      "anchor_number": "7",
-      "miss_bitmap": "1",
-      "extra_data": "0x6400000000000500000000000700000000000000000000000000000001",
-      "on_block_start_calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000001"
-    },
-    {
-      "generation": "5",
-      "anchor_number": "7",
-      "miss_bitmap": "170141183460469231731687303715884105728",
-      "extra_data": "0x6400000000000500000000000780000000000000000000000000000000",
-      "on_block_start_calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000080000000000000000000000000000000"
+      "extra_data": "0x64ffffffffffffffffffffffff",
+      "on_block_start_calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000ffffffffffff"
     }
   ],
   "packed_words": {
@@ -4619,18 +4600,6 @@
         "rules_time": "281474976710655",
         "stop_time": "281474976710655",
         "word": "0x0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff"
-      }
-    ],
-    "staking_key_seat": [
-      {
-        "holds_seat": "1",
-        "seat": "5",
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000501"
-      },
-      {
-        "holds_seat": "1",
-        "seat": "127",
-        "word": "0x0000000000000000000000000000000000000000000000000000000000007f01"
       }
     ],
     "staking_record_word2": [
@@ -6555,82 +6524,21 @@
     "base": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00",
     "snapshot_height_slot": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00",
     "snapshot_total_stake_slot": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e01",
-    "key_seat_slot": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e02",
     "record_slots": [
       {
         "seat": "0",
-        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e03",
-        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e04"
+        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e02",
+        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e03"
       },
       {
         "seat": "5",
-        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e0d",
-        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e0e"
+        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e0c",
+        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e0d"
       },
       {
         "seat": "127",
-        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01",
-        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f02"
-      }
-    ],
-    "key_seat_slots": [
-      {
-        "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
-        "slot": "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27"
-      },
-      {
-        "ck_addr": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
-        "slot": "0x7b31a2291b08998ddf109c6997c0422ee60deb4639cb8a850a5a9f62196b614d"
-      },
-      {
-        "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-        "slot": "0x928b2d6ed11dd66e504f2310df35d60c9cf7cc3e557106c85f2d117d4c72a38a"
-      },
-      {
-        "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-        "slot": "0xe39b44b814db66b631d066be2b1a96f68eaf18e83a77e20841654ce8d4a1a8e8"
-      },
-      {
-        "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-        "slot": "0xa8aed76683f712c1edbdc06eb7a578f8b45332329419c322673cc59da0ff6465"
-      },
-      {
-        "ck_addr": "0x2174ca3ee9ace7dd8c946c97054c72f2b384c4c2",
-        "slot": "0x266242000ab89c896c688f8659b97f487c3fb51ccab34af2d47a1781dd654620"
-      }
-    ],
-    "key_seat_words": [
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000501",
-        "seat": "5"
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "seat": "0"
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000007f01",
-        "seat": "127"
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "seat": null
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000500",
-        "seat": null
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000000502",
-        "seat": null
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000008001",
-        "seat": null
-      },
-      {
-        "word": "0x0000000000000000000000000000000000000000000000000000000000010501",
-        "seat": null
+        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f00",
+        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
       }
     ],
     "record_word2": [
@@ -6647,261 +6555,6 @@
     ],
     "implementation_slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
     "no_exit": "281474976710655"
-  },
-  "miss_bitmap": {
-    "cases": [
-      {
-        "name": "all_commit",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000101"
-          },
-          {
-            "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000201"
-          }
-        ],
-        "miss_bitmap": "0"
-      },
-      {
-        "name": "absent_seat_5",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000501"
-          },
-          {
-            "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000201"
-          }
-        ],
-        "miss_bitmap": "32"
-      },
-      {
-        "name": "nil_seat_0",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "3",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000101"
-          }
-        ],
-        "miss_bitmap": "1"
-      },
-      {
-        "name": "two_seats",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000101"
-          },
-          {
-            "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-            "block_id_flag": "3",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000301"
-          }
-        ],
-        "miss_bitmap": "9"
-      },
-      {
-        "name": "seat_127",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000007f01"
-          }
-        ],
-        "miss_bitmap": "170141183460469231731687303715884105728"
-      },
-      {
-        "name": "fallback_key_without_bond",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          },
-          {
-            "ck_addr": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          }
-        ],
-        "miss_bitmap": "0"
-      },
-      {
-        "name": "fallback_key_with_seated_bond",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000701"
-          },
-          {
-            "ck_addr": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          }
-        ],
-        "miss_bitmap": "128"
-      },
-      {
-        "name": "vacated_in_parent",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000101"
-          }
-        ],
-        "miss_bitmap": "0"
-      },
-      {
-        "name": "malformed_words",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000502"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000008001"
-          },
-          {
-            "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-            "block_id_flag": "3",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000010501"
-          },
-          {
-            "ck_addr": "0x2174ca3ee9ace7dd8c946c97054c72f2b384c4c2",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          }
-        ],
-        "miss_bitmap": "0"
-      },
-      {
-        "name": "two_addresses_one_seat",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000301"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000301"
-          }
-        ],
-        "miss_bitmap": "8"
-      },
-      {
-        "name": "two_addresses_one_seat_both_missing",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000301"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "3",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000301"
-          },
-          {
-            "ck_addr": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          }
-        ],
-        "miss_bitmap": "8"
-      },
-      {
-        "name": "seat_100",
-        "first_block_of_generation": false,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000006401"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          }
-        ],
-        "miss_bitmap": "1267650600228229401496703205376"
-      },
-      {
-        "name": "first_block",
-        "first_block_of_generation": true,
-        "validators": [
-          {
-            "ck_addr": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
-            "block_id_flag": "1",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000001"
-          },
-          {
-            "ck_addr": "0x612b7be154a64292aae070aaa86fcd66ba218071",
-            "block_id_flag": "2",
-            "key_seat_word": "0x0000000000000000000000000000000000000000000000000000000000000101"
-          }
-        ],
-        "miss_bitmap": "0"
-      }
-    ]
   },
   "candidate": {
     "cases": [
@@ -9782,239 +9435,11 @@
     "deployment": {
       "n_max": "128",
       "min_stake": "7812500000000000000000000",
-      "vp_unit": "1000000000",
-      "miss_limit": "3600",
-      "miss_slash_bps": "1000"
+      "vp_unit": "1000000000"
     },
     "cases": [
       {
-        "name": "count_up",
-        "overrides": {},
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "7812500000000000000000000",
-              "seat": "0"
-            },
-            {
-              "bond_id": "1",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
-              "seat": "1"
-            },
-            {
-              "bond_id": "2",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000102",
-              "amount": "7812500000000000000000000",
-              "seat": "2"
-            },
-            {
-              "bond_id": "3",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000103",
-              "amount": "7812500000000000000000000",
-              "seat": "3"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "8"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "8"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "8",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000008"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            },
-            {
-              "seat": "3",
-              "count": "3"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "2",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "3",
-              "eff_stake": "7812500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "0",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80003"
-            },
-            {
-              "seat": "1",
-              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            },
-            {
-              "seat": "2",
-              "word1": "0x545f13c023715040ea7d7701363c4285552b572eda6a27a20f458aaa1bbf1433",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            },
-            {
-              "seat": "3",
-              "word1": "0xc2c80f844b70599812d625460f60340e3e6f36054a14546e6dc25d47376bea9b",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            }
-          ],
-          "snapshot_total_stake": "31250000000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "count_reset",
-        "overrides": {},
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "7812500000000000000000000",
-              "seat": "0"
-            },
-            {
-              "bond_id": "1",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
-              "seat": "1"
-            },
-            {
-              "bond_id": "2",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000102",
-              "amount": "7812500000000000000000000",
-              "seat": "2"
-            },
-            {
-              "bond_id": "3",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000103",
-              "amount": "7812500000000000000000000",
-              "seat": "3"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "8"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "8"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "0",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            },
-            {
-              "seat": "3",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "2",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "3",
-              "eff_stake": "7812500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "0",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80003"
-            },
-            {
-              "seat": "1",
-              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            },
-            {
-              "seat": "2",
-              "word1": "0x545f13c023715040ea7d7701363c4285552b572eda6a27a20f458aaa1bbf1433",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            },
-            {
-              "seat": "3",
-              "word1": "0xc2c80f844b70599812d625460f60340e3e6f36054a14546e6dc25d47376bea9b",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            }
-          ],
-          "snapshot_total_stake": "31250000000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "empty_seat_bit",
+        "name": "one_member",
         "overrides": {},
         "setup": {
           "registrations": [
@@ -10025,34 +9450,20 @@
               "seat": "0"
             }
           ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            }
-          ]
+          "prior_calls": []
         },
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "513",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000201"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "2"
-            }
-          ],
           "eff_stakes": [
             {
               "bond_id": "0",
               "eff_stake": "7812500000000000000000000"
             }
           ],
-          "released": [],
-          "penalty_total": "0",
           "records": [
             {
               "seat": "0",
@@ -10066,7 +9477,7 @@
         }
       },
       {
-        "name": "zero_bitmap",
+        "name": "three_members",
         "overrides": {},
         "setup": {
           "registrations": [
@@ -10079,48 +9490,24 @@
             {
               "bond_id": "1",
               "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
+              "amount": "15625000000000000000000005",
               "seat": "1"
             },
             {
               "bond_id": "2",
               "private_key": "0x0000000000000000000000000000000000000000000000000000000000000102",
-              "amount": "7812500000000000000000000",
+              "amount": "23437500000000000999999999",
               "seat": "2"
             }
           ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "7"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "7"
-            }
-          ]
+          "prior_calls": []
         },
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "0",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            }
-          ],
           "eff_stakes": [
             {
               "bond_id": "0",
@@ -10128,15 +9515,13 @@
             },
             {
               "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
+              "eff_stake": "15625000000000000000000005"
             },
             {
               "bond_id": "2",
-              "eff_stake": "7812500000000000000000000"
+              "eff_stake": "23437500000000000999999999"
             }
           ],
-          "released": [],
-          "penalty_total": "0",
           "records": [
             {
               "seat": "0",
@@ -10146,626 +9531,22 @@
             {
               "seat": "1",
               "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
+              "word2": "0x0000000000000000000000000000000000000000000000003782dace9d900002"
             },
             {
               "seat": "2",
               "word1": "0x545f13c023715040ea7d7701363c4285552b572eda6a27a20f458aaa1bbf1433",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
+              "word2": "0x00000000000000000000000000000000000000000000000053444835ec580002"
             }
           ],
-          "snapshot_total_stake": "23437500000000000000000000",
+          "snapshot_total_stake": "46875000000000001000000004",
           "snapshot_height": "1000",
           "last_generation": "1"
         }
       },
       {
-        "name": "bitmap_4",
+        "name": "prior_calls_change_nothing",
         "overrides": {},
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "7812500000000000000000000",
-              "seat": "0"
-            },
-            {
-              "bond_id": "1",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
-              "seat": "1"
-            },
-            {
-              "bond_id": "2",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000102",
-              "amount": "7812500000000000000000000",
-              "seat": "2"
-            }
-          ],
-          "prior_calls": []
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "4",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "1"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
-            },
-            {
-              "bond_id": "2",
-              "eff_stake": "7812500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "0",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80003"
-            },
-            {
-              "seat": "1",
-              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            },
-            {
-              "seat": "2",
-              "word1": "0x545f13c023715040ea7d7701363c4285552b572eda6a27a20f458aaa1bbf1433",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            }
-          ],
-          "snapshot_total_stake": "23437500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "n_max_64_bit_100",
-        "overrides": {
-          "n_max": "64",
-          "min_stake": "15625000000000000000000000"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "15625000000000000000000000",
-              "seat": "0"
-            }
-          ],
-          "prior_calls": []
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1267650600228229401496703205377",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000010000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "1"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "15625000000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "0",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x0000000000000000000000000000000000000000000000003782dace9d900003"
-            }
-          ],
-          "snapshot_total_stake": "15625000000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "ceil_exact",
-        "overrides": {
-          "miss_limit": "10"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "78125000000000000000000000",
-              "seat": "0"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "70312500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "7812500000000000000000000",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x000000000000000000000000000000000000000000000000f9ccd8a1c5080003"
-            }
-          ],
-          "snapshot_total_stake": "70312500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "ceil_round_up",
-        "overrides": {
-          "miss_limit": "10"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "78125000000000000000000001",
-              "seat": "0"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "70312500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "7812500000000000000000001",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x000000000000000000000000000000000000000000000000f9ccd8a1c5080003"
-            }
-          ],
-          "snapshot_total_stake": "70312500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "below_limit",
-        "overrides": {
-          "miss_limit": "10"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "78125000000000000000000000",
-              "seat": "0"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "9"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "78125000000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "0",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x000000000000000000000000000000000000000000000001158e460913d00003"
-            }
-          ],
-          "snapshot_total_stake": "78125000000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "release_below_min",
-        "overrides": {
-          "miss_limit": "10"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "7812500000000000000000000",
-              "seat": "0"
-            },
-            {
-              "bond_id": "1",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
-              "seat": "1"
-            }
-          ],
-          "prior_calls": [
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            },
-            {
-              "generation": "1",
-              "miss_bitmap": "1"
-            }
-          ]
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "7031250000000000000000000"
-            },
-            {
-              "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
-            }
-          ],
-          "released": ["0"],
-          "penalty_total": "781250000000000000000000",
-          "records": [
-            {
-              "seat": "1",
-              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            }
-          ],
-          "snapshot_total_stake": "7812500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "miss_limit_1",
-        "overrides": {
-          "miss_limit": "1"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "15625000000000000000000000",
-              "seat": "0"
-            }
-          ],
-          "prior_calls": []
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "14062500000000000000000000"
-            }
-          ],
-          "released": [],
-          "penalty_total": "1562500000000000000000000",
-          "records": [
-            {
-              "seat": "0",
-              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
-              "word2": "0x00000000000000000000000000000000000000000000000031f5c4ed27680003"
-            }
-          ],
-          "snapshot_total_stake": "14062500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "full_bps",
-        "overrides": {
-          "miss_limit": "1",
-          "miss_slash_bps": "10000"
-        },
-        "setup": {
-          "registrations": [
-            {
-              "bond_id": "0",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
-              "amount": "23437500000000000000000000",
-              "seat": "0"
-            },
-            {
-              "bond_id": "1",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000101",
-              "amount": "7812500000000000000000000",
-              "seat": "1"
-            }
-          ],
-          "prior_calls": []
-        },
-        "call": {
-          "block_number": "1000",
-          "generation": "1",
-          "miss_bitmap": "1",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
-        },
-        "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            }
-          ],
-          "eff_stakes": [
-            {
-              "bond_id": "0",
-              "eff_stake": "0"
-            },
-            {
-              "bond_id": "1",
-              "eff_stake": "7812500000000000000000000"
-            }
-          ],
-          "released": ["0"],
-          "penalty_total": "23437500000000000000000000",
-          "records": [
-            {
-              "seat": "1",
-              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
-              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
-            }
-          ],
-          "snapshot_total_stake": "7812500000000000000000000",
-          "snapshot_height": "1000",
-          "last_generation": "1"
-        }
-      },
-      {
-        "name": "three_seats",
-        "overrides": {
-          "miss_limit": "1"
-        },
         "setup": {
           "registrations": [
             {
@@ -10785,61 +9566,26 @@
               "private_key": "0x0000000000000000000000000000000000000000000000000000000000000102",
               "amount": "15625000000000000000000000",
               "seat": "2"
-            },
-            {
-              "bond_id": "3",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000103",
-              "amount": "7812500000000000000000000",
-              "seat": "3"
-            },
-            {
-              "bond_id": "4",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000104",
-              "amount": "7812500000000000000000000",
-              "seat": "4"
-            },
-            {
-              "bond_id": "5",
-              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000105",
-              "amount": "23437500000000000000000000",
-              "seat": "5"
             }
           ],
-          "prior_calls": []
+          "prior_calls": [
+            {
+              "generation": "0"
+            },
+            {
+              "generation": "3"
+            },
+            {
+              "generation": "1"
+            }
+          ]
         },
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "26",
-          "calldata": "0xea9875920000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001a"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            },
-            {
-              "seat": "3",
-              "count": "0"
-            },
-            {
-              "seat": "4",
-              "count": "0"
-            },
-            {
-              "seat": "5",
-              "count": "0"
-            }
-          ],
           "eff_stakes": [
             {
               "bond_id": "0",
@@ -10847,45 +9593,31 @@
             },
             {
               "bond_id": "1",
-              "eff_stake": "7031250000000000000000000"
+              "eff_stake": "7812500000000000000000000"
             },
             {
               "bond_id": "2",
               "eff_stake": "15625000000000000000000000"
-            },
-            {
-              "bond_id": "3",
-              "eff_stake": "7031250000000000000000000"
-            },
-            {
-              "bond_id": "4",
-              "eff_stake": "7031250000000000000000000"
-            },
-            {
-              "bond_id": "5",
-              "eff_stake": "23437500000000000000000000"
             }
           ],
-          "released": ["1", "3", "4"],
-          "penalty_total": "2343750000000000000000000",
           "records": [
             {
               "seat": "0",
               "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
               "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80003"
+            },
+            {
+              "seat": "1",
+              "word1": "0x90a80db6eb294b9eab0b4e8ddfa3efe7263458ce2d07566df4e6c58868feef23",
+              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80002"
             },
             {
               "seat": "2",
               "word1": "0x545f13c023715040ea7d7701363c4285552b572eda6a27a20f458aaa1bbf1433",
               "word2": "0x0000000000000000000000000000000000000000000000003782dace9d900002"
-            },
-            {
-              "seat": "5",
-              "word1": "0x9cf606744cf4b5f3fdf989d3f19fb2652d00cfe1d5fcd692a323ce11a28e7553",
-              "word2": "0x00000000000000000000000000000000000000000000000053444835ec580003"
             }
           ],
-          "snapshot_total_stake": "46875000000000000000000000",
+          "snapshot_total_stake": "31250000000000000000000000",
           "snapshot_height": "1000",
           "last_generation": "1"
         }
@@ -10900,14 +9632,10 @@
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "340282366920938463463374607431768211455",
-          "calldata": "0xea987592000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000ffffffffffffffffffffffffffffffff"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [],
           "eff_stakes": [],
-          "released": [],
-          "penalty_total": "0",
           "records": [],
           "snapshot_total_stake": "0",
           "snapshot_height": "1000",
@@ -10945,24 +9673,9 @@
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "0",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            }
-          ],
           "eff_stakes": [
             {
               "bond_id": "0",
@@ -10977,8 +9690,6 @@
               "eff_stake": "15624999999999999999999999"
             }
           ],
-          "released": [],
-          "penalty_total": "0",
           "records": [
             {
               "seat": "0",
@@ -11399,268 +10110,9 @@
         "call": {
           "block_number": "1000",
           "generation": "1",
-          "miss_bitmap": "0",
-          "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
         },
         "expect": {
-          "miss_counts": [
-            {
-              "seat": "0",
-              "count": "0"
-            },
-            {
-              "seat": "1",
-              "count": "0"
-            },
-            {
-              "seat": "2",
-              "count": "0"
-            },
-            {
-              "seat": "3",
-              "count": "0"
-            },
-            {
-              "seat": "4",
-              "count": "0"
-            },
-            {
-              "seat": "5",
-              "count": "0"
-            },
-            {
-              "seat": "6",
-              "count": "0"
-            },
-            {
-              "seat": "7",
-              "count": "0"
-            },
-            {
-              "seat": "8",
-              "count": "0"
-            },
-            {
-              "seat": "9",
-              "count": "0"
-            },
-            {
-              "seat": "10",
-              "count": "0"
-            },
-            {
-              "seat": "11",
-              "count": "0"
-            },
-            {
-              "seat": "12",
-              "count": "0"
-            },
-            {
-              "seat": "13",
-              "count": "0"
-            },
-            {
-              "seat": "14",
-              "count": "0"
-            },
-            {
-              "seat": "15",
-              "count": "0"
-            },
-            {
-              "seat": "16",
-              "count": "0"
-            },
-            {
-              "seat": "17",
-              "count": "0"
-            },
-            {
-              "seat": "18",
-              "count": "0"
-            },
-            {
-              "seat": "19",
-              "count": "0"
-            },
-            {
-              "seat": "20",
-              "count": "0"
-            },
-            {
-              "seat": "21",
-              "count": "0"
-            },
-            {
-              "seat": "22",
-              "count": "0"
-            },
-            {
-              "seat": "23",
-              "count": "0"
-            },
-            {
-              "seat": "24",
-              "count": "0"
-            },
-            {
-              "seat": "25",
-              "count": "0"
-            },
-            {
-              "seat": "26",
-              "count": "0"
-            },
-            {
-              "seat": "27",
-              "count": "0"
-            },
-            {
-              "seat": "28",
-              "count": "0"
-            },
-            {
-              "seat": "29",
-              "count": "0"
-            },
-            {
-              "seat": "30",
-              "count": "0"
-            },
-            {
-              "seat": "31",
-              "count": "0"
-            },
-            {
-              "seat": "32",
-              "count": "0"
-            },
-            {
-              "seat": "33",
-              "count": "0"
-            },
-            {
-              "seat": "34",
-              "count": "0"
-            },
-            {
-              "seat": "35",
-              "count": "0"
-            },
-            {
-              "seat": "36",
-              "count": "0"
-            },
-            {
-              "seat": "37",
-              "count": "0"
-            },
-            {
-              "seat": "38",
-              "count": "0"
-            },
-            {
-              "seat": "39",
-              "count": "0"
-            },
-            {
-              "seat": "40",
-              "count": "0"
-            },
-            {
-              "seat": "41",
-              "count": "0"
-            },
-            {
-              "seat": "42",
-              "count": "0"
-            },
-            {
-              "seat": "43",
-              "count": "0"
-            },
-            {
-              "seat": "44",
-              "count": "0"
-            },
-            {
-              "seat": "45",
-              "count": "0"
-            },
-            {
-              "seat": "46",
-              "count": "0"
-            },
-            {
-              "seat": "47",
-              "count": "0"
-            },
-            {
-              "seat": "48",
-              "count": "0"
-            },
-            {
-              "seat": "49",
-              "count": "0"
-            },
-            {
-              "seat": "50",
-              "count": "0"
-            },
-            {
-              "seat": "51",
-              "count": "0"
-            },
-            {
-              "seat": "52",
-              "count": "0"
-            },
-            {
-              "seat": "53",
-              "count": "0"
-            },
-            {
-              "seat": "54",
-              "count": "0"
-            },
-            {
-              "seat": "55",
-              "count": "0"
-            },
-            {
-              "seat": "56",
-              "count": "0"
-            },
-            {
-              "seat": "57",
-              "count": "0"
-            },
-            {
-              "seat": "58",
-              "count": "0"
-            },
-            {
-              "seat": "59",
-              "count": "0"
-            },
-            {
-              "seat": "60",
-              "count": "0"
-            },
-            {
-              "seat": "61",
-              "count": "0"
-            },
-            {
-              "seat": "62",
-              "count": "0"
-            },
-            {
-              "seat": "63",
-              "count": "0"
-            }
-          ],
           "eff_stakes": [
             {
               "bond_id": "0",
@@ -11919,8 +10371,6 @@
               "eff_stake": "15625000000000000000000000"
             }
           ],
-          "released": [],
-          "penalty_total": "0",
           "records": [
             {
               "seat": "0",
@@ -12247,6 +10697,44 @@
           "snapshot_height": "1000",
           "last_generation": "1"
         }
+      },
+      {
+        "name": "max_generation",
+        "overrides": {},
+        "setup": {
+          "registrations": [
+            {
+              "bond_id": "0",
+              "private_key": "0x0000000000000000000000000000000000000000000000000000000000000100",
+              "amount": "7812500000000000000000000",
+              "seat": "0"
+            }
+          ],
+          "prior_calls": []
+        },
+        "call": {
+          "block_number": "1000",
+          "generation": "281474976710655",
+          "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000ffffffffffff"
+        },
+        "expect": {
+          "eff_stakes": [
+            {
+              "bond_id": "0",
+              "eff_stake": "7812500000000000000000000"
+            }
+          ],
+          "records": [
+            {
+              "seat": "0",
+              "word1": "0x8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+              "word2": "0x0000000000000000000000000000000000000000000000001bc16d674ec80003"
+            }
+          ],
+          "snapshot_total_stake": "7812500000000000000000000",
+          "snapshot_height": "1000",
+          "last_generation": "281474976710655"
+        }
       }
     ]
   },
@@ -12337,9 +10825,9 @@
     },
     "on_block_start": {
       "contract": "staking",
-      "signature": "onBlockStart(uint48,uint128)",
-      "selector": "0xea987592",
-      "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005"
+      "signature": "onBlockStart(uint48)",
+      "selector": "0xaa28c32e",
+      "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
     },
     "slash_double_sign": {
       "contract": "staking",
@@ -12791,15 +11279,13 @@
       "vector": "ENC-A-10 10.f",
       "generation": "0",
       "anchor_number": "0",
-      "miss_bitmap": "0",
-      "extra_data": "0x6400000000000000000000000000000000000000000000000000000000"
+      "extra_data": "0x64000000000000000000000000"
     },
     "enc_a_10_h": {
       "vector": "ENC-A-10 10.h",
       "generation": "1",
       "anchor_number": "258",
-      "miss_bitmap": "170141183460469231731687303715884105729",
-      "extra_data": "0x6400000000000100000000010280000000000000000000000000000001"
+      "extra_data": "0x64000000000001000000000102"
     },
     "enc_a_10b_a": {
       "vector": "ENC-A-10b 10b.a",
@@ -12808,30 +11294,15 @@
       "preimage": "0x00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000000000003039",
       "hash": "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507"
     },
-    "enc_a_10c_a": {
-      "vector": "ENC-A-10c 10c.a",
-      "miss_bitmap": "5",
-      "seats": ["0", "2"],
-      "extra_data": "0x6400000000000500000000000700000000000000000000000000000005",
-      "extra_data_byte_28": "0x05"
-    },
-    "enc_a_10c_b": {
-      "vector": "ENC-A-10c 10c.b",
-      "miss_bitmap": "170141183460469231731687303715884105728",
-      "seats": ["127"],
-      "extra_data": "0x6400000000000500000000000780000000000000000000000000000000",
-      "extra_data_byte_13": "0x80"
-    },
     "enc_a_10d_a": {
       "vector": "ENC-A-10d 10d.a",
       "generation": "1",
-      "miss_bitmap": "5",
-      "calldata": "0xea98759200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005"
+      "calldata": "0xaa28c32e0000000000000000000000000000000000000000000000000000000000000001"
     },
     "enc_a_10d_b": {
       "vector": "ENC-A-10d 10d.b",
-      "signature": "onBlockStart(uint48,uint128)",
-      "selector": "0xea987592"
+      "signature": "onBlockStart(uint48)",
+      "selector": "0xaa28c32e"
     },
     "enc_a_23b_a": {
       "vector": "ENC-A-23b 23b.a",
