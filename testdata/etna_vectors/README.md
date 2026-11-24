@@ -33,8 +33,8 @@ updates' `epoch` are gone; two chains start from a genesis of fallback keys at p
 the Inbox's nonce/deadline-bound recovery `recover(expectedGeneration, expectedC,
 expectedRecoveryNonce, validUntil, fiToClear, rules)`, explicit recovery invalidation, the rules
 schedule calls `scheduleRules(expectedGeneration, rules, time)` and
-`scheduleStop(expectedGeneration, time)`, the start write `setOrigin(S)`, which takes only the
-height, the forced inclusion calls `saveForcedInclusion` and `sweepProtocolFees`, and the DAO's
+`scheduleStop(expectedGeneration, time)`, the start write `setOrigin(S)`, which only the origin
+multisig sends and which takes only the height, the forced inclusion calls `saveForcedInclusion` and `sweepProtocolFees`, and the DAO's
 `setFallbackKeys` and `setMinTotalStake`; and the staking contract's `register`, `topUp`,
 `requestExit`, `withdraw`, the three-argument lifetime forfeiture `forfeit(bondId, incidentId,
 validUntil)`, the block-start call `onBlockStart(generation, missBitmap)` and `slashDoubleSign`

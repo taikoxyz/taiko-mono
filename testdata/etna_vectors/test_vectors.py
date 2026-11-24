@@ -943,7 +943,7 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(args("schedule_rules"), [1, 2, 1_700_003_600])
         self.assertEqual(calls["schedule_stop"]["signature"], "scheduleStop(uint48,uint48)")
         self.assertEqual(args("schedule_stop"), [1, 1_700_007_200])
-        # setOrigin(S): the caller supplies only the height.
+        # setOrigin(S): the origin multisig supplies only the height.
         self.assertEqual(calls["set_origin"]["signature"], "setOrigin(uint48)")
         self.assertEqual(args("set_origin"), [1000])
         # saveForcedInclusion(bytes) takes the raw transaction; sweepProtocolFees() no argument.
@@ -1295,7 +1295,8 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(views["etna_start"]["calldata"], views["etna_start"]["selector"])
         written, not_written = views["etna_start"]["results"]
         self.assertEqual(not_written["data"], "0x" + "00" * 64)
-        # The start that `setOrigin(S)` writes: S and the hash it copies, as StartWritten reports.
+        # The start that `setOrigin(S)` writes: S and the Unzen finalized hash, as StartWritten
+        # reports.
         origin = words("0x" + V["governance_abi"]["set_origin"]["calldata"][10:])
         start = words(V["governance_events"]["start_written"]["data"])
         self.assertEqual(words(written["data"]), [origin[0], start[1]])
