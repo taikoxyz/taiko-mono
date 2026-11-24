@@ -1,5 +1,5 @@
 {
-  "source": "alethia-reth 7174fd0 node --chain crates/test-harness/contracts/devnet-genesis.json --devnet-etna-timestamp 0: engine_forkchoiceUpdatedV3 on the genesis block with rules::payload_attributes for height 1 (anchor 1, generation 0, missBitmap 0, one transfer in the txpool), then engine_getPayloadV5; engine_newPayloadV4 returned VALID",
+  "source": "alethia-reth 7174fd0 node --chain crates/test-harness/contracts/devnet-genesis.json --devnet-etna-timestamp 0, with that genesis as generated from protocol b9083ab794041c53511dca656b96e7e814b77ef3, before its L2 SignalService implementation became the root-only EtnaSignalService (the tests check the payload only against itself): engine_forkchoiceUpdatedV3 on the genesis block with rules::payload_attributes for height 1 (anchor 1, generation 0, missBitmap 0, one transfer in the txpool), then engine_getPayloadV5; engine_newPayloadV4 returned VALID",
   "parentBeaconBlockRoot": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
   "blockValue": "0x3b538",
   "executionPayload": {
