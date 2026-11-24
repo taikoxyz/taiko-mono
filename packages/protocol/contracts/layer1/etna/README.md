@@ -60,9 +60,9 @@ L2 and shared, under `contracts/`:
   `originMultisig` are all zero on a new network and all non-zero on a switching one; the
   constructor rejects a mix and an Unzen Inbox without code. `originMultisig` is the designated
   multisig that alone may call `setOrigin`; the config hash does not commit it, so a new Inbox
-  implementation can replace it before the start write. The immutables `etnaStaking`, the non-zero L2
-  `EtnaStaking` proxy, and `unsettledLimit`, U in [1, 262,144], are the config hash's third and
-  fourth words, with views of the same names.
+  implementation can replace it before the start write. The immutables `etnaStaking`, the
+  non-zero L2 `EtnaStaking` proxy, and `unsettledLimit`, U in [1, 262,144], are the config hash's
+  third and fourth words, with views of the same names.
 - `init(params)`: owner only, sent through `upgradeToAndCall` from the bootstrap implementation. It
   checks every spec 10 deployment constraint it can see (`forcedInclusionDelay` in [1, 2^48),
   `maxAnchorAge` in [1152, 2^48), the block number and timestamp below 2^48) and rejects dirty
@@ -349,8 +349,9 @@ gitignored `genesis_alloc.json`, it checks the same values in the emitted byteco
 every proxy account must hold exactly the compiled `ERC1967Proxy` runtime and point at its
 implementation, whose code must be the compiled runtime differing only in immutables. The
 SignalService implementation must be the `EtnaSignalService` with `usesBeaconRoots` true, its
-syncer the Anchor proxy and its remote SIGNAL_SERVICE, and the Anchor's `checkpointStore` the SignalService proxy. `EtnaStaking`'s
-immutables must pass its constructor's checks and the withdrawal bound, its `inbox` must be
+syncer the Anchor proxy and its remote SIGNAL_SERVICE, and the Anchor's `checkpointStore` the
+SignalService proxy. `EtnaStaking`'s immutables must pass its constructor's checks and the
+withdrawal bound, its `inbox` must be
 `--l1-inbox` and its `token` the bridged TAIKO proxy; the token's `erc20Vault` must be the ERC20Vault
 proxy, which must map it to `--l1-taiko-token` on `l1ChainId`. Every other immutable is pinned to the
 generator's value, and an immutable the builder does not know is refused. The proxies may hold only

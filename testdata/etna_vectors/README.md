@@ -34,8 +34,9 @@ the Inbox's nonce/deadline-bound recovery `recover(expectedGeneration, expectedC
 expectedRecoveryNonce, validUntil, fiToClear, rules)`, explicit recovery invalidation, the rules
 schedule calls `scheduleRules(expectedGeneration, rules, time)` and
 `scheduleStop(expectedGeneration, time)`, the start write `setOrigin(S)`, which only the origin
-multisig sends and which takes only the height, the forced inclusion calls `saveForcedInclusion` and `sweepProtocolFees`, and the DAO's
-`setFallbackKeys` and `setMinTotalStake`; and the staking contract's `register`, `topUp`,
+multisig sends and which takes only the height, the forced inclusion calls `saveForcedInclusion`
+and `sweepProtocolFees`, and the DAO's `setFallbackKeys` and `setMinTotalStake`; and the staking
+contract's `register`, `topUp`,
 `requestExit`, `withdraw`, the three-argument lifetime forfeiture `forfeit(bondId, incidentId,
 validUntil)`, the block-start call `onBlockStart(generation, missBitmap)` and `slashDoubleSign`
 (the `votes.slash_abi` call) (spec 4.1, 4.4, 7.1, 8, 10, 10.1). `governance_events` gives each

@@ -8,10 +8,10 @@ import "test/shared/DeployCapability.sol";
 /// @title DeployShastaL2Contracts
 /// @notice Deploys the Etna L2 SignalService implementation without upgrading the proxy: the
 /// `EtnaSignalService` that L1 also runs, with the `Anchor` proxy as its syncer and
-/// `usesBeaconRoots` true (Etna SPEC START-10-5). No L2 contract holds the Etna fork time. Also deploys the
-/// `EtnaSignalServiceUpgradeGuard` whose checks bracket the upgrade. The `Anchor` needs no Etna
-/// change, so the readiness proposal's L2 message upgrades only the SignalService proxy (Etna
-/// SWITCH.md section 3); `script/layer2/etna/BuildEtnaReadinessL2Message.s.sol` builds it.
+/// `usesBeaconRoots` true (Etna SPEC START-10-5). No L2 contract holds the Etna fork time. Also
+/// deploys the `EtnaSignalServiceUpgradeGuard` whose checks bracket the upgrade. The `Anchor` needs
+/// no Etna change, so the readiness proposal's L2 message upgrades only the SignalService proxy
+/// (Etna SWITCH.md section 3); `script/layer2/etna/BuildEtnaReadinessL2Message.s.sol` builds it.
 abstract contract DeployShastaL2Contracts is DeployCapability {
     struct DeploymentConfig {
         uint64 l1ChainId;

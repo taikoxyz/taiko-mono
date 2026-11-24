@@ -151,9 +151,9 @@ requires the Unzen Inbox to still save into `SIGNAL_SERVICE`, the EtnaInbox to b
 `PROPOSAL_LEAD > FI_MARGIN` and the lead to be still available, the guard to have this build's code,
 and each Inbox implementation to report exactly the expected configuration. The L1 SignalService
 implementation's syncer and remote have no getters, so the builder rebuilds this build's
-`EtnaSignalService` runtime code with `INBOX_PROXY` as syncer, the L2 SignalService of `L2_CHAIN_ID` as
-remote, the live proxy's pauser and `usesBeaconRoots` false, sets its UUPS `__self` immutable from
-the artifact's `immutableReferences`, and requires it to equal the deployed code byte for byte
+`EtnaSignalService` runtime code with `INBOX_PROXY` as syncer, the L2 SignalService of `L2_CHAIN_ID`
+as remote, the live proxy's pauser and `usesBeaconRoots` false, sets its UUPS `__self` immutable
+from the artifact's `immutableReferences`, and requires it to equal the deployed code byte for byte
 (`script/shared/LibRebuiltCode.sol`); action 3 pins that code hash on chain. The actions are:
 
 | #    | Target           | Call                                                                                                    |

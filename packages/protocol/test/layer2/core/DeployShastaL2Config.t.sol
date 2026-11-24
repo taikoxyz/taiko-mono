@@ -102,9 +102,10 @@ contract TestDeployShastaL2Config is CommonTest {
 
     /// @dev The SignalService implementation is the `EtnaSignalService`, accepts checkpoints only
     /// from the Anchor proxy and has `usesBeaconRoots` true (vector 5.v), proves against the L1
-    /// SignalService, stores only state roots and accepts no checkpoint in an Etna block. A wrong syncer would make every Unzen `anchorV4` revert once
-    /// the DAO message installs it; a wrong remote would make every L1 to L2 proof fail. The
-    /// script also deploys the upgrade guard the L2 message calls.
+    /// SignalService, stores only state roots and accepts no checkpoint in an Etna block. A wrong
+    /// syncer would make every Unzen `anchorV4` revert once the DAO message installs it; a wrong
+    /// remote would make every L1 to L2 proof fail. The script also deploys the upgrade guard the
+    /// L2 message calls.
     function test_deploy_WiresSignalServiceToAnchorAndBeaconRoots() external {
         MainnetConfigLoader loader = new MainnetConfigLoader();
         DeployShastaL2Contracts.DeploymentConfig memory config =

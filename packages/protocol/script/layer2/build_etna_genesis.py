@@ -22,8 +22,8 @@ the generator, so the same values are also checked in the emitted bytecode, agai
 `--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
 SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
 their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
-`EtnaSignalService`, differing only in immutables; these contracts link no library, so an artifact with
-a library link is refused. Then the immutables are read at the compiler's offsets: the
+`EtnaSignalService`, differing only in immutables; these contracts link no library, so an artifact
+with a library link is refused. Then the immutables are read at the compiler's offsets: the
 SignalService's `usesBeaconRoots` must be true (a `bool` immutable is a 32-byte word, here 1), its
 `_authorizedSyncer` the Anchor proxy and its `_remoteSignalService` the L1 SignalService, and the
 Anchor's `checkpointStore` must be the SignalService proxy. Every other immutable of both
