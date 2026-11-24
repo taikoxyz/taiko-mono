@@ -123,9 +123,20 @@ example : bondForKey withdrawn 102 = some 1 := by decide +kernel
 example : execute withdrawn auth (atBlock 26 2) (.register keyB 11 2) = none := by decide +kernel
 
 -- Evidence may be historical. The part-set header is part of the signed block identity.
-def voteA : Vote := ⟨2, 18, 1, ⟨71, 2, 72⟩, -1, 10, 1⟩
-def voteB : Vote := { voteA with blockId := ⟨71, 3, 72⟩ }
+def voteA : Vote := ⟨2, 18, 1, ⟨some 71, 2, some 72⟩, -1, 10, 1⟩
+def voteB : Vote := { voteA with blockId := ⟨some 71, 3, some 72⟩ }
 def slashed : State := after firstMiss (atBlock 20 1) (.slashDoubleSign 0 voteA voteB 101 101)
+
+-- The protobuf nil vote omits both hashes. Each present zero word is a different identity.
+def nilVote : Vote := { voteA with blockId := ⟨none, 0, none⟩ }
+
+example : doubleSign firstMiss auth 0 nilVote { nilVote with blockId := ⟨some 0, 0, none⟩ }
+    101 101 = true := by decide +kernel
+example : doubleSign firstMiss auth 0 nilVote { nilVote with blockId := ⟨none, 0, some 0⟩ }
+    101 101 = true := by decide +kernel
+example : doubleSign firstMiss auth 0 nilVote { nilVote with blockId := ⟨some 0, 0, some 0⟩ }
+    101 101 = true := by decide +kernel
+example : doubleSign firstMiss auth 0 nilVote nilVote 101 101 = false := by decide +kernel
 
 example : execute firstMiss auth (atBlock 20 1) (.slashDoubleSign 0 voteA voteB 101 102) =
     none := by decide +kernel

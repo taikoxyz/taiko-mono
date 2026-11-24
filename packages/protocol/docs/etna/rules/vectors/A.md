@@ -509,6 +509,24 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 | 36c.d reject | a node or guest takes the candidate from `snapshot()` instead of the snapshot seat records           | violates ENC-A-36c and COMM-4.3-3                                                                       |
 | 36c.e reject | `seat` or `power` is returned as a uint256                                                           | violates ENC-A-36c                                                                                      |
 
+## ENC-A-36d
+
+| Vector       | Setup                                                                                                                                  | Expected                                                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 36d.a accept | `setFallbackKeys` stores a list of one key (prefix 0x02, X)                                                                            | one log with topic0 `0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c`, topic1 the list's `fallbackKeysHash` and 128 bytes of data: `0x20`, the length 1, the word 2 and the word X |
+| 36d.b accept | Inbox initialization stores a list of 128 keys                                                                                         | the same event with that list's hash as topic1 and 2 + 2 × 128 = 258 data words, the keys in their stored order                                                                                       |
+| 36d.c reject | `fallbackKeysHash` is written to the data instead of to topic1                                                                         | violates ENC-A-36d (`indexed`)                                                                                                                                                                        |
+| 36d.d reject | topic0 is computed over another signature, such as `FallbackKeysUpdated(bytes32,bytes)` or one that lists the key fields as two arrays | violates ENC-A-36d                                                                                                                                                                                    |
+| 36d.e accept | a node holds only `fallbackKeysHash` H                                                                                                 | it finds the list as the data of the `FallbackKeysUpdated` log whose topic1 is H (SYNC-9-16)                                                                                                          |
+
+## ENC-A-36e
+
+| Vector       | Setup                                                         | Expected                                                                                                                                          |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 36e.a accept | `setMinTotalStake(2^256 − 1)`                                 | one log with the single topic `0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1` and one data word `0xff…ff` (32 bytes of 0xff) |
+| 36e.b accept | Inbox initialization with `minTotalStake` = M                 | the same event with M as its data word                                                                                                            |
+| 36e.c reject | `value` is indexed, so the log has a second topic and no data | violates ENC-A-36e                                                                                                                                |
+
 ## ENC-A-43
 
 | Vector      | Setup                                                             | Expected                       |
@@ -520,26 +538,30 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-44
 
-| Vector      | Setup                                                             | Expected                         |
-| ----------- | ----------------------------------------------------------------- | -------------------------------- |
-| 44.a accept | fields in order: type, height, round, blockId, timestamp, chainId | matches                          |
-| 44.b reject | height is big-endian rather than 8-byte little-endian             | violates ENC-A-44 (height field) |
-| 44.c reject | the chainId field is omitted                                      | violates ENC-A-44                |
-| 44.d reject | blockId precedes round                                            | violates ENC-A-44 (order)        |
-| 44.e reject | type is 3 (not prevote 1 or precommit 2)                          | violates ENC-A-44 (type values)  |
+| Vector      | Setup                                                             | Expected                                                                                       |
+| ----------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 44.a accept | fields in order: type, height, round, blockId, timestamp, chainId | matches                                                                                        |
+| 44.b reject | height is big-endian rather than 8-byte little-endian             | violates ENC-A-44 (height field)                                                               |
+| 44.c reject | the chainId field is omitted                                      | violates ENC-A-44                                                                              |
+| 44.d reject | blockId precedes round                                            | violates ENC-A-44 (order)                                                                      |
+| 44.e reject | type is 3 (not prevote 1 or precommit 2)                          | violates ENC-A-44 (type values)                                                                |
+| 44.f accept | a nil vote: both hashes empty and total 0                         | the blockId field is omitted; `cv` holds the type, height, round, timestamp and chainId fields |
 
 ## ENC-A-45
 
-| Vector      | Setup                                                                          | Expected                                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 45.a accept | fields shown in `[]` are omitted when zero or empty; `len` is a uvarint prefix | matches                                                                                                                                       |
-| 45.b reject | a zero field is written explicitly instead of omitted                          | violates ENC-A-45                                                                                                                             |
-| 45.c reject | an empty blockId is written with length 0 instead of omitted                   | violates ENC-A-45                                                                                                                             |
-| 45.d accept | timestamp is written even when zero                                            | "always written"                                                                                                                              |
-| 45.e reject | timestamp is omitted when zero                                                 | violates ENC-A-45                                                                                                                             |
-| 45.f reject | a length prefix is not a uvarint                                               | violates ENC-A-45                                                                                                                             |
-| 45.g accept | a vote timestamp of seconds = −1 and nanos = 0                                 | the seconds field is `08 ff ff ff ff ff ff ff ff ff 01` (ten varint bytes), and the timestamp field is `2a 0b` followed by those eleven bytes |
-| 45.h reject | seconds = −1 is written as a varint shorter than ten bytes                     | violates ENC-A-45                                                                                                                             |
+| Vector      | Setup                                                                                                      | Expected                                                                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 45.a accept | numeric fields shown in `[]` are omitted when zero, hash fields only when empty; `len` is a uvarint prefix | matches                                                                                                                                       |
+| 45.b reject | a zero numeric field is written explicitly instead of omitted                                              | violates ENC-A-45                                                                                                                             |
+| 45.c reject | the blockId of a nil vote is written with length 0 instead of omitted                                      | violates ENC-A-44 ("omitted for a nil vote")                                                                                                  |
+| 45.d accept | timestamp is written even when zero                                                                        | "always written"                                                                                                                              |
+| 45.e reject | timestamp is omitted when zero                                                                             | violates ENC-A-45                                                                                                                             |
+| 45.f reject | a length prefix is not a uvarint                                                                           | violates ENC-A-45                                                                                                                             |
+| 45.g accept | a vote timestamp of seconds = −1 and nanos = 0                                                             | the seconds field is `08 ff ff ff ff ff ff ff ff ff 01` (ten varint bytes), and the timestamp field is `2a 0b` followed by those eleven bytes |
+| 45.h reject | seconds = −1 is written as a varint shorter than ten bytes                                                 | violates ENC-A-45                                                                                                                             |
+| 45.i accept | a hash or partsHash field contains 32 zero bytes                                                           | the field is present with its tag, length 32 and all 32 zero bytes                                                                            |
+| 45.j reject | a present 32-byte zero hash is omitted as if empty                                                         | violates ENC-A-45                                                                                                                             |
+| 45.k accept | both hash fields contain 32 zero bytes and total = 0                                                       | the non-nil blockId is present; only the zero total is omitted                                                                                |
 
 ## ENC-A-46
 
@@ -602,10 +624,12 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-52
 
-| Vector      | Setup                                                                                                                 | Expected                             |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                                   | conforms                             |
-| 52.b reject | `invalidateRecoveryNonce` called by the staking contract's owner or the DAO, when that address is not the Inbox owner | violates ENC-A-52 (Inbox owner only) |
+| Vector      | Setup                                                                                                                 | Expected                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                                   | conforms                                                                                  |
+| 52.b reject | `invalidateRecoveryNonce` called by the staking contract's owner or the DAO, when that address is not the Inbox owner | violates ENC-A-52 (Inbox owner only)                                                      |
+| 52.c accept | the Inbox owner calls `invalidateRecoveryNonce(n)` while the nonce is n                                               | the Inbox emits `RecoveryNonceInvalidated(n, n + 1)`, both values `uint256` (RECOV-8.3-9) |
+| 52.d reject | the staking contract emits `RecoveryNonceInvalidated`                                                                 | violates ENC-A-52 (an Inbox event)                                                        |
 
 ## ENC-A-53
 
@@ -626,19 +650,21 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                                 | Expected                                                            |
-| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 55.a accept | the staking contract's owner forfeits an issued `bondId` once                                         | conforms                                                            |
-| 55.b reject | the Inbox owner, or any address other than the staking contract's owner, calls `forfeit`              | violates ENC-A-55 (owner only) and FORF-4.4-1                       |
-| 55.c reject | a second `forfeit` for the same lifetime `bondId`                                                     | violates ENC-A-55 (once per issued bondId)                          |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                    | violates ENC-A-55 (no forfeiture nonce or revocation)               |
-| 55.h accept | key K belongs to bond 0 in seat 0; query `bondForKey(ckAddr(K))`, `bondInSeat(0)` and `seatOfBond(0)` | each returns `(true, 0)` under the specified external-view ABI      |
-| 55.i accept | query an unused key, an empty seat or an unissued bond id through its corresponding lookup            | returns `(false, 0)`; the read does not issue a bond                |
-| 55.j accept | withdraw bond 0, then query its key and `seatOfBond(0)`                                               | key lookup returns `(true, 0)`; seat lookup returns `(false, 0)`    |
-| 55.k accept | `bondInSeat(n_max)` or a higher seat number is queried                                                | returns `(false, 0)` (ENC-A-55, STAKE-4.1-14d)                      |
-| 55.l reject | `bondInSeat(n_max)` reverts, or returns a bond                                                        | violates ENC-A-55 and STAKE-4.1-14d                                 |
-| 55.m accept | a top-up emits `TopUpDeposited(bondId, amount)` with two `uint256` values                             | conforms                                                            |
-| 55.n accept | `snapshot()` is called                                                                                | returns `(uint48 height, uint256 totalStake, SeatMember[] members)` |
+| Vector      | Setup                                                                                                 | Expected                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 55.a accept | the staking contract's owner forfeits an issued `bondId` once                                         | conforms                                                               |
+| 55.b reject | the Inbox owner, or any address other than the staking contract's owner, calls `forfeit`              | violates ENC-A-55 (owner only) and FORF-4.4-1                          |
+| 55.c reject | a second `forfeit` for the same lifetime `bondId`                                                     | violates ENC-A-55 (once per issued bondId)                             |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                    | violates ENC-A-55 (no forfeiture nonce or revocation)                  |
+| 55.h accept | key K belongs to bond 0 in seat 0; query `bondForKey(ckAddr(K))`, `bondInSeat(0)` and `seatOfBond(0)` | each returns `(true, 0)` under the specified external-view ABI         |
+| 55.i accept | query an unused key, an empty seat or an unissued bond id through its corresponding lookup            | returns `(false, 0)`; the read does not issue a bond                   |
+| 55.j accept | withdraw bond 0, then query its key and `seatOfBond(0)`                                               | key lookup returns `(true, 0)`; seat lookup returns `(false, 0)`       |
+| 55.k accept | `bondInSeat(n_max)` or a higher seat number is queried                                                | returns `(false, 0)` (ENC-A-55, STAKE-4.1-14d)                         |
+| 55.l reject | `bondInSeat(n_max)` reverts, or returns a bond                                                        | violates ENC-A-55 and STAKE-4.1-14d                                    |
+| 55.m accept | a top-up emits `TopUpDeposited(bondId, amount)` with two `uint256` values                             | conforms                                                               |
+| 55.n accept | `snapshot()` is called                                                                                | returns `(uint256 height, uint256 totalStake, SeatMember[] members)`   |
+| 55.o accept | the word at T has a bit at or above bit 48 set                                                        | `snapshot()` returns that whole word as `height`, unmasked (STOR-B-21) |
+| 55.p reject | `snapshot()` returns `height` as a `uint48`, or masks the word at T                                   | violates ENC-A-55 ("height is the whole word at T")                    |
 
 ## Not covered
 

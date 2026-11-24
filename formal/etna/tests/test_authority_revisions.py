@@ -23,7 +23,7 @@ class AuthorityRevisionTests(unittest.TestCase):
         self.assertEqual({row['profile'] for row in current}, {'current'})
         self.assertTrue({row['id'] for row in historical}.isdisjoint(row['id'] for row in current))
         self.assertEqual({row['source_commit'] for row in current},
-                         {'69e26df443e9b5a0f05127d4179e4833fc95823c'})
+                         {'b01356ddc942ee10e67d1f506bf4acd043b8686c'})
 
     def test_old_coverage_does_not_transfer_through_reused_rule_ids(self):
         historical = {row['rule']: row for row in rules.rule_rows()}

@@ -62,14 +62,14 @@ private def register : Option L2Staking.State := do
     (.register ⟨3, 2, candidateKey % limit256⟩ stakeFloor 0)
   return r.state
 
-private def finalizeFirst (systemSucceeds : Bool) (bitmap : Nat) : Option CommitState := do
+private def finalizeFirst (stakingCall : StakingCallOutcome) (bitmap : Nat) : Option CommitState := do
   let inbox ← start initialInbox 100 20 200
   let inbox ← switchKey inbox
   let origin ← inbox.originAt 0
   let validators ← genesisValidators rules identity origin [initialKey]
   let staking ← register
   let result ← blockStart rules staking origin validators
-    ⟨0, inbox.settings.anchor, inbox.settings.keys, [], bitmap, systemSucceeds⟩
+    ⟨0, inbox.settings.anchor, inbox.settings.keys, [], bitmap, stakingCall⟩
   advanceValidators identity validators result.target
 
 private def setKeys (validators : CommitState) : List Nat × List Nat :=
@@ -77,9 +77,11 @@ private def setKeys (validators : CommitState) : List Nat × List Nat :=
 
 -- At H=101 the first committee update leaves 102 on the fixed origin keys.
 -- The newly written candidate, or the anchor's fallback on failure, signs 103.
-example : (finalizeFirst true 0).map setKeys = some ([1], [3]) := by decide +kernel
-example : (finalizeFirst false 0).map setKeys = some ([1], [2]) := by decide +kernel
-example : (finalizeFirst true 1).isNone = true := by decide +kernel
+example : (finalizeFirst .applied 0).map setKeys = some ([1], [3]) := by decide +kernel
+example : (finalizeFirst .reverted 0).map setKeys = some ([1], [2]) := by decide +kernel
+example : (finalizeFirst .noCode 0).map setKeys = some ([1], [2]) := by decide +kernel
+example : (finalizeFirst .executionFault 0).isNone = true := by decide +kernel
+example : (finalizeFirst .applied 1).isNone = true := by decide +kernel
 
 example :
     (validUnsettled 0, validUnsettled 262144, validUnsettled 262145,

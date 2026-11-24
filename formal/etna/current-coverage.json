@@ -3,33 +3,33 @@
   "scope": "conditional decoded specification property only",
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-22",
-    "commit": "69e26df443e9b5a0f05127d4179e4833fc95823c",
-    "sha256": "377b1e6329cafd27ce56a926f4eecc8c86f4f29574eea2102b31c36b17322ebd"
+    "revision": "2026-11-23",
+    "commit": "b01356ddc942ee10e67d1f506bf4acd043b8686c",
+    "sha256": "708ba19cdecde9d5de336f930c3cf713e86a2d80d8d98d0e1ebd428225c56c2a"
   },
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
-    "revision": "2026-11-22",
-    "commit": "69e26df443e9b5a0f05127d4179e4833fc95823c",
-    "sha256": "49c17839c1468018964af46087b96c8d9a31885849f094c4af9cedd87dec596b"
+    "revision": "2026-11-23",
+    "commit": "b01356ddc942ee10e67d1f506bf4acd043b8686c",
+    "sha256": "9ff0ee67aad98a7691ca6719868d5877d3bcebcde3f0fa39ab9f3778b012e18f"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
-    "revision": "2026-11-22",
-    "commit": "69e26df443e9b5a0f05127d4179e4833fc95823c",
-    "sha256": "37a6a5d1ff46da97d2b7d747d4013a1b25081df6ffbb574ccdd9db4d393fece6"
+    "revision": "2026-11-23",
+    "commit": "b01356ddc942ee10e67d1f506bf4acd043b8686c",
+    "sha256": "1b02d93741c5cd3395d25cc67eb2f71ec1ea36eb060fe814c553059ef21ccc17"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
-    "revision": "2026-11-22",
-    "commit": "69e26df443e9b5a0f05127d4179e4833fc95823c",
-    "sha256": "23006868a74aee0bf2793ae6ffd28e76543da9728e84c3a2a771c09fa9b08ae8"
+    "revision": "2026-11-23",
+    "commit": "b01356ddc942ee10e67d1f506bf4acd043b8686c",
+    "sha256": "6535bc026682818f16d32e8688712664ff7d2f9614aaa8396a7c6317803240e2"
   },
   "index_source": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-22",
-    "commit": "69e26df443e9b5a0f05127d4179e4833fc95823c",
-    "sha256": "af5769c6aa4c7669bfefcd6bfb412e6c37afcf422e3715560e24225ad0c2a482"
+    "revision": "2026-11-23",
+    "commit": "b01356ddc942ee10e67d1f506bf4acd043b8686c",
+    "sha256": "27c6a41d2e73488a90d0a387e5e3f04da8d92d0f9a2a1a67f9b2207f7a9da708"
   },
   "boundaries": {
     "decoded_bitmap": "Parent validator addresses, LastCommit flags and live-seat words are decoded inputs. Header and storage authentication, stock CometBFT integration and execution refinement are external.",
@@ -138,7 +138,7 @@
       ]
     },
     "CONS-3.2-13": {
-      "reason": "A rejected block-start transition leaves its input state intact. EL call ordering, gas, and block rejection remain external.",
+      "reason": "A decoded staking transition that does not apply changes preserves its input state. The protocol regressions distinguish reverted calls and no-code calls from local execution faults. EL call ordering, execution and gas remain external.",
       "theorems": [
         "Etna.Design.L2Staking.failed_block_start_preserves_state"
       ]
@@ -205,7 +205,7 @@
       ]
     },
     "PROOF-6.2-47": {
-      "reason": "The decoded boundary opens the parent decision at the checkpoint height and EL hash and reads its snapshot and anchor inputs for p + 2. L1 witness validation and inherited-anchor checks remain external.",
+      "reason": "The decoded boundary opens the parent snapshot and the two fallback settings of its anchor at the checkpoint EL hash, for p + 2 only. L1 root authentication and inherited-anchor ancestry checks remain external.",
       "theorems": [
         "Etna.Design.PerBlockGuest.boundary_after_origin"
       ]

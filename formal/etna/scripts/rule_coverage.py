@@ -77,7 +77,7 @@ def rule_rows(root=ROOT, repo=REPO, config=None, *, fixture=None):
 
 
 def current_rule_rows(root=ROOT, repo=REPO):
-    """Check exact rule evidence at the November 22 revision."""
+    """Check exact rule evidence at the current revision."""
     config = json.loads((root/coverage.CURRENT_CONFIG).read_text())
     spec_text = coverage.pinned_text(repo, config.get('source'), SPEC_PATH, 'current spec', profile='current')
     index = coverage.pinned_text(repo, config.get('index_source'), INDEX_PATH, 'current index', profile='current')

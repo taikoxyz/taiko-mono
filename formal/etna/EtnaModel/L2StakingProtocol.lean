@@ -120,13 +120,23 @@ def genesisValidators (rules : Rules) (identity : ValidatorIdentity)
   ValidatorState.genesis origin.height
     (members.map fun m ↦ ⟨identity.keyId m.key, identity.address m.key, m.power, 0⟩)
 
+/-- Outcomes supplied by the EL adapter for the block-start staking message call.
+`reverted` includes exceptional halts such as out of gas. `noCode` is a successful no-op.
+A local `executionFault` yields no validated block-start result. -/
+inductive StakingCallOutcome where
+  | applied
+  | reverted
+  | noCode
+  | executionFault
+  deriving DecidableEq
+
 structure BlockStartInput where
   generation : Nat
   anchor : Anchor
   fallbackKeys : List Hash
   parentCommitFlags : List Nat
   extraDataMissBitmap : Nat
-  stakingCallSucceeded : Bool
+  stakingCall : StakingCallOutcome
 
 structure BlockStartResult where
   staking : L2Staking.State
@@ -141,8 +151,11 @@ def blockStart (rules : Rules) (staking : L2Staking.State) (origin : GenerationO
     (validators.last.members.map ValidatorState.Validator.address) input.parentCommitFlags
     (liveSeatWord staking)
   if bitmap != input.extraDataMissBitmap then none else do
-    let next := L2Staking.onBlockStart staking height L2Staking.systemCaller input.generation
-      bitmap input.stakingCallSucceeded
+    let next ← match input.stakingCall with
+      | .applied => some (L2Staking.onBlockStart staking height L2Staking.systemCaller
+          input.generation bitmap true)
+      | .reverted | .noCode => some staking
+      | .executionFault => none
     let target ← PerBlockCommittee.decision rules height (snapshotWords next.snapshot)
       input.anchor input.fallbackKeys
     return ⟨next, target⟩

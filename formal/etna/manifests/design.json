@@ -8221,7 +8221,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-341b6a967979be28"
+        "CURRENT_EN-b4d44d47a52eb39d"
       ],
       "scope": "A failed decoded system call preserves all staking state."
     },
@@ -8235,7 +8235,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-f0a96aa1ecb8edb7"
+        "CURRENT_EN-69655c5419a25333"
       ],
       "scope": "A successful call writes the current height and exactly 128 snapshot records."
     },
@@ -8251,7 +8251,7 @@
       "sources": [
         "CURRENT_EN-100d1945e5ceede0",
         "CURRENT_EN-a61bda8dba9304e3",
-        "CURRENT_EN-f0a96aa1ecb8edb7"
+        "CURRENT_EN-69655c5419a25333"
       ],
       "scope": "The supported staking transactions preserve both the block-start snapshot and stored generation."
     },
@@ -8310,7 +8310,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-b92478e83e852120"
+        "CURRENT_EN-8004c4e6a5fc6a31"
       ],
       "scope": "The decoded fallback opens the committed hash and gives each supplied key power one."
     },
@@ -8458,7 +8458,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-79179d29401b2345"
+        "CURRENT_EN-eb67157fb297257f"
       ],
       "scope": "An accepted threshold update comes from the Inbox owner."
     },
@@ -8544,7 +8544,7 @@
       "role": "supporting",
       "sources": [
         "CURRENT_EN-3be5e5decd47ae73",
-        "CURRENT_EN-cb4f6ca321456b2e"
+        "CURRENT_EN-a56fe82d49212b95"
       ],
       "scope": "At a non-origin checkpoint the parent and next signing sets open the authenticated header, or use the fixed origin set where it applies. The second successor uses the authenticated EL state and its anchor."
     },

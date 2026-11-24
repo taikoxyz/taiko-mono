@@ -17,7 +17,7 @@ checks each `property`/`supporting` role both ways against the kernel type and p
 
 The November 20 authorities in spec-coverage.json are read from their pinned Git revision.
 Their LIVE_* clause IDs and historical proof edges retain their original meaning.
-The November 22 authorities in current-coverage.json are checked byte for byte in the
+The current authorities in current-coverage.json are checked byte for byte in the
 working tree. Their CURRENT_* clause IDs can only be cited by the new model namespaces.
 
 Only Etna.Design.Current declarations may cite historical clauses. Every
@@ -46,7 +46,7 @@ SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
 INDEX_PATH = SPEC_DIR+'/rules/INDEX.md'
 HISTORICAL_CONFIG = 'spec-coverage.json'
 CURRENT_CONFIG = 'current-coverage.json'
-CURRENT_COMMIT = '69e26df443e9b5a0f05127d4179e4833fc95823c'
+CURRENT_COMMIT = 'b01356ddc942ee10e67d1f506bf4acd043b8686c'
 CURRENT_NAMESPACES = ('Etna.Design.L2Staking.', 'Etna.Design.L2StakingProtocol.',
                       'Etna.Design.PerBlockCommittee.', 'Etna.Design.PerBlockGuest.')
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),
@@ -208,7 +208,7 @@ def pinned_text(repo, pin, path, label, *, profile, strip_for_pin=False, fixture
     if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', pin.get('revision', '')):
         raise ValueError(f'the {label} source requires an ISO revision date')
     if profile == 'current':
-        if commit != CURRENT_COMMIT or pin['revision'] != '2026-11-22':
+        if commit != CURRENT_COMMIT or pin['revision'] != '2026-11-23':
             raise ValueError(f'{label} source pin must identify reviewed PR #22425 ({CURRENT_COMMIT})')
         data = (repo/path).read_bytes()
     else:
@@ -346,7 +346,7 @@ def inventory(root=ROOT, repo=REPO, *, fixture=None):
 
 
 def current_inventory(root=ROOT, repo=REPO):
-    """Validate the November 22 authorities and current-only claim and theorem edges."""
+    """Validate the current authorities and their claim and theorem edges."""
     return _inventory(root, repo, 'current')
 
 

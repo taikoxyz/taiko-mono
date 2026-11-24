@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending | retired |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: | ------: |
-| rule       |   586 |       4 |           0 |         23 |      559 |              0 |       0 |
+| rule       |   590 |       4 |           0 |         23 |      563 |              0 |       0 |
 | limitation |    33 |       0 |           0 |          0 |       33 |              0 |       0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |       0 |
 | retired    |   101 |       0 |           0 |          0 |        0 |              0 |     101 |
@@ -20,16 +20,16 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending | retired |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: | ------: |
 | RECOV  |   104 |       0 |           0 |          3 |      101 |              0 |       0 |
-| ENC    |    58 |       0 |           0 |          0 |       58 |              0 |       0 |
+| ENC    |    60 |       0 |           0 |          0 |       60 |              0 |       0 |
 | CONS   |    54 |       1 |           0 |          1 |       52 |              0 |       0 |
+| START  |    50 |       0 |           0 |          0 |       50 |              0 |       0 |
 | PROOF  |    49 |       1 |           0 |          5 |       43 |              0 |       0 |
-| START  |    49 |       0 |           0 |          0 |       49 |              0 |       0 |
 | STAKE  |    41 |       0 |           0 |          3 |       38 |              0 |       0 |
 | FI     |    31 |       0 |           0 |          0 |       31 |              0 |       0 |
 | DATA   |    30 |       0 |           0 |          0 |       30 |              0 |       0 |
 | STOR   |    28 |       0 |           0 |          0 |       28 |              0 |       0 |
 | SYNC   |    28 |       0 |           0 |          0 |       28 |              0 |       0 |
-| PARAM  |    21 |       0 |           0 |          0 |       21 |              0 |       0 |
+| PARAM  |    22 |       0 |           0 |          0 |       22 |              0 |       0 |
 | FORF   |    20 |       0 |           0 |          2 |       18 |              0 |       0 |
 | COMM   |    17 |       0 |           0 |          8 |        9 |              0 |       0 |
 | BACKP  |    14 |       2 |           0 |          1 |       11 |              0 |       0 |
@@ -55,7 +55,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | COMP-2-4       | rule       | deferred   | CURRENT_EN-993e52fe033155d5 |      1 |                                                                               |
 | COMP-2-5       | rule       | deferred   | CURRENT_EN-a999b8c38419c84f |      1 |                                                                               |
 | COMP-2-6       | rule       | deferred   | CURRENT_EN-15253782e29eeda9 |      1 |                                                                               |
-| COMP-2-7       | rule       | deferred   | CURRENT_EN-e5d323fdb60f4a0c |      1 |                                                                               |
+| COMP-2-7       | rule       | deferred   | CURRENT_EN-c1831eaf3bbc4088 |      1 |                                                                               |
 | CONS-3.1-1     | rule       | deferred   | CURRENT_EN-32946874dd008c19 |      2 |                                                                               |
 | CONS-3.1-2     | rule       | deferred   | CURRENT_EN-32946874dd008c19 |      2 |                                                                               |
 | CONS-3.1-3     | rule       | deferred   | CURRENT_EN-c2be97c5ba79b37b |      1 |                                                                               |
@@ -83,9 +83,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | CONS-3.2-8     | rule       | deferred   | CURRENT_EN-d794fbdb42671c91 |      1 |                                                                               |
 | CONS-3.2-9     | rule       | deferred   | CURRENT_EN-d632a26216849dc2 |      1 |                                                                               |
 | CONS-3.2-10    | rule       | deferred   | CURRENT_EN-2f69f5f6278bd0df |      1 |                                                                               |
-| CONS-3.2-11    | rule       | deferred   | CURRENT_EN-5b4e236cdb58c0af |      2 |                                                                               |
-| CONS-3.2-12    | rule       | deferred   | CURRENT_EN-5b4e236cdb58c0af |      2 |                                                                               |
-| CONS-3.2-13    | rule       | supporting | CURRENT_EN-341b6a967979be28 |      1 | `failed_block_start_preserves_state`                                          |
+| CONS-3.2-11    | rule       | deferred   | CURRENT_EN-7b25749829e10269 |      2 |                                                                               |
+| CONS-3.2-12    | rule       | deferred   | CURRENT_EN-7b25749829e10269 |      2 |                                                                               |
+| CONS-3.2-13    | rule       | supporting | CURRENT_EN-b4d44d47a52eb39d |      1 | `failed_block_start_preserves_state`                                          |
 | CONS-3.3-1     | rule       | deferred   | CURRENT_EN-974f53d8db679158 |      3 |                                                                               |
 | CONS-3.3-2     | rule       | deferred   | CURRENT_EN-974f53d8db679158 |      3 |                                                                               |
 | CONS-3.3-3a    | rule       | deferred   | CURRENT_EN-974f53d8db679158 |      3 |                                                                               |
@@ -110,9 +110,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | CONS-3.4-14    | rule       | deferred   | CURRENT_EN-772881e1556cd4ec |      2 |                                                                               |
 | CONS-3.4-15    | rule       | deferred   | CURRENT_EN-f9b988bcce12a63d |      1 |                                                                               |
 | CONS-3.4-16    | rule       | deferred   | CURRENT_EN-70177fe59ce4f1d4 |      1 |                                                                               |
-| STAKE-4.1-1    | rule       | deferred   | CURRENT_EN-6bf591bc19eaf5af |      3 |                                                                               |
-| STAKE-4.1-2    | rule       | deferred   | CURRENT_EN-6bf591bc19eaf5af |      3 |                                                                               |
-| STAKE-4.1-3    | rule       | deferred   | CURRENT_EN-6bf591bc19eaf5af |      3 |                                                                               |
+| STAKE-4.1-1    | rule       | deferred   | CURRENT_EN-b46a9a24d1f8398a |      3 |                                                                               |
+| STAKE-4.1-2    | rule       | deferred   | CURRENT_EN-b46a9a24d1f8398a |      3 |                                                                               |
+| STAKE-4.1-3    | rule       | deferred   | CURRENT_EN-b46a9a24d1f8398a |      3 |                                                                               |
 | STAKE-4.1-4    | rule       | deferred   | CURRENT_EN-25dfa8eb7f9e17db |      2 |                                                                               |
 | STAKE-4.1-5    | rule       | deferred   | CURRENT_EN-25dfa8eb7f9e17db |      2 |                                                                               |
 | STAKE-4.1-6    | rule       | deferred   | CURRENT_EN-6609961308fc760e |      2 |                                                                               |
@@ -138,7 +138,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | STAKE-4.1-28   | rule       | deferred   | CURRENT_EN-d29276d93f1badbf |      2 |                                                                               |
 | STAKE-4.1-28a  | rule       | supporting | CURRENT_EN-b3b6acd273d49472 |      1 | `delay_covers_unsettled_and_evidence`                                         |
 | STAKE-4.1-30   | rule       | deferred   | CURRENT_EN-ce666f44289b661d |      1 |                                                                               |
-| STAKE-4.1-31   | rule       | deferred   | CURRENT_EN-356addd3f6ed91f2 |      1 |                                                                               |
+| STAKE-4.1-31   | rule       | deferred   | CURRENT_EN-f069bc2542c0c6e6 |      1 |                                                                               |
 | STAKE-4.1-32   | rule       | deferred   | CURRENT_EN-0abceb4b653d6fa9 |      1 |                                                                               |
 | STAKE-4.1-33   | rule       | deferred   | CURRENT_EN-a319194724fb8c65 |      1 |                                                                               |
 | STAKE-4.1-34   | rule       | deferred   | CURRENT_EN-ccff0561f3428ef9 |      1 |                                                                               |
@@ -149,8 +149,8 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | STAKE-4.2-4    | rule       | deferred   | CURRENT_EN-5c98867428f5164c |      1 |                                                                               |
 | STAKE-4.2-5    | rule       | deferred   | CURRENT_EN-d9b8de2ecb2fe183 |      1 |                                                                               |
 | STAKE-4.2-6    | rule       | supporting | CURRENT_EN-9bb8afe14f52d64d |      1 | `rounded_penalty_bounded`, `rounded_penalty_ceiling`                          |
-| STAKE-4.2-7    | rule       | supporting | CURRENT_EN-f0a96aa1ecb8edb7 |      1 | `successful_block_start_snapshot`, `transaction_preserves_snapshot`           |
-| STAKE-4.2-8    | rule       | deferred   | CURRENT_EN-a81efb0b897e5b71 |      1 |                                                                               |
+| STAKE-4.2-7    | rule       | supporting | CURRENT_EN-69655c5419a25333 |      1 | `successful_block_start_snapshot`, `transaction_preserves_snapshot`           |
+| STAKE-4.2-8    | rule       | deferred   | CURRENT_EN-a72acac2dcd18b6a |      1 |                                                                               |
 | COMM-4.3-1     | rule       | supporting | CURRENT_EN-d1e53f04c801f945 |      1 | `signingSet_at_hplus2`, `signingSet_first_two`                                |
 | COMM-4.3-3     | rule       | supporting | CURRENT_EN-100d1945e5ceede0 |      1 | `transaction_preserves_snapshot`                                              |
 | COMM-4.3-3a    | rule       | supporting | CURRENT_EN-ab045497c4fcde0d |      1 | `decision_forceFallback`, `usableCandidate_requirements`                      |
@@ -158,14 +158,14 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | COMM-4.3-7     | rule       | deferred   | CURRENT_EN-cb313595f75c4dbb |      1 |                                                                               |
 | COMM-4.3-8     | rule       | supporting | CURRENT_EN-3ae51e6da7b0077e |      1 | `candidateMembers_valid`                                                      |
 | COMM-4.3-8a    | rule       | deferred   | CURRENT_EN-270f245220a74b28 |      1 |                                                                               |
-| COMM-4.3-8b    | rule       | supporting | CURRENT_EN-b92478e83e852120 |      1 | `fallback_unitPower`                                                          |
+| COMM-4.3-8b    | rule       | supporting | CURRENT_EN-8004c4e6a5fc6a31 |      1 | `fallback_unitPower`                                                          |
 | COMM-4.3-8c    | rule       | deferred   | CURRENT_EN-f92f2ffa08075404 |      1 |                                                                               |
 | COMM-4.3-9     | rule       | supporting | CURRENT_EN-5a9ec60d4802ed5e |      1 | `signingSet_first_two`, `boundary_origin`                                     |
 | COMM-4.3-13    | rule       | supporting | CURRENT_EN-2ccbaebc6cd5620b |      1 | `advance_preserves_next_height`                                               |
 | COMM-4.3-13a   | rule       | deferred   | CURRENT_EN-c3a423f77429eddf |      1 |                                                                               |
 | COMM-4.3-14    | rule       | deferred   | CURRENT_EN-94ad87136ec2ee47 |      1 |                                                                               |
 | COMM-4.3-16    | rule       | deferred   | CURRENT_EN-b2c4056fb9a90a77 |      1 |                                                                               |
-| COMM-4.3-18    | rule       | supporting | CURRENT_EN-79179d29401b2345 |      1 | `threshold_requires_owner`                                                    |
+| COMM-4.3-18    | rule       | supporting | CURRENT_EN-eb67157fb297257f |      1 | `threshold_requires_owner`                                                    |
 | COMM-4.3-19    | rule       | deferred   | CURRENT_EN-84e5bc97ec3cd9b9 |      1 |                                                                               |
 | COMM-4.3-20    | rule       | deferred   | CURRENT_EN-1b2ac811198b607d |      1 |                                                                               |
 | FORF-4.4-1     | rule       | deferred   | CURRENT_EN-a88d4042a9bc8db8 |      3 |                                                                               |
@@ -211,7 +211,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | DATA-5.3-8     | rule       | deferred   | CURRENT_EN-976ae77cb4ddbb2d |      4 |                                                                               |
 | DATA-5.3-9a    | rule       | deferred   | CURRENT_EN-41687ba3d3f9aff8 |      1 |                                                                               |
 | DATA-5.4-1     | rule       | deferred   | CURRENT_EN-8943613d8a93c4ca |      1 |                                                                               |
-| DATA-5.4-2     | rule       | deferred   | CURRENT_EN-00d5fa20dae59af7 |      1 |                                                                               |
+| DATA-5.4-2     | rule       | deferred   | CURRENT_EN-8fe8a2ce50ab1a4d |      1 |                                                                               |
 | DATA-5.4-3     | rule       | deferred   | CURRENT_EN-7a5a368e12b8cb31 |      1 |                                                                               |
 | DATA-5.4-4     | rule       | deferred   | CURRENT_EN-750fd76f2ff683e4 |      1 |                                                                               |
 | DATA-5.4-5     | rule       | deferred   | CURRENT_EN-5f7ca7b8fff0e405 |      1 |                                                                               |
@@ -241,7 +241,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | PROOF-6.2-8    | rule       | deferred   | CURRENT_EN-9e082fe4b4d911e8 |      3 |                                                                               |
 | PROOF-6.2-9    | rule       | deferred   | CURRENT_EN-9e082fe4b4d911e8 |      3 |                                                                               |
 | PROOF-6.2-10   | rule       | deferred   | CURRENT_EN-9e082fe4b4d911e8 |      3 |                                                                               |
-| PROOF-6.2-11   | rule       | deferred   | CURRENT_EN-34b5b7ff290bc833 |      1 |                                                                               |
+| PROOF-6.2-11   | rule       | deferred   | CURRENT_EN-48dfd1a24078ed74 |      1 |                                                                               |
 | PROOF-6.2-12   | rule       | deferred   | CURRENT_EN-3be5e5decd47ae73 |      7 |                                                                               |
 | PROOF-6.2-12a  | rule       | supporting | CURRENT_EN-3be5e5decd47ae73 |      7 | `boundary_after_origin`, `boundary_origin`, `openValidators_checked`          |
 | PROOF-6.2-12b  | rule       | supporting | CURRENT_EN-3be5e5decd47ae73 |      7 | `boundary_after_origin`, `boundary_origin`                                    |
@@ -263,23 +263,23 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | PROOF-6.2-28   | rule       | deferred   | CURRENT_EN-043c32870af8d13f |      5 |                                                                               |
 | PROOF-6.2-29   | rule       | deferred   | CURRENT_EN-ec88c406997bc27f |      1 |                                                                               |
 | PROOF-6.2-29a  | rule       | deferred   | CURRENT_EN-28b86ed44a0bac77 |      1 |                                                                               |
-| PROOF-6.2-33   | rule       | deferred   | CURRENT_EN-742c069f82d4b29b |      2 |                                                                               |
-| PROOF-6.2-34   | rule       | deferred   | CURRENT_EN-742c069f82d4b29b |      2 |                                                                               |
+| PROOF-6.2-33   | rule       | deferred   | CURRENT_EN-593e4693e99a9c60 |      2 |                                                                               |
+| PROOF-6.2-34   | rule       | deferred   | CURRENT_EN-593e4693e99a9c60 |      2 |                                                                               |
 | PROOF-6.2-35   | rule       | deferred   | CURRENT_EN-c7be000835ab6d0c |      2 |                                                                               |
 | PROOF-6.2-36   | rule       | deferred   | CURRENT_EN-c7be000835ab6d0c |      2 |                                                                               |
 | PROOF-6.2-37   | rule       | deferred   | CURRENT_EN-faaad7571196382a |      1 |                                                                               |
 | PROOF-6.2-38   | rule       | deferred   | CURRENT_EN-befb3dec4185b927 |      1 |                                                                               |
-| PROOF-6.2-39   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-40   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-41   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-42   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-43   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-44   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-45   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-45a  | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-46   | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-46a  | rule       | deferred   | CURRENT_EN-cb4f6ca321456b2e |     11 |                                                                               |
-| PROOF-6.2-47   | rule       | supporting | CURRENT_EN-cb4f6ca321456b2e |     11 | `boundary_after_origin`                                                       |
+| PROOF-6.2-39   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-40   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-41   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-42   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-43   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-44   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-45   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-45a  | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-46   | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-46a  | rule       | deferred   | CURRENT_EN-a56fe82d49212b95 |     11 |                                                                               |
+| PROOF-6.2-47   | rule       | supporting | CURRENT_EN-a56fe82d49212b95 |     11 | `boundary_after_origin`                                                       |
 | BATCH-6.3-1    | rule       | deferred   | CURRENT_EN-2ae658778fa1d2b9 |      7 |                                                                               |
 | BATCH-6.3-2    | rule       | deferred   | CURRENT_EN-2ae658778fa1d2b9 |      7 |                                                                               |
 | BATCH-6.3-3    | rule       | deferred   | CURRENT_EN-2ae658778fa1d2b9 |      7 |                                                                               |
@@ -396,9 +396,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8.1-3    | rule       | deferred   | CURRENT_EN-b56571cd4547505e |      3 |                                                                               |
 | RECOV-8.1-4    | rule       | deferred   | CURRENT_EN-b56571cd4547505e |      3 |                                                                               |
 | RECOV-8.1-5    | rule       | deferred   | CURRENT_EN-b56571cd4547505e |      3 |                                                                               |
-| RECOV-8.1-6    | rule       | deferred   | CURRENT_EN-bdfc913cf1078a25 |      3 |                                                                               |
-| RECOV-8.1-7    | rule       | deferred   | CURRENT_EN-bdfc913cf1078a25 |      3 |                                                                               |
-| RECOV-8.1-8    | rule       | deferred   | CURRENT_EN-bdfc913cf1078a25 |      3 |                                                                               |
+| RECOV-8.1-6    | rule       | deferred   | CURRENT_EN-8d1ca9c7f26a93a2 |      3 |                                                                               |
+| RECOV-8.1-7    | rule       | deferred   | CURRENT_EN-8d1ca9c7f26a93a2 |      3 |                                                                               |
+| RECOV-8.1-8    | rule       | deferred   | CURRENT_EN-8d1ca9c7f26a93a2 |      3 |                                                                               |
 | RECOV-8.1-9    | rule       | deferred   | CURRENT_EN-12d55e1f3b091a6a |      4 |                                                                               |
 | RECOV-8.1-10   | rule       | deferred   | CURRENT_EN-12d55e1f3b091a6a |      4 |                                                                               |
 | RECOV-8.1-11   | rule       | deferred   | CURRENT_EN-12d55e1f3b091a6a |      4 |                                                                               |
@@ -446,22 +446,22 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | SYNC-9-1       | rule       | deferred   | CURRENT_EN-9a03b957332fc15a |      2 |                                                                               |
 | SYNC-9-2       | rule       | deferred   | CURRENT_EN-9a03b957332fc15a |      2 |                                                                               |
 | SYNC-9-3       | rule       | deferred   | CURRENT_EN-7912891c4e55a8f5 |      1 |                                                                               |
-| SYNC-9-4       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-5       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-5a      | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-5c      | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-6       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-6a      | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-7       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-8       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
-| SYNC-9-9       | rule       | deferred   | CURRENT_EN-cbdcf33ec7c2d5fe |      9 |                                                                               |
+| SYNC-9-4       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-5       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-5a      | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-5c      | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-6       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-6a      | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-7       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-8       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
+| SYNC-9-9       | rule       | deferred   | CURRENT_EN-b367efd3ad226ecc |      9 |                                                                               |
 | SYNC-9-10      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
 | SYNC-9-11      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
 | SYNC-9-12      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
 | SYNC-9-13      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
 | SYNC-9-14      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
 | SYNC-9-15      | rule       | deferred   | CURRENT_EN-cbcbb8c8a46f7720 |      6 |                                                                               |
-| SYNC-9-16      | rule       | deferred   | CURRENT_EN-261678eac4afda78 |      1 |                                                                               |
+| SYNC-9-16      | rule       | deferred   | CURRENT_EN-781910c32fd355f0 |      1 |                                                                               |
 | SYNC-9.1-1     | rule       | deferred   | CURRENT_EN-a3e83aba06888aee |      3 |                                                                               |
 | SYNC-9.1-2     | rule       | deferred   | CURRENT_EN-a3e83aba06888aee |      3 |                                                                               |
 | SYNC-9.1-3     | rule       | deferred   | CURRENT_EN-a3e83aba06888aee |      3 |                                                                               |
@@ -472,16 +472,16 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | SYNC-9.1-8     | rule       | deferred   | CURRENT_EN-56e4cf037e7268e7 |      4 |                                                                               |
 | SYNC-9.1-9     | limitation | deferred   | CURRENT_EN-56e4cf037e7268e7 |      4 |                                                                               |
 | SYNC-9.1-10    | rule       | deferred   | CURRENT_EN-56e4cf037e7268e7 |      4 |                                                                               |
-| START-10-1     | rule       | deferred   | CURRENT_EN-fc70e5660401fecb |      1 |                                                                               |
+| START-10-1     | rule       | deferred   | CURRENT_EN-3a48e4b921a5393e |      1 |                                                                               |
 | START-10-3     | rule       | deferred   | CURRENT_EN-f684efbfce1a91b5 |      1 |                                                                               |
 | START-10-4     | rule       | deferred   | CURRENT_EN-c37c97d7369d7995 |      1 |                                                                               |
-| START-10-5     | rule       | deferred   | CURRENT_EN-1b0e322c5a3ea8bc |      1 |                                                                               |
-| START-10-5a    | rule       | deferred   | CURRENT_EN-fb7be596488e5869 |      1 |                                                                               |
-| LAND-6.1-8a    | rule       | deferred   | CURRENT_EN-52f103f72fef6522 |      1 |                                                                               |
+| START-10-5     | rule       | deferred   | CURRENT_EN-30fb6c583960aaed |      1 |                                                                               |
+| START-10-5a    | rule       | deferred   | CURRENT_EN-8a87d0f2c2b91f1f |      1 |                                                                               |
+| LAND-6.1-8a    | rule       | deferred   | CURRENT_EN-e3bf94f6daecaed8 |      1 |                                                                               |
 | START-10-5b    | rule       | deferred   | CURRENT_EN-3a680f2defaa784c |      1 |                                                                               |
 | START-10-5c    | rule       | deferred   | CURRENT_EN-5bb4b7770ad2139a |      1 |                                                                               |
-| START-10-5d    | rule       | deferred   | CURRENT_EN-fb81a00304514bd7 |      1 |                                                                               |
-| START-10-6     | rule       | deferred   | CURRENT_EN-cf9795f4ad6c4491 |      1 |                                                                               |
+| START-10-5d    | rule       | deferred   | CURRENT_EN-9da18656d2e2892b |      1 |                                                                               |
+| START-10-6     | rule       | deferred   | CURRENT_EN-120618015f0ed66e |      1 |                                                                               |
 | START-10-9     | rule       | deferred   | CURRENT_EN-a2df1b71b68a50e9 |      9 |                                                                               |
 | START-10-10    | rule       | deferred   | CURRENT_EN-a2df1b71b68a50e9 |      9 |                                                                               |
 | START-10-11    | rule       | deferred   | CURRENT_EN-a2df1b71b68a50e9 |      9 |                                                                               |
@@ -498,8 +498,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | START-10-22    | rule       | deferred   | CURRENT_EN-2da8b0fcd4c85893 |      5 |                                                                               |
 | START-10-23    | rule       | deferred   | CURRENT_EN-2da8b0fcd4c85893 |      5 |                                                                               |
 | START-10-24    | rule       | deferred   | CURRENT_EN-2da8b0fcd4c85893 |      5 |                                                                               |
-| START-10.1-2   | rule       | deferred   | CURRENT_EN-1e5af3ce0f90289b |      2 |                                                                               |
-| START-10.1-2a  | rule       | deferred   | CURRENT_EN-1e5af3ce0f90289b |      2 |                                                                               |
+| START-10.1-2   | rule       | deferred   | CURRENT_EN-fccf69c65a747f62 |      3 |                                                                               |
+| START-10.1-2a  | rule       | deferred   | CURRENT_EN-fccf69c65a747f62 |      3 |                                                                               |
+| START-10.1-2b  | rule       | deferred   | CURRENT_EN-fccf69c65a747f62 |      3 |                                                                               |
 | START-10.1-3a  | rule       | deferred   | CURRENT_EN-9919a1cd0c1998e9 |      4 |                                                                               |
 | START-10.1-3b  | rule       | deferred   | CURRENT_EN-9919a1cd0c1998e9 |      4 |                                                                               |
 | START-10.1-3c  | rule       | deferred   | CURRENT_EN-9919a1cd0c1998e9 |      4 |                                                                               |
@@ -528,12 +529,13 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | PARAM-11-5     | rule       | deferred   | CURRENT_EN-2f1cb5f92df012ca |      1 |                                                                               |
 | PARAM-11-6     | rule       | deferred   | CURRENT_EN-842e18453b765b7a |      1 |                                                                               |
 | PARAM-11-6a    | rule       | deferred   | CURRENT_EN-bdfb438edfd1e87b |      1 |                                                                               |
-| PARAM-11-6b    | rule       | deferred   | CURRENT_EN-13b015d012e27065 |      1 |                                                                               |
+| PARAM-11-6b    | rule       | deferred   | CURRENT_EN-949c1ee91efeab3e |      1 |                                                                               |
 | PARAM-11-7     | rule       | deferred   | CURRENT_EN-867a959d3b1bfce9 |      1 |                                                                               |
 | PARAM-11-7a    | rule       | deferred   | CURRENT_EN-ccbc0e072934d6c0 |      1 |                                                                               |
 | PARAM-11-7b    | rule       | deferred   | CURRENT_EN-c2916e533e10ebe9 |      1 |                                                                               |
 | PARAM-11-8     | rule       | deferred   | CURRENT_EN-75482b40b7bf64ad |      1 |                                                                               |
 | PARAM-11-10a   | rule       | deferred   | CURRENT_EN-b65946896862274f |      1 |                                                                               |
+| PARAM-11-10b   | rule       | deferred   | CURRENT_EN-290a71be75e5ffb6 |      1 |                                                                               |
 | PARAM-11-11    | rule       | deferred   | CURRENT_EN-639f887c2e87dc0c |      1 |                                                                               |
 | PARAM-11-11a   | rule       | deferred   | CURRENT_EN-3b0623cc782bf32a |      1 |                                                                               |
 | PARAM-11-12    | rule       | deferred   | CURRENT_EN-44bd0955c60c283c |      1 |                                                                               |
@@ -571,7 +573,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | LIMIT-12-26    | limitation | deferred   | CURRENT_EN-67434899ac2bb245 |      1 |                                                                               |
 | LIMIT-12-27    | limitation | deferred   | CURRENT_EN-eb39781aa903a1b2 |      1 |                                                                               |
 | LIMIT-12-28    | limitation | deferred   | CURRENT_EN-1f3ad28d327ede17 |      1 |                                                                               |
-| LIMIT-12-29    | limitation | deferred   | CURRENT_EN-cd059987325a0d68 |      1 |                                                                               |
+| LIMIT-12-29    | limitation | deferred   | CURRENT_EN-c81d222e27a9b404 |      1 |                                                                               |
 | LIMIT-12-30    | limitation | deferred   | CURRENT_EN-d7de0c918f37da37 |      1 |                                                                               |
 | LIMIT-12-31    | limitation | deferred   | CURRENT_EN-e53d5738cd1be8a0 |      1 |                                                                               |
 | LIMIT-12-32    | limitation | deferred   | CURRENT_EN-d7dad6c43c3880f3 |      1 |                                                                               |
@@ -617,23 +619,25 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | ENC-A-33       | rule       | deferred   | CURRENT_EN-815a7c445c5ef5d3 |      9 |                                                                               |
 | ENC-A-34       | rule       | deferred   | CURRENT_EN-815a7c445c5ef5d3 |      9 |                                                                               |
 | ENC-A-35       | rule       | deferred   | CURRENT_EN-815a7c445c5ef5d3 |      9 |                                                                               |
-| ENC-A-36       | rule       | deferred   | CURRENT_EN-c891f154fc75b333 |      4 |                                                                               |
-| ENC-A-36a      | rule       | deferred   | CURRENT_EN-c891f154fc75b333 |      4 |                                                                               |
-| ENC-A-36b      | rule       | deferred   | CURRENT_EN-c891f154fc75b333 |      4 |                                                                               |
-| ENC-A-36c      | rule       | deferred   | CURRENT_EN-c891f154fc75b333 |      4 |                                                                               |
-| ENC-A-43       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-44       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-45       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-46       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-47       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-48       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-49       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-49a      | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-50       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-52       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-53       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-54       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
-| ENC-A-55       | rule       | deferred   | CURRENT_EN-b090a81506e3c2d7 |     13 |                                                                               |
+| ENC-A-36       | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-36a      | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-36b      | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-36c      | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-36d      | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-36e      | rule       | deferred   | CURRENT_EN-88888401505802c7 |      6 |                                                                               |
+| ENC-A-43       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-44       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-45       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-46       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-47       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-48       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-49       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-49a      | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-50       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-52       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-53       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-54       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
+| ENC-A-55       | rule       | deferred   | CURRENT_EN-f8d4300367776678 |     13 |                                                                               |
 | STOR-B-1       | rule       | deferred   | CURRENT_EN-90a27d0709d38487 |      1 |                                                                               |
 | STOR-B-2       | rule       | deferred   | CURRENT_EN-e06e145382b56091 |      1 |                                                                               |
 | STOR-B-3       | rule       | deferred   | CURRENT_EN-7db723aa208beb35 |      1 |                                                                               |
@@ -778,7 +782,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 ## Narrow evidence scopes
 
-- **CONS-3.2-13**: A rejected block-start transition leaves its input state intact. EL call ordering, gas, and block rejection remain external.
+- **CONS-3.2-13**: A decoded staking transition that does not apply changes preserves its input state. The protocol regressions distinguish reverted calls and no-code calls from local execution faults. EL call ordering, execution and gas remain external.
 - **CONS-3.4-7a**: Decoded first-block flags are empty and the bitmap is zero. Later bits mark precisely the mapped misses, with every bit at or above seat 128 clear.
 - **STAKE-4.1-28a**: The accepted delay is at least U + 2 + the evidence window. Checkpoint progress and transaction inclusion remain external.
 - **STAKE-4.2-6**: Decoded miss-penalty arithmetic rounds the product up and stays within principal for a rate at most 10000 basis points.
@@ -798,7 +802,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **PROOF-6.2-12c**: The decoded boundary has no parent set at the origin. At a later checkpoint it checks the supplied parent members against the validator hash of the opened header.
 - **PROOF-6.2-16**: The decoded gate compares key-power membership independently of order and requires a qualifying commit at the terminal height or a set change. Proof execution remains external.
 - **PROOF-6.2-17**: A required decoded commit needs distinct members backed by matching precommits and more than two-thirds of the supplied power. Two strict quorums on the same set share more than one third of that power. Signature verification and committee authentication are supplied interfaces.
-- **PROOF-6.2-47**: The decoded boundary opens the parent decision at the checkpoint height and EL hash and reads its snapshot and anchor inputs for p + 2. L1 witness validation and inherited-anchor checks remain external.
+- **PROOF-6.2-47**: The decoded boundary opens the parent snapshot and the two fallback settings of its anchor at the checkpoint EL hash, for p + 2 only. L1 root authentication and inherited-anchor ancestry checks remain external.
 - **BACKP-6.4-1**: A decoded height accepted by the bound check has at most U blocks above the supplied checkpoint. Anchor and checkpoint authentication remain external.
 - **BACKP-6.4-2**: The target constant satisfies the decoded range for U. Encoding and config-hash binding remain external.
 - **BACKP-6.4-4**: The modeled target U = 151200 passes the range check. Deployment selection and time estimates remain external.

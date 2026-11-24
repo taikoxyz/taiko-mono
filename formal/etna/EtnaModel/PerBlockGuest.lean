@@ -22,8 +22,10 @@ structure BoundaryRules where
   committee : Rules
   /-- Open the header at an authenticated checkpoint's CometBFT hash. -/
   openCometHeader : Hash → Option CometHeader
-  /-- Open staking post-state under the checkpoint EL header and read its anchor, as in
-  PROOF-6.2-12b and PROOF-6.2-47. The arguments are the checkpoint height and EL hash. -/
+  /-- At the supplied checkpoint height and EL hash, open the staking snapshot and the
+  two fallback settings at the checkpoint's anchor for the p+2 decision. The ancestry
+  alternative in PROOF-6.2-33 serves only these settings. Other Inbox reads and all
+  anchors in (p,h] require ordinary authentication under PROOF-6.2-11. -/
   openParentDecision : Nat → Hash → Option DecisionInput
   /-- Stock validator commitment in the order supplied, over keys and powers. -/
   hashValidatorSet : List Member → Hash

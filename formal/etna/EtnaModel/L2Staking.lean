@@ -126,11 +126,12 @@ private def seatEligibleBond (s : State) (id : Nat) (bond : Bond) : Option State
 
 def roundedPenalty (balance bps : Nat) : Nat := (balance * bps + 9999) / 10000
 
-/-- Complete decoded block identity. The zero triple is the nil block. -/
+/-- Decoded canonical vote block identity. Absent hashes are empty byte strings.
+A present zero is a 32-byte all-zero hash. Nil has two absent hashes and total zero. -/
 structure VoteBlockId where
-  blockHash : Hash
+  blockHash : Option Hash
   partsTotal : Nat
-  partsHash : Hash
+  partsHash : Option Hash
   deriving DecidableEq, Repr
 
 structure Vote where
@@ -150,8 +151,9 @@ inductive Transfer where
 
 /-- External execution adapters fixed by the deployment. Registration checks canonical
 key decoding, ckAddr derivation and owner-bound PoP. Vote recovery uses this deployment's
-domain and validates signature encoding. Token validation covers every requested transfer
-of the configured L2 TAIKO token and returns false if the transaction must revert. -/
+domain and checks the vote field widths, canonical sign bytes and signature encoding.
+Token validation covers every requested transfer of the configured L2 TAIKO token and
+returns false if the transaction must revert. -/
 structure Adapters where
   registerOK : Nat → Key → Hash → Bool
   recoverVote : Vote → Hash → Option Nat
@@ -306,7 +308,7 @@ def buildSnapshot (s : State) (height : Nat) : Snapshot :=
 
 /-- The decoded system call over the parent's live seats. Count first, apply sink-only
 penalties and release seats, then record the snapshot at this height. `systemSucceeded`
-is the EL's execution outcome, covering token calls, storage writes, reverts and gas. -/
+means the EL committed the staking code's changes, including token calls and storage writes. -/
 def blockStartTransition (s : State) (height caller generation missBitmap : Nat)
     (systemSucceeded : Bool) : Option Result :=
   if systemSucceeded && decide (caller = systemCaller ∧ height < limit48 ∧
