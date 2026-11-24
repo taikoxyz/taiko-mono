@@ -41,7 +41,10 @@ unchanged, and no expected decision or observable was edited.
 The kept vectors still cover the range, origin, generation, already-settled, batch size, FI
 head, reference block, blob, proof, frontier-leaf (wrong word, head, EL or Comet hash, height
 and swapped leaves) and unchecked interior-leaf cases. The harness compares landing records and
-SignalService checkpoints at every height up to the highest landed height. These families do
+SignalService checkpoints at every height up to the highest landed height. The L1 SignalService is
+the root-only `EtnaSignalService`, so the harness compares each checkpoint's state root with the
+model's and requires its hash to read back as zero; the landing records still carry the model's
+hashes. These families do
 not exercise validator-state hashes, which no landing carries any more, nor landings of one
 block or to a non-grid height; the dedicated landing tests cover those. Passing these two
 families does not establish conformance to the complete current specification.

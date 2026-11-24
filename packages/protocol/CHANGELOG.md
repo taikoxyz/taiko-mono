@@ -75,21 +75,33 @@
   TAIKO, so that 128 seats cover TAIKO's 10^27 supply.
   `withdrawalDelay` counts L2 blocks and must be at least U + 2 + the evidence window, which
   `DeployEtnaStaking`, the readiness builder and the genesis tooling check.
-- Etna (BREAKING, spec on main 360262975, #22422): `SignalService` takes a fourth constructor argument,
-  `bool usesBeaconRoots`: false on L1, true on L2. No contract holds the Etna fork time. With it
+- Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the
+  new `EtnaSignalService` (`contracts/shared/signal`), which stores only the counterpart chain's
+  state root per checkpoint height. `SignalService` keeps its `(syncer, remote, pauser)`
+  constructor and gains the virtual hooks `_storeCheckpoint`, `_getCheckpoint` and `_getStateRoot`
+  (`_checkpoints` becomes internal); the Shasta prove gas rises by 17 per case.
+  `EtnaSignalService` takes a fourth constructor argument, `bool usesBeaconRoots`: false on L1,
+  true on L2. It writes only the stateRoot word of the `VERSION` 1 record, leaving the old hash
+  word in place, accepts a zero hash, and `getCheckpoint` returns a zero `blockHash`, also for
+  records written before the upgrade, while `CheckpointSaved` still emits the caller's hash; the
+  new `getStateRoot(uint64)` returns the root a proof is checked against. With `usesBeaconRoots`
   true, `saveCheckpoint` accepts a checkpoint only in a block whose own EIP-4788 root reads as zero:
-  every block before Etna and none from Etna on, and a failed read rejects. Proof roots resolve from
-  a checkpoint first and otherwise from EIP-4788 (`blockId` an Etna block's L2 timestamp), so
-  checkpoints saved before the fork stay provable after it. Missing roots revert
-  `SS_CHECKPOINT_NOT_FOUND`, and `SS_INVALID_BLOCK_ID` is removed. The new
-  `EtnaSignalServiceUpgradeGuard` and `LibEtnaReadinessL2Message` guard and build the readiness
-  proposal's L2 message. The L2 deploy scripts and the genesis config (`usesBeaconRoots`) take no
-  fork time. The `Anchor` is unchanged, and the switching L1 SignalService accepts checkpoints only
-  from the Etna Inbox, which forwards the Unzen Inbox's until the start write.
+  every block before Etna and none from Etna on, and a failed read rejects
+  (`SS_CHECKPOINTS_CLOSED`). Proof roots resolve from a checkpoint first and, on L2, otherwise from
+  EIP-4788 (`blockId` an Etna block's full L2 timestamp), so checkpoints saved before the fork stay
+  provable after it; missing roots revert `SS_CHECKPOINT_NOT_FOUND`. No contract holds the Etna fork
+  time. Every Etna deployment uses `EtnaSignalService`: the L1 SignalService behind the EtnaInbox
+  (`DeployEtnaDevnet`, `DeployEtnaSwitch`, checked by `EtnaSwitchGuard.checkL1SignalService`), the
+  L2 upgrade (`DeployShastaL2Contracts`, `EtnaSignalServiceUpgradeGuard`,
+  `LibEtnaReadinessL2Message`) and a new network's genesis, where the generator's `etna` block
+  selects it and requires `usesBeaconRoots` and `build_etna_genesis.py` requires its runtime; the
+  default genesis and the Shasta scripts keep `SignalService`. The `Anchor` is unchanged, and the
+  switching L1 SignalService accepts checkpoints only from the Etna Inbox, which forwards the Unzen
+  Inbox's until the start write.
 - Etna (BREAKING): the switch tooling checks code identity. `BuildEtnaSwitchProposals` and
-  `BuildEtnaReadinessL2Message` rebuild the L1 and L2 SignalService implementations' runtime code
-  from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from the
-  artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
+  `BuildEtnaReadinessL2Message` rebuild the L1 and L2 `EtnaSignalService` implementations' runtime
+  code from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from
+  the artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
   byte, and require both guards to hold exactly this build's code; the L2 builder runs against L2
   and reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
   and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
@@ -102,11 +114,19 @@
   EtnaInbox's current implementations, which `BuildEtnaSwitchProposals` reads when it builds the
   batch, and reverts `UnexpectedImplementation` if either proxy has been upgraded since, so a
   postponement cannot silently roll back another upgrade.
-- Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's
-  `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
-  state root from the SignalService checkpoint at S (`NotSwitching`, `ProposalsNotClosed`,
-  `UnzenNotFinalized`, `UnzenStartMismatch`), and `land` reads no Unzen state. The Unzen checkpoint
-  forwarder `saveCheckpoint` reverts `ForwardingClosed` at every height once the start is written.
+- Etna (BREAKING, spec #22425 at b01356ddc9): only the designated multisig may call
+  `setOrigin(uint48 s)`, which checks the caller first (`NotOriginMultisig`). `IEtnaInbox.Config`
+  gains `originMultisig` after `etnaForkTime`, an immutable with the view `originMultisig()`,
+  non-zero exactly on a switching network (`InvalidSwitchConfig`) and not part of the config hash.
+  `setOrigin` reads the upgraded Unzen Inbox's `proposeCutoff()` (`InboxWithEtnaCutoffs`) and
+  `getCoreState()`, takes the start's hash from Unzen's non-zero `lastFinalizedBlockHash`
+  (`UnzenTipHashZero`) and its state root from the SignalService checkpoint at S (`NotSwitching`,
+  `ProposalsNotClosed`, `UnzenNotFinalized`, `InvalidStart`), and no longer compares hashes:
+  `UnzenStartMismatch` is removed, so a wrong checkpointed S passes the one-time write and nodes
+  and guests reject it later. `land` reads no Unzen state. The Unzen checkpoint forwarder
+  `saveCheckpoint` reverts `ForwardingClosed` at every height once the start is written.
+  `DeployEtnaSwitch` reads `ORIGIN_MULTISIG`, and `EtnaSwitchGuard.checkSchedule` takes the
+  expected multisig as a fourth argument and reverts `OriginMultisigMismatch` on another one.
 - Etna (BREAKING): double-sign evidence keeps stock CometBFT's encoding of present all-zero BlockID
   hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
   a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,

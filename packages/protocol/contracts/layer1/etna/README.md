@@ -10,7 +10,7 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`178d7a7a66b14305c2f6467ae77163f93dd677cf`. Every spec link here points at that commit, not at this
+`b01356ddc942ee10e67d1f506bf4acd043b8686c`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
@@ -47,6 +47,8 @@ L2 and shared, under `contracts/`:
 - `layer2/etna/libs/LibCometVote.sol`: `chainDomain`, the 48-byte CometBFT `chain_id` and the
   CometBFT v0.40.0 vote sign bytes that double-sign evidence is checked against (3.1, 4.1,
   appendix A).
+- `shared/signal/EtnaSignalService.sol`: the root-only SignalService that L1 and L2 share (see
+  [Anchorless L2 contracts](#anchorless-l2-contracts)).
 - `shared/etna/LibEtnaKeys.sol`: 33-byte secp256k1 key decompression, `ckAddr` and 65-byte low-s
   signature recovery, for staking registration and double-sign checks and for the Inbox's fallback
   key checks (4.1, 4.3, appendix A).
@@ -54,9 +56,11 @@ L2 and shared, under `contracts/`:
 ## EtnaInbox
 
 - The Etna start S is block 0 on a new network and the last Unzen block on a network that switches
-  from Unzen ([SWITCH.md][switch]). The immutables `unzenInbox` and `etnaForkTime` are both zero on
-  a new network and both non-zero on a switching one; the constructor rejects a mix and an Unzen
-  Inbox without code. There is no originWriter. The immutables `etnaStaking`, the non-zero L2
+  from Unzen ([SWITCH.md][switch]). The immutables `unzenInbox`, `etnaForkTime` and
+  `originMultisig` are all zero on a new network and all non-zero on a switching one; the
+  constructor rejects a mix and an Unzen Inbox without code. `originMultisig` is the designated
+  multisig that alone may call `setOrigin`; the config hash does not commit it, so a new Inbox
+  implementation can replace it before the start write. The immutables `etnaStaking`, the non-zero L2
   `EtnaStaking` proxy, and `unsettledLimit`, U in [1, 262,144], are the config hash's third and
   fourth words, with views of the same names.
 - `init(params)`: owner only, sent through `upgradeToAndCall` from the bootstrap implementation. It
@@ -70,14 +74,18 @@ L2 and shared, under `contracts/`:
   empty; bootstrap creation and privileged upgrade history must also be checked. On a new network
   it also performs the start write with S = 0 and the genesis hash and state root and saves the
   block-0 SignalService checkpoint; on a switching network both must be zero and it writes no start.
-- `setOrigin(S)`: on a switching network anyone writes the start once, following the spec's
-  reference body: an initialized Inbox with slot 273 zero, 0 < S, `block.timestamp >= etnaForkTime`,
-  the live Unzen Inbox's `proposeCutoff()` non-zero and reached, its `getCoreState()` showing every
-  proposal finalized (`nextProposalId == lastFinalizedProposalId + 1`), and the L1 SignalService
-  checkpoint at S with a non-zero block hash equal to the `lastFinalizedBlockHash` and a non-zero
-  state root. A failing check or read reverts. The caller supplies only S; the start write takes the
-  hash and state root from that checkpoint and writes slots 272–274 (L1_0 = its own block),
-  generation 0's origin (S, L1_0, its timestamp and the fallback key hash of slot 278), the
+- `setOrigin(S)`: on a switching network only `originMultisig` writes the start, once, following
+  the spec's reference body. It checks the caller first (`NotOriginMultisig`), then an initialized
+  Inbox with slot 273 zero, 0 < S, `block.timestamp >= etnaForkTime`, the live Unzen Inbox's
+  `proposeCutoff()` non-zero and reached, its `getCoreState()` showing every proposal finalized
+  (`nextProposalId == lastFinalizedProposalId + 1`) with a non-zero `lastFinalizedBlockHash`
+  (`UnzenTipHashZero`), and an L1 SignalService checkpoint at S with a non-zero state root. A
+  failing check or read reverts. The multisig is trusted only to supply S, the height of Unzen's
+  finalized tip: the start write takes the hash from `lastFinalizedBlockHash` and the state root
+  from the checkpoint at S, whose hash field the root-only SignalService returns as zero. Nothing
+  on L1 ties the two to one height, so a wrong checkpointed S passes the one-time write; nodes and
+  guests then reject the mismatch and Etna halts. The write sets slots 272–274 (L1_0 = its own
+  block), generation 0's origin (S, L1_0, its timestamp and the fallback key hash of slot 278), the
   checkpoint (S, hash) and S's landing record, emits `StartWritten`, closes the forwarder and opens
   the forced inclusion queue. It leaves the checkpoint at S untouched, and nothing rewrites the
   start afterwards.
@@ -292,9 +300,10 @@ checked against c's slot 285 record. L1 never decodes the statement's preimage.
 ### New network
 
 `script/layer1/etna/DeployEtnaDevnet.s.sol` deploys a new network in the owner-initialized order: the
-Inbox proxy on its bootstrap with the L1 SignalService, then the L2 genesis with `EtnaStaking` fixing
-that proxy, then the owner's `upgradeToAndCall` with `init`. The Inbox has zero `unzenInbox` and
-`etnaForkTime`; its NatSpec lists every environment variable. Run from `packages/protocol`:
+Inbox proxy on its bootstrap with the L1 `EtnaSignalService` (`usesBeaconRoots` false), then the L2
+genesis with `EtnaStaking` fixing that proxy, then the owner's `upgradeToAndCall` with `init`. The
+Inbox has zero `unzenInbox`, `etnaForkTime` and `originMultisig`; its NatSpec lists every
+environment variable. Run from `packages/protocol`:
 
 ```bash
 export FOUNDRY_PROFILE=layer1 S=script/layer1/etna/DeployEtnaDevnet.s.sol:DeployEtnaDevnet
@@ -309,9 +318,10 @@ forge script $S --sig 'deployInbox()' --rpc-url "$L1_RPC" --broadcast
 
 The L2 genesis of a new network needs the Etna L2 predeploys. Start from
 `test/genesis/data/genesis_config_etna.js`, the example for chain 167001: set `chainId` to the L2
-chain id, `l1ChainId`, `usesBeaconRoots` to `true` (every block after genesis is an Etna block with
-a nonzero EIP-4788 root, so the L2 SignalService then accepts no checkpoint; the golden touch key is
-public, and `false` would keep the checkpoint store open and never read EIP-4788),
+chain id, `l1ChainId`, `usesBeaconRoots` to `true` (an `etna` block makes the L2 SignalService the
+`EtnaSignalService`; every block after genesis is an Etna block with a nonzero EIP-4788 root, so it
+then accepts no checkpoint; the golden touch key is public, and `false` would keep the checkpoint
+store open and never read EIP-4788),
 `remoteSignalService` to SIGNAL_SERVICE, and the `etna` block. It holds INBOX_PROXY as `inbox`, the
 L1 TAIKO token as `l1TaikoToken`, the staking owner (the DAO's execution address on L2), the slash
 sink, every staking parameter as a decimal string, `unsettledLimit` (U) and `evidenceWindowBlocks`.
@@ -338,8 +348,8 @@ gitignored `genesis_alloc.json`, it checks the same values in the emitted byteco
 `out/layer2` artifacts of the same `pnpm genesis:gen` run (`--artifacts` overrides the directory):
 every proxy account must hold exactly the compiled `ERC1967Proxy` runtime and point at its
 implementation, whose code must be the compiled runtime differing only in immutables. The
-SignalService's `usesBeaconRoots` must be true, its syncer the Anchor proxy and its remote
-SIGNAL_SERVICE, and the Anchor's `checkpointStore` the SignalService proxy. `EtnaStaking`'s
+SignalService implementation must be the `EtnaSignalService` with `usesBeaconRoots` true, its
+syncer the Anchor proxy and its remote SIGNAL_SERVICE, and the Anchor's `checkpointStore` the SignalService proxy. `EtnaStaking`'s
 immutables must pass its constructor's checks and the withdrawal bound, its `inbox` must be
 `--l1-inbox` and its `token` the bridged TAIKO proxy; the token's `erc20Vault` must be the ERC20Vault
 proxy, which must map it to `--l1-taiko-token` on `l1ChainId`. Every other immutable is pinned to the
@@ -408,8 +418,14 @@ the deployment.
 
 These implement [ANCHORLESS.md][anchorless] sections 4 and 8.
 
-- `shared/signal/SignalService.sol`: one contract for L1 and L2, with one syncer each and the
-  immutable `usesBeaconRoots`, false on L1 and true on L2. No contract holds the Etna fork time.
+- `shared/signal/EtnaSignalService.sol`: one implementation for L1 and L2, extending
+  `SignalService` through its checkpoint hooks, with one syncer each and the immutable
+  `usesBeaconRoots`, false on L1 and true on L2. It stores only the counterpart chain's state root
+  per checkpoint height, writing the state-root word of the `VERSION` 1 record and leaving the old
+  hash word in place; `getCheckpoint` returns a zero hash, also for records written before the
+  upgrade, `CheckpointSaved` still emits the caller's hash, and `getStateRoot(uint64)` returns the
+  root a proof would be checked against. `SignalService` itself keeps the Unzen behaviour for the
+  networks that do not switch. No contract holds the Etna fork time.
   With the flag false, the checkpoint store is the only root source and never closes. With it
   true, `saveCheckpoint` reads EIP-4788 at `block.timestamp` and reverts `SS_CHECKPOINTS_CLOSED`
   unless the read returns one zero word. Every block before Etna records a zero
@@ -430,11 +446,11 @@ These implement [ANCHORLESS.md][anchorless] sections 4 and 8.
   calls (SWITCH.md section 3). `checkBeforeUpgrade(proxy, preEtnaImpl)` requires the pre-Etna
   implementation, the canonical EIP-4788 runtime (code hash `0xf57acd40…f4b02c`) and a zero root at
   the current timestamp. `checkAfterUpgrade(proxy, expectedImpl)` requires the expected
-  implementation and `usesBeaconRoots()` true. Each check reverts rather than returning false,
-  because the `DelegateController` checks only call success.
+  `EtnaSignalService` implementation and `usesBeaconRoots()` true. Each check reverts rather than
+  returning false, because the `DelegateController` checks only call success.
 - `script/layer2/DeployShastaL2Contracts.s.sol` (with the mainnet and Hoodi entry points) deploys,
-  without upgrading the proxy, the switching L2 SignalService implementation (syncer the `Anchor`
-  proxy, `usesBeaconRoots` true, the existing pauser) and the guard. It takes no fork time.
+  without upgrading the proxy, the switching L2 `EtnaSignalService` implementation (syncer the
+  `Anchor` proxy, `usesBeaconRoots` true, the existing pauser) and the guard. It takes no fork time.
 - `script/layer2/etna/BuildEtnaReadinessL2Message.s.sol`: `LibEtnaReadinessL2Message.buildActions`
   returns `[guard.checkBeforeUpgrade, signalService.upgradeTo(etnaImpl), guard.checkAfterUpgrade]`.
   There is no deadline or fork time; use execution ID 0. A failed check reverts the batch and leaves
@@ -487,9 +503,12 @@ sections 3 and 7). `InboxWithEtnaCutoffs` preserves Unzen's configuration and st
 immutable proposal and FI cutoffs and exposes `proposeCutoff()`, the timestamp from which its
 `propose` reverts; its `signalService` names the Etna Inbox proxy, so Unzen `prove` saves its
 checkpoints through `EtnaInbox.saveCheckpoint` until the start write closes it. The L1 SignalService
-upgrade is the shared implementation with the Etna Inbox as its only syncer and `usesBeaconRoots`
-false, keeping VERSION=1 and the shared signal/checkpoint storage. `setOrigin` reads the real
-six-word Unzen CoreState ABI.
+upgrade is the `EtnaSignalService` with the Etna Inbox as its only syncer and `usesBeaconRoots`
+false, keeping VERSION=1 and the shared signal/checkpoint storage, so the Unzen roots stay readable.
+Before either root-only upgrade, the readiness proposal registers Unzen SGX, RISC0 and SP1 images
+that take the inherited checkpoint from the parent block's anchor transaction. `setOrigin` reads the
+real six-word Unzen CoreState ABI, and the scheduling batch's final guard check pins the EtnaInbox's
+`originMultisig`.
 
 ## Out of scope
 
@@ -512,6 +531,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/178d7a7a66b14305c2f6467ae77163f93dd677cf/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/178d7a7a66b14305c2f6467ae77163f93dd677cf/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/178d7a7a66b14305c2f6467ae77163f93dd677cf/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/ANCHORLESS.md
