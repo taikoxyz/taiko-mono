@@ -11,8 +11,8 @@ description = "Offline verification and canonical header installation for Etna a
 resolver = "2"
 
 [dependencies]
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", rev = "7174fd0064c69fa75ce784b8ec13702fffa5d429", default-features = false, features = ["net"] }
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", rev = "493b6074b6d5749cea5e566b444bced8f14b258b", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", rev = "493b6074b6d5749cea5e566b444bced8f14b258b", default-features = false, features = ["net"] }
 alloy-consensus = { version = "2.4.2", features = ["serde"] }
 alloy-genesis = "2.4.2"
 alloy-primitives = { version = "1.6.1", features = ["serde"] }

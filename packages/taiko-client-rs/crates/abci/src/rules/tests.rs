@@ -192,6 +192,29 @@ fn pctg_99_is_a_header_mismatch() {
     );
 }
 
+/// The pinned EL encodes every shared `extraData` vector as this crate does, and makes exactly the
+/// vector's 36-byte `onBlockStart(uint48 generation)` call for it: the EL and the client agree on
+/// the header field the block-start call reads.
+#[test]
+fn pinned_el_agrees_on_the_shared_extra_data_and_block_start_calldata() {
+    use crate::test_utils::vectors::{len_at, str_at, u64_at};
+    use alethia_reth_primitives::extra_data::{ETNA_EXTRA_DATA_LEN, EtnaExtraData};
+    assert_eq!(EXTRA_DATA_LEN, ETNA_EXTRA_DATA_LEN);
+    for index in 0..len_at("/extra_data") {
+        let path = |field: &str| format!("/extra_data/{index}/{field}");
+        let (generation, anchor) = (u64_at(&path("generation")), u64_at(&path("anchor_number")));
+        let el = EtnaExtraData::new(generation, anchor).expect("uint48 fields");
+        let bytes = encode_extra_data(&extra(generation, anchor)).unwrap();
+        assert_eq!(bytes.as_ref(), el.encode().as_slice(), "extraData {index}");
+        assert_eq!(bytes.as_ref(), hex::decode(str_at(&path("extra_data"))).unwrap(), "{index}");
+        assert_eq!(
+            el.on_block_start_calldata().as_slice(),
+            hex::decode(str_at(&path("on_block_start_calldata"))).unwrap(),
+            "onBlockStart calldata {index}"
+        );
+    }
+}
+
 #[test]
 fn encode_extra_data_rejects_uint48_overflow() {
     assert_eq!(

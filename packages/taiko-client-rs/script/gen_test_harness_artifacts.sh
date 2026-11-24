@@ -133,7 +133,7 @@ python3 - "$EL_CHECKOUT" "$CONTRACT_DIR" "$BUILD_DIR/devnet-genesis.json" "$PROT
 import hashlib, json, pathlib, subprocess, sys
 checkout, output, genesis = map(pathlib.Path, sys.argv[1:4])
 protocol_revision = sys.argv[4]
-revision = "7174fd0064c69fa75ce784b8ec13702fffa5d429"
+revision = "493b6074b6d5749cea5e566b444bced8f14b258b"
 if subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip() != revision:
     raise SystemExit("EL checkout must match pinned revision " + revision)
 paths = ["crates/chainspec/src/genesis/devnet.json", "crates/node/tests/fixtures/etna-genesis.json"]

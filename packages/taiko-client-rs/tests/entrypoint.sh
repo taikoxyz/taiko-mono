@@ -196,7 +196,7 @@ if [[ " $dependencies " == *' lander-anvil-image '* ]]; then
     export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
     prepare_image "$LANDER_ANVIL_IMAGE"
 fi
-default_el_image=alethia-reth:etna-7174fd0064c69fa75ce784b8ec13702fffa5d429
+default_el_image=alethia-reth:etna-493b6074b6d5749cea5e566b444bced8f14b258b
 if [[ " $dependencies " == *' reth-image '* ]]; then
     # The Linux EL helper can extract the pinned binary from this image after it is prepared.
     if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
