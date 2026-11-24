@@ -89,9 +89,9 @@ async fn fallback_keys_sign_from_genesis_then_candidate_takes_over_at_h_plus_2()
 
 /// A candidate member that stops signing holds a quarter of the candidate's power, so the other
 /// three keep producing blocks. Nothing penalizes or unseats it automatically: for
-/// [`OFFLINE_BLOCKS`] blocks after it stops, its bond keeps its stake and its seat, no block
-/// returns a validator update, and the candidate, the offline member at its full power included,
-/// signs every one of them.
+/// [`OFFLINE_BLOCKS`] blocks after it stops, no commit carries its precommit, yet its bond keeps
+/// its stake and its seat, no block returns a validator update, and the candidate, the offline
+/// member at its full power included, signs every one of them.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn offline_member_keeps_its_seat_while_blocks_are_produced() -> Result<()> {
@@ -107,6 +107,13 @@ async fn offline_member_keeps_its_seat_while_blocks_are_produced() -> Result<()>
     eprintln!("validator {offline} (seat {}) stopped at height {stopped}", bond.seat);
     let last = stopped + OFFLINE_BLOCKS;
     t.devnet.wait_for_height(0, last + 2, WAIT).await?;
+    // The member is really offline: from two heights after the one it stopped at (a precommit
+    // for the next one may already have been sent), no commit carries its precommit.
+    let address = t.devnet.keys()[offline].address();
+    for h in stopped + 2..=last {
+        let signed = t.devnet.cmt(0).commit_signers(h).await?;
+        ensure!(!signed.contains(&address), "the stopped validator {offline} signed {h}");
+    }
     for h in stopped..=last {
         let at = BlockId::number(h);
         assert_eq!(t.staking.bond(bond.id, at).await?.effStake, before, "the stake at {h}");

@@ -27,7 +27,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// never an error. A proven later recovery generation sets the `superseded` status, after
     /// which every proposal is rejected. Missing initialization and own-node integrity failures
     /// return errors; temporary dependencies wait without a false rejection, among them a
-    /// fallback key list the own L1 cannot give yet and EL state the own EL cannot serve yet.
+    /// fallback key list the own L1 cannot give yet.
     /// Hash-canonical unsupported L1 header formats reject without a fatal latch; FinalizeBlock
     /// waits instead.
     pub(super) async fn process_proposal(
