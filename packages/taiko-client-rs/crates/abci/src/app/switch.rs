@@ -362,6 +362,71 @@ mod tests {
         assert_eq!(reads, [at_s(signal_service), at_s(fx.params.staking)]);
     }
 
+    /// The designated multisig is trusted only for S's height. Had it supplied an earlier
+    /// checkpointed height, the start record would hold that height and its state root under
+    /// the hash of the finalized Unzen tip, a higher block. The node halts whether it derived
+    /// the Unzen chain or read the Unzen Inbox's finalized hash, which then matches the record:
+    /// its block at the recorded height has another hash, and the tip's own header has another
+    /// number.
+    #[tokio::test]
+    async fn an_earlier_checkpointed_start_under_the_finalized_tip_hash_halts() {
+        let fx = Fixture::genesis(1);
+        let implementation = Address::with_last_byte(2);
+        let fork_timestamp = fx.el_chain[0].timestamp + 1;
+        let (mut app, honest, _dir) = switching_app(&fx, implementation, fork_timestamp);
+        let signal_service = l2_signal_service_address(fx.params.l2_chain_id);
+        {
+            let mut engine = app.engine().state();
+            engine.proxy_implementations.insert(signal_service, Ok(implementation));
+            engine.proxy_implementations.insert(fx.params.staking, Ok(STAKING_IMPLEMENTATION));
+        }
+        app.verify_switch_origin(&honest, &fx.witness.l1_header).await.unwrap();
+
+        // The Unzen tip, one block above the recorded height, in the node's EL.
+        let start = app.engine().state().chain[&honest.genesis_height].clone();
+        let tip = Header {
+            number: start.number + 1,
+            parent_hash: start.hash_slow(),
+            timestamp: start.timestamp,
+            state_root: B256::repeat_byte(0x7e),
+            ..start.clone()
+        };
+        {
+            let mut engine = app.engine().state();
+            engine.known.insert(tip.hash_slow(), tip.clone());
+            engine.chain.insert(tip.number, tip.clone());
+        }
+        let wrong = GenesisRecord { genesis_hash: tip.hash_slow(), ..honest.clone() };
+        let halted = |result: Result<(), AbciError>, expected: &str| {
+            assert!(
+                matches!(&result, Err(AbciError::SafetyHalt(reason)) if reason.contains(expected)),
+                "{expected}: {result:?}"
+            );
+        };
+
+        // The derived Unzen chain ends at the tip, not at the recorded height.
+        let derived = app.switch_origin.clone().expect("derived origin");
+        app.switch_origin =
+            Some(SwitchOrigin { height: tip.number, hash: tip.hash_slow(), ..derived });
+        halted(
+            app.verify_switch_origin(&wrong, &fx.witness.l1_header).await,
+            "derived last Unzen block",
+        );
+
+        // Without a derivation, the Unzen Inbox's finalized hash is the recorded one.
+        app.switch_origin = None;
+        let unzen = app.params.switch.as_ref().unwrap().unzen_inbox;
+        app.l1().state().unzen_finalized_hash = Some((unzen, tip.hash_slow()));
+        halted(
+            app.verify_switch_origin(&wrong, &fx.witness.l1_header).await,
+            "own EL header contradicts the Etna start",
+        );
+        halted(app.check_switch_header(&wrong, &tip), "own EL header contradicts the Etna start");
+        // The honest record still passes through the same finalized-hash path.
+        app.l1().state().unzen_finalized_hash = Some((unzen, honest.genesis_hash));
+        app.verify_switch_origin(&honest, &fx.witness.l1_header).await.unwrap();
+    }
+
     /// SYNC-9-5a 5a.j/5a.k/5a.m: the node's fork time must equal the switching EtnaInbox's
     /// immutable `etnaForkTime()`, read on L1 at the own finalized block's hash. No answer keeps
     /// trust closed; another value or a malformed answer halts.

@@ -42,6 +42,7 @@ pub(crate) enum L1Call {
     StorageAt { address: Address, slot: B256, block: u64 },
     CallAt { address: Address, input: Bytes, hash: B256 },
     InboxLogs { inbox: Address, topic0: B256, topic1: B256, from: u64, to: u64 },
+    FinalizedUnzenHash { inbox: Address, hash: B256 },
 }
 
 /// One log a [`MockL1`] serves to `inbox_logs`: the emitting contract, its first two topics and
@@ -99,6 +100,10 @@ pub(crate) struct MockL1State {
     /// `(inbox, value)`: what the EtnaInbox `inbox` answers to `etnaForkTime()` at any
     /// canonical hash (`call_at`); any other call is unavailable.
     pub(crate) etna_fork_time: Option<(Address, u64)>,
+    /// `(inbox, hash)`: the Unzen Inbox `inbox` has every proposal finalized, with `hash` as its
+    /// `lastFinalizedBlockHash`, at any canonical hash; any other Unzen Inbox, or none, has an
+    /// unfinalized proposal.
+    pub(crate) unzen_finalized_hash: Option<(Address, B256)>,
     /// `(contract, calldata) -> return data`: further `call_at` answers at any canonical hash.
     pub(crate) call_answers: BTreeMap<(Address, Bytes), Bytes>,
     /// When set, every `call_at` fails with this error, as an L1 node that no longer holds the
@@ -339,6 +344,20 @@ impl L1Source for MockL1 {
                 "mock L1: missing forced event {index} at block {l1_block}"
             ))
         })
+    }
+
+    async fn finalized_unzen_hash(
+        &self,
+        inbox: Address,
+        hash: B256,
+    ) -> Result<Option<B256>, L1Error> {
+        let _call = InFlight::new(self);
+        self.pause().await;
+        let state = self.record(L1Call::FinalizedUnzenHash { inbox, hash })?;
+        Ok(state
+            .unzen_finalized_hash
+            .filter(|(unzen, _)| *unzen == inbox)
+            .map(|(_, finalized)| finalized))
     }
 
     async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {

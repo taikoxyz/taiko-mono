@@ -955,6 +955,13 @@ mod tests {
             check(&at_s(&snapshot, &at_fork), &at_fork, Some(&witness), Some(&staking)),
             "contradicts the S header",
         );
+        // A multisig that supplied an S below the finalized Unzen tip makes the start record hold
+        // S's state root under the tip's hash, whose header is numbered above S.
+        let tip = Header { number: S + 1, parent_hash: header.hash_slow(), ..header.clone() };
+        assert_safety(
+            check(&at_s(&snapshot, &tip), &tip, Some(&witness), Some(&staking)),
+            "contradicts the S header",
+        );
         let foreign = l2.witness(OTHER_ACCOUNT, &[IMPLEMENTATION_SLOT]);
         assert_safety(
             check(&snapshot, &header, Some(&foreign), Some(&staking)),
