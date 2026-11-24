@@ -14,18 +14,16 @@
   least `minStake`. `register`, `topUp`, `requestExit`, `withdraw`, `slashDoubleSign` (selector
   `0xd61617a4`; the chain domain binds the immutable L1 chain id and `block.chainid`) and the
   owner's `forfeit` take bond ids, and a top-up or an exit takes effect in its own call, with no
-  separate activation or confirmation. The system caller's
-  `onBlockStart(uint48 generation, uint128 missBitmap)` runs at the start of every Etna block: it
-  counts consecutive misses, penalizes a seat at `missLimit` by `missSlashBps` of its stake, paying
-  all penalties to `slashSink` in one transfer, and writes the candidate snapshot (128 seat
-  records, `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
+  separate activation or confirmation. The system caller's `onBlockStart(uint48 generation)` runs
+  at the start of every Etna block: it stores the generation and writes the candidate snapshot (128
+  seat records, `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
   `taiko.etna.staking`. The proof of possession signs an EIP-712 domain named `EtnaStaking`, on the
   L2 chain and the staking proxy. `forfeit(bondId, incidentId, validUntil)`, `forfeited(bondId)` and
   `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by the bond id, and
   `slashDoubleSign` checks both signers through the lifetime key lookup `bondForKey` without
   decompressing the stored key. The constructor checks every immutable and refuses a `slashSink`
   equal to `token` (`SlashSinkIsToken`), since a bridged token may refuse transfers to its own
-  address, which would make every slash, forfeiture and penalty revert.
+  address, which would make every slash and forfeiture revert.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the Inbox holds the DAO fallback key set and
   `minTotalStake`. Slot 278 is `fallbackKeysHash` and slot 279 `minTotalStake`, and the list itself
   is the dynamic array at slot 275. `setFallbackKeys(FallbackKey[])` (1 to 128 keys, strictly
@@ -50,13 +48,12 @@
   written: the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
   take `expectedGeneration` first and revert `GenerationMismatch` for any other generation.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors in `testdata/etna_vectors` are
-  schema 10. In `val_state_chains`, validator updates come at any height FinalizeBlock returns them,
-  and the largest set has 128 members. `extra_data` is 29 bytes,
-  `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case carries its
-  `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). Among the
-  families, `config` pins the config hash, `fallback_keys` the fallback key set, `staking_layout`
-  the staking storage, `on_block_start` the block-start call, and `miss_bitmap` and `candidate` the
-  nodes' and guests' missBitmap and candidate rules.
+  schema 11. In `val_state_chains`, validator updates come at any height FinalizeBlock returns them,
+  and the largest set has 128 members. `extra_data` is 13 bytes,
+  `0x64 ‖ uint48 generation ‖ uint48 anchor number`, and each case carries the 36-byte
+  `on_block_start_calldata` (selector `0xaa28c32e`). Among the families, `config` pins the config
+  hash, `fallback_keys` the fallback key set, `staking_layout` the staking storage,
+  `on_block_start` the block-start call, and `candidate` the nodes' and guests' candidate rule.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): a new network's genesis predeploys `EtnaStaking` at
   `getConstantAddress(chainId, 10003)` and its token, `BridgedTaikoToken`, at
   `getConstantAddress(chainId, 7)` (each implementation under the prefix "0"), configured by the
@@ -131,6 +128,22 @@
   hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
   a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,
   and `votes.slash_abi` in the vectors pins its calldata.
+- Etna (BREAKING, spec #22425 at 9325677de): no missed-signature penalty. A precommit missing from
+  a LastCommit is not attributable on stock CometBFT, so nothing penalizes or unseats a member that
+  does not sign; an offline member keeps its seat until it exits or the DAO forfeits it. The
+  block-start call is `onBlockStart(uint48 generation)`, selector `0xaa28c32e` (36 bytes of
+  calldata, was `onBlockStart(uint48,uint128)`, `0xea987592`), and the block's `extraData` is 13
+  bytes, `0x64 ‖ uint48 generation ‖ uint48 anchor number`, with no `missBitmap`.
+  `IEtnaStaking.Config` loses `missLimit` and `missSlashBps`, and `EtnaStaking` loses those
+  immutables and views, `missCount`, the miss counts, the key-to-seat mapping and `SeatTaken`; only
+  a slash, a forfeiture or an exit releases a seat, so a top-up never takes one. The staking
+  namespace's snapshot seat records move to T + 2 + 2s (`ckX`) and T + 3 + 2s
+  ([ckPrefix, power]), and the contract's own state follows from T + 258. The vectors are schema 11:
+  `miss_bitmap`, `packed_words.staking_key_seat` and the key-to-seat items of `staking_layout` are
+  gone, and `deployment`, `extra_data`, `on_block_start`, `governance_abi.on_block_start` and the
+  appendix A examples follow the new call. The genesis config's `etna.missLimit` and
+  `etna.missSlashBps` and the deploy scripts' `ETNA_MISS_LIMIT` and `ETNA_MISS_SLASH_BPS` are no
+  longer read.
 
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
