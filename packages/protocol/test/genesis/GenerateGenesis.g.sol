@@ -10,6 +10,7 @@ import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
 import { BridgedTaikoToken } from "src/layer2/mainnet/BridgedTaikoToken.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import { EtnaSignalService } from "src/shared/signal/EtnaSignalService.sol";
 import "src/shared/signal/ICheckpointStore.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
@@ -51,8 +52,6 @@ abstract contract GenerateGenesisTestBase is Test {
 
 contract TestGenerateGenesis is GenerateGenesisTestBase {
     using stdJson for string;
-
-    bool private usesBeaconRoots = configJSON.readBool(".usesBeaconRoots");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -336,10 +335,6 @@ contract TestGenerateGenesis is GenerateGenesisTestBase {
 
         assertEq(contractOwner, signalServiceProxy.owner());
 
-        assertEq(signalServiceProxy.VERSION(), 1);
-        // An unpatched immutable would read false and keep checkpoints open on an Etna network.
-        assertEq(usesBeaconRoots, signalServiceProxy.usesBeaconRoots());
-
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
         vm.startPrank(contractOwner);
@@ -467,6 +462,22 @@ contract TestGenerateEtnaGenesis is GenerateGenesisTestBase {
         // The implementation is predeployed as its constructor leaves it: never initializable.
         vm.expectRevert("Initializable: contract is already initialized");
         EtnaStaking(impl).init(address(this));
+    }
+
+    /// @dev The L2 SignalService is the root-only `EtnaSignalService` with `usesBeaconRoots` true,
+    /// behind the proxy the default genesis also uses.
+    function test_signalService_IsTheEtnaSignalServiceWithBeaconRoots() public view {
+        address impl = getPredeployedContractAddress("SignalServiceImpl");
+        EtnaSignalService signalService =
+            EtnaSignalService(getPredeployedContractAddress("SignalService"));
+        checkDeployedCode("SignalService");
+        checkDeployedCode("SignalServiceImpl");
+        assertEq(
+            vm.load(address(signalService), IMPLEMENTATION_SLOT), bytes32(uint256(uint160(impl)))
+        );
+        assertEq(signalService.owner(), contractOwner);
+        assertEq(signalService.VERSION(), 1);
+        assertTrue(signalService.usesBeaconRoots());
     }
 
     function test_etnaStaking_RegisterThenBlockStartRoundTrip() public {

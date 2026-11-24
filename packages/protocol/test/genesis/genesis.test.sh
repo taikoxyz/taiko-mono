@@ -151,13 +151,14 @@ FOUNDRY_PROFILE=genesis forge test \
   --block-gas-limit 1000000000
 
 # The Etna genesis builder on real generator output (Etna SPEC 10 step 3). The default
-# configuration leaves the SignalService's checkpoint store open (usesBeaconRoots false) and has no
-# `etna` block, so the builder must refuse its alloc, both as configured and with only its
-# SignalService fields edited. An alloc generated from the example Etna devnet configuration,
-# data/genesis_config_etna.js (usesBeaconRoots true, chain 167001, with the EtnaStaking and bridged
-# TAIKO predeploys), must pass, and the same alloc generated with usesBeaconRoots false must be
-# refused by its bytecode with only the configuration JSON edited to true. The generator itself must
-# refuse an Etna configuration that breaks a staking parameter rule or the devnet premint guard. A
+# configuration predeploys the SignalService, whose checkpoint store never closes, sets no
+# usesBeaconRoots and has no `etna` block, so the builder must refuse its alloc, both as configured
+# and with only its SignalService fields edited. An alloc generated from the example Etna devnet
+# configuration, data/genesis_config_etna.js (the root-only EtnaSignalService with usesBeaconRoots
+# true, chain 167001, with the EtnaStaking and bridged TAIKO predeploys), must pass, and the same
+# alloc generated with usesBeaconRoots false must be refused by its bytecode with only the
+# configuration JSON edited to true. The generator itself must refuse an Etna configuration without
+# a boolean usesBeaconRoots or that breaks a staking parameter rule or the devnet premint guard. A
 # node started from the Etna genesis then runs TestGenerateEtnaGenesis.
 echo ""
 echo "Testing the Etna genesis builder on generated predeploys..."
@@ -203,7 +204,7 @@ function expectBuilderRejects {
   fi
 }
 
-expectBuilderRejects "usesBeaconRoots must be true" "$DIR/data/genesis_config.json"
+expectBuilderRejects "usesBeaconRoots must be a JSON boolean" "$DIR/data/genesis_config.json"
 
 python3 -I - "$DIR/data/genesis_config.json" "$WORK/edited_config.json" "$L1_SIGNAL_SERVICE" <<'EOF'
 import json, sys
@@ -240,6 +241,7 @@ EOF
 echo ""
 echo "Testing the genesis generator's Etna configuration checks..."
 
+expectGeneratorRejects "usesBeaconRoots must be a boolean" 'delete config.usesBeaconRoots;'
 expectGeneratorRejects "etna.withdrawalDelay 302401 is below" \
   'config.etna.withdrawalDelay = "302401";'
 expectGeneratorRejects "etna.premint needs etna.devnet true" 'config.etna.devnet = false;'

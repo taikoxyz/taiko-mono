@@ -1,7 +1,7 @@
 "use strict";
 // An example configuration of a new Etna devnet L2: the default configuration on chain 167001,
-// with usesBeaconRoots and the EtnaStaking and bridged TAIKO predeploys. Generate it with
-// `GENESIS_CONFIG=test/genesis/data/genesis_config_etna.js pnpm genesis:gen`.
+// with the root-only EtnaSignalService and the EtnaStaking and bridged TAIKO predeploys. Generate
+// it with `GENESIS_CONFIG=test/genesis/data/genesis_config_etna.js pnpm genesis:gen`.
 const base = require("./genesis_config.js");
 
 const CHAIN_ID = 167001;
@@ -11,6 +11,9 @@ const PREMINT_PER_SEED_ACCOUNT = "7812500000000000000000000";
 
 module.exports = Object.assign({}, base, {
   chainId: CHAIN_ID,
+  // The EtnaSignalService's `usesBeaconRoots`, a boolean. A new Etna network must use true, so the
+  // SignalService accepts no checkpoint after genesis and resolves proofs through EIP-4788 (Etna
+  // SPEC START-10-5); script/layer2/build_etna_genesis.py refuses anything else.
   usesBeaconRoots: true,
   // The default configuration's addresses, on this chain id.
   contractAddresses: Object.getOwnPropertyDescriptor(

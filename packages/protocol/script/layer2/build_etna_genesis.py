@@ -6,7 +6,8 @@ fields remain identical to the base genesis JSON. The alloc gains the Taiko L2 p
 `pnpm genesis:gen` generated for the Etna network, replacing any account at the same address, and
 the canonical EIP-4788 and EIP-2935 system contracts.
 
-The predeploy configuration must give the L2 SignalService `usesBeaconRoots` = true (Etna SPEC
+The L2 SignalService must be the `EtnaSignalService`, which L1 also runs and which stores only state
+roots, and the predeploy configuration must give it `usesBeaconRoots` = true (Etna SPEC
 START-10-5): it then accepts a checkpoint only in a block whose own EIP-4788 root is zero, and on a
 new network every block after genesis is an Etna block, with a nonzero root. A SignalService
 without it keeps its checkpoint store open there, so anyone could save a forged L1 checkpoint
@@ -21,7 +22,7 @@ the generator, so the same values are also checked in the emitted bytecode, agai
 `--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
 SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
 their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
-`SignalService`, differing only in immutables; these contracts link no library, so an artifact with
+`EtnaSignalService`, differing only in immutables; these contracts link no library, so an artifact with
 a library link is refused. Then the immutables are read at the compiler's offsets: the
 SignalService's `usesBeaconRoots` must be true (a `bool` immutable is a 32-byte word, here 1), its
 `_authorizedSyncer` the Anchor proxy and its `_remoteSignalService` the L1 SignalService, and the
@@ -323,8 +324,9 @@ def check_predeploy_config(config, base, alloc, predeploys, l1_signal_service, l
     if not uses_beacon_roots:
         raise ValueError(
             "predeploy config: usesBeaconRoots must be true on a new Etna network, or the "
-            "checkpoint store stays open to the public golden touch key; set it in "
-            "test/genesis/data/genesis_config.js and rerun `pnpm genesis:gen`"
+            "checkpoint store stays open to the public golden touch key; set it in the Etna "
+            "configuration, as test/genesis/data/genesis_config_etna.js does, and rerun "
+            "`pnpm genesis:gen`"
         )
     l1 = l1_address(l1_signal_service, "--l1-signal-service", predeploys,
                     "the L1 SignalService that deployInboxProxy() deployed")
@@ -619,11 +621,11 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service, etna)
             ("Anchor", "checkpointStore", address_word(addresses["SignalService"])),
             ("Anchor", "l1ChainId", "0x" + format(config["l1ChainId"], "064x")),
         )),
-        # `usesBeaconRoots` first: an alloc generated with the default `false` is named by the
-        # immutable that keeps the checkpoint store open, whatever else differs. A `bool`
-        # immutable is a 32-byte word, 1 for true.
-        ("SignalServiceImpl", "SignalService", (
-            ("SignalService", "usesBeaconRoots", "0x" + format(1, "064x")),
+        # `usesBeaconRoots` first: an alloc generated with `false` is named by the immutable that
+        # keeps the checkpoint store open, whatever else differs. A `bool` immutable is a 32-byte
+        # word, 1 for true. EtnaSignalService inherits the other immutables from SignalService.
+        ("SignalServiceImpl", "EtnaSignalService", (
+            ("EtnaSignalService", "usesBeaconRoots", "0x" + format(1, "064x")),
             ("UUPSUpgradeable", "__self", address_word(addresses["SignalServiceImpl"])),
             ("EssentialContract", "__resolver", address_word(addresses["SharedResolver"])),
             ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),

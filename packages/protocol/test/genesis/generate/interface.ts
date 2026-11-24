@@ -31,9 +31,9 @@ export interface EtnaConfig {
 export interface Config {
     contractOwner: string;
     l1ChainId: number;
-    // The L2 SignalService's `usesBeaconRoots`: false keeps checkpoints as its only root source;
-    // a new Etna network uses true.
-    usesBeaconRoots: boolean;
+    // Only with `etna`, whose L2 SignalService is the `EtnaSignalService`: its `usesBeaconRoots`.
+    // False keeps checkpoints as its only root source; a new Etna network uses true.
+    usesBeaconRoots?: boolean;
     chainId: number;
     seedAccounts: Array<{
         [key: string]: number;

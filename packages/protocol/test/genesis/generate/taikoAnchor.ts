@@ -18,11 +18,21 @@ export async function deployTaikoAnchor(
     const { contractOwner, l1ChainId, usesBeaconRoots, chainId, seedAccounts } =
         config;
 
-    // The SignalService's `usesBeaconRoots` immutable: false keeps checkpoints as its only root
+    // An Etna network's L2 SignalService is the `EtnaSignalService`, which stores only state roots,
+    // and its `usesBeaconRoots` immutable must be set: false keeps checkpoints as its only root
     // source, and a new Etna network needs true (Etna SPEC START-10-5). The immutable is a bool,
-    // patched as a 32-byte word 0 or 1, so anything but a boolean is refused.
-    if (typeof usesBeaconRoots !== "boolean") {
-        throw new Error("genesis config: usesBeaconRoots must be a boolean");
+    // patched as a 32-byte word 0 or 1, so anything but a boolean is refused. Any other network
+    // keeps the `SignalService`, which has no such flag.
+    if (config.etna !== undefined) {
+        if (typeof usesBeaconRoots !== "boolean") {
+            throw new Error(
+                "genesis config: usesBeaconRoots must be a boolean",
+            );
+        }
+    } else if (usesBeaconRoots !== undefined) {
+        throw new Error(
+            "genesis config: usesBeaconRoots is only for an Etna configuration",
+        );
     }
 
     const alloc: any = {};
@@ -127,7 +137,7 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
-    usesBeaconRoots: boolean,
+    usesBeaconRoots: boolean | undefined,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -150,7 +160,12 @@ async function generateContractConfigs(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
         SignalServiceImpl: require(
-            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
+            path.join(
+                ARTIFACTS_PATH,
+                etna
+                    ? "./EtnaSignalService.sol/EtnaSignalService.json"
+                    : "./SignalService.sol/SignalService.json",
+            ),
         ),
         SharedResolverImpl: require(
             path.join(
@@ -233,8 +248,12 @@ async function generateContractConfigs(
     );
     const signalServiceReferencesMap: any = getImmutableReference(
         "SignalService",
-        ["_authorizedSyncer", "_remoteSignalService", "usesBeaconRoots"],
+        ["_authorizedSyncer", "_remoteSignalService"],
     );
+    // EtnaSignalService declares `usesBeaconRoots`; SignalService has no such immutable.
+    const etnaSignalServiceReferencesMap: any = etna
+        ? getImmutableReference("EtnaSignalService", ["usesBeaconRoots"])
+        : undefined;
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         const bytecode = (artifact as any).bytecode;
@@ -622,13 +641,18 @@ async function generateContractConfigs(
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
-                    {
-                        id: signalServiceReferencesMap.usesBeaconRoots.id,
-                        value: ethers.utils.hexZeroPad(
-                            usesBeaconRoots ? "0x01" : "0x00",
-                            32,
-                        ),
-                    },
+                    ...(etna
+                        ? [
+                              {
+                                  id: etnaSignalServiceReferencesMap
+                                      .usesBeaconRoots.id,
+                                  value: ethers.utils.hexZeroPad(
+                                      usesBeaconRoots ? "0x01" : "0x00",
+                                      32,
+                                  ),
+                              },
+                          ]
+                        : []),
                 ]),
                 addressMap,
             ),

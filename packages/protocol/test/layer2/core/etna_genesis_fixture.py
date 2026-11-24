@@ -1,6 +1,6 @@
 """Synthetic inputs for the Etna genesis builder tests (stdlib only).
 
-The predeploys are stand-in Anchor, SignalService, EtnaStaking and BridgedTaikoToken
+The predeploys are stand-in Anchor, EtnaSignalService, EtnaStaking and BridgedTaikoToken
 implementations behind stand-in ERC-1967 proxies, and an ERC20Vault proxy that holds the bridged
 TAIKO mapping. Each implementation's code is a small artifact's runtime with its immutables filled
 in the way `pnpm genesis:gen` fills them, so the builder can check the emitted bytecode against the
@@ -77,13 +77,14 @@ VERSION_WORD = "0x31000000000000000000000000000000000000000000000000000000000000
 # The EtnaStaking namespace's first word, its snapshot height.
 STAKING_NAMESPACE = "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00"
 # AST ids of the stand-in immutables, by the contract that declares them: UUPS `__self`,
-# EssentialContract `__resolver`, then each implementation's own.
+# EssentialContract `__resolver`, then each implementation's own. EtnaSignalService declares
+# `usesBeaconRoots` and inherits the other SignalService immutables.
 IDS = {
     "UUPSUpgradeable": {"__self": 13},
     "EssentialContract": {"__resolver": 14},
     "Anchor": {"checkpointStore": 11, "l1ChainId": 15},
-    "SignalService": {"_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23,
-                      "usesBeaconRoots": 24},
+    "SignalService": {"_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23},
+    "EtnaSignalService": {"usesBeaconRoots": 24},
     "EtnaStaking": {"token": 31, "l1ChainId": 32, "inbox": 33, "minStake": 34, "vpUnit": 35,
                     "nMax": 36, "missLimit": 37, "missSlashBps": 38, "withdrawalDelay": 39,
                     "slashBountyBps": 40, "slashSink": 41, "forfeitBps": 42},
@@ -103,9 +104,9 @@ def address_word(value):
 
 def _artifact(name, layout, bases=(), body="00"):
     """An artifact declaring `name`'s own immutables, whose runtime has a marker byte before each
-    32-byte immutable in `layout`, then `body`."""
+    32-byte immutable in `layout`, its own or one of `bases`', then `body`."""
     ids = {}
-    for contract in ("UUPSUpgradeable", "EssentialContract", name):
+    for contract in ("UUPSUpgradeable", "EssentialContract", *bases, name):
         ids.update(IDS.get(contract, {}))
     code, immutables = "", {}
     for index, immutable in enumerate(layout):
@@ -136,9 +137,10 @@ def _artifact(name, layout, bases=(), body="00"):
 
 def artifacts():
     """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor, SignalService,
-    EtnaStaking and BridgedTaikoToken artifacts. The proxy has no immutables, every implementation
-    also carries the inherited `__self` and `__resolver`, and the SignalService reads
-    `usesBeaconRoots` twice, EtnaStaking `inbox` and the token `erc20Vault`."""
+    EtnaSignalService, EtnaStaking and BridgedTaikoToken artifacts. The proxy has no immutables,
+    every implementation also carries the inherited `__self` and `__resolver`, EtnaSignalService
+    the inherited SignalService immutables, and EtnaSignalService reads `usesBeaconRoots` twice,
+    EtnaStaking `inbox` and the token `erc20Vault`."""
     return {
         "ERC1967Proxy": _artifact("ERC1967Proxy", (), body="363d3d373d3d3d363d00"),
         "UUPSUpgradeable": _artifact("UUPSUpgradeable", ("__self",)),
@@ -150,9 +152,14 @@ def artifacts():
         ),
         "SignalService": _artifact(
             "SignalService",
+            ("_authorizedSyncer", "_remoteSignalService", "pauser", "__self", "__resolver"),
+            bases=("EssentialContract",),
+        ),
+        "EtnaSignalService": _artifact(
+            "EtnaSignalService",
             ("_authorizedSyncer", "usesBeaconRoots", "_remoteSignalService", "pauser",
              "usesBeaconRoots", "__self", "__resolver"),
-            bases=("EssentialContract",),
+            bases=("SignalService",),
         ),
         "EtnaStaking": _artifact(
             "EtnaStaking",
@@ -270,7 +277,7 @@ def predeploys(staking=None, token=None, premint=PREMINT, **overrides):
             "balance": "0x0", "code": runtime(stand_ins["Anchor"], anchor)},
         ADDRESSES["SignalService"]: proxy(ADDRESSES["SignalServiceImpl"]),
         ADDRESSES["SignalServiceImpl"]: {
-            "balance": "0x0", "code": runtime(stand_ins["SignalService"], signal)},
+            "balance": "0x0", "code": runtime(stand_ins["EtnaSignalService"], signal)},
         # `init` writes only `__paused` (1, not paused) in slot 201 of the two Etna proxies.
         ADDRESSES["EtnaStaking"]: proxy(ADDRESSES["EtnaStakingImpl"], owner=STAKING_OWNER,
                                         flags=0x0100),

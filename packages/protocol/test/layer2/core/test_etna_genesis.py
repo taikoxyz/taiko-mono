@@ -124,7 +124,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         # block after genesis is an Etna block (5.aa).
         self.config["usesBeaconRoots"] = False
         with self.assertRaisesRegex(ValueError, "usesBeaconRoots must be true on a new Etna "
-                                    "network, .*genesis_config.js"):
+                                    "network, .*genesis_config_etna.js"):
             self._build()
         # Only a JSON boolean: not a number, a string or the former fork-time field.
         for value in (1, 0, "true", "0x1", "", None):
@@ -349,8 +349,8 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self._build(config=config)
 
     def test_rejects_an_immutable_with_two_values(self):
-        # The stand-in SignalService reads usesBeaconRoots at bytes 34 and 133; change only the
-        # second.
+        # The stand-in EtnaSignalService reads usesBeaconRoots at bytes 34 and 133; change only
+        # the second.
         self._set_code_byte("SignalServiceImpl", 140, 1)
         with self.assertRaisesRegex(ValueError, "usesBeaconRoots differs between its offsets"):
             self._build()
@@ -385,25 +385,25 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_root_path_artifacts_that_link_a_library(self):
         # A linked library would be a call target the immutable check does not cover.
-        signal = self.fixture.artifacts()["SignalService"]
+        signal = self.fixture.artifacts()["EtnaSignalService"]
         signal["deployedBytecode"]["linkReferences"] = {
             "contracts/Lib.sol": {"Lib": [{"start": 232, "length": 20}]}}
-        self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
-        with self.assertRaisesRegex(ValueError, "SignalService links a library"):
+        self.fixture.write_artifacts(self.artifacts, {"EtnaSignalService": signal})
+        with self.assertRaisesRegex(ValueError, "EtnaSignalService links a library"):
             self._build()
 
     def test_rejects_an_immutable_that_is_not_32_bytes(self):
-        signal = self.fixture.artifacts()["SignalService"]
+        signal = self.fixture.artifacts()["EtnaSignalService"]
         # A bool read as its low byte only, so the code still matches the artifact.
         signal["deployedBytecode"]["immutableReferences"]["24"][0]["start"] += 31
         signal["deployedBytecode"]["immutableReferences"]["24"][0]["length"] = 1
-        self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
+        self.fixture.write_artifacts(self.artifacts, {"EtnaSignalService": signal})
         with self.assertRaisesRegex(ValueError, "usesBeaconRoots is not a 32-byte immutable"):
             self._build()
 
     def test_rejects_code_that_is_not_the_compiled_runtime(self):
         for name, contract, offset in (("TaikoAnchorImpl", "Anchor", 0),
-                                       ("SignalServiceImpl", "SignalService", 33),
+                                       ("SignalServiceImpl", "EtnaSignalService", 33),
                                        ("EtnaStakingImpl", "EtnaStaking", 33),
                                        ("BridgedTaikoTokenImpl", "BridgedTaikoToken", 0)):
             self.setUp()
@@ -413,7 +413,8 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                         + " runtime in " + re.escape(str(self.artifacts))
                                         + ".*--artifacts"):
                 self._build()
-        # A trailing byte, and the Anchor's runtime in place of the SignalService's.
+        # A trailing byte, the Anchor's runtime in place of the SignalService's, and the Unzen
+        # SignalService, which stores block hashes and never closes its checkpoint store.
         self.setUp()
         account = self.predeploys[self.addresses["TaikoAnchorImpl"]]
         account["code"] += "00"
@@ -423,7 +424,18 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = (
             self.predeploys[self.addresses["TaikoAnchorImpl"]]["code"])
         with self.assertRaisesRegex(ValueError,
-                                    "SignalServiceImpl is not the compiled SignalService"):
+                                    "SignalServiceImpl is not the compiled EtnaSignalService"):
+            self._build()
+        self.setUp()
+        self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = self.fixture.runtime(
+            self.fixture.artifacts()["SignalService"],
+            {"_authorizedSyncer": self.fixture.address_word(self.addresses["TaikoAnchor"]),
+             "_remoteSignalService": self.fixture.address_word(self.l1_signal_service),
+             "pauser": self.fixture.word(0),
+             "__self": self.fixture.address_word(self.addresses["SignalServiceImpl"]),
+             "__resolver": self.fixture.address_word(self.addresses["SharedResolver"])})
+        with self.assertRaisesRegex(ValueError,
+                                    "SignalServiceImpl is not the compiled EtnaSignalService"):
             self._build()
         self.setUp()
         self.predeploys[self.addresses["EtnaStakingImpl"]]["code"] = (
@@ -462,10 +474,10 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self._build()
         # An immutable the runtime never reads cannot carry the checked value. Its bytes are then
         # ordinary code, zero in the artifact.
-        signal = json.loads(json.dumps(contracts["SignalService"]))
+        signal = json.loads(json.dumps(contracts["EtnaSignalService"]))
         del signal["deployedBytecode"]["immutableReferences"]["22"]
         self.fixture.write_artifacts(self.artifacts, {"Anchor": contracts["Anchor"],
-                                                      "SignalService": signal})
+                                                      "EtnaSignalService": signal})
         self.predeploys = self.fixture.predeploys(_remoteSignalService=self.fixture.word(0))
         with self.assertRaisesRegex(ValueError, "_remoteSignalService has no offsets"):
             self._build()
