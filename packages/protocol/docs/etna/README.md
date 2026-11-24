@@ -45,24 +45,24 @@ The Etna block-production and validation rules are in
 
 ### Reading map
 
-| Section                                                                                    | Covers                                                                                                                                          |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [1. Positioning and security model](SPEC.md#1-positioning-and-security-model)              | Security model and trust assumptions                                                                                                            |
-| [2. Components](SPEC.md#2-components)                                                      | Roles and components                                                                                                                            |
-| [3. Consensus and blocks](SPEC.md#3-consensus-and-blocks)                                  | Stock CometBFT, EL integration, anchors, validity and size limits                                                                               |
-| [4. Staking and committees](SPEC.md#4-staking-and-committees)                              | The L2 staking contract and its seats, the block-start snapshot, per-block committee derivation with the DAO's fallback key set, DAO forfeiture |
-| [5. Data formats and DA](SPEC.md#5-data-formats-and-da)                                    | Private envelopes, public blobs, authenticated EL/app snapshot sync and optional full blob replay                                               |
-| [6. Landing and settlement](SPEC.md#6-landing-and-settlement)                              | Landing checks, two proofs, per-height cuts, overlapping jobs and back-pressure                                                                 |
-| [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees                                                                             |
-| [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                                                                                         |
-| [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability                                                                         |
-| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                                                                                           |
-| [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                                                                                             |
-| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 30 limitations and open items                                                                                                               |
-| [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                                                                                  |
-| [Appendix B: Storage layout](SPEC.md#appendix-b-storage-layout)                            | Inbox slots and the L2 staking storage that nodes and guests read, packing and namespaces                                                       |
-| [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                                                                                           |
-| [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate, checkpoint snapshot sync (§7)                                           |
+| Section                                                                                    | Covers                                                                                                                                            |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [1. Positioning and security model](SPEC.md#1-positioning-and-security-model)              | Security model and trust assumptions                                                                                                              |
+| [2. Components](SPEC.md#2-components)                                                      | Roles and components                                                                                                                              |
+| [3. Consensus and blocks](SPEC.md#3-consensus-and-blocks)                                  | Stock CometBFT, EL integration, anchors, validity and size limits                                                                                 |
+| [4. Staking and committees](SPEC.md#4-staking-and-committees)                              | The L2 staking contract and its seats, missed-signature penalties, per-block committee derivation with the DAO's fallback key set, DAO forfeiture |
+| [5. Data formats and DA](SPEC.md#5-data-formats-and-da)                                    | Private envelopes, public blobs, authenticated EL/app snapshot sync and optional full blob replay                                                 |
+| [6. Landing and settlement](SPEC.md#6-landing-and-settlement)                              | Landing checks, two proofs, per-height cuts, overlapping jobs and back-pressure                                                                   |
+| [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees                                                                               |
+| [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                                                                                           |
+| [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability                                                                           |
+| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                                                                                             |
+| [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                                                                                               |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 32 limitations and open items                                                                                                                 |
+| [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                                                                                    |
+| [Appendix B: Storage layout](SPEC.md#appendix-b-storage-layout)                            | Inbox slots and the L2 staking storage that nodes and guests read, packing and namespaces                                                         |
+| [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                                                                                             |
+| [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate, checkpoint snapshot sync (§7)                                             |
 
 ### Key review points
 
@@ -84,10 +84,11 @@ The Etna block-production and validation rules are in
   hash and FI cursor. Before proof verification, `land` checks the
   leaf at c (when c > p) against c's slot 285 record and that record's FI cursor
   against the current FI head; the other leaves are bound only through cutHash
-  in the proofs. The guests derive every signing set under 4.3. They verify
-  commit signatures for h and for every block whose successor has a different
-  signing set, which can be every block, with up to 128 signatures each; every
-  other block is bound to those through the headers' `last_block_id` links.
+  in the proofs. The guests derive every signing set under 4.3 and check each
+  block's `missBitmap` against its LastCommit. They verify commit signatures
+  for h and for every block whose successor has a different signing set, which
+  can be every block, with up to 128 signatures each; every other block is
+  bound to those through the headers' `last_block_id` links.
 - **Fees:** all L2 base fees and tips go to each block's beneficiary. Forced
   inclusion fees stay in the Inbox, and anyone may sweep its ETH balance to the
   fixed DAO treasury. Landing earns no protocol reward.
@@ -100,14 +101,14 @@ The Etna block-production and validation rules are in
   holds no more than that supply (section 12, item 11). Withdrawal waits
   `withdrawalDelay` L2 blocks, at least U + 2 plus an evidence window, so that,
   except after a verifier-failure rollback, a landed checkpoint covers the last
-  block a bond's seat let its key sign before the stake leaves (4.1). Not
-  signing carries no automatic penalty: the next proposer chooses which
-  precommits a LastCommit holds, so a precommit missing from it is no evidence
-  against its member, and an offline member keeps its seat and power until it
-  exits or the DAO forfeits it (4.2; section 12, item 12). Bond ids are never
-  reused, and forfeiture identifies an issued bond by that id alone. The
-  launch checklist derives `minTotalStake` from an independent capital target
-  and conservative price;
+  block a bond's seat let its key sign before the stake leaves (4.1). While
+  blocks are produced, a seated bond that misses `missLimit` consecutive blocks
+  loses `missSlashBps` basis points of its stake; a halt penalizes nobody (4.2).
+  A miss is a precommit absent from the next block's LastCommit, whatever the
+  reason: a signature that arrives too late counts like one never made
+  (section 12, items 24, 31 and 33). Bond ids are never reused, and forfeiture
+  identifies an issued bond by that id alone. The launch checklist derives
+  `minTotalStake` from an independent capital target and conservative price;
   below it the fallback key set signs, with no stake behind it, while funds on L1
   stay protected by the two proofs. Operating shortfalls trigger disclosure and
   replenishment without blocking recovery. Through an L1 → L2 governance
@@ -142,10 +143,11 @@ The Etna block-production and validation rules are in
   scheduled time and restart through `recover`.
 - **Open design and acceptance:** deployment values for the capital target,
   reference price and forfeiture rate
-  (item 18) remain to be pinned before launch. The
+  (item 18), `missLimit` and `timeout_commit` (section 11) remain to be pinned
+  before launch. The
   proving capacity that lets one worst-case block be proven on its own
   (section 1), including a commit of up to 128 signatures at every block
-  (item 30), is established by the checklist's resource acceptance, as are the
+  (item 32), is established by the checklist's resource acceptance, as are the
   real-guest, signer, recovery and launch checks. Gas acceptance covers the
   staking contract's entry points with every seat occupied and the block-start
   staking call's worst case within the 30,000,000 gas its frame has.

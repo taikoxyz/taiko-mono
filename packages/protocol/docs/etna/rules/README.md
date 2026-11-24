@@ -14,7 +14,7 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 
 - **FAMILY** groups statements by subject so they can be cited across sections:
   `MODEL` positioning and security model · `COMP` components · `CONS` consensus and blocks ·
-  `STAKE` staking contract and block-start snapshot · `COMM` committee derivation · `FORF` DAO forfeiture ·
+  `STAKE` staking contract and missed signatures · `COMM` committee derivation · `FORF` DAO forfeiture ·
   `DATA` data formats and DA · `LAND` landing · `PROOF` proofs · `BATCH` batches · `BACKP` back-pressure ·
   `FI` forced inclusion · `RECOV` halts and recovery · `SYNC` sync and weak subjectivity ·
   `START` startup and deployment · `PARAM` parameters · `LIMIT` limitations ·

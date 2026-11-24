@@ -210,16 +210,16 @@ T is the base slot of 20.a.
 | 21.a accept | `snapshotHeight` at T with every bit at or above bit 48 zero; `snapshotTotalStake` at T + 1                                    | matches                                                                                                                                   |
 | 21.k reject | at H, the word at T has bit 48 set and its low 48 bits equal H                                                                 | the candidate is not usable: "a word with any of those bits set never equals H and makes the candidate unusable" (STOR-B-21, COMM-4.3-3a) |
 | 21.l reject | a node or guest masks the word at T to its low 48 bits before comparing it with H                                              | violates STOR-B-21 ("in all 256 bits without masking") and COMM-4.3-3a                                                                    |
-| 21.b accept | snapshot seat record 5                                                                                                         | word 1 at T + 12, word 2 at T + 13                                                                                                        |
-| 21.c accept | snapshot seat record 127                                                                                                       | word 1 at T + 256 = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f00`, word 2 at T + 257                               |
-| 21.d accept | n_max = 64                                                                                                                     | nodes and guests still read all 128 records, from T + 2 to T + 257 ("whatever n_max is")                                                  |
+| 21.b accept | snapshot seat record 5                                                                                                         | word 1 at T + 13, word 2 at T + 14                                                                                                        |
+| 21.c accept | snapshot seat record 127                                                                                                       | word 1 at T + 257 = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01`, word 2 at T + 258                               |
+| 21.d accept | n_max = 64                                                                                                                     | nodes and guests still read all 128 records, from T + 3 to T + 258 ("whatever n_max is")                                                  |
 | 21.e reject | a node reads only the first n_max records                                                                                      | violates STOR-B-21 and COMM-4.3-3                                                                                                         |
+| 21.f accept | the key-to-seat element for `ckAddr` = `0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf`                                            | at `keccak256(abi.encode(ckAddr, T + 2))` = `0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27`                          |
 | 21.g reject | a record's word 1 is the packed word and word 2 is `ckX`                                                                       | violates STOR-B-21                                                                                                                        |
-| 21.h reject | a node reads forfeiture flags or bond records to decide the candidate                                                          | violates STOR-B-21 ("only these words")                                                                                                   |
+| 21.h reject | a node reads miss counts, forfeiture flags or bond records to decide the candidate                                             | violates STOR-B-21 ("only these words")                                                                                                   |
 | 21.i reject | a node decides H's candidate from the records in H's parent's post-state                                                       | violates STOR-B-21 and COMM-4.3-3                                                                                                         |
+| 21.j reject | a node sets block H's missBitmap from the key-to-seat mapping in H's own post-state                                            | violates STOR-B-21 and STAKE-4.2-5                                                                                                        |
 | 21.m accept | on a switching network, the guest of a proof from S reads the staking proxy's EIP-1967 implementation slot under S's stateRoot | conforms: STOR-B-21 excepts that slot ("checked at S on a switching network", PROOF-6.2-46a)                                              |
-| 21.n accept | snapshot seat record 0                                                                                                         | word 1 at T + 2, word 2 at T + 3                                                                                                          |
-| 21.o reject | a node reads record 0's word 1 from T + 3                                                                                      | violates STOR-B-21 (record 0 is at T + 2 and T + 3)                                                                                       |
 
 ## STOR-B-21a
 
@@ -234,11 +234,14 @@ T is the base slot of 20.a.
 
 ## STOR-B-21b
 
-| Vector       | Claimed layout or data                                                                         | Expected                                                                                                                                  |
-| ------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 21b.a accept | a bond registers in block X and takes seat 5                                                   | in X's post-state, T, T + 1 and the records are as X's `onBlockStart` left them; X + 1's call writes the bond into record 5 (STAKE-4.2-7) |
-| 21b.b reject | a `topUp` or `requestExit` transaction rewrites a snapshot seat record or `snapshotTotalStake` | violates STOR-B-21b and STAKE-4.2-7                                                                                                       |
-| 21b.c accept | the bond of 21b.a requests an exit in block Y, and no bond takes seat 5 in Y                   | in Y's post-state record 5 still holds its key and power; Y + 1's call leaves record 5 zero                                               |
+| Vector       | Claimed layout or data                                                                         | Expected                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 21b.a accept | a bond registers in block X and takes seat 5                                                   | in X's post-state its key maps to `0x0501` (holdsSeat 1, seat 5); T, T + 1 and the records are as X's `onBlockStart` left them |
+| 21b.b reject | a `topUp` or `requestExit` transaction rewrites a snapshot seat record or `snapshotTotalStake` | violates STOR-B-21b and STAKE-4.2-7                                                                                            |
+| 21b.c accept | the bond of 21b.a requests an exit in block Y                                                  | in Y's post-state its key maps to 0                                                                                            |
+| 21b.d reject | the key-to-seat mapping changes only at the next `onBlockStart`                                | violates STOR-B-21b ("updates it in that call")                                                                                |
+| 21b.e accept | a key no bond registered, or the key of a withdrawn bond                                       | maps to 0                                                                                                                      |
+| 21b.f reject | after the bond of 21b.a releases seat 5, its key maps to `0x0500` (holdsSeat 0, seat 5 kept)   | violates STOR-B-21b ("maps to 0")                                                                                              |
 
 ## STOR-B-22
 
@@ -251,16 +254,17 @@ T is the base slot of 20.a.
 
 ## STOR-B-23
 
-| Vector      | Claimed layout or data                                                                              | Expected                                              |
-| ----------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next                             | matches                                               |
-| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head          | matches                                               |
-| 23.c reject | slot 272 with `L1_0` in the least-significant 48 bits                                               | violates STOR-B-23                                    |
-| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                          | violates STOR-B-23                                    |
-| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime` | matches                                               |
-| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                           | violates STOR-B-23                                    |
-| 23.h accept | record word 2 for ckPrefix 3 and power 250,000                                                      | `0x3d09003`: ckPrefix in bits 0–7, power in bits 8–71 |
-| 23.i reject | record word 2 with `power` in the least-significant bits and `ckPrefix` above it                    | violates STOR-B-23                                    |
+| Vector      | Claimed layout or data                                                                              | Expected                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next                             | matches                                                                     |
+| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head          | matches                                                                     |
+| 23.c reject | slot 272 with `L1_0` in the least-significant 48 bits                                               | violates STOR-B-23                                                          |
+| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                          | violates STOR-B-23                                                          |
+| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime` | matches                                                                     |
+| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                           | violates STOR-B-23                                                          |
+| 23.g accept | a key whose bond holds seat 5                                                                       | its key-to-seat value is `0x0501`: holdsSeat in bits 0–7, seat in bits 8–15 |
+| 23.h accept | record word 2 for ckPrefix 3 and power 250,000                                                      | `0x3d09003`: ckPrefix in bits 0–7, power in bits 8–71                       |
+| 23.i reject | record word 2 with `power` in the least-significant bits and `ckPrefix` above it                    | violates STOR-B-23                                                          |
 
 ## STOR-B-24
 
@@ -270,6 +274,7 @@ T is the base slot of 20.a.
 | 24.b accept | a 48-bit field holding 2^48 − 1 with no bits above it                                            | matches            |
 | 24.c reject | a 16-bit `ckPrefix` field                                                                        | violates STOR-B-24 |
 | 24.d reject | nonzero bits above the highest used field                                                        | violates STOR-B-24 |
+| 24.e accept | a key-to-seat value with holdsSeat and seat in 8 bits each and every bit from bit 16 up zero     | matches            |
 | 24.f reject | `power` stored in a 48-bit field                                                                 | violates STOR-B-24 |
 
 ## STOR-B-25
