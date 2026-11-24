@@ -26,9 +26,9 @@ import stat
 import sys
 
 # The engine every node runs (CONS-3.1-1): the deployment manifest names its official executable
-# per platform by digest. Schema 2 also pins the validators' timeout_commit floor, which only the
-# validator supervisor reads; an earlier schema is refused.
-COMET_MANIFEST_SCHEMA = 2
+# per platform by digest. Schema 3 pins no timeout_commit floor; schema 2, which did, and schema 1
+# are refused.
+COMET_MANIFEST_SCHEMA = 3
 COMET_RELEASE = "v0.40.0"
 COMET_SOURCE_COMMIT = "0880b4d378f347ab16e54ec677ff50d803f37d62"
 # Database backends whose stores live at <db_dir>/<name>.db in stock cometbft-db v0.14.1 and

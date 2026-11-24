@@ -76,44 +76,15 @@ fn comet_platform() -> String {
     format!("{os}/{arch}")
 }
 
-/// The shipped deployment manifest, `comet-manifest.json`.
-fn shipped_manifest() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../comet-manifest.json")
-}
-
-/// The deployment manifest `base` (its JSON) as a test supervisor's, for a Comet home whose
-/// `config.toml` is `config`: the validators' `timeout_commit` floor becomes the home's own
-/// `timeout_commit`, or stock Comet's `1s` when it sets none. The shipped floor is the production
-/// block-time target, and each harness runs its own, shorter cadence.
-pub fn test_comet_manifest(base: &[u8], config: &str) -> Result<serde_json::Map<String, Value>> {
-    let config: toml::Table = toml::from_str(config)?;
-    let floor = config
-        .get("consensus")
-        .and_then(|consensus| consensus.get("timeout_commit"))
-        .map_or(Ok("1s"), |value| {
-            value.as_str().context("timeout_commit is not a duration string")
-        })?;
-    let mut manifest: serde_json::Map<String, Value> = serde_json::from_slice(base)?;
-    manifest
-        .entry("configuration")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .context("deployment manifest configuration is not an object")?
-        .insert("consensus.timeout_commit".into(), json!({ "min": floor }));
-    Ok(manifest)
-}
-
 /// Writes to `path` the test manifest a Docker-mode supervisor checks its Comet executable
 /// against (CONS-3.1-1). That supervisor's Comet argv starts with `/bin/sh`, the wrapper that
 /// runs the official image's container (pinned by digest), so the manifest pins this host's
-/// `/bin/sh` for this platform, and the `timeout_commit` floor is the one Comet `home` sets;
-/// everything else is the shipped `comet-manifest.json`'s. A test manifest only: it names no
-/// Comet executable.
-fn write_docker_wrapper_manifest(path: &Path, home: &Path) -> Result<()> {
-    let mut manifest = test_comet_manifest(
-        &fs::read(shipped_manifest())?,
-        &fs::read_to_string(home.join("config/config.toml"))?,
-    )?;
+/// `/bin/sh` for this platform; everything else is the shipped `comet-manifest.json`'s. A test
+/// manifest only: it names no Comet executable.
+fn write_docker_wrapper_manifest(path: &Path) -> Result<()> {
+    let shipped = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../comet-manifest.json");
+    let mut manifest: serde_json::Map<String, Value> =
+        serde_json::from_slice(&fs::read(&shipped)?)?;
     let shell = fs::canonicalize("/bin/sh")?;
     let digest = alloy_primitives::hex::encode(Sha256::digest(fs::read(&shell)?));
     manifest.remove("unsupported_platforms");
@@ -202,16 +173,15 @@ pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
 /// tests spell the supervisor's environment.
 ///
 /// When `home`'s config is readable here, `ETNA_P2P_INBOUND_PEER_IDS` lists its unconditional
-/// peers, as the operator lists them for its listed-peer P2P, and `ETNA_COMET_MANIFEST` names
-/// `<home>.comet-manifest.json`, written here: the [`test_comet_manifest`] of an explicit
-/// `ETNA_COMET_MANIFEST`, else of the test manifest `script/build_stock_comet.sh` wrote for its
-/// source build on a host without the official executable, else of the shipped one.
+/// peers, as the operator lists them (LIMIT-12-2). Without an explicit `ETNA_COMET_MANIFEST`, a
+/// host without the official executable uses the test manifest `script/build_stock_comet.sh`
+/// wrote for its source build; the official linux/amd64 executable needs none.
 pub fn supervisor_command(
     home: &Path,
     app_store: &Path,
     key_dir: &Path,
     chain_id: &str,
-) -> Result<Command> {
+) -> Command {
     let mut command = Command::new("python3");
     command
         .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../script/etna_validator.py"))
@@ -224,21 +194,12 @@ pub fn supervisor_command(
     if let Some(inbound) = inbound_peer_ids(home) {
         command.env("ETNA_P2P_INBOUND_PEER_IDS", inbound);
     }
-    if let Ok(config) = fs::read_to_string(home.join("config/config.toml")) {
-        let base =
-            std::env::var_os("ETNA_COMET_MANIFEST").map(PathBuf::from).unwrap_or_else(|| {
-                let built = Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../target/etna-signer/comet-manifest.test.json");
-                if built.is_file() { built } else { shipped_manifest() }
-            });
-        let manifest = home.with_extension("comet-manifest.json");
-        fs::write(
-            &manifest,
-            serde_json::to_vec_pretty(&test_comet_manifest(&fs::read(base)?, &config)?)?,
-        )?;
-        command.env("ETNA_COMET_MANIFEST", manifest);
+    let test_manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/etna-signer/comet-manifest.test.json");
+    if std::env::var_os("ETNA_COMET_MANIFEST").is_none() && test_manifest.is_file() {
+        command.env("ETNA_COMET_MANIFEST", test_manifest);
     }
-    Ok(command)
+    command
 }
 
 /// Process-owned children, shared with signal cleanup before the test runtime disappears.
@@ -329,7 +290,7 @@ impl SignerNode {
             self.control.parent().expect("app store"),
             &key_dir,
             &self.chain_id,
-        )?;
+        );
         command.env("ETNA_SIGNER_BIN", &binary);
         match launch {
             CometLaunch::Docker { container, transport_key } => {
@@ -337,7 +298,7 @@ impl SignerNode {
                 let argv = ["/bin/sh", "-c", DOCKER_COMET, "docker-comet", &docker, container];
                 // Beside the transport key, never in a caller's signer directory.
                 let manifest = transport_key.with_extension("comet-manifest.json");
-                write_docker_wrapper_manifest(&manifest, home)?;
+                write_docker_wrapper_manifest(&manifest)?;
                 command
                     .env("ETNA_COMET_COMMAND_JSON", serde_json::to_string(&argv)?)
                     .env("ETNA_SIGNER_TRANSPORT_KEY", transport_key)
@@ -437,57 +398,6 @@ case "$1" in
   wait) while [ ! -e "$dir/exited" ]; do sleep 0.05; done; cat "$dir/status" ;;
 esac
 "#;
-
-    /// Test supervisors check each home's own cadence: their manifest is the base with the
-    /// `timeout_commit` floor set to the home's `timeout_commit`, or stock Comet's `1s` when it
-    /// sets none, and the shipped production floor is left behind.
-    #[test]
-    fn test_manifests_take_the_timeout_commit_floor_from_the_home() {
-        let base = fs::read(shipped_manifest()).unwrap();
-        let shipped: serde_json::Map<String, Value> = serde_json::from_slice(&base).unwrap();
-        assert_eq!(shipped["configuration"]["consensus.timeout_commit"], json!({ "min": "4s" }));
-        for (config, floor) in
-            [("[consensus]\ntimeout_commit = \"1000ms\"\n", "1000ms"), ("", "1s")]
-        {
-            let mut expected = shipped.clone();
-            expected["configuration"]["consensus.timeout_commit"] = json!({ "min": floor });
-            assert_eq!(test_comet_manifest(&base, config).unwrap(), expected);
-        }
-        assert!(test_comet_manifest(&base, "[consensus]\ntimeout_commit = 1000\n").is_err());
-
-        let dir = tempfile::tempdir().unwrap();
-        let home = dir.path().join("comet");
-        fs::create_dir_all(home.join("config")).unwrap();
-        fs::write(home.join("config/config.toml"), "[consensus]\ntimeout_commit = \"250ms\"\n")
-            .unwrap();
-        let floor = |path: &Path| -> Value {
-            serde_json::from_slice::<Value>(&fs::read(path).unwrap()).unwrap()["configuration"]
-                ["consensus.timeout_commit"]
-                .clone()
-        };
-        let manifest_env = |command: &Command| {
-            command
-                .get_envs()
-                .find(|(name, _)| *name == "ETNA_COMET_MANIFEST")
-                .and_then(|(_, value)| value.map(PathBuf::from))
-        };
-        let (app, keys) = (dir.path().join("app"), dir.path().join("keys"));
-        let command = supervisor_command(&home, &app, &keys, "etna-test").unwrap();
-        let named = manifest_env(&command).unwrap();
-        assert_eq!(named, home.with_extension("comet-manifest.json"));
-        assert_eq!(floor(&named), json!({ "min": "250ms" }));
-        // A home whose config is not readable here gets no manifest of its own.
-        let elsewhere = supervisor_command(&dir.path().join("absent"), &app, &keys, "etna-test");
-        assert_eq!(manifest_env(&elsewhere.unwrap()), None);
-
-        let wrapper = dir.path().join("wrapper.comet-manifest.json");
-        write_docker_wrapper_manifest(&wrapper, &home).unwrap();
-        assert_eq!(floor(&wrapper), json!({ "min": "250ms" }));
-        let platforms: Value = serde_json::from_slice::<Value>(&fs::read(&wrapper).unwrap())
-            .unwrap()["platforms"]
-            .clone();
-        assert_eq!(platforms.as_object().unwrap().keys().collect::<Vec<_>>(), [&comet_platform()]);
-    }
 
     fn wait_for(path: &Path) {
         let deadline = Instant::now() + Duration::from_secs(5);

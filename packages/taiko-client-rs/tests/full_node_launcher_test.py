@@ -53,10 +53,9 @@ class FullNodeLauncherTests(unittest.TestCase):
 
     def pin(self, executable, **override):
         guard = guard_module("etna_manifest_writer")
-        manifest = dict(schema=2, engine="cometbft", release="v0.40.0",
+        manifest = dict(schema=3, engine="cometbft", release="v0.40.0",
                         source_commit="0880b4d378f347ab16e54ec677ff50d803f37d62",
-                        platforms={guard.comet_platform(): dict(sha256=guard.sha256_file(executable))},
-                        configuration={"consensus.timeout_commit": dict(min="4s")})
+                        platforms={guard.comet_platform(): dict(sha256=guard.sha256_file(executable))})
         manifest.update(override)
         self.manifest.write_text(json.dumps(manifest))
 
@@ -85,9 +84,10 @@ class FullNodeLauncherTests(unittest.TestCase):
                 (dict(platforms={platform: dict(sha256="00" * 32)}), f"not the {platform} digest"),
                 (dict(platforms={}, unsupported_platforms={platform: "no official executable here"}),
                  "no official executable here (CONS-3.1-1)"),
-                (dict(release="v0.38.0"), "is not a schema 2 manifest for CometBFT v0.40.0"),
-                (dict(source_commit="00" * 20), "is not a schema 2 manifest for CometBFT v0.40.0"),
-                (dict(schema=1), "is not a schema 2 manifest for CometBFT v0.40.0")):
+                (dict(release="v0.38.0"), "is not a schema 3 manifest for CometBFT v0.40.0"),
+                (dict(source_commit="00" * 20), "is not a schema 3 manifest for CometBFT v0.40.0"),
+                (dict(schema=2), "is not a schema 3 manifest for CometBFT v0.40.0"),
+                (dict(schema=1), "is not a schema 3 manifest for CometBFT v0.40.0")):
             with self.subTest(message=message):
                 self.pin(self.stub, **manifest)
                 proc = self.launch()
@@ -104,14 +104,6 @@ class FullNodeLauncherTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("the deployment manifest pins (CONS-3.1-1)", proc.stderr)
         self.assertEqual(len(self.started()), 1, "no refused start ran Comet")
-
-    def test_full_node_ignores_the_floor(self):
-        """The timeout_commit floor binds validators only: a full node whose timeout_commit, in
-        config.toml or an override, is below the floor its deployment manifest pins starts."""
-        self.config('[consensus]\ntimeout_commit = "1s"\n')
-        proc = self.launch(CMT_CONSENSUS_TIMEOUT_COMMIT="500ms")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(self.started(), [f"absent start --home {self.home}"])
 
     def test_the_hashed_file_is_the_one_executed(self):
         """A bare ETNA_COMET_BIN is looked up on PATH once; the launcher execs the file it hashed,

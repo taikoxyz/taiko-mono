@@ -54,7 +54,7 @@ pub use l2::{
 pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter};
 pub use signer::{
     init_signer_domains_log, init_signer_state, signer_binary, signer_domains_log, signer_hrs,
-    supervisor_command, test_comet_manifest,
+    supervisor_command,
 };
 pub use staking::{
     Bond, IEtnaStaking, Registration, STAKER_KEYS, Staking, StakingParams, registration_preimage,

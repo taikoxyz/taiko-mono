@@ -52,7 +52,6 @@ func validatorConfig(laddr string) []byte {
 // cometManifest writes a deployment manifest pinning executable for this host's platform, as the
 // shipped comet-manifest.json pins the official linux/amd64 executable, and returns the
 // supervisor environment entry naming it (CONS-3.1-1).
-// Its timeout_commit floor is stock Comet's 1s, which validatorConfig, setting none, meets.
 func cometManifest(t *testing.T, dir, executable string) string {
 	t.Helper()
 	resolved, err := filepath.EvalSymlinks(executable)
@@ -60,10 +59,9 @@ func cometManifest(t *testing.T, dir, executable string) string {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(readFile(t, resolved))
-	manifest, _ := json.Marshal(map[string]any{"schema": 2, "engine": "cometbft", "release": "v0.40.0",
+	manifest, _ := json.Marshal(map[string]any{"schema": 3, "engine": "cometbft", "release": "v0.40.0",
 		"source_commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
-		"platforms":     map[string]any{runtime.GOOS + "/" + runtime.GOARCH: map[string]string{"sha256": hex.EncodeToString(digest[:])}},
-		"configuration": map[string]any{"consensus.timeout_commit": map[string]string{"min": "1s"}}})
+		"platforms":     map[string]any{runtime.GOOS + "/" + runtime.GOARCH: map[string]string{"sha256": hex.EncodeToString(digest[:])}}})
 	path := filepath.Join(dir, "comet-manifest.json")
 	if err := os.WriteFile(path, manifest, 0600); err != nil {
 		t.Fatal(err)
