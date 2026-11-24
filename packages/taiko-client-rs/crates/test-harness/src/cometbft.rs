@@ -9,6 +9,8 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::Value;
 use url::Url;
 
+use crate::keys::full_node_key;
+
 /// What differs between the devnet's CometBFT homes.
 #[derive(Clone, Debug)]
 pub(crate) struct HomeConfig<'a> {
@@ -19,8 +21,8 @@ pub(crate) struct HomeConfig<'a> {
     /// `[consensus] timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
     /// `[p2p] persistent_peers` (`<node id>@<host>:<port>`, comma separated). Every listed
-    /// peer may also dial in: [`write_home`] makes their node IDs the only unconditional, and so
-    /// the only inbound, peers (LIMIT-12-2).
+    /// peer may also dial in: [`write_home`] makes their node IDs and the harness full node's
+    /// ([`full_node_key`]) the only unconditional, and so the only inbound, peers (LIMIT-12-2).
     pub persistent_peers: &'a str,
     /// The genesis document.
     pub genesis_json: &'a str,
@@ -36,17 +38,20 @@ pub(crate) struct HomeConfig<'a> {
 /// Unix signer sockets. The real FilePV files live elsewhere. The validator P2P settings are the
 /// ones the supervisor and `abci-recover install` require (START-10-6, LIMIT-12-2): no peer
 /// exchange, seeds, seed mode, unsafe RPC or libp2p switch, and no inbound slot, so only the
-/// persistent peers, listed as unconditional peers, connect inbound. The supervisor's
+/// persistent peers and the harness full node, listed as unconditional peers, connect inbound:
+/// a test's full node syncs from a validator only with [`full_node_key`]. The supervisor's
 /// `ETNA_P2P_INBOUND_PEER_IDS` must list the same IDs ([`inbound_peer_ids`]). Comet logs JSON so
 /// the supervisor's log observer can follow its replay and a restarted validator can resume an
 /// undecided height instead of fencing it (RECOV-8.2-2).
 pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
     ensure!(!c.signer_addr.is_empty(), "validator harness requires priv_validator_laddr");
+    let full_node = full_node_key().node_id();
     let inbound = c
         .persistent_peers
         .split(',')
         .filter(|peer| !peer.trim().is_empty())
         .map(|peer| peer.split_once('@').map(|(id, _)| id.trim()).context("peer without node ID"))
+        .chain(std::iter::once(Ok(full_node.as_str())))
         .collect::<Result<Vec<_>>>()?
         .join(",");
     let config = dir.join("config");

@@ -26,12 +26,13 @@ pub async fn join_after_landing(
         assert_eq!(engine.forkchoice(hash, hash, hash).await?, PayloadVerdict::Valid);
     }
     let mut commands = Commands::new(f, c)?;
-    // The full node's own stock template: no signer, the validator as its persistent peer.
+    // The full node's own stock template: no signer, the validator as its persistent peer and
+    // the node key every validator lists as an inbound peer.
     let template = commands.dir.path().join("full-node-template");
     fs::create_dir_all(template.join("config"))?;
     write_private(
         &template.join("config/node_key.json"),
-        serde_json::to_vec(&test_harness::node_keys(2)[1].node_key_json())?,
+        serde_json::to_vec(&test_harness::full_node_key().node_key_json())?,
     )?;
     let mut config: toml::Table =
         toml::from_str(&fs::read_to_string(c.comet_home(0).join("config/config.toml"))?)?;

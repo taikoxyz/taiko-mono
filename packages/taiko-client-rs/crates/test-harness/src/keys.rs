@@ -13,6 +13,9 @@ const VALIDATOR_LABEL: &str = "abci-devnet-validator";
 /// Seed label of the CometBFT node (P2P) keys.
 const NODE_LABEL: &str = "abci-devnet-node";
 
+/// Seed label of the harness full node's CometBFT node (P2P) key.
+const FULL_NODE_LABEL: &str = "abci-devnet-full-node";
+
 /// A deterministic secp256k1eth consensus key.
 #[derive(Clone, Debug)]
 pub struct ValidatorKey {
@@ -126,6 +129,13 @@ pub fn node_keys(n: usize) -> Vec<NodeKey> {
     (0..n as u64).map(|i| NodeKey::derive(NODE_LABEL, i)).collect()
 }
 
+/// The CometBFT node (P2P) key of a test's non-validator full node. Every harness validator
+/// lists its node ID as an inbound peer, so a full node holding this key can sync from any of
+/// them. Run one such full node per chain at a time.
+pub fn full_node_key() -> NodeKey {
+    NodeKey::derive(FULL_NODE_LABEL, 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,6 +145,7 @@ mod tests {
         assert_eq!(validator_keys(2)[1].pubkey(), validator_keys(3)[1].pubkey());
         assert_ne!(validator_keys(2)[0].pubkey(), validator_keys(2)[1].pubkey());
         assert_eq!(node_keys(1)[0].pubkey().len(), 32);
+        assert!(node_keys(8).iter().all(|key| key.node_id() != full_node_key().node_id()));
     }
 
     #[test]

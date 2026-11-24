@@ -44,9 +44,11 @@ const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c
 /// anvil's command line after the image: 1 s blocks, `finalized = latest − 2`.
 const ANVIL_CMD: &str = "--host 0.0.0.0 --block-time 1 --slots-in-an-epoch 1 --gas-limit 200000000";
 /// alethia-reth's command line after the image: devnet with Etna from genesis, no discovery.
+/// The lander, the export and the switch checks read `eth_getProof` at past L2 blocks, which reth
+/// serves only within `--rpc.eth-proof-window` (0 by default), so it is reth's maximum.
 pub(crate) const RETH_CMD: &str = "./alethia-reth node --chain /genesis.json --devnet-etna-timestamp 0 --http \
-    --http.addr 0.0.0.0 --http.api eth,net,debug --authrpc.addr 0.0.0.0 \
-    --authrpc.jwtsecret /jwt.hex --disable-discovery";
+    --http.addr 0.0.0.0 --http.api eth,net,debug --rpc.eth-proof-window 1209600 \
+    --authrpc.addr 0.0.0.0 --authrpc.jwtsecret /jwt.hex --disable-discovery";
 
 /// Deadline for a container's RPC to come up.
 pub(crate) const RPC_TIMEOUT: Duration = Duration::from_secs(90);

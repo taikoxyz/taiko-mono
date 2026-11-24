@@ -46,7 +46,7 @@ pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
 pub use consensus::ContractConsensus;
 pub use devnet::{Devnet, DevnetSpec, init_tracing};
 pub use genesis::{EtnaGenesis, StandaloneReth};
-pub use keys::{NodeKey, ValidatorKey, node_keys, validator_keys};
+pub use keys::{NodeKey, ValidatorKey, full_node_key, node_keys, validator_keys};
 pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_interval_mining};
 pub use l2::{
     DEV_KEY, anchor_of, dev_signer, extra_data_of, first_anchored_at, send_transfer, sign_transfer,
