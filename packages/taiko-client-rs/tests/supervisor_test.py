@@ -1821,10 +1821,12 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.chain, self.generation, self.origin = "etna-test", 0, None
         (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n' + VALIDATOR_P2P)
         (self.home / "config/genesis.json").write_text(json.dumps(dict(chain_id=self.chain)))
-        # Without CAP_CHOWN, let the Comet UID create its own private run/ in a briefly open home.
+        # Without CAP_CHOWN, let the Comet UID create its own private run/ and data/ in a briefly
+        # open home, as the image prepares them.
         self.home.chmod(0o777)
-        subprocess.run([sys.executable, "-c", "import os,sys; os.mkdir(sys.argv[1], 0o700)", str(self.home / "run")],
-                       user=self.COMET_UID, group=self.COMET_UID, extra_groups=[], check=True)
+        for name in ("run", "data"):
+            subprocess.run([sys.executable, "-c", "import os,sys; os.mkdir(sys.argv[1], 0o700)", str(self.home / name)],
+                           user=self.COMET_UID, group=self.COMET_UID, extra_groups=[], check=True)
         self.home.chmod(0o755)
         self.observed = self.root / "observed"
         self.observed.mkdir()
