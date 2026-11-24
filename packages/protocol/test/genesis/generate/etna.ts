@@ -16,14 +16,13 @@ const TAIKO_SUPPLY = BigNumber.from(10).pow(27);
 const MAX_SEATS = 128;
 const MIN_VP_UNIT = 867_361_738;
 const BPS = 10_000;
-const MAX_MISS_LIMIT = 65_535;
 const DELAY_BOUND = BigNumber.from(2).pow(48);
 // The Inbox's bound on its unsettledLimit.
 const MAX_UNSETTLED_LIMIT = 262_144;
 // The public Taiko networks, which must never hold the devnet premint's unbacked TAIKO.
 const PUBLIC_CHAIN_IDS = [167000, 167009, 167013];
 
-// The twelve EtnaStaking immutables, in constructor order.
+// The ten EtnaStaking immutables, in constructor order.
 const STAKING_IMMUTABLES = [
     "token",
     "l1ChainId",
@@ -31,8 +30,6 @@ const STAKING_IMMUTABLES = [
     "minStake",
     "vpUnit",
     "nMax",
-    "missLimit",
-    "missSlashBps",
     "withdrawalDelay",
     "slashBountyBps",
     "slashSink",
@@ -59,8 +56,6 @@ interface EtnaParams {
     minStake: ethers.BigNumber;
     vpUnit: ethers.BigNumber;
     nMax: ethers.BigNumber;
-    missLimit: ethers.BigNumber;
-    missSlashBps: ethers.BigNumber;
     withdrawalDelay: ethers.BigNumber;
     slashBountyBps: ethers.BigNumber;
     forfeitBps: ethers.BigNumber;
@@ -121,8 +116,6 @@ export function checkEtnaConfig(config: Config): EtnaParams {
         "minStake",
         "vpUnit",
         "nMax",
-        "missLimit",
-        "missSlashBps",
         "withdrawalDelay",
         "slashBountyBps",
         "forfeitBps",
@@ -153,8 +146,6 @@ export function checkEtnaConfig(config: Config): EtnaParams {
             "genesis config: etna.minStake * etna.nMax is below 10^27, TAIKO's supply",
         );
     }
-    inRange(params.missLimit, "etna.missLimit", 1, MAX_MISS_LIMIT);
-    inRange(params.missSlashBps, "etna.missSlashBps", 1, BPS);
     inRange(params.slashBountyBps, "etna.slashBountyBps", 0, BPS - 1);
     inRange(params.forfeitBps, "etna.forfeitBps", 1, BPS);
     inRange(withdrawalDelay, "etna.withdrawalDelay", 1, DELAY_BOUND.sub(1));
@@ -261,8 +252,6 @@ export async function deployEtna(
         minStake: params.minStake,
         vpUnit: params.vpUnit,
         nMax: params.nMax,
-        missLimit: params.missLimit,
-        missSlashBps: params.missSlashBps,
         withdrawalDelay: params.withdrawalDelay,
         slashBountyBps: params.slashBountyBps,
         slashSink: params.slashSink,

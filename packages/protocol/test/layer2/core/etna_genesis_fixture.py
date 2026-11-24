@@ -45,8 +45,6 @@ STAKING = {
     "minStake": "7812500000000000000000000",
     "vpUnit": "1000000000",
     "nMax": "128",
-    "missLimit": "3600",
-    "missSlashBps": "1000",
     "withdrawalDelay": "302402",
     "slashBountyBps": "1000",
     "forfeitBps": "1000",
@@ -86,8 +84,8 @@ IDS = {
     "SignalService": {"_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23},
     "EtnaSignalService": {"usesBeaconRoots": 24},
     "EtnaStaking": {"token": 31, "l1ChainId": 32, "inbox": 33, "minStake": 34, "vpUnit": 35,
-                    "nMax": 36, "missLimit": 37, "missSlashBps": 38, "withdrawalDelay": 39,
-                    "slashBountyBps": 40, "slashSink": 41, "forfeitBps": 42},
+                    "nMax": 36, "withdrawalDelay": 39, "slashBountyBps": 40, "slashSink": 41,
+                    "forfeitBps": 42},
     "BridgedTaikoToken": {"erc20Vault": 51},
 }
 
@@ -163,9 +161,8 @@ def artifacts():
         ),
         "EtnaStaking": _artifact(
             "EtnaStaking",
-            ("inbox", "token", "l1ChainId", "minStake", "vpUnit", "nMax", "missLimit",
-             "missSlashBps", "withdrawalDelay", "slashBountyBps", "slashSink", "forfeitBps",
-             "__self", "__resolver", "inbox"),
+            ("inbox", "token", "l1ChainId", "minStake", "vpUnit", "nMax", "withdrawalDelay",
+             "slashBountyBps", "slashSink", "forfeitBps", "__self", "__resolver", "inbox"),
             bases=("EssentialContract",),
         ),
         "BridgedTaikoToken": _artifact(
