@@ -4,7 +4,7 @@
 
 `accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-21), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
-**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the `missBitmap` bit order, the `onBlockStart` calldata, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `appHash`, `cutHash`, `statement`, `configHash`, `FallbackKey`/`fallbackKeysHash`, the fallback keys' voting power, `SeatMember`, `voteSignBytes`, registration and the `recover` and staking-contract interfaces — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-52–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
+**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the `onBlockStart` calldata, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `appHash`, `cutHash`, `statement`, `configHash`, `FallbackKey`/`fallbackKeysHash`, the fallback keys' voting power, `SeatMember`, `voteSignBytes`, registration and the `recover` and staking-contract interfaces — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-52–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
 ## ENC-A-1
 
@@ -107,16 +107,15 @@ _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-10
 
-| Vector      | Setup                                                                                                                     | Expected                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 10.a accept | `0x64`, then a 6-byte big-endian generation, then a 6-byte big-endian anchor number, then a 16-byte big-endian missBitmap | 29 bytes                                                                    |
-| 10.b reject | `extraData` is 13 bytes, with no missBitmap, or 30 bytes                                                                  | violates ENC-A-10 ("29 bytes")                                              |
-| 10.c reject | the first byte is `0x65`                                                                                                  | violates ENC-A-10 (`0x64`)                                                  |
-| 10.d reject | generation is little-endian                                                                                               | violates ENC-A-10 (`uint48_be`)                                             |
-| 10.e reject | anchor number precedes generation                                                                                         | violates ENC-A-10 (field order)                                             |
-| 10.f accept | generation 0, anchor number 0 and missBitmap 0                                                                            | `0x64` followed by 28 zero bytes                                            |
-| 10.g reject | missBitmap is little-endian, or placed before the anchor number                                                           | violates ENC-A-10 (`uint128_be`, field order)                               |
-| 10.h accept | generation 1, anchor number 258, missBitmap 2^127 + 1                                                                     | `0x64 000000000001 000000000102 80000000000000000000000000000001`, 29 bytes |
+| Vector      | Setup                                                                               | Expected                                   |
+| ----------- | ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| 10.a accept | `0x64`, then a 6-byte big-endian generation, then a 6-byte big-endian anchor number | 13 bytes                                   |
+| 10.b reject | `extraData` is 29 bytes, those 13 bytes followed by a 16-byte field, or 14 bytes    | violates ENC-A-10 ("13 bytes")             |
+| 10.c reject | the first byte is `0x65`                                                            | violates ENC-A-10 (`0x64`)                 |
+| 10.d reject | generation is little-endian                                                         | violates ENC-A-10 (`uint48_be`)            |
+| 10.e reject | anchor number precedes generation                                                   | violates ENC-A-10 (field order)            |
+| 10.f accept | generation 0 and anchor number 0                                                    | `0x64` followed by 12 zero bytes           |
+| 10.h accept | generation 1, anchor number 258                                                     | `0x64 000000000001 000000000102`, 13 bytes |
 
 ## ENC-A-10a
 
@@ -131,40 +130,35 @@ Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000
 | 10a.e accept | the parent of 10a.d on a chain id other than 167000                                        | 8,750,000                                                                                        |
 | 10a.f accept | parent base fee 10,000,000, gasUsed 15,000,001; interval 4 s                               | `delta` floors to 0 and counts as 1; base fee 10,000,001                                         |
 | 10a.g accept | parent base fee 950,000,000, gasUsed 30,000,000; interval 4 s                              | `raw` = 1,068,750,000, lowered to 1,000,000,000                                                  |
-| 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 7)                     |
-| 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 7)                         |
-| 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 7)                      |
+| 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 6)                     |
+| 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 6)                         |
+| 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 6)                      |
 | 10a.k accept | parent base fee 100,000,000, gasUsed 7,500,000; interval 2 s                               | `adjusted` = 7,500,000 = gasUsed; base fee 100,000,000                                           |
 | 10a.l accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 2 s                              | `adjusted` = 7,500,000; `delta` = 6,250,000; base fee 106,250,000                                |
-| 10a.m reject | the interval is divided by 2 s, Unzen's target, for an Etna block                          | violates ENC-A-10a (`BLOCK_TIME_TARGET = 4 s`); block invalid (3.4 rule 7)                       |
+| 10a.m reject | the interval is divided by 2 s, Unzen's target, for an Etna block                          | violates ENC-A-10a (`BLOCK_TIME_TARGET = 4 s`); block invalid (3.4 rule 6)                       |
 
 ## ENC-A-10b
 
 | Vector       | Setup                                                                  | Expected                                                                       |
 | ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | 10b.a accept | the parent's `difficulty` is 1,000,000 and the block's number is 12345 | `mixHash = 0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507` |
-| 10b.b reject | the preimage is packed without padding instead of two 32-byte words    | violates ENC-A-10b (`abi.encode`, 64 bytes); block invalid (3.4 rule 7)        |
-| 10b.c reject | the first word is the parent's `mixHash` instead of its `difficulty`   | violates ENC-A-10b; block invalid (3.4 rule 7)                                 |
+| 10b.b reject | the preimage is packed without padding instead of two 32-byte words    | violates ENC-A-10b (`abi.encode`, 64 bytes); block invalid (3.4 rule 6)        |
+| 10b.c reject | the first word is the parent's `mixHash` instead of its `difficulty`   | violates ENC-A-10b; block invalid (3.4 rule 6)                                 |
 
 ## ENC-A-10c
 
-| Vector       | Setup                                                                 | Expected                                                               |
-| ------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 10c.a accept | missBitmap = 5                                                        | seats 0 and 2 have bit 1, every other seat 0; `extraData[28]` = `0x05` |
-| 10c.b accept | missBitmap = 2^127                                                    | only seat 127 has bit 1; `extraData[13]` = `0x80`                      |
-| 10c.c reject | seat s is read as bit 127 − s, so missBitmap = 1 is taken as seat 127 | violates ENC-A-10c                                                     |
-| 10c.d reject | seat 0 is read from the low bit of `extraData[13]`                    | violates ENC-A-10c                                                     |
+**Retired.** `extraData` no longer carries a miss bitmap, because the missed-signature penalty it fed was removed (4.2); this old ID has no conformance vectors.
 
 ## ENC-A-10d
 
-| Vector       | Setup                                                                                 | Expected                                                                                      |
-| ------------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 10d.a accept | a block with generation 1 and missBitmap 5                                            | calldata `0xea987592`, then 31 zero bytes and `0x01`, then 31 zero bytes and `0x05`: 68 bytes |
-| 10d.b accept | the selector is computed as `bytes4(keccak256("onBlockStart(uint48,uint128)"))`       | `0xea987592`                                                                                  |
-| 10d.c reject | the arguments follow the selector packed as 6 + 16 bytes, 26 bytes of calldata in all | violates ENC-A-10d (two 32-byte words, 68 bytes)                                              |
-| 10d.d reject | missBitmap is the first argument word and generation the second                       | violates ENC-A-10d (argument order)                                                           |
-| 10d.e reject | the arguments are taken from the parent's `extraData`                                 | violates ENC-A-10d ("the block's own extraData fields") and STAKE-4.2-4                       |
-| 10d.f reject | the calldata carries a third word after missBitmap                                    | violates ENC-A-10d ("no other bytes follow")                                                  |
+| Vector                | Setup                                                                            | Expected                                                               |
+| --------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 10d.a accept          | a block with generation 1                                                        | calldata `0xaa28c32e`, then 31 zero bytes and `0x01`: 36 bytes         |
+| 10d.b accept          | the selector is computed as `bytes4(keccak256("onBlockStart(uint48)"))`          | `0xaa28c32e`                                                           |
+| 10d.c reject          | the argument follows the selector packed as 6 bytes, 10 bytes of calldata in all | violates ENC-A-10d (one 32-byte word, 36 bytes)                        |
+| 10d.e reject          | the argument is taken from the parent's `extraData`                              | violates ENC-A-10d ("the block's own extraData field") and STAKE-4.2-4 |
+| 10d.f reject          | the calldata carries a second word after the generation                          | violates ENC-A-10d ("no other bytes follow")                           |
+| 10d.g accept boundary | a block with generation 2^48 − 1                                                 | calldata `0xaa28c32e`, then 26 zero bytes and `ffffffffffff`: 36 bytes |
 
 ## ENC-A-11
 

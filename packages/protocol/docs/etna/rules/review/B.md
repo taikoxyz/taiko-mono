@@ -14,11 +14,11 @@ Under the convention in [../README.md](../README.md), a statement with an ID is 
 
 **Where exactly do the 285 and 290 records live?**
 
-**Text.** "285 | landing mapping, lastHeight → three words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes." "290 | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp,fallbackKeysHash), the first three each a uint256 word with height/block/timestamp range checks and the fourth the value of slot 278 when the record is written; store four consecutive words from the mapping base keyed by generation." For the staking contract, STOR-B-21 states the derivation: "the key-to-seat mapping at T + 2, whose element for a `ckAddr` is at `keccak256(abi.encode(ckAddr, T + 2))`".
+**Text.** "285 | landing mapping, lastHeight → three words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes." "290 | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp,fallbackKeysHash), the first three each a uint256 word with height/block/timestamp range checks and the fourth the value of slot 278 when the record is written; store four consecutive words from the mapping base keyed by generation."
 
-**Why it matters.** Nodes must read both records — 285 for a checkpoint's EL/Comet hashes and FI head (section 9), 290 for startup, recovery and proving (8.4) — but Appendix B never states their element-slot derivation or key encoding. A Solidity mapping element is `keccak256(abi.encode(key, slot))`; an array element is `keccak256(slot) + i·size`; the two are different slots. The appendix states the mapping form for the staking contract's key-to-seat mapping but leaves 285 and 290, which it also calls mappings, without one, and it does not say how the key (a height, a generation) is encoded. Two implementations can read different slots and both claim to implement this appendix, and no layout check would catch it.
+**Why it matters.** Nodes must read both records — 285 for a checkpoint's EL/Comet hashes and FI head (section 9), 290 for startup, recovery and proving (8.4) — but Appendix B never states their element-slot derivation or key encoding. A Solidity mapping element is `keccak256(abi.encode(key, slot))`; an array element is `keccak256(slot) + i·size`; the two are different slots. The appendix calls 285 and 290 mappings but states no derivation for them, and it does not say how the key (a height, a generation) is encoded. Two implementations can read different slots and both claim to implement this appendix, and no layout check would catch it.
 
-**Would close it.** State the derivation for 285 and 290 as it is stated for the key-to-seat mapping — the element base is `keccak256(abi.encode(key, slot))` with the key as a uint256, and the value is three (285) or four (290) consecutive words from that base — and say which of the structures at 285 and 290 are mappings and which are arrays.
+**Would close it.** State the derivation for 285 and 290 — the element base is `keccak256(abi.encode(key, slot))` with the key as a uint256, and the value is three (285) or four (290) consecutive words from that base — and say which of the structures at 285 and 290 are mappings and which are arrays.
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: Claude Fable 5.2 (davidtaikocha) (amended: slot 285 has three words)
@@ -40,9 +40,9 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **Read-side validation of packed words**
 
-**Text.** "ckPrefix, holdsSeat and seat take 8 bits, power 64 bits and every other field 48 bits; unused high bits are zero. Writing a value wider than its field reverts."
+**Text.** "ckPrefix takes 8 bits, power 64 bits and every other field 48 bits; unused high bits are zero. Writing a value wider than its field reverts."
 
-**Why it matters.** The rule governs writes and states that unused high bits are zero, but the reader is not told what to do with a word whose high bits are nonzero or whose field exceeds its width: reject it, mask it, or assume it cannot happen. The write-side revert makes the state unreachable through this Inbox, but not through an upgraded or replaced one, and a guest reading a witness has to choose. The choices differ observably on a crafted witness, and the appendix states a layout that a reader must be able to validate. For the staking contract's words the text now answers this: a nonzero unused bit in a snapshot seat record makes the candidate unusable (STOR-B-21a, COMM-4.3-8), and a key-to-seat value that is not well formed gives its key no seat when 3.4 sets a block's missBitmap (CONS-3.4-7a). The Inbox's packed words have no such rule.
+**Why it matters.** The rule governs writes and states that unused high bits are zero, but the reader is not told what to do with a word whose high bits are nonzero or whose field exceeds its width: reject it, mask it, or assume it cannot happen. The write-side revert makes the state unreachable through this Inbox, but not through an upgraded or replaced one, and a guest reading a witness has to choose. The choices differ observably on a crafted witness, and the appendix states a layout that a reader must be able to validate. For the staking contract's words the text now answers this: a nonzero unused bit in a snapshot seat record makes the candidate unusable (STOR-B-21a, COMM-4.3-8). The Inbox's packed words have no such rule.
 
 **Would close it.** State the reader's obligation — for example, that a packed Inbox word with nonzero unused bits, or a field wider than its declared width, makes the witness invalid.
 
@@ -68,7 +68,7 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **Text.** "Retain original recovery-origin records; proof origin p never replaces actual parent. Historical parent links and old-p records serve overlapping proofs and public reconstruction and are never pruned."
 
-**Why it matters.** Retaining old records is what makes overlapping proofs work (6.2 item 10, 6.3), but the sentence states no consequence if a record is missing and no retention bound. If an implementation, a state-replacement upgrade or a rebuild loses an old-p record, it is not stated whether the proof is invalid, whether the node halts, or whether this is only an operational promise about expected operation.
+**Why it matters.** Retaining old records is what makes overlapping proofs work (6.2 item 9, 6.3), but the sentence states no consequence if a record is missing and no retention bound. If an implementation, a state-replacement upgrade or a rebuild loses an old-p record, it is not stated whether the proof is invalid, whether the node halts, or whether this is only an operational promise about expected operation.
 
 **Would close it.** State that a proof whose origin record or parent link is missing is invalid, and say whether any landing record may ever be deleted.
 
