@@ -10,7 +10,7 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`b01356ddc942ee10e67d1f506bf4acd043b8686c`. Every spec link here points at that commit, not at this
+`556c7f1ca79273e8483549a10062b5230f3f21a9`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
@@ -325,10 +325,12 @@ store open and never read EIP-4788),
 `remoteSignalService` to SIGNAL_SERVICE, and the `etna` block. It holds INBOX_PROXY as `inbox`, the
 L1 TAIKO token as `l1TaikoToken`, the staking owner (the DAO's execution address on L2), the slash
 sink, every staking parameter as a decimal string, `unsettledLimit` (U) and `evidenceWindowBlocks`.
-The example uses the reference values: `minStake` 7,812,500 TAIKO (7,812,500 × 10^18 base units, the
-least value with which 128 seats cover TAIKO's 10^27 supply), `vpUnit` 10^9, `nMax` 128, `missLimit`
-3,600, `missSlashBps`, `slashBountyBps` and `forfeitBps` 1,000, U 151,200, a 151,200-block evidence
-window and `withdrawalDelay` 302,402 L2 blocks, U + 2 + the window. The generator refuses a
+The example uses the reference values `minStake` 7,812,500 TAIKO (7,812,500 × 10^18 base units, the
+least value with which 128 seats cover TAIKO's 10^27 supply), `vpUnit` 10^9 and `nMax` 128,
+`slashBountyBps` and `forfeitBps` 1,000, U 151,200, a 151,200-block evidence window and
+`withdrawalDelay` 302,402 L2 blocks, U + 2 + the window. Its `missLimit` 3,600 and `missSlashBps`
+1,000, which the shared vectors also use, are not the specification's references, 21,600 (about one
+day at 4 s blocks) and 100; `DeployEtnaStaking` defaults to those. The generator refuses a
 `withdrawalDelay` below `unsettledLimit + 2 + evidenceWindowBlocks` and everything the
 `EtnaStaking` constructor would refuse. Then run `GENESIS_CONFIG=<config> pnpm genesis:gen` and
 build the genesis from the base JSON:
@@ -532,6 +534,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/ANCHORLESS.md

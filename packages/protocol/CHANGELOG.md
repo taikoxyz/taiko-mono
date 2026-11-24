@@ -73,6 +73,9 @@
   `ETNA_FALLBACK_KEYS` and `ETNA_MIN_TOTAL_STAKE`.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the reference and default `minStake` is 7,812,500
   TAIKO, so that 128 seats cover TAIKO's 10^27 supply.
+- Etna (BREAKING, spec #22425 at 556c7f1ca): `DeployEtnaStaking` defaults `missLimit` to 21,600 L2
+  blocks, about one day at 4 s blocks, and `missSlashBps` to 100, the specification's references.
+  The example devnet configuration and the shared vectors keep 3,600 and 1,000.
   `withdrawalDelay` counts L2 blocks and must be at least U + 2 + the evidence window, which
   `DeployEtnaStaking`, the readiness builder and the genesis tooling check.
 - Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the

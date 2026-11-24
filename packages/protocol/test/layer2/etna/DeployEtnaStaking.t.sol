@@ -138,8 +138,11 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
         _script.run();
         vm.setEnv("EVIDENCE_WINDOW_BLOCKS", vm.toString(_EVIDENCE_WINDOW));
 
-        // The empty variables read as their defaults, which are the base's reference values, and
-        // an empty DEPLOYMENT_SALT as zero.
+        // The empty variables read as their defaults, an empty DEPLOYMENT_SALT as zero. The defaults
+        // are the base's values except missLimit and missSlashBps, whose defaults are the
+        // specification's references, 21,600 L2 blocks and 100.
+        cfg.missLimit = 21_600;
+        cfg.missSlashBps = 100;
         (, address predictedImpl, address predictedProxy) =
             _script.predict(cfg, STAKING_OWNER, bytes32(0));
         (address impl, address proxy) = _script.run();
