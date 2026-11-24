@@ -3096,8 +3096,9 @@ def on_block_start():
     return decimals({"deployment": base, "cases": out})
 
 
-# The Etna start used by the start ABI and event vectors: S = 1000 with the hash and stateRoot that
-# setOrigin(S) copies from the Unzen Inbox's final proof and the SignalService checkpoint at S.
+# The Etna start used by the start ABI and event vectors: S = 1000, which the origin multisig
+# supplies to setOrigin(S), with the hash it takes from the Unzen Inbox's lastFinalizedBlockHash and
+# the stateRoot it takes from the SignalService checkpoint at S.
 START = (1000, word(0x51), word(0x52))
 # The forced inclusion bytes and fee of the FI ABI and event vectors; encoding is not checked at
 # submission (spec 7.1), so one byte suffices.

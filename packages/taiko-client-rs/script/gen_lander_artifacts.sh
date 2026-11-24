@@ -7,7 +7,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=b9083ab794041c53511dca656b96e7e814b77ef3
+PINNED_REVISION=0025465c33b1079bedb9f4ca336152dfaa8be7f8
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -26,7 +26,7 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
     contracts/layer1/etna/impl/EtnaInbox.sol \
     contracts/layer1/etna/impl/EtnaInboxBootstrap.sol \
     contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol \
-    contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
+    contracts/shared/signal/EtnaSignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
     test/layer1/etna/MockUnzenInbox.sol test/mocks/TestERC20.sol \
     --build-info)
 # The L2 staking contract, the proxy it is deployed behind and the L2 TAIKO token it stakes.
@@ -51,7 +51,8 @@ output.mkdir(parents=True, exist_ok=True)
 artifacts = {
     "EtnaInbox": ("layer1", "EtnaInbox.sol/EtnaInbox.json"),
     "EtnaInboxBootstrap": ("layer1", "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json"),
-    "SignalService": ("layer1", "SignalService.sol/SignalService.json"),
+    # The root-only SignalService that L1 runs on an Etna network.
+    "EtnaSignalService": ("layer1", "EtnaSignalService.sol/EtnaSignalService.json"),
     "InboxWithEtnaCutoffs": ("layer1", "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json"),
     "MockLandProofVerifier": ("layer1", "EtnaInboxTestBase.sol/MockLandProofVerifier.json"),
     "MockUnzenInbox": ("layer1", "MockUnzenInbox.sol/MockUnzenInbox.json"),

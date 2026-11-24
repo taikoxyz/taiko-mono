@@ -1,4 +1,5 @@
-//! Deploy the pinned real Inbox and SignalService, without planting their storage.
+//! Deploy the pinned real Inbox and the root-only `EtnaSignalService` L1 runs, without planting
+//! their storage.
 
 use abci::{ChainParams, ChainParamsExt, GenesisRecord, fallback::FallbackKeys};
 use alloy::{
@@ -20,9 +21,12 @@ sol!(EtnaInbox, "../../crates/lander/tests/fixtures/contracts/EtnaInbox.json");
 /// Kept apart from EtnaInbox: both ABIs declare `ICheckpointStore`, which the Inbox's
 /// `saveCheckpoint` takes.
 mod signal_service {
-    alloy::sol!(SignalService, "../../crates/lander/tests/fixtures/contracts/SignalService.json");
+    alloy::sol!(
+        EtnaSignalService,
+        "../../crates/lander/tests/fixtures/contracts/EtnaSignalService.json"
+    );
 }
-pub use signal_service::SignalService;
+pub use signal_service::EtnaSignalService;
 sol!(ERC1967Proxy, "../../crates/lander/tests/fixtures/contracts/ERC1967Proxy.json");
 sol!(
     MockLandProofVerifier,
@@ -38,6 +42,10 @@ pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 pub const MAX_ANCHOR_AGE: u64 = 7_200;
 /// Anvil's third development key: a forced inclusion user, neither the lander nor the admin.
 pub const USER_KEY: &str = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+/// Anvil's fifth development account, unlocked on the fixture's L1: the designated multisig of a
+/// switching deployment, the only account that may send `setOrigin`.
+pub const ORIGIN_MULTISIG: Address =
+    alloy_primitives::address!("15d34AAf54267DB7D7c367839AAf71A00a2C6A65");
 /// An actual deployed protocol instance on one disposable Osaka anvil.
 pub struct ContractFixture {
     pub anvil: StandaloneAnvil,
@@ -62,13 +70,17 @@ pub struct ContractFixture {
     pub unzen: Option<Address>,
 }
 
-/// A switching deployment's Unzen side: the mock Unzen Inbox address and `ETNA_FORK_TIME`.
+/// A switching deployment's Unzen side: the mock Unzen Inbox address, `ETNA_FORK_TIME` and the
+/// designated multisig.
 #[derive(Clone, Copy, Debug)]
 pub struct Switching {
     /// The mock live Unzen Inbox, the only caller the checkpoint forwarder accepts.
     pub unzen: Address,
     /// `ETNA_FORK_TIME` in L1 Unix seconds.
     pub fork_time: u64,
+    /// The EtnaInbox's `originMultisig`, [`ORIGIN_MULTISIG`], the only caller `setOrigin`
+    /// accepts.
+    pub origin_multisig: Address,
 }
 
 impl ContractFixture {
@@ -87,16 +99,19 @@ impl ContractFixture {
         Self::deploy_network(count, unsettled_limit, None).await
     }
 
-    /// A switching network (START-10-5): the EtnaInbox names a mock live Unzen Inbox and an
-    /// `ETNA_FORK_TIME` `fork_after` seconds after the current L1 time, and its initialization
-    /// leaves the start unwritten until the permissionless `setOrigin(S)`. `genesis` describes
-    /// that unwritten start (height 0, zero hash and root); the chain parameters carry the
-    /// matching `[switch]` configuration.
+    /// A switching network: the EtnaInbox names a mock live Unzen Inbox, an `ETNA_FORK_TIME`
+    /// `fork_after` seconds after the current L1 time and [`ORIGIN_MULTISIG`] as its designated
+    /// multisig, and its initialization leaves the start unwritten until that multisig sends
+    /// `setOrigin(S)`. `genesis` describes that unwritten start (height 0, zero hash and root);
+    /// the chain parameters carry the matching `[switch]` configuration.
     pub async fn deploy_switching(fork_after: u64) -> Result<(Self, Switching)> {
         Self::deploy_network(1, 120, Some(fork_after)).await.map(|fixture| {
             let switch = fixture.params.switch.as_ref().expect("switching parameters");
-            let switching =
-                Switching { unzen: switch.unzen_inbox, fork_time: switch.fork_timestamp };
+            let switching = Switching {
+                unzen: switch.unzen_inbox,
+                fork_time: switch.fork_timestamp,
+                origin_multisig: ORIGIN_MULTISIG,
+            };
             (fixture, switching)
         })
     }
@@ -191,15 +206,15 @@ impl ContractFixture {
             vec![],
         )
         .await?;
+        // L1 runs the root-only SignalService, which never reads L1's own beacon roots.
         let signal_impl = deploy(
             p,
             owner,
-            include_str!("../fixtures/contracts/SignalService.json"),
-            SignalService::constructorCall {
-                authorizedSyncer: inbox,
-                remoteSignalService: Address::repeat_byte(0xdd),
+            include_str!("../fixtures/contracts/EtnaSignalService.json"),
+            EtnaSignalService::constructorCall {
+                _syncer: inbox,
+                _remote: Address::repeat_byte(0xdd),
                 _pauser: owner,
-                // False on L1 (START-10-5).
                 _usesBeaconRoots: false,
             }
             .abi_encode(),
@@ -209,7 +224,7 @@ impl ContractFixture {
             p,
             owner,
             signal_impl,
-            SignalService::initCall { _owner: owner }.abi_encode().into(),
+            EtnaSignalService::initCall { _owner: owner }.abi_encode().into(),
         )
         .await?;
         let inbox_impl = deploy(
@@ -223,6 +238,8 @@ impl ContractFixture {
                         .as_ref()
                         .map_or(0, |switch| switch.fork_timestamp)
                         .try_into()?,
+                    // Set exactly on a switching network, as the constructor requires.
+                    originMultisig: if switch.is_some() { ORIGIN_MULTISIG } else { Address::ZERO },
                     proofVerifier: verifier,
                     signalService: signal,
                     // The configuration hash binds the L2 staking proxy the client reads.
@@ -238,7 +255,7 @@ impl ContractFixture {
             .abi_encode(),
         )
         .await?;
-        // A switching network leaves the start to `setOrigin` (START-10-5a).
+        // A switching network leaves the start to the multisig's `setOrigin`.
         let (start_hash, start_root) = if switch.is_some() {
             (B256::ZERO, B256::ZERO)
         } else {

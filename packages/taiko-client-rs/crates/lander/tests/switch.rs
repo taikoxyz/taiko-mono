@@ -1,10 +1,10 @@
 //! The switch's start write and first landing on the pinned contracts: a mock live Unzen Inbox
-//! serves `proposeCutoff()` and `getCoreState()`, its checkpoint at S reaches the L1
-//! SignalService through the EtnaInbox forwarder, an account with no role writes the start, the
-//! client authenticates it from its own L1 view, the lander's first batch from S carries the
-//! implementation proofs of the L2 SignalService and `EtnaStaking` proxies at S and lands without
-//! reading Unzen state, and the forwarder is closed afterwards. S is a real block of the fixture's
-//! EL, so both proofs verify under its state root.
+//! serves `proposeCutoff()` and `getCoreState()`, the state root of its checkpoint at S reaches
+//! the root-only L1 SignalService through the EtnaInbox forwarder, the designated multisig writes
+//! the start while an unrelated account cannot, the client authenticates it from its own L1 view,
+//! the lander's first batch from S carries the implementation proofs of the L2 SignalService and
+//! `EtnaStaking` proxies at S and lands without reading Unzen state, and the forwarder is closed
+//! afterwards. S is a real block of the fixture's EL, so both proofs verify under its state root.
 mod support;
 
 use abci::{
@@ -34,7 +34,7 @@ use lander::{
 use support::{
     ContractFixture,
     contracts::{
-        EtnaInbox, ICheckpointStore, L2_CHAIN_ID, MockUnzenInbox, SignalService, Switching,
+        EtnaInbox, EtnaSignalService, ICheckpointStore, L2_CHAIN_ID, MockUnzenInbox, Switching,
         USER_KEY, receipt, transact, view,
     },
     fixtures::FixtureChain,
@@ -173,14 +173,17 @@ async fn implementation(f: &ContractFixture, proxy: Address, at: B256) -> Result
 
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unzen_state()
+async fn switch_start_write_comes_from_the_multisig_and_the_first_landing_reads_no_unzen_state()
 -> Result<()> {
-    let (mut f, Switching { unzen, fork_time }) = ContractFixture::deploy_switching(3_600).await?;
+    let (mut f, Switching { unzen, fork_time, origin_multisig: multisig }) =
+        ContractFixture::deploy_switching(3_600).await?;
     let p = f.anvil.provider.clone();
     let user: Address = USER_KEY.parse::<alloy::signers::local::PrivateKeySigner>()?.address();
-    // S, the last Unzen block, a real block of the fixture's EL; the contracts take its hash and
-    // state root from the checkpoint the final Unzen proof saves. The client's switch parameters
-    // name the implementations S's proxies hold, as a release builds them in.
+    assert_eq!(view(&p, f.inbox, EtnaInbox::originMultisigCall {}, None).await?, multisig);
+    // S, the last Unzen block, a real block of the fixture's EL; the contracts take its hash from
+    // the Unzen Inbox's finalized tip and its state root from the checkpoint the final Unzen proof
+    // saves. The client's switch parameters name the implementations S's proxies hold, as a
+    // release builds them in.
     let start = build_start(&f).await?;
     let (hash, root) = (start.hash_slow(), start.state_root);
     assert!(start.timestamp < fork_time, "S is not before the fork time");
@@ -192,18 +195,29 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     switch.staking_implementation = staking_implementation;
     let set_origin = EtnaInbox::setOriginCall { _s: U48::from(S) }.abi_encode();
 
-    // The final Unzen proof forwards S's checkpoint through the still open forwarder.
+    // The final Unzen proof forwards S's checkpoint through the still open forwarder. The
+    // root-only SignalService keeps its state root alone and answers a zero hash.
     forward(&f, unzen, (S, hash, root)).await?;
-    let saved =
-        view(&p, f.signal, SignalService::getCheckpointCall { _blockNumber: U48::from(S) }, None)
-            .await?;
-    assert_eq!((saved.blockHash, saved.stateRoot), (hash, root));
+    let saved = view(
+        &p,
+        f.signal,
+        EtnaSignalService::getCheckpointCall { _blockNumber: U48::from(S) },
+        None,
+    )
+    .await?;
+    assert_eq!((saved.blockHash, saved.stateRoot), (B256::ZERO, root));
 
     // Before ETNA_FORK_TIME, before the Unzen cutoff and while a proposal is unproven the
-    // start write reverts, whoever calls.
+    // multisig's start write reverts.
     assert!(now(&p).await? < fork_time);
-    assert_reverts(&p, user, f.inbox, set_origin.clone(), EtnaInbox::BeforeEtnaForkTime::SELECTOR)
-        .await?;
+    assert_reverts(
+        &p,
+        multisig,
+        f.inbox,
+        set_origin.clone(),
+        EtnaInbox::BeforeEtnaForkTime::SELECTOR,
+    )
+    .await?;
     anvil_request::<serde_json::Value>(
         &p,
         "evm_setNextBlockTimestamp",
@@ -211,8 +225,14 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     )
     .await?;
     mine_l1_blocks(&p, 1).await?;
-    assert_reverts(&p, user, f.inbox, set_origin.clone(), EtnaInbox::ProposalsNotClosed::SELECTOR)
-        .await?;
+    assert_reverts(
+        &p,
+        multisig,
+        f.inbox,
+        set_origin.clone(),
+        EtnaInbox::ProposalsNotClosed::SELECTOR,
+    )
+    .await?;
     let cutoff = U48::from(fork_time - 12);
     transact(
         &p,
@@ -227,26 +247,43 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
         _lastFinalizedBlockHash: hash,
     };
     transact(&p, f.admin, unzen, unproven.abi_encode()).await?;
-    assert_reverts(&p, user, f.inbox, set_origin.clone(), EtnaInbox::UnzenNotFinalized::SELECTOR)
-        .await?;
-    // A finalized tip other than S's checkpoint is no start.
-    let other = MockUnzenInbox::setCoreStateCall {
+    assert_reverts(
+        &p,
+        multisig,
+        f.inbox,
+        set_origin.clone(),
+        EtnaInbox::UnzenNotFinalized::SELECTOR,
+    )
+    .await?;
+    // A finalized Unzen tip without a hash is no start.
+    let hashless = MockUnzenInbox::setCoreStateCall {
         _nextProposalId: U48::from(5),
         _lastFinalizedProposalId: U48::from(4),
-        _lastFinalizedBlockHash: B256::repeat_byte(0x99),
+        _lastFinalizedBlockHash: B256::ZERO,
     };
-    transact(&p, f.admin, unzen, other.abi_encode()).await?;
-    assert_reverts(&p, user, f.inbox, set_origin.clone(), EtnaInbox::UnzenStartMismatch::SELECTOR)
-        .await?;
+    transact(&p, f.admin, unzen, hashless.abi_encode()).await?;
+    assert_reverts(
+        &p,
+        multisig,
+        f.inbox,
+        set_origin.clone(),
+        EtnaInbox::UnzenTipHashZero::SELECTOR,
+    )
+    .await?;
 
-    // Every Unzen proposal is proven at S: an account with no role writes the start.
+    // Every Unzen proposal is proven at S. Every other gate passes, yet an unrelated account
+    // cannot write the start; the multisig, which supplies S, writes it.
     let final_state = MockUnzenInbox::setCoreStateCall {
         _nextProposalId: U48::from(5),
         _lastFinalizedProposalId: U48::from(4),
         _lastFinalizedBlockHash: hash,
     };
     transact(&p, f.admin, unzen, final_state.abi_encode()).await?;
-    let written = transact(&p, user, f.inbox, set_origin.clone()).await?;
+    assert_reverts(&p, user, f.inbox, set_origin.clone(), EtnaInbox::NotOriginMultisig::SELECTOR)
+        .await?;
+    let unwritten = view(&p, f.inbox, EtnaInbox::etnaStartCall {}, None).await?;
+    assert_eq!((unwritten.height_.to::<u64>(), unwritten.blockHash_), (0, B256::ZERO));
+    let written = transact(&p, multisig, f.inbox, set_origin.clone()).await?;
     let l1_0 = written.block_number.context("start write block")?;
     let event = written.decoded_log::<EtnaInbox::StartWritten>().context("StartWritten")?;
     assert_eq!(
@@ -257,7 +294,8 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     assert_eq!((recorded.height_.to::<u64>(), recorded.blockHash_), (S, hash));
     assert_eq!(f.checkpoint().await?, (S, hash));
     // Written once, and the forwarder is closed at every height.
-    assert_reverts(&p, user, f.inbox, set_origin, EtnaInbox::StartAlreadyWritten::SELECTOR).await?;
+    assert_reverts(&p, multisig, f.inbox, set_origin, EtnaInbox::StartAlreadyWritten::SELECTOR)
+        .await?;
     for number in [S, S + 1] {
         let error = forward(&f, unzen, (number, hash, root)).await.expect_err("forwarder closed");
         let text = format!("{error:#}");

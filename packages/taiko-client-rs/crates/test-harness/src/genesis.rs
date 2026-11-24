@@ -439,6 +439,8 @@ mod tests {
         include_str!("../../lander/tests/fixtures/contracts/EtnaStaking.json");
     const TOKEN_ARTIFACT: &str =
         include_str!("../../lander/tests/fixtures/contracts/BridgedTaikoToken.json");
+    const SIGNAL_SERVICE_ARTIFACT: &str =
+        include_str!("../../lander/tests/fixtures/contracts/EtnaSignalService.json");
 
     /// The compiled runtime in a contract fixture.
     fn runtime(artifact: &str) -> Bytes {
@@ -502,5 +504,24 @@ mod tests {
         }
         // `_totalSupply`, slot 303.
         assert_eq!(word(B256::from(U256::from(303))), premint * U256::from(stakers.len()));
+    }
+
+    /// The devnet genesis's L2 SignalService proxy points at the pinned protocol revision's
+    /// root-only `EtnaSignalService`, the implementation L1 runs too, with its immutables filled.
+    #[test]
+    fn devnet_genesis_runs_the_root_only_signal_service() {
+        use alloy_primitives::b256;
+
+        const IMPLEMENTATION_SLOT: B256 =
+            b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+        let proxy = abci::l2_signal_service_address(167001);
+        let implementation = address!("0167001000000000000000000000000000000005");
+        let genesis: Genesis = serde_json::from_str(&EtnaGenesis::build().unwrap().json).unwrap();
+        let account = genesis.alloc.get(&proxy).expect("predeployed SignalService proxy");
+        assert_eq!(account.code.as_ref(), Some(&runtime(PROXY_ARTIFACT)));
+        let slot = account.storage.as_ref().unwrap()[&IMPLEMENTATION_SLOT];
+        assert_eq!(slot, implementation.into_word());
+        let code = genesis.alloc[&implementation].code.as_ref().unwrap();
+        assert!(fills_immutables_of(code, &runtime(SIGNAL_SERVICE_ARTIFACT)));
     }
 }

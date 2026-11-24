@@ -13,7 +13,7 @@ use lander::{
 };
 use support::{
     ContractFixture,
-    contracts::{EtnaInbox, SignalService, receipt, transact, view},
+    contracts::{EtnaInbox, EtnaSignalService, receipt, transact, view},
     fixtures::FixtureChain,
 };
 use test_harness::{dev_signer, mine_l1_blocks};
@@ -93,13 +93,14 @@ async fn assert_landed(
     let saved = view(
         p,
         fixture.signal,
-        SignalService::getCheckpointCall {
+        EtnaSignalService::getCheckpointCall {
             _blockNumber: request.batch.input.lastHeight.to::<u64>().try_into()?,
         },
         None,
     )
     .await?;
-    assert_eq!(saved.blockHash, request.batch.input.lastBlockHash);
+    // The root-only SignalService keeps the state root alone and answers a zero hash.
+    assert_eq!(saved.blockHash, B256::ZERO);
     assert_eq!(saved.stateRoot, request.batch.input.lastStateRoot);
     Ok(receipt)
 }
@@ -227,7 +228,7 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
         view(
             &fixture.anvil.provider,
             fixture.signal,
-            SignalService::getCheckpointCall { _blockNumber: 6u64.try_into()? },
+            EtnaSignalService::getCheckpointCall { _blockNumber: 6u64.try_into()? },
             None
         )
         .await
@@ -236,11 +237,14 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
     let saved = view(
         &fixture.anvil.provider,
         fixture.signal,
-        SignalService::getCheckpointCall { _blockNumber: 0u64.try_into()? },
+        EtnaSignalService::getCheckpointCall { _blockNumber: 0u64.try_into()? },
         None,
     )
     .await?;
-    assert_eq!(saved.blockHash, fixture.genesis.genesis_hash);
+    assert_eq!(
+        (saved.blockHash, saved.stateRoot),
+        (B256::ZERO, fixture.genesis.genesis_state_root)
+    );
     fixture.anvil.stop().await
 }
 

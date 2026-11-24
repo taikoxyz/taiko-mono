@@ -1,10 +1,10 @@
 {
   "artifacts": {
-    "devnet-genesis.json": "79a28dbb93380a364cc40621fbf0a86569ddb6ca481578ccd778d74791b485ae",
+    "devnet-genesis.json": "e73128bf011588e769285691e8e1ea49b2d5af73bd03ecec500a762ca0589d78",
     "system-runtimes.json": "dfc49844adf1e81f88b4fdc1fd342f104c8d6c240aeee8e0f0a23c5a2837b304"
   },
   "generator": "script/gen_test_harness_artifacts.sh",
-  "protocolRevision": "b9083ab794041c53511dca656b96e7e814b77ef3",
+  "protocolRevision": "0025465c33b1079bedb9f4ca336152dfaa8be7f8",
   "revision": "7174fd0064c69fa75ce784b8ec13702fffa5d429",
   "sources": {
     "crates/chainspec/src/genesis/devnet.json": "213f446a01b718ca32fad18039d53aa04235fd4886b215a9be24e76a58f727db",
