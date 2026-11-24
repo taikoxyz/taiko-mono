@@ -1,7 +1,7 @@
 # Etna client conformance fixtures
 
 Four vector families follow the Etna specification at
-[`9325677de`](https://github.com/taikoxyz/taiko-mono/tree/9325677defe988cd46d305f8fcbf4b48a05a57c4/packages/protocol/docs/etna),
+[`fb8a348e9`](https://github.com/taikoxyz/taiko-mono/tree/fb8a348e9c9998327541d562d69a2a636f8974f8/packages/protocol/docs/etna),
 each file's `provenance.specCommit`. `../../etna_conformance.rs` runs every vector through the
 client's validation and its signing-set decision, as that harness describes.
 

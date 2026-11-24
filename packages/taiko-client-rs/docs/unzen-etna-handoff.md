@@ -7,7 +7,7 @@ and switch deployment remain separate work.
 
 ## Required deployment inputs
 
-Use alethia-reth revision `7174fd0064c69fa75ce784b8ec13702fffa5d429` or a compatible release.
+Use alethia-reth revision `493b6074b6d5749cea5e566b444bced8f14b258b` or a compatible release.
 Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Run it with
 exactly the client's Etna time ([below](#the-els-etna-time)). Existing L2 history and state stay
 in place. The Etna L2 SignalService implementation and the EIP-4788/2935 code must already be

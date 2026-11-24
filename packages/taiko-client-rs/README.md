@@ -75,10 +75,10 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It implements the Etna
-specification at `9325677de` (#22425 with #22428) and is aligned with the protocol revision
-`0025465c33b1079bedb9f4ca336152dfaa8be7f8` (#22286; `PINNED_REVISION` in
+specification at `fb8a348e9` (#22425 with #22428) and is aligned with the protocol revision
+`f48b871224180f1f5aaf32315f7bc7547f28831b` (#22286; `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh`, the Inbox and the other pinned contract artifacts)
-and alethia-reth commit `7174fd0064c69fa75ce784b8ec13702fffa5d429` (#248). Start the EL and verify its block 0 before the Inbox
+and alethia-reth commit `493b6074b6d5749cea5e566b444bced8f14b258b` (#248). Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 
@@ -1184,7 +1184,7 @@ The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/REA
 257 historical model regressions regenerated from #22292 at `4f38cfcc8` and adapted by hand to
 the 13-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
 documented height-bound divergence and establish no conformance to the latest Etna
-specification, and one client-owned family transcribed from the specification at `9325677de`:
+specification, and one client-owned family transcribed from the specification at `fb8a348e9`:
 `candidate` (25 vectors), which runs the client's signing-set decision. Staking contract vectors
 belong to the contract harness.
 
@@ -1265,7 +1265,7 @@ belong to the contract harness.
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires the pinned protocol revision (`0025465c3`, see Fresh deployment;
+The script requires the pinned protocol revision (`f48b87122`, see Fresh deployment;
 `PINNED_REVISION` in the script) as HEAD, installs pnpm
 dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox and the root-only
 `EtnaSignalService` with
@@ -1277,7 +1277,7 @@ tests read) from that revision and records their hashes. Run it twice and requir
 generated output.
 The export includes the `EtnaSignalService` that L1 runs and an ABI-only Unzen cutoff artifact,
 whose external library references are recorded in the manifest rather than exposing unlinked
-deployment bytecode. Shared vectors follow the pinned contracts' schema 10. Test adapter updates
+deployment bytecode. Shared vectors follow the pinned contracts' schema 11. Test adapter updates
 and execution are separate from this artifact refresh.
 
 Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with
