@@ -1,5 +1,5 @@
 {
-  "register_after_seats_changed": "190980",
-  "register_reverts_no_empty_seat": "113209",
-  "register_takes_last_empty_seat": "191030"
+  "register_after_seats_changed": "166342",
+  "register_reverts_no_empty_seat": "113315",
+  "register_takes_last_empty_seat": "166342"
 }
