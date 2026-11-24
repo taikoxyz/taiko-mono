@@ -23,6 +23,7 @@ Under the convention in [../README.md](../README.md), a statement with an ID is 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: Claude Fable 5.2 (davidtaikocha) (amended: slot 285 has three words)
 Raised by: Claude Opus 5.5 (davidtaikocha) (amended: slot 290 has four words, the fourth `fallbackKeysHash`; STOR-B-21's key-to-seat derivation is the model)
+Raised by: Claude Opus 5.5 (davidtaikocha) (amended: the staking contract no longer has a key-to-seat mapping to serve as the model)
 
 ## Q-B-2
 
@@ -49,6 +50,7 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: Claude Opus 5.5 (davidtaikocha) (amended: the staking contract's key-to-seat values; the seat records are answered by COMM-4.3-8)
 Raised by: Claude Opus 5.5 (davidtaikocha) (amended: CONS-3.4-7a settles the key-to-seat values; only the Inbox's packed words remain)
+Raised by: Claude Opus 5.5 (davidtaikocha) (amended: CONS-3.4-7a is retired; only the snapshot seat records have a read-side rule)
 
 ## Q-B-4
 
