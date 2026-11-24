@@ -21,6 +21,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bindings",
+ "etna-core",
  "flate2",
  "futures",
  "k256",

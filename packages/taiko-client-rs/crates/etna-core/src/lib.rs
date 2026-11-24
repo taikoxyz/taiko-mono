@@ -1,8 +1,8 @@
 //! Portable Etna consensus primitives for Raiko2.
 //!
 //! This independent port is based on the Taiko client at
-//! `ea74662169262dc8ab6ada7028d2ef54137088d2`. The node continues to use its existing ABCI and
-//! lander implementations. Client adoption is a separate migration step.
+//! `ea74662169262dc8ab6ada7028d2ef54137088d2`. ABCI uses the shared [`l1_header`] parser.
+//! Adoption of the remaining portable consensus APIs is a separate migration step.
 //!
 //! The crate tests check compatibility with the stock CometBFT v0.40.0 wire and validator-state
 //! vectors copied from that baseline.
@@ -30,6 +30,8 @@ pub mod committee;
 pub mod domain;
 /// Validated consensus identities and stock key JSON.
 pub mod key;
+/// Raw L1 header decoding and byte identity.
+pub mod l1_header;
 /// Canonical deployment data and pure parameter validation.
 pub mod params;
 /// Registry storage layout without a proof-engine dependency.
