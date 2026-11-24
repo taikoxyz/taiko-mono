@@ -445,15 +445,13 @@ contract TestGenerateEtnaGenesis is GenerateGenesisTestBase {
         assertEq(staking.minStake(), etnaUint("minStake"));
         assertEq(staking.vpUnit(), etnaUint("vpUnit"));
         assertEq(staking.nMax(), etnaUint("nMax"));
-        assertEq(staking.missLimit(), etnaUint("missLimit"));
-        assertEq(staking.missSlashBps(), etnaUint("missSlashBps"));
         assertEq(staking.withdrawalDelay(), etnaUint("withdrawalDelay"));
         assertEq(staking.slashBountyBps(), etnaUint("slashBountyBps"));
         assertEq(staking.slashSink(), configJSON.readAddress(".etna.slashSink"));
         assertEq(staking.forfeitBps(), etnaUint("forfeitBps"));
 
-        // T, T + 1, the key-to-seat mapping's slot and the 128 snapshot records are all zero.
-        for (uint256 i; i <= 258; ++i) {
+        // T, T + 1 and the 128 snapshot records at T + 2 to T + 257 are all zero.
+        for (uint256 i; i < 258; ++i) {
             assertEq(vm.load(address(staking), bytes32(uint256(T) + i)), bytes32(0));
         }
         assertEq(staking.bondCount(), 0);
@@ -502,15 +500,15 @@ contract TestGenerateEtnaGenesis is GenerateGenesisTestBase {
         vm.roll(block.number + 1);
         address systemCaller = staking.SYSTEM_CALLER();
         vm.prank(systemCaller);
-        staking.onBlockStart(0, 0);
+        staking.onBlockStart(0);
 
         (uint8 ckPrefix, bytes32 ckX) = EtnaTestKeys.fallbackKey(1);
         uint256 power = minStake / staking.vpUnit();
         assertEq(uint256(vm.load(address(staking), T)), block.number);
         assertEq(uint256(vm.load(address(staking), bytes32(uint256(T) + 1))), minStake);
-        assertEq(vm.load(address(staking), bytes32(uint256(T) + 3)), ckX);
+        assertEq(vm.load(address(staking), bytes32(uint256(T) + 2)), ckX);
         assertEq(
-            uint256(vm.load(address(staking), bytes32(uint256(T) + 4))),
+            uint256(vm.load(address(staking), bytes32(uint256(T) + 3))),
             uint256(ckPrefix) | (power << 8)
         );
     }

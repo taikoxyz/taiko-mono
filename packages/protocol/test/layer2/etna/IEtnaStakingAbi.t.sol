@@ -14,7 +14,7 @@ contract IEtnaStakingAbiTest is CommonTest {
         assertEq(IEtnaStaking.withdraw.selector, bytes4(0x00f714ce), "withdraw");
         assertEq(IEtnaStaking.slashDoubleSign.selector, bytes4(0xd61617a4), "slashDoubleSign");
         assertEq(IEtnaStaking.forfeit.selector, bytes4(0x7b41461f), "forfeit");
-        assertEq(IEtnaStaking.onBlockStart.selector, bytes4(0xea987592), "onBlockStart");
+        assertEq(IEtnaStaking.onBlockStart.selector, bytes4(0xaa28c32e), "onBlockStart");
         assertEq(IEtnaStaking.bondForKey.selector, bytes4(0x830dc3a1), "bondForKey");
         assertEq(IEtnaStaking.seatOfBond.selector, bytes4(0x7b81a4dc), "seatOfBond");
         assertEq(IEtnaStaking.bondInSeat.selector, bytes4(0xd0b5360d), "bondInSeat");
@@ -35,14 +35,16 @@ contract IEtnaStakingAbiTest is CommonTest {
         );
     }
 
-    /// @dev The block-start calldata is the selector followed by the two arguments' standard ABI
-    /// words, 68 bytes in all.
+    /// @dev The block-start calldata is the selector followed by the generation's standard ABI
+    /// word, 36 bytes in all.
     function test_onBlockStartCalldata_IsTheStandardEncoding() external pure {
-        bytes memory data =
-            abi.encodeCall(IEtnaStaking.onBlockStart, (uint48(1), uint128(2 ** 127 + 1)));
-        assertEq(data.length, 68, "length");
         assertEq(
-            data, abi.encodePacked(bytes4(0xea987592), uint256(1), uint256(2 ** 127 + 1)), "data"
+            bytes4(keccak256("onBlockStart(uint48)")), bytes4(0xaa28c32e), "the selector's preimage"
         );
+        bytes memory data = abi.encodeCall(IEtnaStaking.onBlockStart, (uint48(1)));
+        assertEq(data.length, 36, "length");
+        assertEq(data, abi.encodePacked(bytes4(0xaa28c32e), uint256(1)), "data");
+        data = abi.encodeCall(IEtnaStaking.onBlockStart, (type(uint48).max));
+        assertEq(data, abi.encodePacked(bytes4(0xaa28c32e), uint256(2 ** 48 - 1)), "the max");
     }
 }

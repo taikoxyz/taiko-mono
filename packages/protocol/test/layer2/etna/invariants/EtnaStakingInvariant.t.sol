@@ -7,26 +7,27 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
 /// @title EtnaStakingInvariantTest
-/// @notice The stake balance, the seat conditions, the seat views and key-to-seat words, the
-/// snapshot records, exit heights, forfeiture flags and key registrations under random sequences
-/// of registrations, top-ups, exits, withdrawals, double-sign slashes, forfeitures, block-start
-/// calls and L2 blocks.
-/// @dev The deployment has 8 seats, missLimit 2 and minStake 1.25 * 10^26, so 8 * minStake is
-/// TAIKO's 10^27 supply; the stand-in token mints freely, so more bonds than seats can reach m.
+/// @notice The stake balance, the seat conditions, the seat views, the snapshot records, exit
+/// heights, forfeiture flags and key registrations under random sequences of registrations,
+/// top-ups, exits, withdrawals, double-sign slashes, forfeitures, block-start calls and L2 blocks.
+/// @dev The deployment has 8 seats and minStake 1.25 * 10^26, so 8 * minStake is TAIKO's 10^27
+/// supply; the stand-in token mints freely, so more bonds than seats can reach m.
 /// Foundry runs a separate campaign per invariant function and asserts only that function in it,
 /// so every invariant also asserts that the handler saw no violation of any kind.
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingInvariantTest is EtnaStakingTestBase {
     uint256 internal constant INVARIANT_N_MAX = 8;
-    uint256 internal constant INVARIANT_MISS_LIMIT = 2;
     uint256 internal constant INVARIANT_MIN_STAKE = 1.25e26;
 
     /// @dev The number of snapshot records.
     uint256 internal constant MAX_RECORDS = 128;
 
-    /// @dev Slot T + 398, whose low 128 bits are the occupancy bitmap.
-    uint256 internal constant OCCUPANCY_OFFSET = 398;
+    /// @dev Slot T + 389, whose low 128 bits are the occupancy bitmap.
+    uint256 internal constant OCCUPANCY_OFFSET = 389;
+
+    /// @dev The offset from T of the seat table, bond id + 1 of the bond in each seat.
+    uint256 internal constant SEAT_TABLE_OFFSET = 261;
 
     EtnaStakingHandler internal handler;
 
@@ -34,7 +35,6 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
         super.setUp();
         IEtnaStaking.Config memory cfg = _config();
         cfg.nMax = INVARIANT_N_MAX;
-        cfg.missLimit = INVARIANT_MISS_LIMIT;
         cfg.minStake = INVARIANT_MIN_STAKE;
         staking = _deploy(cfg);
         handler = new EtnaStakingHandler(staking, token, STAKING_OWNER);
@@ -69,15 +69,17 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
     }
 
     /// @notice A bond holds a seat exactly while it is issued, unwithdrawn, has no exit and has
-    /// effStake >= m; an unissued id holds none.
+    /// effStake >= m, and every unwithdrawn bond with no exit meets the stake condition, so no
+    /// bond is left seatless without an exit; an unissued id holds none.
     function invariant_seatHeldIffIssuedUnwithdrawnNoExitAndAtLeastMinStake() external view {
         _assertNoViolation();
         uint256 count = staking.bondCount();
         assertEq(count, handler.bondTotal(), "one bond id per registration");
         for (uint256 bondId; bondId < count; ++bondId) {
             IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
-            bool eligible = !bond.withdrawn && bond.exitHeight == NO_EXIT
-                && bond.effStake >= INVARIANT_MIN_STAKE;
+            bool noExit = !bond.withdrawn && bond.exitHeight == NO_EXIT;
+            if (noExit) assertGe(bond.effStake, INVARIANT_MIN_STAKE, "a bond with no exit");
+            bool eligible = noExit && bond.effStake >= INVARIANT_MIN_STAKE;
             assertEq(bond.holdsSeat, eligible, "the record's seat flag");
             _assertSeatOfBond(bondId, eligible, eligible ? bond.seat : 0, "seatOfBond");
         }
@@ -87,11 +89,10 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
         }
     }
 
-    /// @notice `bondInSeat`, `seatOfBond`, the occupancy bitmap and the key-to-seat word of every
-    /// key agree: an occupied seat below nMax names a bond holding that seat, whose key's word is
-    /// [holdsSeat = 1, seat]; every seat at or above nMax reads empty; and the word of a key whose
-    /// bond holds no seat, or that no bond registered, is 0.
-    function invariant_seatViewsAndKeySeatWordsAgree() external view {
+    /// @notice `bondInSeat`, `seatOfBond` and the occupancy bitmap agree: an occupied seat below
+    /// nMax names a bond holding that seat, each seated bond's seat names it, and every seat at or
+    /// above nMax reads empty.
+    function invariant_seatViewsAgree() external view {
         _assertNoViolation();
         uint256 occupancy;
         uint256 held;
@@ -124,30 +125,15 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
             _assertBondInSeat(seat, true, bondId, "the bond's seat names it");
         }
         assertEq(seatedBonds, held, "one bond per occupied seat");
-
-        for (uint256 pk = 1; pk <= handler.KEY_COUNT(); ++pk) {
-            bytes32 word = _keySeatWord(EtnaTestKeys.ckAddr(pk));
-            (bool used, uint256 bondId) = handler.bondOfKey(pk);
-            bool holdsSeat;
-            uint8 seat;
-            if (used) (holdsSeat, seat) = staking.seatOfBond(bondId);
-            assertEq(
-                word,
-                holdsSeat ? bytes32(1 | uint256(seat) << 8) : bytes32(0),
-                "the key-to-seat word"
-            );
-        }
     }
 
-    /// @notice The snapshot records, seat table entries and miss counts of seats at or above
-    /// nMax stay zero.
+    /// @notice The snapshot records and seat table entries of seats at or above nMax stay zero.
     function invariant_recordsAtOrAboveNMaxAreZero() external view {
         _assertNoViolation();
         for (uint256 seat = INVARIANT_N_MAX; seat < MAX_RECORDS; ++seat) {
-            assertEq(_word(3 + 2 * seat), 0, "record word 1");
-            assertEq(_word(4 + 2 * seat), 0, "record word 2");
-            assertEq(_word(262 + seat), 0, "the seat table entry");
-            assertEq(staking.missCount(uint8(seat)), 0, "the miss count");
+            assertEq(_word(2 + 2 * seat), 0, "record word 1");
+            assertEq(_word(3 + 2 * seat), 0, "record word 2");
+            assertEq(_word(SEAT_TABLE_OFFSET + seat), 0, "the seat table entry");
         }
     }
 

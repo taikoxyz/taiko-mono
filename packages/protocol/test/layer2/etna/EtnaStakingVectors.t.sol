@@ -156,11 +156,10 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     // Storage layout
     // ---------------------------------------------------------------
 
-    /// @dev The namespace base T, the snapshot words, the key-to-seat mapping, the record slots,
-    /// the EIP-1967 slot and the no-exit value are the contract's; the key-to-seat words decode
-    /// to a seat exactly as the vectors say (null for none). Live, keys a1-a5 register in seats
-    /// 0-4 with their vector proofs and K1 then takes seat 5: the words at the vector key slots
-    /// and, after a block-start call, the snapshot words are what `vm.load` reads.
+    /// @dev The namespace base T, the snapshot words, the record slots, the EIP-1967 slot and the
+    /// no-exit value are the contract's. Live, keys a1-a5 register in seats 0-4 with their vector
+    /// proofs and K1 then takes seat 5: after a block-start call, the snapshot words at the vector
+    /// slots are what `vm.load` reads.
     function test_stakingLayout_SlotsAndWordsMatchContractStorage() external {
         string memory j = LibEtnaVectors.load();
         string memory s = ".staking_layout.";
@@ -170,7 +169,6 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_bytes32(j, s, "base"), T, "T");
         assertEq(_bytes32(j, s, "snapshot_height_slot"), T, "snapshotHeight at T");
         assertEq(uint256(_bytes32(j, s, "snapshot_total_stake_slot")), uint256(T) + 1, "T + 1");
-        assertEq(uint256(_bytes32(j, s, "key_seat_slot")), uint256(T) + 2, "T + 2");
         assertEq(_bytes32(j, s, "implementation_slot"), _IMPLEMENTATION_SLOT, "EIP-1967 slot");
         assertEq(
             vm.load(address(staking), _IMPLEMENTATION_SLOT),
@@ -180,7 +178,6 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_uint(j, s, "no_exit"), staking.NO_EXIT(), "no exit");
 
         _assertRecordSlots(j, s);
-        _assertKeySeatWords(j, s);
         _assertRecordWords(j, s);
 
         // Keys a1-a5 in seats 0-4, then K1 in seat 5.
@@ -196,25 +193,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         uint256 k1 = _register(1, Bob, MIN_STAKE);
         _assertSeatOfBond(k1, true, 5, "K1 takes seat 5");
 
-        string memory slots = string.concat(s, "key_seat_slots");
-        assertEq(LibEtnaVectors.lengthAt(j, slots), 6, "key slots");
-        assertEq(_address(j, _at(slots, 0), "ck_addr"), EtnaTestKeys.ckAddr(1), "K1");
-        assertEq(_address(j, _at(slots, 1), "ck_addr"), EtnaTestKeys.ckAddr(2), "K2");
-        bytes32 k1Slot = _bytes32(j, _at(slots, 0), "slot");
-        assertEq(vm.load(address(staking), k1Slot), _bytes32(j, s, "key_seat_words[0].word"));
-        assertEq(_uint(j, s, "key_seat_words[0].seat"), 5, "the K1 word names seat 5");
-        assertEq(vm.load(address(staking), _bytes32(j, _at(slots, 1), "slot")), 0, "K2 is unused");
-        for (uint256 k; k < 4; ++k) {
-            string memory p = _at(slots, 2 + k);
-            assertEq(_address(j, p, "ck_addr"), _address(j, _at(".keys", k), "ck_addr"), "a_k");
-            assertEq(
-                vm.load(address(staking), _bytes32(j, p, "slot")),
-                bytes32((k << 8) | 1),
-                "a_k holds seat k"
-            );
-        }
-
-        _blockStart(0, 0);
+        _blockStart(0);
         assertEq(uint256(vm.load(address(staking), T)), block.number, "snapshotHeight");
         assertEq(
             uint256(vm.load(address(staking), bytes32(uint256(T) + 1))),
@@ -229,12 +208,16 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
             2 | ((MIN_STAKE / VP_UNIT) << 8),
             "seat 5 prefix and power"
         );
+        string memory seat0 = string.concat(s, "record_slots[0].");
+        assertEq(_uint(j, seat0, "seat"), 0, "record slots of seat 0");
+        assertEq(
+            vm.load(address(staking), _bytes32(j, seat0, "word1")),
+            _bytes32(j, ".keys[0].", "ck_x"),
+            "seat 0 ckX: key a1"
+        );
         string memory seat127 = string.concat(s, "record_slots[2].");
         assertEq(vm.load(address(staking), _bytes32(j, seat127, "word1")), 0, "seat 127 empty");
         assertEq(vm.load(address(staking), _bytes32(j, seat127, "word2")), 0, "seat 127 empty");
-
-        _requestExit(k1);
-        assertEq(vm.load(address(staking), k1Slot), 0, "K1 has no seat after its exit");
     }
 
     // ---------------------------------------------------------------
@@ -244,10 +227,10 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     /// @dev Every `on_block_start` case on a fresh staking contract with the case's overrides:
     /// the registrations at block 1000 - k - 1, the k prior calls in the blocks before 1000 and
     /// the call at 1000 (the block numbers are this suite's; nothing expected depends on them).
-    /// Every expected field is compared: every seat's miss count, every bond's effStake and seat,
-    /// the penalty sent to slashSink, all 128 records, the snapshot words and the generation. Gas
-    /// metering is paused: the cases deploy a contract each, beyond the block gas limit a test runs
-    /// under, and nothing compared depends on gas.
+    /// Every expected field is compared: every bond's effStake and seat, all 128 records, the
+    /// snapshot words and the generation, and the calls move no token. Gas metering is paused:
+    /// the cases deploy a contract each, beyond the block gas limit a test runs under, and nothing
+    /// compared depends on gas.
     function test_onBlockStart_ReplaysEveryVectorCase() external {
         vm.pauseGasMetering();
         string memory j = LibEtnaVectors.load();
@@ -255,12 +238,10 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_uint(j, d, "n_max"), N_MAX, "nMax");
         assertEq(_uint(j, d, "min_stake"), MIN_STAKE, "minStake");
         assertEq(_uint(j, d, "vp_unit"), VP_UNIT, "vpUnit");
-        assertEq(_uint(j, d, "miss_limit"), MISS_LIMIT, "missLimit");
-        assertEq(_uint(j, d, "miss_slash_bps"), MISS_SLASH_BPS, "missSlashBps");
 
         string memory list = ".on_block_start.cases";
         uint256 n = LibEtnaVectors.lengthAt(j, list);
-        assertEq(n, 16, "cases");
+        assertEq(n, 7, "cases");
         for (uint256 i; i < n; ++i) {
             uint256 fresh = vm.snapshotState();
             uint256 mark = _freeMemory();
@@ -271,8 +252,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     }
 
     /// @dev Every `extra_data` row's block-start calldata is `onBlockStart` of the row's
-    /// generation and missBitmap, which are bytes 1-6 and 13-28 of its extraData, and stores
-    /// that generation; the spec's calldata and selector examples are Solidity's.
+    /// generation, which is bytes 1-6 of its 13-byte extraData, and stores that generation; the
+    /// spec's calldata and selector examples are Solidity's.
     function test_onBlockStart_CalldataEqualsTheExtraDataRows() external {
         string memory j = LibEtnaVectors.load();
         string memory a = ".appendix_a_examples.";
@@ -288,26 +269,24 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         );
         assertEq(
             _bytes(j, string.concat(a, "enc_a_10d_a."), "calldata"),
-            abi.encodeCall(IEtnaStaking.onBlockStart, (1, 5)),
+            abi.encodeCall(IEtnaStaking.onBlockStart, (1)),
             "calldata example"
         );
 
         uint256 n = LibEtnaVectors.lengthAt(j, ".extra_data");
-        assertEq(n, 5, "rows");
+        assertEq(n, 3, "rows");
         for (uint256 i; i < n; ++i) {
             string memory p = _at(".extra_data", i);
             uint48 generation = uint48(_uint(j, p, "generation"));
-            uint128 missBitmap = uint128(_uint(j, p, "miss_bitmap"));
             bytes memory data = _bytes(j, p, "on_block_start_calldata");
-            assertEq(data.length, 68, "68 bytes");
-            assertEq(data, abi.encodeCall(IEtnaStaking.onBlockStart, (generation, missBitmap)));
+            assertEq(data.length, 36, "36 bytes");
+            assertEq(data, abi.encodeCall(IEtnaStaking.onBlockStart, (generation)));
 
             bytes memory extraData = _bytes(j, p, "extra_data");
-            assertEq(extraData.length, 29, "29 bytes");
+            assertEq(extraData.length, 13, "13 bytes");
             assertEq(uint8(extraData[0]), 0x64, "version byte");
             assertEq(_bigEndian(extraData, 1, 6), generation, "generation bytes");
             assertEq(_bigEndian(extraData, 7, 6), _uint(j, p, "anchor_number"), "anchor bytes");
-            assertEq(_bigEndian(extraData, 13, 16), missBitmap, "missBitmap bytes");
 
             vm.roll(block.number + 1);
             vm.prank(SYSTEM_CALLER);
@@ -439,7 +418,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
             cfg.forfeitBps = bps;
             staking = _deploy(cfg);
             uint256 bondId = _register(0xC0A, Alice, MIN_STAKE);
-            bytes32 word2 = bytes32(uint256(keccak256(abi.encode(bondId, uint256(T) + 260))) + 2);
+            bytes32 word2 = bytes32(uint256(keccak256(abi.encode(bondId, uint256(T) + 259))) + 2);
             vm.store(address(staking), word2, bytes32(balance));
             if (balance > MIN_STAKE) token.mint(address(staking), balance - MIN_STAKE);
 
@@ -522,7 +501,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
             string.concat(g, "on_block_start"),
             "staking",
             IEtnaStaking.onBlockStart.selector,
-            abi.encodeCall(IEtnaStaking.onBlockStart, (1, 5))
+            abi.encodeCall(IEtnaStaking.onBlockStart, (1))
         );
         string[] memory names = _voteNames(j);
         LibEtnaVectorAbi.assertCall(
@@ -661,7 +640,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         _setEffStake(2, 250_000 * VP_UNIT);
         vm.roll(10);
         vm.prank(SYSTEM_CALLER);
-        staking.onBlockStart(0, 0);
+        staking.onBlockStart(0);
         LibEtnaVectorAbi.assertViewResult(j, "snapshot", "staking", "two_seats", address(staking));
         IEtnaStaking.SeatMember[] memory members = new IEtnaStaking.SeatMember[](2);
         members[0] = IEtnaStaking.SeatMember({ seat: 0, ckPrefix: 2, ckX: _K1_X, power: 100_000 });
@@ -689,8 +668,6 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_uint(_j, d, "min_stake"), MIN_STAKE, "minStake");
         assertEq(_uint(_j, d, "vp_unit"), VP_UNIT, "vpUnit");
         assertEq(_uint(_j, d, "n_max"), N_MAX, "nMax");
-        assertEq(_uint(_j, d, "miss_limit"), MISS_LIMIT, "missLimit");
-        assertEq(_uint(_j, d, "miss_slash_bps"), MISS_SLASH_BPS, "missSlashBps");
         assertEq(_uint(_j, d, "slash_bounty_bps"), SLASH_BOUNTY_BPS, "slashBountyBps");
         assertEq(_uint(_j, d, "forfeit_bps"), FORFEIT_BPS, "forfeitBps");
         assertEq(_uint(_j, d, "withdrawal_delay"), WITHDRAWAL_DELAY, "withdrawalDelay");
@@ -706,9 +683,9 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     }
 
     /// @dev Plants `_effStake` as bond `_bondId`'s principal, word 2 of its record at
-    /// keccak256(abi.encode(bondId, T + 260)).
+    /// keccak256(abi.encode(bondId, T + 259)).
     function _setEffStake(uint256 _bondId, uint256 _effStake) private {
-        bytes32 slot = bytes32(uint256(keccak256(abi.encode(_bondId, uint256(T) + 260))) + 2);
+        bytes32 slot = bytes32(uint256(keccak256(abi.encode(_bondId, uint256(T) + 259))) + 2);
         vm.store(address(staking), slot, bytes32(_effStake));
     }
 
@@ -716,7 +693,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     // Helpers: layout
     // ---------------------------------------------------------------
 
-    /// @dev Record s sits at T + 3 + 2s (ckX) and T + 4 + 2s (prefix and power).
+    /// @dev Record s sits at T + 2 + 2s (ckX) and T + 3 + 2s (prefix and power).
     function _assertRecordSlots(string memory _j, string memory _s) private view {
         string memory records = string.concat(_s, "record_slots");
         uint256 n = LibEtnaVectors.lengthAt(_j, records);
@@ -724,50 +701,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         for (uint256 i; i < n; ++i) {
             string memory p = _at(records, i);
             uint256 seat = _uint(_j, p, "seat");
-            assertEq(uint256(_bytes32(_j, p, "word1")), uint256(T) + 3 + 2 * seat, "word 1");
-            assertEq(uint256(_bytes32(_j, p, "word2")), uint256(T) + 4 + 2 * seat, "word 2");
-        }
-    }
-
-    /// @dev Each key's word sits at keccak256(abi.encode(ckAddr, T + 2)). A word gives seat s only
-    /// when holdsSeat (bits 0-7) is 1, seat (bits 8-15) is below 128 and every higher bit is 0;
-    /// every other word gives no seat, which the file writes as null, never as 0.
-    function _assertKeySeatWords(string memory _j, string memory _s) private view {
-        string memory slots = string.concat(_s, "key_seat_slots");
-        for (uint256 i; i < LibEtnaVectors.lengthAt(_j, slots); ++i) {
-            string memory p = _at(slots, i);
-            assertEq(
-                _bytes32(_j, p, "slot"),
-                keccak256(abi.encode(_address(_j, p, "ck_addr"), uint256(T) + 2)),
-                "key-to-seat slot"
-            );
-        }
-
-        string memory words = string.concat(_s, "key_seat_words");
-        uint256 n = LibEtnaVectors.lengthAt(_j, words);
-        assertEq(n, 8, "key-to-seat words");
-        uint256 seatless;
-        for (uint256 i; i < n; ++i) {
-            string memory p = _at(words, i);
-            uint256 word = uint256(_bytes32(_j, p, "word"));
-            uint256 seat = (word >> 8) & 0xff;
-            bool holdsSeat = (word & 0xff) == 1 && seat < 128 && (word >> 16) == 0;
-            if (holdsSeat) {
-                assertFalse(_isNull(_j, p, "seat"), "a seat");
-                assertEq(_uint(_j, p, "seat"), seat, "the seat");
-            } else {
-                assertTrue(_isNull(_j, p, "seat"), "no seat is null");
-                ++seatless;
-            }
-        }
-        assertEq(seatless, 5, "seatless words");
-        for (uint256 i; i < 2; ++i) {
-            string memory p = _at(".packed_words.staking_key_seat", i);
-            assertEq(
-                uint256(_bytes32(_j, p, "word")),
-                _uint(_j, p, "holds_seat") | (_uint(_j, p, "seat") << 8),
-                "packed key-to-seat word"
-            );
+            assertEq(uint256(_bytes32(_j, p, "word1")), uint256(T) + 2 + 2 * seat, "word 1");
+            assertEq(uint256(_bytes32(_j, p, "word2")), uint256(T) + 3 + 2 * seat, "word 2");
         }
     }
 
@@ -801,35 +736,28 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         uint256 priorCount = LibEtnaVectors.lengthAt(_j, prior);
         vm.roll(blockNumber - priorCount - 1);
         uint256 registered = _caseRegistrations(_j, _p, name);
+        uint256 held = token.balanceOf(address(staking));
         for (uint256 i; i < priorCount; ++i) {
-            string memory c = _at(prior, i);
             vm.roll(blockNumber - priorCount + i);
             vm.prank(SYSTEM_CALLER);
-            staking.onBlockStart(
-                uint48(_uint(_j, c, "generation")), uint128(_uint(_j, c, "miss_bitmap"))
-            );
+            staking.onBlockStart(uint48(_uint(_j, _at(prior, i), "generation")));
         }
-        assertEq(token.balanceOf(SLASH_SINK), 0, string.concat(name, ": no earlier penalty"));
 
         uint48 generation = uint48(_uint(_j, call, "generation"));
         bytes memory data = _bytes(_j, call, "calldata");
-        assertEq(
-            data,
-            abi.encodeCall(
-                IEtnaStaking.onBlockStart, (generation, uint128(_uint(_j, call, "miss_bitmap")))
-            ),
-            name
-        );
+        assertEq(data, abi.encodeCall(IEtnaStaking.onBlockStart, (generation)), name);
         vm.roll(blockNumber);
         vm.prank(SYSTEM_CALLER);
         (bool ok,) = address(staking).call(data);
         assertTrue(ok, name);
 
+        assertEq(token.balanceOf(address(staking)), held, string.concat(name, ": no stake moved"));
+        assertEq(token.balanceOf(SLASH_SINK), 0, string.concat(name, ": nothing to slashSink"));
         _assertCaseExpect(_j, _p, registered, name);
     }
 
-    /// @dev The reference configuration with the case's overrides, each one of the five parameters
-    /// of `on_block_start.deployment`.
+    /// @dev The reference configuration with the case's overrides, each one of the three
+    /// parameters of `on_block_start.deployment`.
     function _caseConfig(
         string memory _j,
         string memory _p,
@@ -852,14 +780,6 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         }
         if (vm.keyExistsJson(_j, string.concat(o, "vp_unit"))) {
             cfg_.vpUnit = _uint(_j, o, "vp_unit");
-            ++applied;
-        }
-        if (vm.keyExistsJson(_j, string.concat(o, "miss_limit"))) {
-            cfg_.missLimit = _uint(_j, o, "miss_limit");
-            ++applied;
-        }
-        if (vm.keyExistsJson(_j, string.concat(o, "miss_slash_bps"))) {
-            cfg_.missSlashBps = _uint(_j, o, "miss_slash_bps");
             ++applied;
         }
         assertEq(
@@ -902,10 +822,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         view
     {
         string memory e = string.concat(_p, "expect.");
-        _assertCaseMissCounts(_j, e, _name);
         _assertCaseBonds(_j, _p, e, _registered, _name);
         _assertCaseRecords(_j, e, _name);
-        assertEq(token.balanceOf(SLASH_SINK), _uint(_j, e, "penalty_total"), _name);
         assertEq(
             uint256(vm.load(address(staking), bytes32(uint256(T) + 1))),
             _uint(_j, e, "snapshot_total_stake"),
@@ -920,28 +838,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(staking.lastGeneration(), _uint(_j, e, "last_generation"), _name);
     }
 
-    /// @dev Every seat's miss count: the listed ones, and zero for every other seat.
-    function _assertCaseMissCounts(
-        string memory _j,
-        string memory _e,
-        string memory _name
-    )
-        private
-        view
-    {
-        uint256[128] memory expected;
-        string memory list = string.concat(_e, "miss_counts");
-        uint256 n = LibEtnaVectors.lengthAt(_j, list);
-        for (uint256 i; i < n; ++i) {
-            string memory m = _at(list, i);
-            expected[_uint(_j, m, "seat")] = _uint(_j, m, "count");
-        }
-        for (uint256 s; s < 128; ++s) {
-            assertEq(staking.missCount(uint8(s)), expected[s], string.concat(_name, ": miss count"));
-        }
-    }
-
-    /// @dev Every bond's effStake, and its seat unless the call released it.
+    /// @dev Every bond's effStake and seat: the calls change neither, so each bond keeps its
+    /// registration's stake and the seat it took, with no exit.
     function _assertCaseBonds(
         string memory _j,
         string memory _p,
@@ -957,25 +855,16 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         for (uint256 i; i < _registered; ++i) {
             string memory b = _at(stakes, i);
             uint256 bondId = _uint(_j, b, "bond_id");
+            assertEq(bondId, i, _name);
             assertEq(staking.bondAt(bondId).effStake, _uint(_j, b, "eff_stake"), _name);
         }
 
-        bool[] memory released = new bool[](_registered);
-        string memory list = string.concat(_e, "released");
-        for (uint256 i; i < LibEtnaVectors.lengthAt(_j, list); ++i) {
-            released[LibEtnaVectors.uintAt(_j, string.concat(list, "[", vm.toString(i), "]"))] =
-            true;
-        }
         string memory registrations = string.concat(_p, "setup.registrations");
         for (uint256 i; i < _registered; ++i) {
-            uint8 seat = uint8(_uint(_j, _at(registrations, i), "seat"));
-            if (released[i]) {
-                _assertSeatOfBond(i, false, 0, string.concat(_name, ": released"));
-                _assertBondInSeat(seat, false, 0, string.concat(_name, ": released"));
-                assertEq(staking.bondAt(i).exitHeight, NO_EXIT, "no exit is set");
-            } else {
-                _assertSeatOfBond(i, true, seat, string.concat(_name, ": kept"));
-            }
+            string memory r = _at(registrations, i);
+            assertEq(staking.bondAt(i).effStake, _uint(_j, r, "amount"), _name);
+            assertEq(staking.bondAt(i).exitHeight, NO_EXIT, string.concat(_name, ": no exit"));
+            _assertSeatOfBond(i, true, uint8(_uint(_j, r, "seat")), string.concat(_name, ": kept"));
         }
     }
 
@@ -1000,12 +889,12 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         }
         for (uint256 s; s < 128; ++s) {
             assertEq(
-                vm.load(address(staking), bytes32(uint256(T) + 3 + 2 * s)),
+                vm.load(address(staking), bytes32(uint256(T) + 2 + 2 * s)),
                 word1[s],
                 string.concat(_name, ": record word 1")
             );
             assertEq(
-                vm.load(address(staking), bytes32(uint256(T) + 4 + 2 * s)),
+                vm.load(address(staking), bytes32(uint256(T) + 3 + 2 * s)),
                 word2[s],
                 string.concat(_name, ": record word 2")
             );
@@ -1030,7 +919,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         string memory name = _string(_j, _p, "name");
         IEtnaStaking.Vote memory a = _vectorVote(_j, _names, _string(_j, _p, "a"));
         IEtnaStaking.Vote memory b = _vectorVote(_j, _names, _string(_j, _p, "b"));
-        _blockStart(uint48(_uint(_j, _p, "current_generation")), 0);
+        _blockStart(uint48(_uint(_j, _p, "current_generation")));
 
         slashed_ = _bool(_j, _p, "double_sign");
         if (!slashed_) {

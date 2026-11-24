@@ -9,9 +9,10 @@ pragma solidity ^0.8.26;
 /// is issued and unwithdrawn, has no exit set and has effStake >= minStake: it takes the lowest
 /// empty seat in the call that makes it meet these conditions, never moving another bond, and
 /// releases the seat in the call that ends one of them. At the start of every Etna block the
-/// execution layer calls `onBlockStart` from the system caller, which counts missed signatures,
-/// applies their penalties and writes the candidate snapshot. Nodes and guests read the snapshot
-/// and the live key-to-seat mapping from storage under the ERC-7201 namespace
+/// execution layer calls `onBlockStart` from the system caller, which stores the block's
+/// generation and writes the candidate snapshot. Nothing penalizes or unseats a member for
+/// missing signatures: an offline member keeps its seat until it exits or the DAO forfeits it.
+/// Nodes and guests read the snapshot from storage under the ERC-7201 namespace
 /// `taiko.etna.staking` (spec appendix B), not through this interface. The interface has no
 /// imports, so clients can copy it.
 /// @custom:security-contact security@taiko.xyz
@@ -38,11 +39,6 @@ interface IEtnaStaking {
         uint256 vpUnit;
         /// @notice The number of seats, in [1, 128].
         uint256 nMax;
-        /// @notice The consecutive missed signatures at which a seated bond is penalized, in
-        /// [1, 65,535].
-        uint256 missLimit;
-        /// @notice The missed-signature penalty in basis points of effStake, in [1, 10,000].
-        uint256 missSlashBps;
         /// @notice The L2 blocks from a bond's exit height until it can be withdrawn, in
         /// [1, 2^48). Deployment also requires at least U + 2 + the double-sign evidence window;
         /// U is an L1 Inbox value, so the deployment tooling checks that bound, not the
@@ -51,9 +47,9 @@ interface IEtnaStaking {
         /// @notice The share of a double-sign slash paid to the reporter, in basis points; below
         /// 10,000 (zero is allowed).
         uint256 slashBountyBps;
-        /// @notice The receiver of every slashed stake minus the bounty, of every missed-signature
-        /// penalty and of every forfeiture penalty; nonzero and not `token`, since a bridged token
-        /// may refuse transfers to its own address, which would make every such transfer revert.
+        /// @notice The receiver of every slashed stake minus the bounty and of every forfeiture
+        /// penalty; nonzero and not `token`, since a bridged token may refuse transfers to its own
+        /// address, which would make every such transfer revert.
         address slashSink;
         /// @notice The responsibility-forfeiture rate in basis points, in [1, 10,000].
         uint256 forfeitBps;
@@ -165,15 +161,8 @@ interface IEtnaStaking {
     /// @param amount The stake paid out; zero for a bond without balance.
     event Withdrawn(uint256 indexed bondId, address indexed to, uint256 amount);
 
-    /// @notice Emitted when a top-up gives a seatless bond a seat. A registration reports its
-    /// seat in `Registered` instead.
-    /// @param bondId The bond id.
-    /// @param seat The seat the bond takes.
-    event SeatTaken(uint256 indexed bondId, uint8 seat);
-
-    /// @notice Emitted when `requestExit`, `slashDoubleSign` or `forfeit` releases a bond's seat.
-    /// `onBlockStart` emits no events, so a seat that a missed-signature penalty releases is not
-    /// reported.
+    /// @notice Emitted when `requestExit`, `slashDoubleSign` or `forfeit` releases a bond's seat,
+    /// the only calls that release one.
     /// @param bondId The bond id.
     /// @param seat The seat the bond releases.
     event SeatReleased(uint256 indexed bondId, uint8 seat);
@@ -239,10 +228,10 @@ interface IEtnaStaking {
     /// @dev Only the bond owner (`NotBondOwner`), for an issued (`UnknownBond`) and unwithdrawn
     /// (`BondWithdrawn`) bond with no exit set (`ExitAlreadySet`), and only a positive `_amount`
     /// (`ZeroAmount`). Transfers `_amount` TAIKO in, rejecting overflow of effStake, and changes
-    /// neither owner nor key. A seatless bond that it brings to minStake or more takes the lowest
-    /// empty seat in the same call, reverting `NoEmptySeat` if every seat is held. A top-up
-    /// cannot be withdrawn separately; it leaves with the rest of the principal, through
-    /// `withdraw`.
+    /// neither owner nor key. A bond with no exit set always holds a seat, since every call that
+    /// lowers effStake or releases a seat sets an exit or requires one, so a top-up neither takes
+    /// nor releases one. A top-up cannot be withdrawn separately; it leaves with the rest of the
+    /// principal, through `withdraw`.
     /// @param _bondId The bond id.
     /// @param _amount The positive TAIKO base units approved to this contract.
     function topUp(uint256 _bondId, uint256 _amount) external;
@@ -304,23 +293,21 @@ interface IEtnaStaking {
     /// @param _validUntil The inclusive deadline, an L2 Unix timestamp in seconds.
     function forfeit(uint256 _bondId, bytes32 _incidentId, uint256 _validUntil) external;
 
-    /// @notice The block-start call: counts missed signatures, applies their penalties and writes
-    /// the candidate snapshot (spec 4.2).
+    /// @notice The block-start call: stores the block's generation and writes the candidate
+    /// snapshot (spec 4.2).
     /// @dev Only the system caller 0xfffffffffffffffffffffffffffffffffffffffe
     /// (`NotSystemCaller`), from which the execution layer makes this call at the start of every
-    /// Etna block with both arguments taken from the block's extraData. Stores `_generation` as
-    /// `lastGeneration()`, then, in order: counts misses, raising the count of each occupied seat
-    /// s by one if bit s of `_missBitmap` is set and resetting it to zero otherwise (bits of empty
-    /// seats and at or above nMax change nothing); penalizes each seat whose count reached
-    /// missLimit: deducts ceil(effStake * missSlashBps / 10000) from the seated bond for
-    /// slashSink with no bounty and resets the count to zero, and a bond that this leaves below
-    /// minStake also releases its seat, without an exit being set; and writes the 128 snapshot
-    /// seat records, `snapshotTotalStake` and `snapshotHeight` = block.number, so the snapshot
-    /// already reflects this call's penalties. Only this call writes the snapshot, and it emits
-    /// no events. If it reverts, nothing changes and the block stays valid.
+    /// Etna block with `_generation` taken from the block's extraData; the calldata is selector
+    /// 0xaa28c32e followed by one 32-byte word, 36 bytes. Stores `_generation` as
+    /// `lastGeneration()`, the upper bound for the generation of double-sign evidence, then
+    /// writes the 128 snapshot seat records, record s holding the key and power
+    /// floor(effStake / vpUnit) of the bond in seat s and zero for an empty seat or s at or above
+    /// nMax, `snapshotTotalStake`, the effStake sum of those bonds, and `snapshotHeight` =
+    /// block.number. It changes no stake, seat or exit. Its work is bounded by nMax seats. Only
+    /// this call writes the snapshot, and it emits no events. If it reverts, nothing changes and
+    /// the block stays valid.
     /// @param _generation The block's recovery generation.
-    /// @param _missBitmap The block's missed-signature bitmap; bit s is seat s.
-    function onBlockStart(uint48 _generation, uint128 _missBitmap) external;
+    function onBlockStart(uint48 _generation) external;
 
     /// @notice Returns the bond a consensus key address was registered with (appendix A).
     /// @param _ckAddr The consensus key's address.
@@ -377,11 +364,6 @@ interface IEtnaStaking {
     /// @return Whether responsibility forfeiture already executed for this bond.
     function forfeited(uint256 _bondId) external view returns (bool);
 
-    /// @notice Returns a seat's count of consecutive missed signatures (spec 4.2).
-    /// @param _seat The seat.
-    /// @return The miss count; taking a seat resets it to zero.
-    function missCount(uint8 _seat) external view returns (uint16);
-
     /// @notice Returns the generation `onBlockStart` last stored, the upper bound for the
     /// generation of double-sign evidence.
     /// @return The generation; zero before the first call.
@@ -411,14 +393,6 @@ interface IEtnaStaking {
     /// @return The seat count, in [1, 128].
     function nMax() external view returns (uint256);
 
-    /// @notice Returns the consecutive missed signatures at which a seated bond is penalized.
-    /// @return The miss limit.
-    function missLimit() external view returns (uint256);
-
-    /// @notice Returns the missed-signature penalty in basis points of effStake.
-    /// @return The penalty rate.
-    function missSlashBps() external view returns (uint256);
-
     /// @notice Returns the L2 blocks from a bond's exit height until it can be withdrawn.
     /// @return The withdrawal delay.
     function withdrawalDelay() external view returns (uint256);
@@ -427,7 +401,7 @@ interface IEtnaStaking {
     /// @return The bounty rate.
     function slashBountyBps() external view returns (uint256);
 
-    /// @notice Returns the receiver of slashed stake, penalties and forfeitures.
+    /// @notice Returns the receiver of slashed stake and forfeiture penalties.
     /// @return The slash sink.
     function slashSink() external view returns (address);
 

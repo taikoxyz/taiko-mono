@@ -15,28 +15,38 @@ contract EtnaStakingLayoutTest is EtnaStakingTestBase {
         assertEq(_erc7201("taiko.etna.staking"), T, "T");
     }
 
-    /// @dev K1 in seat 5 maps, at keccak256(abi.encode(ckAddr(K1), T + 2)), to holdsSeat = 1 and
-    /// seat = 5 packed from the least-significant bit, and to the zero word once it leaves.
-    function test_layout_KeySeatWordAtTheSpecSlot() external {
+    /// @dev With K1's bond in seat 5, the block-start call writes the height at T, the total at
+    /// T + 1 and record s at T + 2 + 2s and T + 3 + 2s: record 5 at T + 12 (word 1, ckX) and
+    /// T + 13 (word 2, [ckPrefix (8 bits), power (64 bits)] from the least-significant bit).
+    /// Record 0, whose bond exited, and the records of the empty seats from 6 on are zero.
+    function test_layout_SnapshotRecordsAtTheSpecSlots() external {
         for (uint256 pk = 11; pk < 16; ++pk) {
             _register(pk, Bob, MIN_STAKE);
         }
-        uint256 bondId = _register(_K1, Carol, MIN_STAKE);
-        bytes32 slot = 0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27;
-        assertEq(
-            slot,
-            keccak256(abi.encode(EtnaTestKeys.ckAddr(_K1), uint256(T) + 2)),
-            "the slot of K1's key"
-        );
+        uint256 bondId = _register(_K1, Carol, MIN_STAKE + 7 * VP_UNIT);
         _assertSeatOfBond(bondId, true, 5, "the sixth bond takes seat 5");
-        assertEq(vm.load(address(staking), slot), bytes32(uint256(0x0501)), "holds seat 5");
+        _requestExit(0);
+        _blockStart(0);
 
-        _requestExit(bondId);
-        assertEq(vm.load(address(staking), slot), bytes32(0), "zero after the exit");
+        uint256 base = uint256(T);
+        (uint8 prefix, bytes32 x) = EtnaTestKeys.fallbackKey(_K1);
+        assertEq(_word(base), block.number, "snapshotHeight at T");
+        assertEq(_word(base + 1), 5 * MIN_STAKE + 7 * VP_UNIT, "snapshotTotalStake at T + 1");
+        assertEq(bytes32(_word(base + 12)), x, "record 5 word 1 at T + 12");
+        assertEq(
+            _word(base + 13),
+            uint256(prefix) | (MIN_STAKE / VP_UNIT + 7) << 8,
+            "record 5 word 2 at T + 13"
+        );
+        assertEq(_word(base + 2), 0, "record 0 word 1 at T + 2: the exited bond's seat");
+        assertEq(_word(base + 3), 0, "record 0 word 2 at T + 3");
+        assertGt(_word(base + 4), 0, "record 1 word 1 at T + 4");
+        assertEq(_word(base + 14), 0, "record 6 word 1 at T + 14: an empty seat");
+        assertEq(_word(base + 257), 0, "record 127 word 2 at T + 257");
     }
 
     /// @dev No transaction writes `snapshotHeight` (T), `snapshotTotalStake` (T + 1) or a snapshot
-    /// seat record (T + 3 to T + 258): only the block-start call writes them.
+    /// seat record (T + 2 to T + 257): only the block-start call writes them.
     function test_layout_TransactionsNeverWriteSnapshotWords() external {
         vm.record();
         uint256 bondId = _register(_K1, Bob, MIN_STAKE);
@@ -56,18 +66,18 @@ contract EtnaStakingLayoutTest is EtnaStakingTestBase {
             uint256 slot = uint256(writes[i]);
             assertTrue(slot != base, "snapshotHeight written");
             assertTrue(slot != base + 1, "snapshotTotalStake written");
-            assertTrue(slot < base + 3 || slot > base + 258, "a snapshot seat record written");
+            assertTrue(slot < base + 2 || slot > base + 257, "a snapshot seat record written");
         }
-        for (uint256 offset; offset < 259; ++offset) {
+        for (uint256 offset; offset < 258; ++offset) {
             assertEq(vm.load(address(staking), bytes32(base + offset)), bytes32(0), "still zero");
         }
     }
 
-    /// @dev A bond's three words sit at keccak256(abi.encode(id, T + 260)) + 0..2, word 0 packing
+    /// @dev A bond's three words sit at keccak256(abi.encode(id, T + 259)) + 0..2, word 0 packing
     /// [owner (160 bits), ckPrefix, withdrawn, holdsSeat, seat (8 bits each), exitHeight
     /// (48 bits)] from the least-significant bit; `seatBond[s]` (bond id + 1) sits at
-    /// T + 262 + s, the key lookup (bond id + 1) at T + 259, the bond count at T + 261 and the
-    /// occupancy bitmap at T + 398.
+    /// T + 261 + s, the key lookup (bond id + 1) at T + 258, the bond count at T + 260 and the
+    /// occupancy bitmap at T + 389.
     function test_layout_BondsAndSeatTableAtTheirSlots() external {
         _register(_K1, Bob, MIN_STAKE);
         _register(2, Bob, MIN_STAKE);
@@ -84,18 +94,18 @@ contract EtnaStakingLayoutTest is EtnaStakingTestBase {
             1, Bob, exited.ckPrefix, false, false, 0, uint48(exitAt), exited.ckX, MIN_STAKE
         );
 
-        assertEq(_word(base + 262), 1, "seat 0 holds bond 0");
-        assertEq(_word(base + 263), 0, "seat 1 is empty");
-        assertEq(_word(base + 264), bondId + 1, "seat 2 holds bond 2");
+        assertEq(_word(base + 261), 1, "seat 0 holds bond 0");
+        assertEq(_word(base + 262), 0, "seat 1 is empty");
+        assertEq(_word(base + 263), bondId + 1, "seat 2 holds bond 2");
         assertEq(
             uint256(
-                vm.load(address(staking), keccak256(abi.encode(EtnaTestKeys.ckAddr(3), base + 259)))
+                vm.load(address(staking), keccak256(abi.encode(EtnaTestKeys.ckAddr(3), base + 258)))
             ),
             bondId + 1,
             "key lookup"
         );
-        assertEq(_word(base + 261), 3, "bond count");
-        assertEq(_word(base + 398), 0x5, "occupancy bitmap: seats 0 and 2");
+        assertEq(_word(base + 260), 3, "bond count");
+        assertEq(_word(base + 389), 0x5, "occupancy bitmap: seats 0 and 2");
     }
 
     function _assertBondWords(
@@ -112,7 +122,7 @@ contract EtnaStakingLayoutTest is EtnaStakingTestBase {
         private
         view
     {
-        uint256 slot = uint256(keccak256(abi.encode(_bondId, uint256(T) + 260)));
+        uint256 slot = uint256(keccak256(abi.encode(_bondId, uint256(T) + 259)));
         uint256 word0 = uint256(uint160(_owner)) | uint256(_ckPrefix) << 160
             | uint256(_withdrawn ? 1 : 0) << 168 | uint256(_holdsSeat ? 1 : 0) << 176
             | uint256(_seat) << 184 | uint256(_exitHeight) << 192;

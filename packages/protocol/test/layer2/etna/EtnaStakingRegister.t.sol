@@ -29,12 +29,10 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
 
         _assertSeatOfBond(0, true, 0, "bond 0");
         _assertBondInSeat(0, true, 0, "seat 0");
-        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(uint256(0x0001)), "key-to-seat");
         _assertBondForKey(EtnaTestKeys.ckAddr(_K1), true, 0, "key of bond 0");
         IEtnaStaking.Bond memory bond = staking.bondAt(0);
         assertTrue(bond.holdsSeat, "record holds the seat");
         assertEq(bond.seat, 0, "record seat");
-        assertEq(staking.missCount(0), 0, "miss count");
     }
 
     function test_register_RecordsOwnerKeyStakeAndNoExit() external {
@@ -202,8 +200,6 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
         _assertBondInSeat(2, true, 2, "seat 2 unchanged");
         _assertBondInSeat(3, false, 0, "seat 3 still empty");
         _assertSeatOfBond(1, false, 0, "the exited bond");
-        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K4)), bytes32(uint256(0x0101)), "new key");
-        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K2)), bytes32(0), "exited key");
     }
 
     /// @dev Pause stops no entry point: a whole bond lifecycle runs while paused.
@@ -328,7 +324,7 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
         assertEq(staking.bondAt(0).ckX, x, "x");
         _assertBondForKey(vm.addr(negated), true, 0, "negated key used");
         _assertBondForKey(vm.addr(_CK_A), false, 0, "original key unused");
-        assertEq(_keySeatWord(vm.addr(negated)), bytes32(uint256(0x0001)), "negated key seated");
+        _assertSeatOfBond(0, true, 0, "negated key seated");
     }
 
     /// @dev The compressed key of any private key registers with its PoP, and the bond holds that
@@ -346,7 +342,7 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
         assertEq(staking.bondAt(bondId).ckPrefix, prefix, "prefix");
         assertEq(uint256(staking.bondAt(bondId).ckX), wallet.publicKeyX, "x");
         _assertBondForKey(wallet.addr, true, bondId, "key used");
-        assertEq(_keySeatWord(wallet.addr), bytes32(uint256(0x0001)), "key seated");
+        _assertSeatOfBond(bondId, true, 0, "key seated");
     }
 
     // ---------------------------------------------------------------
@@ -363,8 +359,6 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
         _assertBondInSeat(127, false, 0, "the last seat, empty");
         _assertBondInSeat(200, false, 0, "seat above 128");
         _assertBondForKey(EtnaTestKeys.ckAddr(_K5), false, 0, "unused key");
-        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K5)), bytes32(0), "unused key's seat word");
-        assertEq(staking.missCount(200), 0, "miss count above 128");
         assertFalse(staking.forfeited(9), "unissued bond's forfeiture flag");
 
         IEtnaStaking.Bond memory bond = staking.bondAt(9);
@@ -395,7 +389,7 @@ contract EtnaStakingRegisterTest is EtnaStakingTestBase {
         _assertSeatOfBond(3, true, 0, "bond 3 holds seat 0");
         _assertSeatOfBond(0, false, 0, "bond 0 holds no seat");
         _assertBondForKey(EtnaTestKeys.ckAddr(_K1), true, 0, "bond 0's key");
-        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K4)), bytes32(uint256(0x0001)), "seat 0 word");
+        _assertBondForKey(EtnaTestKeys.ckAddr(_K4), true, 3, "bond 3's key");
     }
 
     /// @dev Default storage at an unissued id reads as an exit at block 0, a zero balance and the

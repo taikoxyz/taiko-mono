@@ -16,12 +16,11 @@ import "./EtnaStaking_Layout.sol"; // DO NOT DELETE
 /// @title EtnaStaking
 /// @notice The L2 staking contract of an Etna chain; see `IEtnaStaking`.
 /// @dev All state lives in the ERC-7201 namespace `taiko.etna.staking` with base slot T (spec
-/// appendix B). Nodes and guests read only T (`snapshotHeight`), T + 1 (`snapshotTotalStake`),
-/// the live key-to-seat mapping at T + 2 and the 128 snapshot seat records at T + 3 to T + 258;
-/// the bond records, the seat table, the miss counts and the forfeiture flags that follow are
-/// this contract's own. Only `onBlockStart` writes the snapshot words. The key-to-seat mapping,
-/// the seat table and the occupancy bitmap are live: every call that takes or releases a seat
-/// updates them in that call. No entry point is affected by pause.
+/// appendix B). Nodes and guests read only T (`snapshotHeight`), T + 1 (`snapshotTotalStake`)
+/// and the 128 snapshot seat records at T + 2 to T + 257; the bond records, the seat table and
+/// the forfeiture flags that follow are this contract's own. Only `onBlockStart` writes the
+/// snapshot words. The seat table and the occupancy bitmap are live: every call that takes or
+/// releases a seat updates them in that call. No entry point is affected by pause.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStaking is EssentialContract, IEtnaStaking {
     using SafeERC20 for IERC20;
@@ -29,13 +28,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
-
-    /// @dev A key's live seat, packed from the least-significant bit as [holdsSeat (8 bits),
-    /// seat (8 bits)]. Every key whose bond holds no seat maps to the zero word.
-    struct SeatRef {
-        bool holdsSeat;
-        uint8 seat;
-    }
 
     /// @dev A candidate snapshot seat record: word 1 is `ckX` and word 2 packs [ckPrefix
     /// (8 bits), power (64 bits)] from the least-significant bit with the other bits zero. Both
@@ -52,25 +44,21 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         uint256 snapshotHeight;
         /// @dev Slot T + 1: the sum of the effStake of the bonds in the snapshot records.
         uint256 snapshotTotalStake;
-        /// @dev Slot T + 2: the live seat of every consensus key address.
-        mapping(address ckAddr => SeatRef seatRef) keySeat;
-        /// @dev Slots T + 3 to T + 258: the snapshot seat records, record s at T + 3 + 2s.
+        /// @dev Slots T + 2 to T + 257: the snapshot seat records, record s at T + 2 + 2s.
         SnapshotRecord[128] records;
-        /// @dev Slot T + 259: bond id + 1 of every consensus key address ever registered.
+        /// @dev Slot T + 258: bond id + 1 of every consensus key address ever registered.
         mapping(address ckAddr => uint256 bondIdPlusOne) keyBond;
-        /// @dev Slot T + 260: the bond records, three words each.
+        /// @dev Slot T + 259: the bond records, three words each.
         mapping(uint256 bondId => Bond bond) bonds;
-        /// @dev Slot T + 261: the number of bonds issued, the next bond id.
+        /// @dev Slot T + 260: the number of bonds issued, the next bond id.
         uint256 bondCount;
-        /// @dev Slots T + 262 to T + 389: bond id + 1 of the bond in each seat; 0 if empty.
+        /// @dev Slots T + 261 to T + 388: bond id + 1 of the bond in each seat; 0 if empty.
         uint256[128] seatBond;
-        /// @dev Slots T + 390 to T + 397: each seat's count of consecutive missed signatures.
-        uint16[128] missCounts;
-        /// @dev Slot T + 398, bits 0-127: bit s is set while a bond holds seat s.
+        /// @dev Slot T + 389, bits 0-127: bit s is set while a bond holds seat s.
         uint128 occupied;
-        /// @dev Slot T + 398, bits 128-175: the generation `onBlockStart` last stored.
+        /// @dev Slot T + 389, bits 128-175: the generation `onBlockStart` last stored.
         uint48 lastGeneration;
-        /// @dev Slot T + 399: the lifetime forfeiture flag of every bond id.
+        /// @dev Slot T + 390: the lifetime forfeiture flag of every bond id.
         mapping(uint256 bondId => bool forfeited) forfeited;
     }
 
@@ -142,12 +130,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     uint256 public immutable override nMax;
 
     /// @inheritdoc IEtnaStaking
-    uint256 public immutable override missLimit;
-
-    /// @inheritdoc IEtnaStaking
-    uint256 public immutable override missSlashBps;
-
-    /// @inheritdoc IEtnaStaking
     uint256 public immutable override withdrawalDelay;
 
     /// @inheritdoc IEtnaStaking
@@ -166,9 +148,8 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     /// @notice Sets the staking contract's immutable parameters.
     /// @param _config The configuration: nonzero token, inbox, slash sink and L1 chain id;
     /// a slash sink other than the token; 1 <= nMax <= 128; vpUnit >= 867,361,738;
-    /// minStake >= vpUnit and minStake * nMax >= 10^27; 1 <= missLimit <= 65,535;
-    /// 0 < missSlashBps <= 10,000; slashBountyBps < 10,000; 0 < forfeitBps <= 10,000; and
-    /// 0 < withdrawalDelay < 2^48.
+    /// minStake >= vpUnit and minStake * nMax >= 10^27; slashBountyBps < 10,000;
+    /// 0 < forfeitBps <= 10,000; and 0 < withdrawalDelay < 2^48.
     constructor(Config memory _config) {
         require(
             _config.token != address(0) && _config.inbox != address(0)
@@ -183,8 +164,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         require(
             _config.minStake >= (_TAIKO_SUPPLY + _config.nMax - 1) / _config.nMax, InvalidConfig()
         );
-        require(_config.missLimit != 0 && _config.missLimit <= type(uint16).max, InvalidConfig());
-        require(_config.missSlashBps != 0 && _config.missSlashBps <= _BPS, InvalidConfig());
         require(_config.slashBountyBps < _BPS, InvalidConfig());
         require(_config.forfeitBps != 0 && _config.forfeitBps <= _BPS, InvalidConfig());
         require(
@@ -197,8 +176,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         minStake = _config.minStake;
         vpUnit = _config.vpUnit;
         nMax = _config.nMax;
-        missLimit = _config.missLimit;
-        missSlashBps = _config.missSlashBps;
         withdrawalDelay = _config.withdrawalDelay;
         slashBountyBps = _config.slashBountyBps;
         slashSink = _config.slashSink;
@@ -244,17 +221,12 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     /// @dev Checks in order: issuance, withdrawal, the owner, the exit and the amount. The stake
     /// is pulled last.
     function topUp(uint256 _bondId, uint256 _amount) external nonReentrant {
-        StakingStorage storage $ = _stakingStorage();
-        Bond storage bond = _ownedBond($, _bondId);
+        Bond storage bond = _ownedBond(_stakingStorage(), _bondId);
         require(bond.exitHeight == NO_EXIT, ExitAlreadySet());
         require(_amount != 0, ZeroAmount());
 
-        uint256 effStake = bond.effStake + _amount;
-        bond.effStake = effStake;
+        bond.effStake += _amount;
         emit TopUpDeposited(_bondId, _amount);
-        if (!bond.holdsSeat && effStake >= minStake) {
-            emit SeatTaken(_bondId, _takeSeat($, _bondId, bond, _ckAddrOf(bond)));
-        }
         IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
@@ -268,7 +240,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
 
         bond.exitHeight = uint48(block.number);
         emit ExitRequested(_bondId, block.number);
-        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, _ckAddrOf(bond)));
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond));
     }
 
     /// @inheritdoc IEtnaStaking
@@ -343,9 +315,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         emit DoubleSignSlashed(
             _bondId, msg.sender, slashed, bounty, a.generation, a.height, a.round, a.voteType
         );
-        // Registration mapped the signer, the bond's key address, to this bond, so the seat is
-        // released without decompressing the stored key.
-        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, signer));
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond));
 
         if (bounty != 0) IERC20(token).safeTransfer(msg.sender, bounty);
         IERC20(token).safeTransfer(slashSink, slashed - bounty);
@@ -376,23 +346,19 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         $.forfeited[_bondId] = true;
         _forceExit(bond);
         emit Forfeited(_bondId, _incidentId, balance, penalty);
-        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, _ckAddrOf(bond)));
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond));
 
         IERC20(token).safeTransfer(slashSink, penalty);
     }
 
     /// @inheritdoc IEtnaStaking
-    /// @dev Three passes over the seats, in the interface's order: the miss counts, the penalties
-    /// and the snapshot. The penalties of the call reach slashSink in one transfer, made last.
-    function onBlockStart(uint48 _generation, uint128 _missBitmap) external nonReentrant {
+    /// @dev One pass over the nMax seats. The call makes no external call, so it needs no
+    /// reentrancy lock.
+    function onBlockStart(uint48 _generation) external {
         require(msg.sender == SYSTEM_CALLER, NotSystemCaller());
         StakingStorage storage $ = _stakingStorage();
         $.lastGeneration = _generation;
-
-        _countMisses($, _missBitmap);
-        uint256 penalties = _penalize($);
         _writeSnapshot($);
-        if (penalties != 0) IERC20(token).safeTransfer(slashSink, penalties);
     }
 
     /// @inheritdoc IEtnaStaking
@@ -450,11 +416,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     /// @inheritdoc IEtnaStaking
     function forfeited(uint256 _bondId) external view returns (bool) {
         return _stakingStorage().forfeited[_bondId];
-    }
-
-    /// @inheritdoc IEtnaStaking
-    function missCount(uint8 _seat) external view returns (uint16) {
-        return _seat < MAX_SEATS ? _stakingStorage().missCounts[_seat] : 0;
     }
 
     /// @inheritdoc IEtnaStaking
@@ -545,22 +506,20 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         bond.exitHeight = NO_EXIT;
         bond.ckX = _ckX;
         bond.effStake = _amount;
-        uint8 seat = _takeSeat($, bondId_, bond, _ckAddr);
+        uint8 seat = _takeSeat($, bondId_, bond);
         emit Registered(bondId_, msg.sender, _ckAddr, _ckPrefix, _ckX, _amount, seat);
     }
 
-    /// @dev Gives a seatless bond the lowest empty seat and resets the seat's miss count; reverts
-    /// with `NoEmptySeat` if every seat is held. Moves no other bond.
+    /// @dev Gives a seatless bond the lowest empty seat; reverts with `NoEmptySeat` if every seat
+    /// is held. Moves no other bond.
     /// @param $ The staking storage.
     /// @param _bondId The bond id.
     /// @param _bond The bond, which holds no seat.
-    /// @param _ckAddr The bond's consensus key address.
     /// @return seat_ The seat taken.
     function _takeSeat(
         StakingStorage storage $,
         uint256 _bondId,
-        Bond storage _bond,
-        address _ckAddr
+        Bond storage _bond
     )
         private
         returns (uint8 seat_)
@@ -573,22 +532,18 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
 
         $.occupied = uint128(occupied | uint256(1) << seat_);
         $.seatBond[seat_] = _bondId + 1;
-        $.keySeat[_ckAddr] = SeatRef({ holdsSeat: true, seat: seat_ });
-        $.missCounts[seat_] = 0;
         _bond.holdsSeat = true;
         _bond.seat = seat_;
     }
 
-    /// @dev Releases a bond's seat: clears the seat table entry, the occupancy bit, the key's
-    /// key-to-seat word (to zero) and the seat's miss count. Emits nothing.
+    /// @dev Releases a bond's seat: clears the seat table entry and the occupancy bit. Emits
+    /// nothing.
     /// @param $ The staking storage.
     /// @param _bond The bond, which holds a seat.
-    /// @param _ckAddr The bond's consensus key address.
     /// @return seat_ The seat released.
     function _releaseSeat(
         StakingStorage storage $,
-        Bond storage _bond,
-        address _ckAddr
+        Bond storage _bond
     )
         private
         returns (uint8 seat_)
@@ -596,45 +551,8 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         seat_ = _bond.seat;
         $.occupied &= ~uint128(uint256(1) << seat_);
         delete $.seatBond[seat_];
-        delete $.keySeat[_ckAddr];
-        delete $.missCounts[seat_];
         _bond.holdsSeat = false;
         _bond.seat = 0;
-    }
-
-    /// @dev Counts misses: raises the miss count of each occupied seat whose bit in `_missBitmap`
-    /// is set by one and resets the count of every other occupied seat to zero. Only occupied
-    /// seats, all below nMax, are visited, so the other bits change nothing.
-    /// @param $ The staking storage.
-    /// @param _missBitmap The block's missed-signature bitmap; bit s is seat s.
-    function _countMisses(StakingStorage storage $, uint128 _missBitmap) private {
-        for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
-            uint256 seat = LibBit.ffs(seats);
-            // A count that reaches missLimit is reset in the same call, so between calls every
-            // count is below missLimit <= 65,535 and the increment fits in 16 bits.
-            $.missCounts[seat] = ((_missBitmap >> seat) & 1) == 1 ? $.missCounts[seat] + 1 : 0;
-        }
-    }
-
-    /// @dev Penalizes each seated bond whose seat's miss count reached missLimit: deducts
-    /// ceil(effStake * missSlashBps / 10,000) from its effStake and resets the count to zero. A
-    /// bond that this leaves below minStake releases its seat, with no exit set and no event.
-    /// @param $ The staking storage.
-    /// @return total_ The sum of the penalties, owed to slashSink.
-    function _penalize(StakingStorage storage $) private returns (uint256 total_) {
-        for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
-            uint256 seat = LibBit.ffs(seats);
-            if ($.missCounts[seat] < missLimit) continue;
-            $.missCounts[seat] = 0;
-            Bond storage bond = $.bonds[$.seatBond[seat] - 1];
-            uint256 effStake = bond.effStake;
-            // missSlashBps <= 10,000, so the penalty never exceeds effStake.
-            uint256 penalty = Math.mulDiv(effStake, missSlashBps, _BPS, Math.Rounding.Up);
-            effStake -= penalty;
-            bond.effStake = effStake;
-            total_ += penalty;
-            if (effStake < minStake) _releaseSeat($, bond, _ckAddrOf(bond));
-        }
     }
 
     /// @dev Writes the candidate snapshot from the seat table: record s, for each s below nMax,
@@ -687,16 +605,6 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         return LibEtnaKeys.recoverSigner(
             keccak256(LibCometVote.signBytes(_vote, _cometChainId)), _vote.signature
         );
-    }
-
-    /// @dev Returns a bond's consensus key address, decompressing its stored key. Registration
-    /// validated the key, so this reverts only for lack of gas, such as a modexp precompile call
-    /// that runs out of it, never for the key itself.
-    /// @param _bond The bond.
-    /// @return The key address.
-    function _ckAddrOf(Bond storage _bond) private view returns (address) {
-        bytes32 x = _bond.ckX;
-        return LibEtnaKeys.ckAddr(x, LibEtnaKeys.decompress(_bond.ckPrefix, x));
     }
 
     /// @dev Decodes a stored bond id + 1.
