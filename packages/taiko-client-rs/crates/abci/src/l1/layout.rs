@@ -10,7 +10,7 @@
 
 use alloy_primitives::U256;
 
-/// The L2 `EtnaStaking` storage layout: candidate snapshot slots and the key-to-seat decoder.
+/// The L2 `EtnaStaking` storage layout: the candidate snapshot slots.
 pub use etna_core::staking;
 
 /// Inbox storage slots (contract address = chain constant `ETNA_INBOX`).

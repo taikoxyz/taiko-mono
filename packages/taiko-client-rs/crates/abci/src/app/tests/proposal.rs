@@ -10,7 +10,7 @@ use tendermint::{
     Hash, Time,
     abci::types::CommitInfo,
     account,
-    block::{BlockIdFlag, Height, Round},
+    block::{Height, Round},
 };
 
 use super::*;
@@ -21,8 +21,7 @@ use crate::{
     l1::verify_anchor_witness,
     rules,
     test_utils::{
-        InboxStorage, L1Call, commit_info, committed_block, extended_commit_info,
-        sample_transactions, simple_block, test_key,
+        InboxStorage, L1Call, committed_block, sample_transactions, simple_block, test_key,
     },
     types::{AnchorState, ParentInfo},
 };
@@ -35,24 +34,12 @@ pub(super) fn proposer() -> account::Id {
     account::Id::new(test_key(1).address().into_array())
 }
 
-/// The LastCommit of `app`'s next height in which every validator of the set that signs its
-/// parent committed: empty at a generation's first block, and before `InitChain`.
-pub(super) fn full_commit(app: &App<MockL1, MockEngine>) -> CommitInfo {
-    let signers = app.state().map_or(&[][..], |state| &state.parent_signers);
-    commit_info(signers, &vec![BlockIdFlag::Commit; signers.len()])
-}
-
-/// A `PrepareProposal` request for `height` at BFT time `time` (Unix seconds) on `app`, whose
-/// LastCommit is [`full_commit`].
-pub(super) fn prepare_req(
-    app: &App<MockL1, MockEngine>,
-    height: u64,
-    time: u64,
-) -> request::PrepareProposal {
+/// A `PrepareProposal` request for `height` at BFT time `time` (Unix seconds).
+pub(super) fn prepare_req(height: u64, time: u64) -> request::PrepareProposal {
     request::PrepareProposal {
         max_tx_bytes: MAX_TX_BYTES,
         txs: vec![],
-        local_last_commit: Some(extended_commit_info(&full_commit(app))),
+        local_last_commit: None,
         misbehavior: vec![],
         height: Height::try_from(height).unwrap(),
         time: Time::from_unix_timestamp(i64::try_from(time).unwrap(), 0).unwrap(),
@@ -61,10 +48,9 @@ pub(super) fn prepare_req(
     }
 }
 
-/// A `ProcessProposal` request for `txs` at `height` and BFT time `time`, whose LastCommit is
-/// [`full_commit`]; its block hash is derived from the height and the transactions. The next-set
-/// hash is explicit native Comet header metadata from the fixture state, never repaired by the
-/// execution helper.
+/// A `ProcessProposal` request for `txs` at `height` and BFT time `time`; its block hash is
+/// derived from the height and the transactions. The next-set hash is explicit native Comet
+/// header metadata from the fixture state, never repaired by the execution helper.
 pub(super) fn process_req(
     app: &App<MockL1, MockEngine>,
     height: u64,
@@ -77,7 +63,7 @@ pub(super) fn process_req(
     }
     request::ProcessProposal {
         txs: txs.into_iter().map(|tx| tx.0).collect(),
-        proposed_last_commit: Some(full_commit(app)),
+        proposed_last_commit: None,
         misbehavior: vec![],
         hash: Hash::Sha256(keccak256(preimage).0),
         height: Height::try_from(height).unwrap(),
@@ -123,7 +109,7 @@ pub(super) fn next_height(app: &App<MockL1, MockEngine>) -> u64 {
 
 /// Prepares the next height and returns its envelope (exactly one transaction).
 pub(super) async fn propose(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
-    let txs = prepare(app, prepare_req(app, next_height(app), bft_time(app))).await;
+    let txs = prepare(app, prepare_req(next_height(app), bft_time(app))).await;
     assert_eq!(txs.len(), 1, "one envelope; halt = {:?}", app.halt);
     EtnaEnvelope::decode(&txs[0]).expect("the envelope decodes")
 }
@@ -144,8 +130,7 @@ pub(super) async fn rejected(app: &mut App<MockL1, MockEngine>, env: &EtnaEnvelo
     app.halt.clone().expect("a rejection records its label")
 }
 
-/// Runs the deterministic validation of `env` as the next height, whose LastCommit misses
-/// nobody ([`full_commit`]): its `missBitmap` is 0.
+/// Runs the deterministic validation of `env` as the next height.
 pub(super) fn validate(
     app: &App<MockL1, MockEngine>,
     env: &EtnaEnvelope,
@@ -158,19 +143,14 @@ pub(super) fn validate(
         next_height(app),
         bft_time(app),
         proposer(),
-        0,
     )
 }
 
-/// The `FinalizeBlock` request CometBFT sends once the block `p` proposed is decided: its
-/// LastCommit is the proposed block's.
+/// The `FinalizeBlock` request CometBFT sends once the block `p` proposed is decided.
 pub(super) fn finalize_req(p: &request::ProcessProposal) -> request::FinalizeBlock {
     request::FinalizeBlock {
         txs: p.txs.clone(),
-        decided_last_commit: p
-            .proposed_last_commit
-            .clone()
-            .unwrap_or(CommitInfo { round: Round::default(), votes: vec![] }),
+        decided_last_commit: CommitInfo { round: Round::default(), votes: vec![] },
         misbehavior: vec![],
         hash: p.hash,
         height: p.height,
@@ -224,8 +204,7 @@ pub(super) async fn step(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
 /// committed anchor. The parent is the
 /// [`committed_block`] at `last`, and the EL's canonical chain gains one below it at every height
 /// above genesis it does not hold yet, so anchored checkpoints of `Fixture::inbox_with` name the
-/// local chain. The validator state advances to `last` without updates, and the parent signers
-/// become the set that signs `last`.
+/// local chain. The validator state advances to `last` without updates.
 pub(super) fn jump(app: &mut App<MockL1, MockEngine>, last: u64, anchor: AnchorState) {
     let genesis_height = app.state().expect("initialized").genesis.genesis_height;
     {
@@ -249,7 +228,6 @@ pub(super) fn jump(app: &mut App<MockL1, MockEngine>, last: u64, anchor: AnchorS
     state.last_height = last;
     state.anchor = anchor;
     while state.val_state.height < last {
-        state.parent_signers = state.val_state.current.entries.clone();
         state.val_state = state.val_state.advance(&[]).expect("a nonempty set advances");
     }
 }
@@ -283,22 +261,13 @@ pub(super) async fn mid_epoch(fx: &Fixture, dir: &Path, offset: u64) -> App<Mock
     app
 }
 
-/// The envelope an honest proposer would build for the next height with this anchor witness
-/// and a LastCommit that misses nobody: the header derived for the witnessed (or inherited)
-/// anchor, built by [`simple_block`].
+/// The envelope an honest proposer would build for the next height with this anchor witness:
+/// the header derived for the witnessed (or inherited) anchor, built by [`simple_block`].
 pub(super) fn hand_envelope(
     app: &App<MockL1, MockEngine>,
     anchor: Option<AnchorWitness>,
 ) -> EtnaEnvelope {
-    hand_built(app, anchor, None, 0)
-}
-
-/// [`hand_envelope`] without a witness, its header carrying `miss_bitmap`.
-pub(super) fn hand_envelope_with_bitmap(
-    app: &App<MockL1, MockEngine>,
-    miss_bitmap: u128,
-) -> EtnaEnvelope {
-    hand_built(app, None, None, miss_bitmap)
+    hand_built(app, anchor, None)
 }
 
 /// The forced inclusion block an honest proposer would build for the next height: as
@@ -310,16 +279,15 @@ pub(super) fn hand_forced_envelope(
     forced: ForcedWitness,
     tx_list: Bytes,
 ) -> EtnaEnvelope {
-    EtnaEnvelope { forced: Some(forced), ..hand_built(app, anchor, Some(tx_list), 0) }
+    EtnaEnvelope { forced: Some(forced), ..hand_built(app, anchor, Some(tx_list)) }
 }
 
 /// The envelope of [`hand_envelope`] without a forced witness, its block built by
-/// [`simple_block`] from `tx_list` when given and its header carrying `miss_bitmap`.
+/// [`simple_block`] from `tx_list` when given.
 fn hand_built(
     app: &App<MockL1, MockEngine>,
     anchor: Option<AnchorWitness>,
     tx_list: Option<Bytes>,
-    miss_bitmap: u128,
 ) -> EtnaEnvelope {
     let state = app.state().expect("initialized");
     let height = next_height(app);
@@ -335,7 +303,6 @@ fn hand_built(
         &anchor_state,
         bft_time(app),
         proposer(),
-        miss_bitmap,
     )
     .expect("derivable header");
     let attrs = rules::payload_attributes(&expected, anchor_state.hash, tx_list);
@@ -578,7 +545,7 @@ async fn proposal_unknown_certified_proposer_fails_closed() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let env = propose(&mut app).await;
-    let mut prepare_request = prepare_req(&app, next_height(&app), bft_time(&app));
+    let mut prepare_request = prepare_req(next_height(&app), bft_time(&app));
     prepare_request.proposer_address = account::Id::new([0xff; 20]);
     let engine_before = app.engine().calls();
     assert!(prepare(&mut app, prepare_request).await.is_empty());

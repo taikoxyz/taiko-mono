@@ -9,10 +9,8 @@
 //! it a forged Inbox checkpoint, and that anchor's `lastCheckpoint` must name a block of the
 //! local chain ([`App::confirm_checkpoint`]). A decided block that fails a deterministic check,
 //! whose anchor is off the own L1 chain or settles another history, that the EL rejects, or whose
-//! `next_validators_hash` or LastCommit contradicts the validator-state replica is a safety halt:
-//! the process exits and an operator must investigate. A cold block's `missBitmap` reads the
-//! key-to-seat words at the committed parent's hash, never at the decided block's, so a replay
-//! reads the same words wherever the EL head has moved.
+//! `next_validators_hash` contradicts the validator-state replica is a safety halt: the process
+//! exits and an operator must investigate.
 //!
 //! Once the block has executed and is the EL's head, its post-state and anchor decide the set
 //! that signs two heights later ([`App::decide_signers`]): the staking words are read at the
@@ -39,9 +37,7 @@ use tokio::time::Instant;
 
 use super::{
     AbciError, App, FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash,
-    deadline,
-    last_commit::committed_flags,
-    unix_secs,
+    deadline, unix_secs,
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
@@ -117,13 +113,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // height + 2, and the response returns how it differs from the set that signs
         // height + 1, the replica's next set, as stock CometBFT applies the updates at
         // height + 2. CometBFT applies exactly the updates this response returns; a change set
-        // it would refuse halts it, so the replica halts first. The set that signed this height
-        // is the one the next block's LastCommit lists.
+        // it would refuse halts it, so the replica halts first.
         let (signers, decided, anchored) = self.decide_signers(&next, height).await?;
         next.fallback_keys = kept_fallback_keys(&next, anchored);
         let updates =
             committee::validator_updates(&state.val_state.next.members(), &signers.members);
-        next.parent_signers = state.val_state.current.entries.clone();
         next.val_state = state
             .val_state
             .advance(&updates)
@@ -160,9 +154,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Validates the decided block of `req` at `height` on the committed `state` without a
     /// `ProcessProposal` verdict, as SYNC-9-1 requires of a block this node did not judge live:
-    /// its `decided_last_commit` must list the replica's set that signs the parent
-    /// ([`committed_flags`]), its `missBitmap` comes from the key-to-seat words of the missing
-    /// validators in the committed parent's post-state ([`App::decided_miss_bitmap`]), then
     /// [`validate_block`] (waiting while this node lacks the block's ruleset), a moved anchor's
     /// own-L1 finality ([`App::confirm_anchor`]) and checkpoint ancestry
     /// ([`App::confirm_checkpoint`]), then the forced decision ([`App::confirm_forced`]).
@@ -174,8 +165,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         req: &request::FinalizeBlock,
         height: u64,
     ) -> Result<Validated, AbciError> {
-        let committed = committed_flags(&state.parent_signers, &req.decided_last_commit.votes)
-            .map_err(|error| safety_halt(height, "last_commit", Rejection::LastCommit(error)))?;
         let bft_secs = unix_secs(req.time);
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = match single_envelope(&txs) {
@@ -196,7 +185,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(invalid_block(height, &Rejection::from(error)));
             }
         };
-        let miss_bitmap = self.decided_miss_bitmap(state, height, &committed).await?;
         let mut validated = loop {
             match validate_block(
                 &state.chain_context(),
@@ -205,7 +193,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 height,
                 bft_secs,
                 req.proposer_address,
-                miss_bitmap,
             ) {
                 Ok(validated) => break validated,
                 Err(Rejection::Rule(crate::rules::RuleViolation::UnsupportedRuleset { rules })) => {
@@ -222,35 +209,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         validated.forced = self.confirm_forced(state, height, &validated).await?;
         Ok(validated)
-    }
-
-    /// The `missBitmap` of the decided block at `height` on `state` whose LastCommit marks
-    /// `committed` ([`App::miss_bitmap`]), read at the committed parent's hash, so a replay
-    /// after the EL executed the block reads the same words. A retryable read failure or an
-    /// elapsed deadline waits with the [`Backoff`] schedule, logging the failure; any other
-    /// failure, such as a malformed reply, is a safety halt.
-    async fn decided_miss_bitmap(
-        &self,
-        state: &AppState,
-        height: u64,
-        committed: &[bool],
-    ) -> Result<u128, AbciError> {
-        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
-        loop {
-            match self.miss_bitmap(state, committed).await {
-                Ok(bitmap) => return Ok(bitmap),
-                Err(wait) if wait.retryable_dependency() && !wait.requires_dependency_repair() => {
-                    backoff.wait(SEAT_WORD_READ, &wait.to_string()).await;
-                }
-                Err(error) => {
-                    return Err(safety_halt(
-                        height,
-                        error.label(),
-                        format!("the parent's key-to-seat words cannot be read: {error}"),
-                    ));
-                }
-            }
-        }
     }
 
     /// The set that signs `height + 2`, decided once the block at `height` is the EL's head,
@@ -792,9 +750,6 @@ const FCU: &str = "engine_forkchoiceUpdated";
 
 /// What `FinalizeBlock`'s [`Backoff`] retries, for its logs.
 pub(super) const DECIDED_BLOCK: &str = "the decided block";
-
-/// What [`App::decided_miss_bitmap`] retries, for its logs.
-const SEAT_WORD_READ: &str = "seat word read";
 
 /// What [`App::decided_staking_words`] retries, for its logs.
 const STAKING_WORD_READ: &str = "staking word read";

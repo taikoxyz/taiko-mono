@@ -144,7 +144,6 @@ async fn build_start(f: &ContractFixture) -> Result<Header> {
         anchor: &anchor,
         bft_time_secs: anchor.timestamp,
         generation: 0,
-        miss_bitmap: 0,
         params: &f.params,
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(L2_CHAIN_ID),
     })?;

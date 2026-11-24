@@ -1,11 +1,11 @@
 //! Header derivation and block-validity predicates. No I/O.
 //!
 //! [`expected_header`] derives every consensus-chosen field of the L2 block at height `H` from
-//! the committed parent, the block's L1 anchor, the BFT time, the recovery generation, the
-//! block's `missBitmap` and the chain constants. `PrepareProposal` builds with
-//! [`payload_attributes`] of that header; `ProcessProposal` and `FinalizeBlock` recompute it and
-//! compare with [`check_header`]. The remaining predicates cover anchor progress, anchor freshness,
-//! back-pressure, checkpoint ancestry, the generation triple and the CometBFT `chain_id`.
+//! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
+//! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
+//! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
+//! remaining predicates cover anchor progress, anchor freshness, back-pressure, checkpoint
+//! ancestry, the generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
@@ -20,7 +20,7 @@ use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
 use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
 use alloy_primitives::{Address, B64, B256, Bytes, U256};
 use etna_core::extra_data::ExtraDataError;
-/// The 29-byte block `extraData` codec of the portable Etna rules: [`encode_extra_data`] and
+/// The 13-byte block `extraData` codec of the portable Etna rules: [`encode_extra_data`] and
 /// [`decode_extra_data`] wrap it with this module's violations.
 pub use etna_core::extra_data::{BASEFEE_SHARING_PCTG, EXTRA_DATA_LEN, ExtraData};
 use protocol::shasta::{
@@ -55,9 +55,6 @@ pub struct HeaderInputs<'a> {
     pub bft_time_secs: u64,
     /// Recovery generation bound into the deployment chain-id digest.
     pub generation: u64,
-    /// The block's `missBitmap`: bit `s` set for each seat `s` of a parent signer that the
-    /// block's LastCommit marks missing; 0 for a generation's first block, which has none.
-    pub miss_bitmap: u128,
     /// Locally chosen beneficiary; validators accept the certified block's beneficiary.
     pub beneficiary: Address,
     /// Chain constants (block gas limit).
@@ -78,8 +75,7 @@ pub struct ExpectedHeader {
     pub timestamp: u64,
     /// Coinbase and suggested fee recipient chosen by the certified proposer.
     pub beneficiary: Address,
-    /// The 29-byte `[100 | generation | anchorNumber | missBitmap]` `extraData`
-    /// ([`encode_extra_data`]).
+    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
@@ -226,16 +222,6 @@ pub enum RuleViolation {
         /// The Inbox `recoveryGeneration` proven at the anchor.
         inbox: u64,
     },
-    /// The `extraData` `missBitmap` differs from the one the block's LastCommit gives: bit `s`
-    /// set exactly for each seat `s` that a validator missing from it holds in the parent's
-    /// post-state.
-    #[error("extraData missBitmap is {got:#x}, expected {expected:#x}")]
-    MissBitmap {
-        /// The bitmap the block's LastCommit and the parent's key-to-seat words give.
-        expected: u128,
-        /// The bitmap in the block's `extraData`.
-        got: u128,
-    },
     /// The CometBFT chain ID does not match this deployment domain.
     #[error("chain_id {chain_id:?} does not match the deployment domain for L2 {l2_chain_id}")]
     InvalidChainId {
@@ -303,7 +289,6 @@ impl RuleViolation {
             Self::BackPressure { .. } => "back_pressure",
             Self::GenerationMismatch { .. } => "generation_mismatch",
             Self::GenerationAhead { .. } => "generation_ahead",
-            Self::MissBitmap { .. } => "miss_bitmap",
             Self::InvalidChainId { .. } => "invalid_chain_id",
             Self::CheckpointAboveParent { .. } => "checkpoint_above_parent",
             Self::CheckpointConflict { .. } => "checkpoint_conflict",
@@ -326,11 +311,10 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
     parent_ts.saturating_add(1).max(bft_secs).max(anchor_ts)
 }
 
-/// Encodes the 29-byte Etna `extraData`
-/// `[basefeeSharingPctg | generation u48 BE | anchor u48 BE | missBitmap u128 BE]`: the slot that
-/// held the proposal id before Etna carries the recovery generation, so the EL block hash an L1
-/// checkpoint pins commits to it, and the block-start staking call takes its generation and
-/// `missBitmap` arguments from it.
+/// Encodes the 13-byte Etna `extraData`
+/// `[basefeeSharingPctg | generation u48 BE | anchor u48 BE]`: the slot that held the proposal id
+/// before Etna carries the recovery generation, so the EL block hash an L1 checkpoint pins
+/// commits to it, and the block-start staking call takes its generation argument from it.
 ///
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
@@ -395,7 +379,6 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
             basefee_sharing_pctg: BASEFEE_SHARING_PCTG,
             generation: i.generation,
             anchor: i.anchor.number,
-            miss_bitmap: i.miss_bitmap,
         })?,
         parent_beacon_block_root: i.anchor.state_root,
         gas_limit: i.params.block_gas_limit,
@@ -504,14 +487,14 @@ impl fmt::Write for Bounded {
 ///
 /// # Panics
 ///
-/// If `e.extra_data` is not a 29-byte Etna `extraData`, which [`expected_header`] guarantees.
+/// If `e.extra_data` is not a 13-byte Etna `extraData`, which [`expected_header`] guarantees.
 pub fn payload_attributes(
     e: &ExpectedHeader,
     anchor_hash: B256,
     tx_list: Option<Bytes>,
 ) -> TaikoPayloadAttributes {
     let anchor_number = decode_extra_data(&e.extra_data)
-        .expect("ExpectedHeader::extra_data is a 29-byte Etna extraData")
+        .expect("ExpectedHeader::extra_data is a 13-byte Etna extraData")
         .anchor;
     let is_forced_inclusion = tx_list.is_some();
     let mut attrs = build_payload_attributes(PayloadAttributesInput {

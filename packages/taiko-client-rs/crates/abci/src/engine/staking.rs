@@ -1,16 +1,12 @@
 //! Hash-pinned reads of the `EtnaStaking` words a node decides with, from its own EL.
 //!
-//! The candidate snapshot that decides the set signing H + 2 is read from H's post-state, and the
-//! live key-to-seat values that set a block's miss bitmap from its parent's post-state. Every read
-//! names the exact block hash whose post-state it reads ([`Engine::storage_at`]), never the EL's
-//! head, so a replay reads the same words wherever the head has moved since. Words are returned
-//! whole; callers compare and decode them with etna-core's rules ([`needs_records`],
-//! [`decode_seat`](etna_core::staking::decode_seat)).
-
-use std::collections::{BTreeMap, BTreeSet};
+//! The candidate snapshot that decides the set signing H + 2 is read from H's post-state. Every
+//! read names the exact block hash whose post-state it reads ([`Engine::storage_at`]), never the
+//! EL's head, so a replay reads the same words wherever the head has moved since. Words are
+//! returned whole; callers compare them with etna-core's rules ([`needs_records`]).
 
 use alloy_primitives::{Address, B256, U256};
-use etna_core::staking::{StakingWords, key_to_seat_slot, snapshot_slots};
+use etna_core::staking::{StakingWords, snapshot_slots};
 
 use super::{Engine, EngineError};
 use crate::committee::needs_records;
@@ -40,25 +36,6 @@ pub async fn staking_words<E: Engine + ?Sized>(
     words.extend(read(engine, staking, records, hash).await?);
     StakingWords::from_snapshot_values(&words)
         .ok_or_else(|| EngineError::BadReply(format!("incomplete staking snapshot at {hash}")))
-}
-
-/// The live key-to-seat word of each address in `addrs` in the staking contract `staking`, read
-/// whole from the post-state of block `hash`, each address once; a key that holds no seat reads
-/// zero. Decode the words with [`decode_seat`](etna_core::staking::decode_seat). No address
-/// reads nothing. Errors as [`staking_words`].
-pub async fn seat_words<E: Engine + ?Sized>(
-    engine: &E,
-    staking: Address,
-    hash: B256,
-    addrs: &[Address],
-) -> Result<BTreeMap<Address, U256>, EngineError> {
-    if addrs.is_empty() {
-        return Ok(BTreeMap::new());
-    }
-    let addrs = addrs.iter().copied().collect::<BTreeSet<_>>();
-    let slots: Vec<B256> = addrs.iter().map(|addr| key_to_seat_slot(*addr)).collect();
-    let words = read(engine, staking, &slots, hash).await?;
-    Ok(addrs.into_iter().zip(words).collect())
 }
 
 /// [`Engine::storage_at`], checked to answer one word per slot.
@@ -144,9 +121,9 @@ mod tests {
         Header { number, parent_hash: parent, timestamp: salt, ..Header::default() }
     }
 
-    /// Both readers read the post-state of the block they name, here a canonical ancestor of
-    /// the EL head that holds other words: the head's words never leak into the answer, and
-    /// every read names the requested hash of the staking contract.
+    /// The reader reads the post-state of the block it names, here a canonical ancestor of the
+    /// EL head that holds other words: the head's words never leak into the answer, and every
+    /// read names the requested hash of the staking contract.
     #[tokio::test]
     async fn reads_are_pinned_to_the_hash() {
         let block = header(H, B256::ZERO, 1);
@@ -156,31 +133,15 @@ mod tests {
         let expected = store_snapshot(&engine, at, U256::from(H), min_stake(), 1);
         store_snapshot(&engine, later, U256::from(H), min_stake(), 2);
 
-        let (a, b) = (Address::repeat_byte(0x0a), Address::repeat_byte(0x0b));
-        for (address, at_word, later_word) in [(a, 0x0501, 0x0601), (b, 0x10301, 0)] {
-            engine.set_storage(at, STAKING, key_to_seat_slot(address), U256::from(at_word));
-            engine.set_storage(later, STAKING, key_to_seat_slot(address), U256::from(later_word));
-        }
-
         let words = staking_words(&engine, STAKING, at, H, min_stake()).await.unwrap();
         assert_eq!(words, expected);
-        let seats = seat_words(&engine, STAKING, at, &[b, a, b]).await.unwrap();
-        assert_eq!(
-            seats,
-            BTreeMap::from([(a, U256::from(0x0501)), (b, U256::from(0x10301))]),
-            "whole words, not decoded seats"
-        );
 
         let reads = reads(&engine);
-        assert_eq!(reads.len(), 3, "the snapshot header, its records, then the seats");
+        assert_eq!(reads.len(), 2, "the snapshot header, then its records");
         for (address, hash, _) in &reads {
             assert_eq!((*address, *hash), (STAKING, at));
         }
-        assert_eq!(reads[2].2, vec![key_to_seat_slot(a), key_to_seat_slot(b)], "each key once");
-        assert_eq!(engine.calls().len(), 3, "nothing but storage reads");
-
-        assert_eq!(seat_words(&engine, STAKING, at, &[]).await, Ok(BTreeMap::new()));
-        assert_eq!(engine.calls().len(), 3, "no address, no read");
+        assert_eq!(engine.calls().len(), 2, "nothing but storage reads");
     }
 
     /// `snapshotHeight` and `snapshotTotalStake` are read first; when they already rule the
@@ -244,14 +205,6 @@ mod tests {
             assert!(matches!(err, EngineError::BadReply(_)), "{case}: {err:?}");
             assert!(!err.is_retryable(), "{case}");
         }
-
-        let (a, b) = (Address::repeat_byte(0x0a), Address::repeat_byte(0x0b));
-        for words in [vec![], vec![U256::ZERO], vec![U256::ZERO; 3]] {
-            let engine = MockEngine::new();
-            engine.state().storage_script.push_back(Ok(words.clone()));
-            let err = seat_words(&engine, STAKING, hash, &[a, b]).await.unwrap_err();
-            assert!(matches!(err, EngineError::BadReply(_)), "{} words: {err:?}", words.len());
-        }
     }
 
     /// A block the EL does not hold, or holds off its canonical chain, is a node-local fault
@@ -262,18 +215,12 @@ mod tests {
         let side = header(H, B256::ZERO, 2);
         let engine = MockEngine::with_chain([block]);
         engine.insert_known(side.clone());
-        let addr = Address::repeat_byte(0x0a);
 
         for hash in [B256::repeat_byte(0x33), side.hash_slow()] {
-            let errors = [
-                staking_words(&engine, STAKING, hash, H, min_stake()).await.unwrap_err(),
-                seat_words(&engine, STAKING, hash, &[addr]).await.unwrap_err(),
-            ];
-            for err in errors {
-                assert!(matches!(err, EngineError::Transport(_)), "{hash}: {err:?}");
-                assert!(err.is_retryable(), "{hash}");
-            }
+            let err = staking_words(&engine, STAKING, hash, H, min_stake()).await.unwrap_err();
+            assert!(matches!(err, EngineError::Transport(_)), "{hash}: {err:?}");
+            assert!(err.is_retryable(), "{hash}");
         }
-        assert_eq!(slots_read(&engine), 2 * 3, "the two header words and one seat, per hash");
+        assert_eq!(slots_read(&engine), 2 * 2, "the two header words, per hash");
     }
 }

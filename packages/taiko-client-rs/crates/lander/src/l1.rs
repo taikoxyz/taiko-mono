@@ -21,7 +21,7 @@ use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionRequest;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 use crate::{
     contracts::IEtnaInbox,
@@ -881,42 +881,31 @@ pub(crate) fn snapshot_origin(snapshot: &LandingSnapshot) -> Result<OriginRecord
     }
 }
 
-/// The slots of one staking read at an L2 height: the candidate snapshot's words in
-/// [`staking::snapshot_slots`] order, then the live key-to-seat word of each address of
-/// `missing`, in its order.
-pub(crate) fn staking_slots(missing: &[Address]) -> Vec<B256> {
-    staking::snapshot_slots()
-        .into_iter()
-        .chain(missing.iter().map(|address| staking::key_to_seat_slot(*address)))
-        .collect()
-}
-
-/// Verifies `witness`, the staking proxy `staking`'s proofs at [`staking_slots`]`(missing)` in
-/// the post-state of L2 block `height`, under that block's state root `state_root`, and returns
-/// the candidate snapshot it proves and the live key-to-seat word of each address of `missing`.
+/// Verifies `witness`, the staking proxy `staking`'s proofs at [`staking::snapshot_slots`] in the
+/// post-state of L2 block `height`, under that block's state root `state_root`, and returns the
+/// candidate snapshot it proves.
 ///
 /// Every word is returned whole, never masked: the caller decides with them
-/// ([`abci::committee::decide`], [`staking::decode_seat`]). An address without an account holds
-/// no storage, as one without code holds no snapshot: when the account proof is a complete
-/// exclusion proof under the root, every word is zero, so the snapshot is not the height's own and
-/// the fallback keys sign. The witness must then claim the requested slots with zero values, as
-/// `eth_getProof` answers for an absent account. A witness that names another account or another
-/// slot list, claims a word the proofs do not give, or whose account or storage proofs do not
-/// verify, is [`LanderError::Safety`]: the caller authenticated the root.
+/// ([`abci::committee::decide`]). An address without an account holds no storage, as one without
+/// code holds no snapshot: when the account proof is a complete exclusion proof under the root,
+/// every word is zero, so the snapshot is not the height's own and the fallback keys sign. The
+/// witness must then claim the requested slots with zero values, as `eth_getProof` answers for an
+/// absent account. A witness that names another account or another slot list, claims a word the
+/// proofs do not give, or whose account or storage proofs do not verify, is
+/// [`LanderError::Safety`]: the caller authenticated the root.
 pub(crate) fn verify_staking_witness(
     state_root: B256,
     staking: Address,
     witness: &AccountWitness,
     height: u64,
-    missing: &[Address],
-) -> Result<(StakingWords, BTreeMap<Address, U256>)> {
+) -> Result<StakingWords> {
     if witness.address != staking {
         return Err(LanderError::Safety(format!(
             "staking proof at L2 {height} names {}, not the staking proxy {staking}",
             witness.address
         )));
     }
-    let slots = staking_slots(missing);
+    let slots = staking::snapshot_slots();
     let storage = if verify_account_absence(state_root, staking, &witness.account_proof).is_ok() {
         if !witness.storage.iter().map(|proof| proof.slot).eq(slots.iter().copied()) ||
             witness.storage.iter().any(|proof| !proof.value.is_zero())
@@ -934,13 +923,7 @@ pub(crate) fn verify_staking_witness(
         )
     };
     let word = |slot| storage.as_ref().map_or(U256::ZERO, |s| s.get(slot).expect("verified slot"));
-    let words = StakingWords::from_snapshot_values(&staking::snapshot_slots().map(word))
-        .expect("every snapshot slot");
-    let seats = missing
-        .iter()
-        .map(|address| (*address, word(staking::key_to_seat_slot(*address))))
-        .collect();
-    Ok((words, seats))
+    Ok(StakingWords::from_snapshot_values(&slots.map(word)).expect("every snapshot slot"))
 }
 
 /// The fallback key list whose hash is `hash`, read from `l1` at the block with hash `at` and

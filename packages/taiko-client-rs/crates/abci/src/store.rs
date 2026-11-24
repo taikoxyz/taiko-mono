@@ -30,7 +30,7 @@ use crate::{
     key::ConsensusKey,
     recovery::RecoveryOrigin,
     types::{AnchorState, GenesisRecord, ParentInfo},
-    valstate::{ValEntry, ValState},
+    valstate::ValState,
 };
 
 /// Checksummed execution payloads retained for local EL crash recovery.
@@ -48,7 +48,7 @@ pub const STATE_FILE: &str = "abci-state.json";
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
-pub const STATE_SCHEMA_VERSION: u32 = 22;
+pub const STATE_SCHEMA_VERSION: u32 = 23;
 
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,11 +99,6 @@ pub struct AppState {
     /// generation's genesis state, advanced by every committed height's validator updates. A
     /// required field: a state file without it is refused (no migration).
     pub val_state: ValState,
-    /// The set that signs `last_height`, in CometBFT order: the validators the next block's
-    /// LastCommit lists. `FinalizeBlock` sets it to the replica's current set before advancing
-    /// [`AppState::val_state`]; it is empty at a generation's origin, whose first block has no
-    /// LastCommit. A required field: a state file without it is refused (no migration).
-    pub parent_signers: Vec<ValEntry>,
     /// Where the sets that sign `last_height + 1` and `last_height + 2` come from:
     /// [`AppState::val_state`]'s current and next sets. The origin record's fallback keys sign
     /// a generation's first two blocks ([`Signers::origin`]); `FinalizeBlock(H)` shifts the pair
@@ -889,10 +884,6 @@ mod tests {
                 &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
             )
             .unwrap(),
-            parent_signers: crate::valstate::comet_order(
-                &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
-            )
-            .unwrap(),
             signers: Signers {
                 next: SignerStatus::fallback(
                     &crate::test_utils::fallback_list(&[1, 2, 3]),
@@ -1184,7 +1175,6 @@ mod tests {
             ("/val_state/current/entries/0", "key"),
             ("", "forced_cursor"),
             ("", "val_state"),
-            ("", "parent_signers"),
             ("", "signers"),
             ("", "fallback_keys"),
             ("/genesis", "forced_inclusion_delay"),

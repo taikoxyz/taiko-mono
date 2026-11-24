@@ -163,7 +163,6 @@ pub(crate) async fn fixture_with_minimum(
             anchor: a,
             bft_time_secs: 100 + height,
             generation: 2,
-            miss_bitmap: 0,
             params: &f.params,
             min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(f.params.l2_chain_id),
         })

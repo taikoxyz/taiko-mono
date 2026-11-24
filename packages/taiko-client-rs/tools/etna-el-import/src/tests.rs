@@ -277,7 +277,7 @@ fn json_line(value: &impl serde::Serialize) -> Vec<u8> {
     line
 }
 
-/// A header as the chain writes it: every optional field present and a 29-byte `extraData`.
+/// A header as the chain writes it: every optional field present and a 13-byte `extraData`.
 fn chain_header(number: u64, parent_hash: B256) -> alloy_consensus::Header {
     alloy_consensus::Header {
         number,
@@ -290,7 +290,7 @@ fn chain_header(number: u64, parent_hash: B256) -> alloy_consensus::Header {
         gas_limit: 45_000_000,
         gas_used: 12_345_678,
         base_fee_per_gas: Some(10_000_000),
-        extra_data: vec![0x5a; 29].into(),
+        extra_data: vec![0x5a; 13].into(),
         mix_hash: B256::repeat_byte(0x24),
         withdrawals_root: Some(B256::repeat_byte(0x25)),
         blob_gas_used: Some(0),

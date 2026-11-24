@@ -12,9 +12,7 @@
 //! Consumers read the staking words from H's post-state and the minimum total stake and fallback
 //! key list from H's anchor, and authenticate them; this crate proves nothing about its inputs.
 //!
-//! [`extra_data::ExtraData`] is a block's 29-byte `extraData`; [`miss::miss_bitmap`] gives its
-//! `missBitmap` from the parent's signers that the block's LastCommit marks missing and their
-//! key-to-seat words in the parent's post-state.
+//! [`extra_data::ExtraData`] is a block's 13-byte `extraData`.
 //!
 //! The Comet certificate and body helpers verify individual consensus commitments. Consumers
 //! compose these checks with generation and range validation, execution and forced inclusion
@@ -32,18 +30,15 @@ pub mod comet;
 pub mod committee;
 /// Deployment and generation signing domain.
 pub mod domain;
-/// The 29-byte block `extraData`: base-fee sharing percentage, generation, anchor number and
-/// `missBitmap`.
+/// The 13-byte block `extraData`: base-fee sharing percentage, generation and anchor number.
 pub mod extra_data;
 /// DAO fallback key set: the validated key list, its hash and its canonical ABI encoding.
 pub mod fallback;
 /// Validated consensus identities and stock key JSON.
 pub mod key;
-/// The validators missing from a block's LastCommit and the `missBitmap` of their seats.
-pub mod miss;
 /// Canonical deployment data and pure parameter validation.
 pub mod params;
-/// L2 staking contract storage layout: candidate snapshot slots and the key-to-seat decoder.
+/// L2 staking contract storage layout: the candidate snapshot slots.
 pub mod staking;
 #[cfg(test)]
 mod test_utils;

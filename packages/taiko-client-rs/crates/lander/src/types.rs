@@ -389,24 +389,18 @@ pub struct PreparedBatch {
     /// power 1, sign o + 1 and o + 2.
     pub origin_fallback_keys: FallbackKeys,
     /// header(p), the canonical protobuf of the CometBFT header whose hash p's landing record
-    /// holds (`checkpoint_comet_hash`), present exactly when p is above o: its
-    /// `validators_hash` commits `validators_p`, and its `next_validators_hash` the set that
-    /// signs p + 1, `validators_p1` or, up to o + 2, the origin list's.
+    /// holds (`checkpoint_comet_hash`), present exactly when p + 1 is above o + 2: its
+    /// `next_validators_hash` commits the set that signs p + 1, `validators_p1`.
     #[serde(with = "protobuf_serde_option")]
     pub header_p: Option<Bytes>,
-    /// The set that signs p, keys and powers in CometBFT's order, which header(p)'s
-    /// `validators_hash` commits and p + 1's LastCommit lists; present exactly when p is above
-    /// the generation's start o, as o + 1 has no LastCommit.
-    pub validators_p: Option<Vec<(ConsensusKey, u64)>>,
     /// The set that signs p + 1, keys and powers in CometBFT's order, which header(p)'s
     /// `next_validators_hash` commits; present exactly when p + 1 is above o + 2, as the origin
     /// list signs o + 1 and o + 2.
     pub validators_p1: Option<Vec<(ConsensusKey, u64)>>,
-    /// Raw EIP-1186 proof of the `EtnaStaking` proxy's candidate snapshot slots and the
-    /// key-to-seat slot of each validator p + 1's LastCommit lacks, in p's post-state under the
-    /// state root of p's EL header; present exactly when p is above o. Its snapshot, with the
-    /// `minTotalStake` and `fallbackKeysHash` p's anchor proves, decides the set that signs
-    /// p + 2, and its seats give p + 1's `missBitmap`.
+    /// Raw EIP-1186 proof of the `EtnaStaking` proxy's candidate snapshot slots in p's
+    /// post-state under the state root of p's EL header; present exactly when p is above o. Its
+    /// snapshot, with the `minTotalStake` and `fallbackKeysHash` p's anchor proves, decides the
+    /// set that signs p + 2.
     pub staking_at_p: Option<AccountWitness>,
     /// Raw EIP-1186 proof of the L2 SignalService proxy's EIP-1967 implementation slot under S's
     /// state root, retained only for a switching batch whose parent is S. A real proof backend
@@ -459,9 +453,6 @@ pub struct HeightReads {
     /// the `minTotalStake` and `fallbackKeysHash` H's anchor proves, it decides the set that
     /// signs H + 2.
     pub values: Vec<U256>,
-    /// The key-to-seat word of each validator H + 1's LastCommit lacks, by its address, in the
-    /// CometBFT order of the set that signs H: they give H + 1's `missBitmap`.
-    pub seat_words: Vec<(Address, U256)>,
 }
 
 /// Fixed bounds for decoding a restored job's blobs, independent of operator limits: the journal
@@ -482,7 +473,7 @@ impl PreparedBatch {
     ///
     /// The commit heights, which the statement does not bind, must still have the shape the
     /// builder gives them: strictly ascending inside (p, h] and ending at h. header(p) and the
-    /// sets that sign p and p + 1 must be the ones p's landing record commits
+    /// set that signs p + 1 must be the ones p's landing record commits
     /// ([`PreparedBatch::check_origin_sets`]).
     ///
     /// Other proof witnesses (anchors, p's anchor witness, the starting Inbox witness, the
@@ -574,25 +565,20 @@ impl PreparedBatch {
         crate::blob::verify(&self.blobs)
     }
 
-    /// Checks header(p) and the sets that sign p and p + 1 against p's landing record and each
-    /// other, as the proof does: each is carried exactly where the proof takes it as input,
-    /// header(p) is canonical and hashes to `checkpoint_comet_hash`, `validators_p` is in
-    /// CometBFT's order and hashes to its `validators_hash`, and the set that signs p + 1,
-    /// `validators_p1` in CometBFT's order or, up to o + 2, the origin list's keys at power 1,
-    /// hashes to its `next_validators_hash`. Returns the first contradiction.
+    /// Checks header(p) and the set that signs p + 1 against p's landing record and each other,
+    /// as the proof does: both are carried exactly where the proof takes them as input, above
+    /// o + 2 for p + 1, header(p) is canonical and hashes to `checkpoint_comet_hash`, and
+    /// `validators_p1` is in CometBFT's order and hashes to its `next_validators_hash`. Returns
+    /// the first contradiction.
     pub(crate) fn check_origin_sets(&self) -> std::result::Result<(), String> {
-        let p = self.snapshot.checkpoint_height;
-        let origin = self.snapshot.origin_height();
-        let above = p > origin;
-        if self.header_p.is_some() != above ||
-            self.validators_p.is_some() != above ||
-            self.validators_p1.is_some() != (p > origin.saturating_add(1))
-        {
-            return Err("header(p) or a set that signs p or p + 1 is carried where the proof \
-                        does not take it, or missing where it does"
+        let carried =
+            self.snapshot.checkpoint_height > self.snapshot.origin_height().saturating_add(1);
+        if self.header_p.is_some() != carried || self.validators_p1.is_some() != carried {
+            return Err("header(p) or the set that signs p + 1 is carried where the proof does \
+                        not take it, or missing where it does"
                 .into());
         }
-        let Some(raw) = &self.header_p else {
+        let (Some(raw), Some(at_p1)) = (&self.header_p, &self.validators_p1) else {
             return Ok(());
         };
         let decoded = RawHeader::decode(raw.as_ref())
@@ -605,28 +591,15 @@ impl PreparedBatch {
         if B256::from_slice(header.hash().as_bytes()) != self.snapshot.checkpoint_comet_hash {
             return Err("header(p) does not hash to p's Comet hash".into());
         }
-        let committed = |members: &[(ConsensusKey, u64)], carried: bool, expected, what| {
-            let set = Validators::from_powers(members)
-                .map_err(|error| format!("the set that signs {what} is no set: {error}"))?;
-            if carried && set.members() != members {
-                return Err(format!("the set that signs {what} is not in CometBFT order"));
-            }
-            if set.hash() != expected {
-                return Err(format!("the set that signs {what} differs from header(p)'s"));
-            }
-            Ok(())
-        };
-        let at_p = self.validators_p.as_deref().expect("carried above the generation's start");
-        committed(at_p, true, header.validators_hash, "p")?;
-        match &self.validators_p1 {
-            Some(at_p1) => committed(at_p1, true, header.next_validators_hash, "p + 1"),
-            None => committed(
-                &self.origin_fallback_keys.validator_set(),
-                false,
-                header.next_validators_hash,
-                "p + 1",
-            ),
+        let set = Validators::from_powers(at_p1)
+            .map_err(|error| format!("the set that signs p + 1 is no set: {error}"))?;
+        if set.members() != *at_p1 {
+            return Err("the set that signs p + 1 is not in CometBFT order".into());
         }
+        if set.hash() != header.next_validators_hash {
+            return Err("the set that signs p + 1 differs from header(p)'s".into());
+        }
+        Ok(())
     }
 }
 
@@ -725,8 +698,8 @@ mod tests {
     /// proof witnesses: a restored job's proof already exists, and the builder checked them all
     /// before proving. The anchors, p's anchor witness, the fallback key lists, p's staking proof
     /// and the per-height staking reads may each be dropped or replaced by values no proof would
-    /// accept. (header(p) and the sets that sign p and p + 1 are checked: see
-    /// `request_carries_header_p_committing_the_sets_of_p_and_p_plus_1`.)
+    /// accept. (header(p) and the set that signs p + 1 are checked: see
+    /// `request_carries_header_p_committing_the_set_of_p_plus_1`.)
     #[test]
     fn restore_rechecks_the_statement_shape_and_blob_binding_but_not_proof_witnesses() {
         use crate::test_utils::{
@@ -743,11 +716,7 @@ mod tests {
         witnesses.p_anchor_witness = Some(witnesses.starting_inbox_witness.clone());
         witnesses.fallback_key_lists = vec![other.clone(), other];
         witnesses.staking_at_p = Some(witnesses.snapshot.inbox_witness.clone());
-        witnesses.staking_reads = vec![HeightReads {
-            height: 99,
-            values: Vec::new(),
-            seat_words: vec![(Address::ZERO, U256::MAX)],
-        }];
+        witnesses.staking_reads = vec![HeightReads { height: 99, values: Vec::new() }];
         witnesses.verify_restored().unwrap();
 
         let reference =

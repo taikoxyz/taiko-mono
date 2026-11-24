@@ -49,9 +49,6 @@ pub struct ChainContext<'a> {
     pub forced_cursor: u64,
     /// The set that signs this block, in CometBFT order.
     pub signers: &'a [ValEntry],
-    /// The set that signs the parent, in CometBFT order: the validators the block's LastCommit
-    /// lists. Empty at a generation's first block, which has no LastCommit.
-    pub parent_signers: &'a [ValEntry],
 }
 
 impl ChainContext<'_> {
@@ -68,8 +65,7 @@ impl ChainContext<'_> {
 
 impl AppState {
     /// The committed chain the next block extends, for [`validate_block`]: its signers are the
-    /// validator-state replica's current set, the set that signs `last_height + 1`, and its
-    /// parent signers [`AppState::parent_signers`], the set that signed `last_height`.
+    /// validator-state replica's current set, the set that signs `last_height + 1`.
     pub fn chain_context(&self) -> ChainContext<'_> {
         ChainContext {
             genesis: &self.genesis,
@@ -79,7 +75,6 @@ impl AppState {
             anchor: &self.anchor,
             forced_cursor: self.forced_cursor,
             signers: &self.val_state.current.entries,
-            parent_signers: &self.parent_signers,
         }
     }
 }
@@ -125,16 +120,14 @@ impl fmt::Display for WitnessKind {
 
 /// Why a proposal is rejected (`ProcessProposal`) or not built (`PrepareProposal`).
 ///
-/// Every variant but [`Rejection::AnchorOffChain`] (a `FinalizeBlock` safety halt) and
-/// [`Rejection::LastCommit`] (a safety halt in every handler) is a liveness matter for the node
-/// that observes it: the block is refused, the chain keeps rounding.
+/// Every variant but [`Rejection::AnchorOffChain`] (a `FinalizeBlock` safety halt) is a liveness
+/// matter for the node that observes it: the block is refused, the chain keeps rounding.
 /// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
-/// node-local ones (anchor finality, L1, engine, EL sync and state, fallback key lists,
-/// timeouts) and the handler-level ones ([`Rejection::Envelope`],
+/// node-local ones (anchor finality, L1, engine, EL sync state, fallback key lists, timeouts)
+/// and the handler-level ones ([`Rejection::Envelope`],
 /// [`Rejection::PlaceholderProposal`], [`Rejection::ChainSuperseded`],
 /// [`Rejection::PayloadInvalid`], [`Rejection::Oversize`], [`Rejection::BuiltHeader`],
-/// [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`], [`Rejection::LastCommit`]) come
-/// from the handlers.
+/// [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`]) come from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -216,12 +209,6 @@ pub enum Rejection {
     /// read failed. A liveness pause, never a verdict on the block: the node waits and retries.
     #[error("fallback key list {0} cannot be obtained from the own L1 yet")]
     FallbackKeysUnavailable(B256),
-    /// ¹ The own EL cannot serve, or not within the engine deadline, the state a proposal check
-    /// reads at a committed block: the key-to-seat words in the committed parent's post-state.
-    /// A liveness pause: the node waits and retries. A malformed reply stays
-    /// [`Rejection::Engine`], which needs repair.
-    #[error("execution state unavailable: {0}")]
-    ElState(String),
     /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.
     #[error("envelope of {len} bytes exceeds max_tx_bytes {max}")]
     Oversize {
@@ -247,17 +234,13 @@ pub enum Rejection {
         /// The block size bound, in bytes.
         max: usize,
     },
-    /// The block's LastCommit disagrees with the replica's set that signs the parent: CometBFT
-    /// and this node hold different validator sets, which needs repair.
-    #[error("the LastCommit contradicts the validator-state replica: {0}")]
-    LastCommit(#[from] super::last_commit::LastCommitError),
 }
 
 impl Rejection {
     /// Whether an own-node integrity failure or unavailable execution state requires repair.
     pub(crate) fn requires_dependency_repair(&self) -> bool {
         match self {
-            Self::OwnWitness(_) | Self::LastCommit(_) => true,
+            Self::OwnWitness(_) => true,
             Self::L1(error) => error.is_integrity_failure(),
             Self::Engine(error) |
             Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
@@ -270,8 +253,8 @@ impl Rejection {
 
     /// Transient dependencies keep ProcessProposal pending; a canonical unsupported header
     /// rejects so Comet can rotate rounds. FinalizeBlock independently waits for parser support.
-    /// An unavailable fallback key list and unavailable EL state are transient: the node waits
-    /// for its own L1 or EL, and never rejects a block for them.
+    /// An unavailable fallback key list is transient: the node waits for its own L1, and never
+    /// rejects a block for it.
     pub(crate) fn retryable_dependency(&self) -> bool {
         match self {
             Self::Engine(error) => error.is_retryable(),
@@ -285,8 +268,7 @@ impl Rejection {
             Self::Timeout(_) |
             Self::PayloadSyncing |
             Self::LocalBlockMissing(_) |
-            Self::FallbackKeysUnavailable(_) |
-            Self::ElState(_) => true,
+            Self::FallbackKeysUnavailable(_) => true,
             _ => false,
         }
     }
@@ -313,13 +295,11 @@ impl Rejection {
             Self::LocalBlockMissing(_) => "local_block_missing",
             Self::Timeout(_) => "timeout",
             Self::FallbackKeysUnavailable(_) => "fallback_keys_unavailable",
-            Self::ElState(_) => "el_state_unavailable",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
             Self::ForcedBuild(_) => "forced_skip_invalid",
             Self::BlockSizeBound { .. } => "block_size_bound",
-            Self::LastCommit(_) => "last_commit",
         }
     }
 
@@ -351,15 +331,12 @@ pub(crate) struct Candidate<'a> {
 }
 
 /// Validates `env` as the block at `height` on top of `chain` (every check but the ¹ ones);
-/// `bft_secs` is the block's BFT time in whole seconds and `miss_bitmap` the `missBitmap` its
-/// LastCommit gives, which the caller computes from that LastCommit and the key-to-seat words of
-/// the parent's post-state.
+/// `bft_secs` is the block's BFT time in whole seconds.
 ///
 /// In order: the raw block size ([`check_execution_size`]); (a) `height == chain.parent.number +
 /// 1`, the header's number and parent hash;
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
-/// `extraData`; the `extraData` `missBitmap` equals `miss_bitmap`
-/// ([`RuleViolation::MissBitmap`]); (i) the certified proposer is in the set that signs the block
+/// `extraData`; (i) the certified proposer is in the set that signs the block
 /// ([`ChainContext::signers`]) and the derived header ([`rules::expected_header`]), whose
 /// timestamp must keep
 /// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
@@ -373,7 +350,6 @@ pub fn validate_block(
     height: u64,
     bft_secs: u64,
     proposer: tendermint::account::Id,
-    miss_bitmap: u128,
 ) -> Result<Validated, Rejection> {
     check_execution_size(&env.block)?;
     let header = &env.block.header;
@@ -394,14 +370,8 @@ pub fn validate_block(
             extra_anchor: extra.anchor,
         },
     )?;
-    if extra.miss_bitmap != miss_bitmap {
-        return Err(
-            RuleViolation::MissBitmap { expected: miss_bitmap, got: extra.miss_bitmap }.into()
-        );
-    }
 
-    let mut expected =
-        expected_header(chain, params, height, &anchor, bft_secs, proposer, miss_bitmap)?;
+    let mut expected = expected_header(chain, params, height, &anchor, bft_secs, proposer)?;
     expected.beneficiary = header.beneficiary;
     rules::check_anchor_freshness(
         expected.timestamp,
@@ -434,10 +404,10 @@ pub fn validate_block(
     })
 }
 
-/// The derived header fields of the block at `height` on top of `chain` with `anchor`, BFT
-/// time `bft_secs` and `missBitmap` `miss_bitmap` ([`rules::expected_header`]), with the chain's
-/// minimum base fee and the local fee recipient, after authenticating the certified proposer in
-/// the set that signs the block ([`ChainContext::signers`]).
+/// The derived header fields of the block at `height` on top of `chain` with `anchor` and BFT
+/// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee and the local
+/// fee recipient, after authenticating the certified proposer in the set that signs the block
+/// ([`ChainContext::signers`]).
 pub(crate) fn expected_header(
     chain: &ChainContext<'_>,
     params: &ChainParams,
@@ -445,7 +415,6 @@ pub(crate) fn expected_header(
     anchor: &AnchorState,
     bft_secs: u64,
     proposer: tendermint::account::Id,
-    miss_bitmap: u128,
 ) -> Result<ExpectedHeader, Rejection> {
     if !rules::is_validator(chain.signers, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
@@ -456,7 +425,6 @@ pub(crate) fn expected_header(
         anchor,
         bft_time_secs: bft_secs,
         generation: chain.generation,
-        miss_bitmap,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
         beneficiary: params.fee_recipient,

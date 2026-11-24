@@ -177,7 +177,7 @@ async fn refusals_count_by_reason_and_raise_halted() {
     let processed = AbciMetrics::process_seconds().get_sample_count();
 
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
-    let req = prepare_req(&app, next_height(&app), bft_time(&app));
+    let req = prepare_req(next_height(&app), bft_time(&app));
     assert!(prepare(&mut app, req).await.is_empty());
     assert_eq!(AbciMetrics::proposals_placeholder().get(), placeholders + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);
@@ -214,8 +214,7 @@ async fn checkpoint_conflicts_count_as_refusals_not_fallbacks() {
     let (fallen_back, conflicts) = (fallbacks(), rejected("checkpoint_conflict"));
     let placeholders = AbciMetrics::proposals_placeholder().get();
 
-    let req =
-        super::proposal::prepare_req(&app, super::proposal::next_height(&app), bft_time(&app));
+    let req = super::proposal::prepare_req(super::proposal::next_height(&app), bft_time(&app));
     assert!(super::proposal::prepare(&mut app, req).await.is_empty(), "nothing is proposed");
     assert_eq!(AbciMetrics::proposals_placeholder().get(), placeholders + 1);
     assert_eq!(fallbacks(), fallen_back);

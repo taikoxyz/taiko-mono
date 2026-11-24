@@ -81,13 +81,15 @@ pub enum ImportError {
     Safety(String),
 }
 
-/// The only supported [`ImportPackage::schema`]. Version 3 carries a genesis whose witness is the
+/// The only supported [`ImportPackage::schema`]. Version 4 carries a genesis whose witness is the
 /// `L1_0` header and Inbox proof alone and whose validators are the origin fallback keys at
-/// power 1, the validator-state preimage for s − 1, and the staking proof at s and fallback key
-/// list that decide the set that signs s + 2; versions 1 and 2 are refused, with no migration.
-pub const IMPORT_SCHEMA: u32 = 3;
+/// power 1, the validator-state preimage for s − 1, the staking proof at s, of the candidate
+/// snapshot's slots from T to T + 257, and the fallback key list that decide the set that signs
+/// s + 2, and window blocks whose `extraData` is 13 bytes; versions 1 to 3 are refused, with no
+/// migration.
+pub const IMPORT_SCHEMA: u32 = 4;
 
-/// Version-three package: `package.json` serializes everything but the EL headers, which the
+/// Version-four package: `package.json` serializes everything but the EL headers, which the
 /// package directory carries one per line in `execution_headers.jsonl`; block payloads are
 /// supplied separately as a streaming iterator.
 #[derive(Clone, Debug, Serialize, Deserialize)]

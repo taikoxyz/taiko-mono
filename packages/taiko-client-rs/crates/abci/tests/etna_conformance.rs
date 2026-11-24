@@ -1,21 +1,20 @@
 //! Etna client conformance: the client's block rules and signing-set decisions against vector
 //! files.
 //!
-//! Five families, each a `tests/fixtures/etna_conformance/<family>.json` file in the
+//! Four families, each a `tests/fixtures/etna_conformance/<family>.json` file in the
 //! `etna-client-conformance-1` schema that the formal model's vector generator documents
 //! (`testdata/etna_conformance/README.md` there):
 //! - `forced_step`, `block_rules` and `block_size` were generated from the historical Lean model's
 //!   executable definitions (`Forced.step`, `BlockValidity.HeaderValid`/`AnchorValid`) at
 //!   `provenance.formalCommit`. They are kept as regressions, adapted by hand for the specification
 //!   at `provenance.specCommit`: the block rules no longer carry an epoch length, and this harness
-//!   gives every block a 29-byte `extraData`, a parent LastCommit in which every signer committed,
-//!   and fallback keys as the set that signs it. The model's decisions are unchanged. They stay
-//!   until the formal model generates current families, which then replace them byte for byte
-//!   (`lake exe etna-vectors --write <this crate>/tests/fixtures/etna_conformance --families
-//!   <families> --provenance <formal commit>`).
-//! - `miss_bitmap` and `candidate` are written by hand from the specification's accept/reject
-//!   vectors at `provenance.specCommit`. Each vector names the row it transcribes, and some rows
-//!   have more than one vector.
+//!   gives every block a 13-byte `extraData` and fallback keys as the set that signs it. The
+//!   model's decisions are unchanged. They stay until the formal model generates current families,
+//!   which then replace them byte for byte (`lake exe etna-vectors --write <this
+//!   crate>/tests/fixtures/etna_conformance --families <families> --provenance <formal commit>`).
+//! - `candidate` is written by hand from the specification's accept/reject vectors at
+//!   `provenance.specCommit`. Each vector names the row it transcribes, and some rows have more
+//!   than one vector.
 //!
 //! The fixture README records the sources and what each family leaves out. Each test runs every
 //! vector of one family against this crate and compares the client's decision with the file's.
@@ -29,19 +28,12 @@
 //! - every family builds a whole envelope on a committed chain and judges it with
 //!   [`validate_block`], the deterministic validation `ProcessProposal`, `FinalizeBlock` and the
 //!   lander share: real raw L1 headers, EIP-1186 proofs of the Inbox under them, the derived header
-//!   fields, a set that signs the block holding the certified proposer, and the `missBitmap` the
-//!   client derives for the block ([`BlockCase::derived_bitmap`]), as both handlers do: the
-//!   validators of the set that signs the parent whose LastCommit flag is not a commit
-//!   ([`missing_addresses`]), their live key-to-seat words read at the parent's hash through
-//!   [`seat_words`] from an EL that holds the parent's and the block's own post-states, and
-//!   [`miss_bitmap`] over them.
+//!   fields and a set that signs the block holding the certified proposer.
 //! - `forced_step` then completes the decision with [`verify_forced`] against an engine that builds
 //!   the singleton from the attributes it is given, as both handlers do, and advances the cursor as
 //!   `FinalizeBlock` does. The node-local checks (L1 finality, the local checkpoint fence,
 //!   `newPayload`) are not run: the model's verdict leaves them out too (its `NodeValid` adds
 //!   them).
-//! - `miss_bitmap` reports the derived bitmap and whether a block whose header carries the vector's
-//!   bitmap, or its whole `extraData`, is valid.
 //! - `candidate` decides the set that signs H + 2 as `FinalizeBlock(H)` does: H's anchor, new or
 //!   inherited, comes from [`validate_block`] and proves the minimum total stake and the fallback
 //!   keys hash; [`fetch_fallback_keys`] obtains the list from an L1 that answers
@@ -53,9 +45,6 @@
 //!   kind table; the model's "canonical" is the client's [`decode_eligible`];
 //! - key names to keys ([`named_key`]), and sets to `name:power` items, a run of consecutively
 //!   numbered names at one power written `first..last:power` ([`render`]);
-//! - LastCommit flags by the rule's text, only a commit flag committing: the handlers' reading of a
-//!   request's vote list, with its check against the replica's parent signers, is pinned by the
-//!   crate's handler tests;
 //! - an anchor number above `uint48` has no `extraData` encoding, so such a header carries its low
 //!   48 bits;
 //! - the vectors' `staleHeartbeat` and `content` inputs, which the model ignores, are ignored here
@@ -74,14 +63,14 @@ use abci::{
     engine::{
         PayloadVerdict, PoolSelection,
         forced::{ForcedBuildContext, ForcedBuildError, verify_forced},
-        staking::{seat_words, staking_words},
+        staking::staking_words,
     },
     fallback::{FALLBACK_KEYS_UPDATED, FallbackKeys, fetch_fallback_keys, getFallbackKeysCall},
     forced::{self, decode_eligible},
     key::ConsensusKey,
     l1::layout::inbox,
     rules::RuleViolation,
-    valstate::{ValEntry, comet_order},
+    valstate::comet_order,
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::signers::{SignerSync, local::PrivateKeySigner};
@@ -90,17 +79,14 @@ use alloy_consensus::{
     TxLegacy,
 };
 use alloy_eips::{eip2718::Encodable2718, eip7685::EMPTY_REQUESTS_HASH};
-use alloy_primitives::{Address, B64, B256, Bytes, TxKind, U256, hex, keccak256};
+use alloy_primitives::{Address, B64, B256, Bytes, TxKind, U256, keccak256};
 use alloy_rlp::Encodable;
 use alloy_sol_types::SolCall;
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
     proof::{ProofNodes, ProofRetainer},
 };
-use etna_core::{
-    miss::{miss_bitmap, missing_addresses},
-    staking::{RECORD_COUNT, key_to_seat_slot, record_slots, snapshot_slots},
-};
+use etna_core::staking::{RECORD_COUNT, snapshot_slots};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use protocol::shasta::{
     calculate_shasta_mix_hash,
@@ -110,7 +96,6 @@ use protocol::shasta::{
     },
 };
 use serde_json::{Value, json};
-use tendermint::block::BlockIdFlag;
 
 // ---------------------------------------------------------------------------------------------
 // Known divergences.
@@ -146,7 +131,7 @@ fn known_divergences() -> Vec<KnownDivergence> {
 // ---------------------------------------------------------------------------------------------
 
 /// The revision of the Etna specification every family follows.
-const SPEC_COMMIT: &str = "b01356ddc942ee10e67d1f506bf4acd043b8686c";
+const SPEC_COMMIT: &str = "9325677defe988cd46d305f8fcbf4b48a05a57c4";
 
 /// The families generated by the formal model, each with its `provenance.formalCommit`.
 const GENERATED: [&str; 3] = ["forced_step", "block_rules", "block_size"];
@@ -159,7 +144,6 @@ fn document(family: &str) -> &'static Value {
             ("forced_step", include_str!("fixtures/etna_conformance/forced_step.json")),
             ("block_rules", include_str!("fixtures/etna_conformance/block_rules.json")),
             ("block_size", include_str!("fixtures/etna_conformance/block_size.json")),
-            ("miss_bitmap", include_str!("fixtures/etna_conformance/miss_bitmap.json")),
             ("candidate", include_str!("fixtures/etna_conformance/candidate.json")),
         ]
         .into_iter()
@@ -195,13 +179,6 @@ fn u64_of(value: &Value) -> u64 {
 fn u256_of(value: &Value) -> U256 {
     let text = value.as_str().unwrap_or_else(|| panic!("{value} is not a hex string"));
     text.parse().unwrap_or_else(|_| panic!("{text} is not a word"))
-}
-
-/// The `0x`-prefixed hex string `value` as a `u128`.
-fn u128_of(value: &Value) -> u128 {
-    let text = value.as_str().unwrap_or_else(|| panic!("{value} is not a hex string"));
-    let digits = text.strip_prefix("0x").unwrap_or_else(|| panic!("{text} has no 0x prefix"));
-    u128::from_str_radix(digits, 16).unwrap_or_else(|_| panic!("{text} is not a u128"))
 }
 
 /// `value` restricted to `keys`.
@@ -367,12 +344,6 @@ fn fallback_list(list: &str) -> FallbackKeys {
 /// stake of all ones the anchors prove, they also sign every block the harness judges.
 fn default_fallback() -> FallbackKeys {
     fallback_list("F1..F4")
-}
-
-/// The keys and powers of a vector's `{name: power}` set.
-fn members(value: &Value) -> Vec<(ConsensusKey, u64)> {
-    let set = value.as_object().unwrap_or_else(|| panic!("{value} is not a set"));
-    set.iter().map(|(name, power)| (named_key(name), u64_of(power))).collect()
 }
 
 /// `members` as the vectors write a set: `name:power` items in name order, each run of names
@@ -674,13 +645,12 @@ impl AnchorFacts {
     }
 }
 
-/// The 29-byte `extraData` `[fee share | generation (uint48) | anchor (uint48) | missBitmap
-/// (uint128)]`; a value above `uint48` keeps its low 48 bits (no header can encode it).
-fn extra_data(fee_share: u8, generation: u64, anchor: u64, miss_bitmap: u128) -> Bytes {
+/// The 13-byte `extraData` `[fee share | generation (uint48) | anchor (uint48)]`; a value above
+/// `uint48` keeps its low 48 bits (no header can encode it).
+fn extra_data(fee_share: u8, generation: u64, anchor: u64) -> Bytes {
     let mut out = vec![fee_share];
     out.extend_from_slice(&generation.to_be_bytes()[2..]);
     out.extend_from_slice(&anchor.to_be_bytes()[2..]);
-    out.extend_from_slice(&miss_bitmap.to_be_bytes());
     out.into()
 }
 
@@ -718,25 +688,14 @@ struct BlockCase {
     signers: Vec<(ConsensusKey, u64)>,
     /// The certified proposer.
     proposer: ConsensusKey,
-    /// The set that signs the parent, for every parent but the generation's origin.
-    parent_signers: Vec<(ConsensusKey, u64)>,
-    /// The LastCommit flag of a parent signer whose vote is not a commit; every other committed.
-    flags: BTreeMap<ConsensusKey, BlockIdFlag>,
-    /// The staking contract's words in the parent's post-state; every other slot is zero.
-    parent_post_state: BTreeMap<B256, U256>,
     /// The staking contract's words in the block's own post-state; every other slot is zero.
     block_post_state: BTreeMap<B256, U256>,
-    /// The header's `missBitmap`.
-    miss_bitmap: u128,
-    /// The header's whole `extraData`, in place of the one the fields above encode.
-    raw_extra_data: Option<Bytes>,
 }
 
 impl BlockCase {
     /// An ordinary valid block 5 on parent 4 that moves the anchor from 110 to 111, whose
     /// timestamp is `anchor_timestamp` (so the anchor is not older than the block). The default
-    /// fallback keys sign the block and its parent, every one of them committed the parent, and
-    /// the header's `missBitmap` is 0.
+    /// fallback keys sign the block.
     fn ordinary(anchor_timestamp: u64) -> Self {
         let fallback = default_fallback().validator_set();
         Self {
@@ -758,13 +717,8 @@ impl BlockCase {
             forced: None,
             transactions: Vec::new(),
             proposer: fallback[0].0,
-            signers: fallback.clone(),
-            parent_signers: fallback,
-            flags: BTreeMap::new(),
-            parent_post_state: BTreeMap::new(),
+            signers: fallback,
             block_post_state: BTreeMap::new(),
-            miss_bitmap: 0,
-            raw_extra_data: None,
         }
     }
 
@@ -786,15 +740,6 @@ impl BlockCase {
             difficulty: U256::ZERO,
             grandparent_timestamp: self.parent_timestamp.saturating_sub(4),
         }
-    }
-
-    /// The set that signs the parent, in CometBFT order: the validators the block's LastCommit
-    /// lists. The generation's first block, on the origin at height 0, has no LastCommit.
-    fn parent_set(&self) -> Vec<ValEntry> {
-        if self.parent_height == 0 {
-            return Vec::new();
-        }
-        comet_order(&self.parent_signers).expect("a valid parent signing set")
     }
 
     /// Whether the block carries an anchor witness: the first block of the generation and every
@@ -819,9 +764,7 @@ impl BlockCase {
             min_base_fee_for_chain(p.l2_chain_id),
         )
         .expect("the parent carries a base fee");
-        let extra = self.raw_extra_data.clone().unwrap_or_else(|| {
-            extra_data(self.fee_share, self.extra_generation, self.anchor.number, self.miss_bitmap)
-        });
+        let extra = extra_data(self.fee_share, self.extra_generation, self.anchor.number);
         Header {
             parent_hash: parent.hash,
             number: self.height,
@@ -842,51 +785,20 @@ impl BlockCase {
         }
     }
 
-    /// An EL that holds the parent's and the block's post-states and builds singletons with
-    /// `singleton`.
+    /// An EL that holds the block's post-state and builds singletons with `singleton`.
     fn engine(&self, singleton: Option<&str>) -> FixtureEngine {
         FixtureEngine {
             singleton: singleton.map(str::to_string),
-            post_states: BTreeMap::from([
-                (self.parent().hash, self.parent_post_state.clone()),
-                (self.header().hash_slow(), self.block_post_state.clone()),
-            ]),
+            post_states: BTreeMap::from([(
+                self.header().hash_slow(),
+                self.block_post_state.clone(),
+            )]),
         }
     }
 
-    /// The `missBitmap` the client derives for the block, as `ProcessProposal` and
-    /// `FinalizeBlock` do: the parent signers whose LastCommit flag is not a commit
-    /// ([`missing_addresses`]), each one's live key-to-seat word read at the parent's hash
-    /// ([`seat_words`]), and the bitmap of their seats ([`miss_bitmap`]). `Err` when the EL
-    /// could not serve a read.
-    async fn derived_bitmap(&self) -> Result<u128, String> {
-        let signers = self.parent_set();
-        let addresses: Vec<Address> = signers.iter().map(|entry| entry.key.address()).collect();
-        let committed: Vec<bool> = signers
-            .iter()
-            .map(|entry| self.flags.get(&entry.key).is_none_or(|f| *f == BlockIdFlag::Commit))
-            .collect();
-        let missing =
-            missing_addresses(&addresses, &committed).expect("one flag per parent signer");
-        let words = seat_words(&self.engine(None), params().staking, self.parent().hash, &missing)
-            .await
-            .map_err(|error| format!("the seat words cannot be read: {error}"))?;
-        Ok(miss_bitmap(&missing, |address| words[&address]))
-    }
-
-    /// Judges the block with [`validate_block`] on the committed chain the case describes, given
-    /// the derived `missBitmap` ([`BlockCase::derived_bitmap`]); `Err` when the EL could not
-    /// serve a read.
+    /// Judges the block with [`validate_block`] on the committed chain the case describes.
     #[allow(clippy::result_large_err, reason = "validate_block's own result")]
-    async fn judge(&self) -> Result<Result<Validated, Rejection>, String> {
-        let bitmap = self.derived_bitmap().await?;
-        Ok(self.validate(bitmap))
-    }
-
-    /// Judges the block with [`validate_block`] on the committed chain the case describes, given
-    /// the `missBitmap` `miss_bitmap` the block must carry.
-    #[allow(clippy::result_large_err, reason = "validate_block's own result")]
-    fn validate(&self, miss_bitmap: u128) -> Result<Validated, Rejection> {
+    fn judge(&self) -> Result<Validated, Rejection> {
         let params = self.params();
         let genesis = GenesisRecord {
             config_hash: params.config_hash(),
@@ -899,7 +811,6 @@ impl BlockCase {
         };
         let (parent, parent_anchor) = (self.parent(), self.parent_anchor.anchor_state());
         let signers = comet_order(&self.signers).expect("a valid signing set");
-        let parent_signers = self.parent_set();
         let chain = ChainContext {
             recovery: None,
             genesis: &genesis,
@@ -908,7 +819,6 @@ impl BlockCase {
             anchor: &parent_anchor,
             forced_cursor: self.cursor,
             signers: &signers,
-            parent_signers: &parent_signers,
         };
         let env = EtnaEnvelope {
             block: ExecutionBlock {
@@ -919,7 +829,7 @@ impl BlockCase {
             forced: self.forced.clone(),
         };
         let proposer = tendermint::account::Id::new(self.proposer.address().into_array());
-        validate_block(&chain, &params, &env, self.height, self.bft, proposer, miss_bitmap)
+        validate_block(&chain, &params, &env, self.height, self.bft, proposer)
     }
 }
 
@@ -1148,7 +1058,7 @@ async fn forced_step_client(input: &Value) -> Decision {
             tx: tx_bytes(w["tx"].as_str().unwrap()),
         });
     }
-    let validated = match case.judge().await? {
+    let validated = match case.judge() {
         Ok(validated) => validated,
         Err(Rejection::Forced(_)) => return Ok(json!({"result": "rejected"})),
         Err(other) => return Err(unexpected(&other)),
@@ -1213,7 +1123,7 @@ async fn block_rules_client(input: &Value) -> Decision {
         extra_generation: u64_of(&b["generation"]),
         ..BlockCase::ordinary(1_700_000_000)
     };
-    match case.judge().await? {
+    match case.judge() {
         Ok(_) => Ok(json!({"valid": true})),
         Err(
             Rejection::Superseded { .. } |
@@ -1293,7 +1203,7 @@ async fn block_size_client(input: &Value) -> Decision {
     };
     let mut case = BlockCase::ordinary(1_700_000_000);
     case.transactions = vec![sized_filler(&case.header(), bytes, incompressible)];
-    match case.judge().await? {
+    match case.judge() {
         Ok(_) => Ok(json!({"valid": true})),
         Err(Rejection::BlockSizeBound { .. }) => Ok(json!({"valid": false})),
         Err(other) => Err(unexpected(&other)),
@@ -1303,98 +1213,6 @@ async fn block_size_client(input: &Value) -> Decision {
 #[tokio::test]
 async fn block_size_vectors() {
     run_family("block_size", all_keys, async |v| block_size_client(&v["input"]).await).await;
-}
-
-// ---------------------------------------------------------------------------------------------
-// miss_bitmap: the `missBitmap` a block must carry and the 29-byte `extraData` that holds it.
-// ---------------------------------------------------------------------------------------------
-
-/// The staking contract's words a vector's post-state names: the live key-to-seat word of each
-/// named key (`keyToSeat`), and each snapshot seat record that holds a named key at power 1
-/// (`records`, by seat).
-fn post_state(value: &Value) -> BTreeMap<B256, U256> {
-    let mut words = BTreeMap::new();
-    for (name, word) in value["keyToSeat"].as_object().expect("keyToSeat") {
-        words.insert(key_to_seat_slot(named_key(name).address()), u256_of(word));
-    }
-    for (seat, name) in value.get("records").and_then(Value::as_object).into_iter().flatten() {
-        let key = named_key(name.as_str().expect("a key name"));
-        let seat = seat.parse().expect("a seat number");
-        words.extend(record_slots(seat).into_iter().zip(record_words(key, 1)));
-    }
-    words
-}
-
-/// The LastCommit flag a vector names.
-fn block_id_flag(value: &Value) -> BlockIdFlag {
-    match value.as_str() {
-        Some("commit") => BlockIdFlag::Commit,
-        Some("absent") => BlockIdFlag::Absent,
-        Some("nil") => BlockIdFlag::Nil,
-        other => panic!("unknown LastCommit flag {other:?}"),
-    }
-}
-
-/// The client's decision on one block of an ordinary chain: the `missBitmap` it derives
-/// ([`BlockCase::derived_bitmap`]) from the vector's parent signers, their LastCommit flags and
-/// the parent's post-state (the block's own post-state also held by the EL), and whether a
-/// block whose header carries the vector's `missBitmap`, or its whole `extraData`, then passes
-/// [`validate_block`]. A first block of the generation sits on the origin, with no LastCommit.
-/// A rejection must come from the `missBitmap` comparison or, for a whole `extraData`, from its
-/// layout.
-async fn miss_bitmap_client(input: &Value) -> Decision {
-    let mut case = BlockCase::ordinary(1_700_000_000);
-    case.parent_signers = members(&input["parentSigners"]);
-    if input["firstBlock"] == true {
-        if !case.parent_signers.is_empty() {
-            return Err("the origin has no signers".into());
-        }
-        (case.parent_height, case.height) = (0, 1);
-    }
-    case.signers = match input.get("signers") {
-        Some(signers) => members(signers),
-        None => case.parent_signers.clone(),
-    };
-    case.proposer = case.signers.first().ok_or("no set signs the block")?.0;
-    let last_commit = input["lastCommit"].as_object().expect("lastCommit");
-    let listed: Vec<ConsensusKey> = last_commit.keys().map(|name| named_key(name)).collect();
-    if listed != case.parent_signers.iter().map(|(key, _)| *key).collect::<Vec<_>>() {
-        return Err("the LastCommit does not list exactly the parent signers".into());
-    }
-    case.flags = last_commit
-        .iter()
-        .map(|(name, flag)| (named_key(name), block_id_flag(flag)))
-        .filter(|(_, flag)| *flag != BlockIdFlag::Commit)
-        .collect();
-    case.parent_post_state = post_state(&input["parentPostState"]);
-    case.block_post_state = input.get("blockPostState").map(post_state).unwrap_or_default();
-    match (input.get("missBitmap"), input.get("extraData")) {
-        (Some(bitmap), None) => case.miss_bitmap = u128_of(bitmap),
-        (None, Some(raw)) => {
-            let raw = hex::decode(raw.as_str().expect("extraData hex")).expect("extraData hex");
-            case.raw_extra_data = Some(raw.into());
-        }
-        _ => return Err("the header needs exactly one of missBitmap and extraData".into()),
-    }
-    let derived = case.derived_bitmap().await?;
-    let raw = case.raw_extra_data.is_some();
-    let valid = match case.validate(derived) {
-        Ok(_) => true,
-        Err(Rejection::Rule(RuleViolation::MissBitmap { .. })) => false,
-        Err(Rejection::Rule(RuleViolation::ExtraDataLength { .. })) if raw => false,
-        Err(Rejection::Rule(RuleViolation::HeaderField { field, .. }))
-            if raw && field == "extra_data" =>
-        {
-            false
-        }
-        Err(other) => return Err(unexpected(&other)),
-    };
-    Ok(json!({"missBitmap": format!("{derived:#x}"), "valid": valid}))
-}
-
-#[tokio::test]
-async fn miss_bitmap_vectors() {
-    run_family("miss_bitmap", all_keys, async |v| miss_bitmap_client(&v["input"]).await).await;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1492,7 +1310,7 @@ async fn candidate_client(input: &Value) -> Decision {
             block_post_state: snapshot_state(snapshot),
             ..BlockCase::ordinary(1_700_000_000)
         };
-        let validated = case.judge().await?.map_err(|rejection| unexpected(&rejection))?;
+        let validated = case.judge().map_err(|rejection| unexpected(&rejection))?;
         let facts = &validated.anchor;
         let (min_total_stake, list) = (facts.inbox.min_total_stake, facts.inbox.fallback_keys_hash);
         let keys = fetch_fallback_keys(&l1, params().inbox, list, facts.hash, facts.number, 0)

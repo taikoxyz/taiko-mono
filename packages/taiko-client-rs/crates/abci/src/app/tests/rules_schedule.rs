@@ -37,7 +37,7 @@ async fn prepare_returns_placeholder_for_unknown_rules_and_planned_stop() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 6).await;
         install_schedule(&fx, &app, word);
-        let req = prepare_req(&app, next_height(&app), bft_time(&app));
+        let req = prepare_req(next_height(&app), bft_time(&app));
         assert!(prepare(&mut app, req).await.is_empty());
         assert_eq!(app.halt.as_deref(), Some(label));
     }

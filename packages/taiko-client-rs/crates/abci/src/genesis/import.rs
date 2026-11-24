@@ -152,9 +152,8 @@ impl VerifiedGenesis {
     /// ([`VerifiedBootstrap::anchor`](crate::recovery::VerifiedBootstrap::anchor)), never R. The
     /// state holds the origin's forced inclusion cursor, CometBFT's genesis validator state of
     /// the initial set ([`VerifiedGenesis::initial_set`]) at the origin height, which fails
-    /// exactly where CometBFT would refuse the set, no parent signers (the first block has no
-    /// LastCommit), the fallback keys as the source of both sets the origin state holds, and the
-    /// origin fallback key list in its cache of lists by hash.
+    /// exactly where CometBFT would refuse the set, the fallback keys as the source of both sets
+    /// the origin state holds, and the origin fallback key list in its cache of lists by hash.
     pub fn origin_state(
         &self,
         chain_id: String,
@@ -176,8 +175,6 @@ impl VerifiedGenesis {
             anchor,
             forced_cursor: self.recovery.as_ref().map_or(0, |origin| origin.forced_cursor),
             val_state: ValState::genesis(height, &self.initial_set())?,
-            // The generation's first block has no LastCommit.
-            parent_signers: Vec::new(),
             // The origin keys sign the generation's first two blocks.
             signers: Signers::origin(&self.fallback_keys),
             fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),

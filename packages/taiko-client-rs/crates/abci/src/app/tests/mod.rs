@@ -19,7 +19,6 @@ mod hot_cold;
 mod info;
 mod init;
 mod metrics;
-mod miss_bitmap;
 mod prepare;
 mod process;
 mod proposal;

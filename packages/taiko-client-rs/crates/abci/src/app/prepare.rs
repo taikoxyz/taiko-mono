@@ -8,9 +8,7 @@ use alloy_consensus::Transaction;
 use alloy_primitives::Bytes;
 
 use super::{
-    AbciError, App, deadline,
-    last_commit::extended_committed_flags,
-    unix_secs,
+    AbciError, App, deadline, unix_secs,
     validate::{
         Candidate, Rejection, check_candidate_anchor, check_execution_size, expected_header,
     },
@@ -43,7 +41,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `timeout_propose` even when every call is slow but in time; a request queued behind it
     /// waits no longer. A failed mandatory build (I/O error, timeout, a failing pre-check,
     /// unavailable forced admission bytes, a fallback key list for the chosen anchor that the
-    /// own L1 cannot give yet, key-to-seat words the own EL cannot serve yet, an envelope above
+    /// own L1 cannot give yet, an envelope above
     /// `max_tx_bytes` or one landing) is recorded as the halt reason and logged, and answers
     /// empty `txs`: a liveness pause, after which a later round proposes once the cause clears.
     /// A list fetch that outlasts the budget keeps running for a later round. The errors are a
@@ -93,12 +91,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
-    /// The request's `local_last_commit`, the LastCommit CometBFT puts in the block, must list
-    /// the replica's set that signs the parent ([`extended_committed_flags`]; otherwise
-    /// [`Rejection::LastCommit`], a safety halt); its `missBitmap` comes from the key-to-seat
-    /// words of its missing validators in the committed parent's post-state
-    /// ([`App::miss_bitmap`]), and an unavailable EL proposes nothing. Precommits that reach
-    /// this node after CometBFT built that LastCommit change nothing.
     /// Chooses `max(parent anchor, own finalized)` subject to the proposer's short hold
     /// ([`App::anchor_to_propose`]), authenticates a changed anchor or the forced H0 anchor,
     /// checks progress, generation, back-pressure and checkpoint ancestry (proposing nothing
@@ -118,8 +110,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         req: &request::PrepareProposal,
         prepare_deadline: tokio::time::Instant,
     ) -> Result<Bytes, Rejection> {
-        let votes = req.local_last_commit.as_ref().map_or(&[][..], |commit| &commit.votes);
-        let committed = extended_committed_flags(&state.parent_signers, votes)?;
         if self.superseded {
             return Err(Rejection::ChainSuperseded);
         }
@@ -140,7 +130,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ),
         )?;
         self.prefetch_fallback_keys(state, &anchor_state).await?;
-        let miss_bitmap = self.miss_bitmap(state, &committed).await?;
         let expected = expected_header(
             &state.chain_context(),
             params,
@@ -148,7 +137,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             &anchor_state,
             unix_secs(req.time),
             req.proposer_address,
-            miss_bitmap,
         )?;
         rules::check_anchor_freshness(
             expected.timestamp,

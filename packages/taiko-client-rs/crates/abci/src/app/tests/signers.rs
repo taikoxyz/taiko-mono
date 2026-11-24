@@ -36,7 +36,7 @@ use crate::{
         GenesisSpec, InboxStorage, L1Call, LogCapture, fallback_list, init_chain_request,
         recovery_fixture, serve_fallback_keys, test_key, test_options,
     },
-    valstate::{ValEntry, ValSet, ValState, comet_order},
+    valstate::{ValEntry, ValSet, ValState},
 };
 
 /// The minimum total stake the tests' anchors prove.
@@ -108,7 +108,7 @@ fn proposer_of(app: &App<MockL1, MockEngine>) -> account::Id {
 
 /// Prepares `app`'s next height with a proposer of its signing set; returns the envelope.
 async fn propose(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
-    let mut req = prepare_req(app, next_height(app), bft_time(app));
+    let mut req = prepare_req(next_height(app), bft_time(app));
     req.proposer_address = proposer_of(app);
     let txs = prepare(app, req).await;
     assert_eq!(txs.len(), 1, "one envelope; halt = {:?}", app.halt);
@@ -166,7 +166,7 @@ fn header_slots() -> Vec<B256> {
 /// A usable candidate at H = o + 1 signs H + 2: `FinalizeBlock(H)` removes every origin key at
 /// power 0 and adds the members at their stored powers. The updates take effect at H + 2 and not
 /// before: the origin keys still sign H + 1, whose proposer must be one of them, a proposal at
-/// H + 2 by an origin key is refused, and from H + 3 on the LastCommit lists the members.
+/// H + 2 by an origin key is refused, and the members still sign H + 3.
 #[tokio::test]
 async fn usable_candidate_signs_h_plus_2() {
     let fx = Fixture::genesis(2);
@@ -185,25 +185,12 @@ async fn usable_candidate_signs_h_plus_2() {
     assert_eq!(sorted(&state.val_state.next), by_key(members.clone()), "the members sign H + 2");
     assert_eq!(sources(state), [SignerSource::Fallback, SignerSource::Candidate]);
 
-    // H + 1: an origin key proposes, and its LastCommit lists the origin keys.
+    // H + 1: an origin key proposes.
     let env = propose(&mut app).await;
     let words = snapshot(h + 1, MIN_STAKE, &members);
     app.engine().set_staking_words(env.block.header.hash_slow(), app.params.staking, &words);
     let req = process_request(&app, &env);
     assert!(origin.iter().any(|&(key, _)| address(key) == req.proposer_address));
-    let listed: Vec<_> = req
-        .proposed_last_commit
-        .as_ref()
-        .unwrap()
-        .votes
-        .iter()
-        .map(|v| v.validator.address)
-        .collect();
-    let origin_order = comet_order(&origin).unwrap();
-    assert_eq!(
-        listed,
-        origin_order.iter().map(|e| e.key.address().into_array()).collect::<Vec<_>>()
-    );
     assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Accept);
     let resp = finalize(&mut app, finalize_req(&req)).await.unwrap();
     assert!(resp.validator_updates.is_empty(), "the same candidate signs H + 3");
@@ -224,9 +211,7 @@ async fn usable_candidate_signs_h_plus_2() {
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     let state = app.state().unwrap();
-    let listed: Vec<_> = state.parent_signers.iter().map(|e| (e.key, e.power)).collect();
-    let order: Vec<_> = comet_order(&members).unwrap().iter().map(|e| (e.key, e.power)).collect();
-    assert_eq!(listed, order, "H + 3's LastCommit lists the members");
+    assert_eq!(sorted(&state.val_state.current), by_key(members), "the members sign H + 3");
     assert_eq!(sources(state), [SignerSource::Candidate; 2]);
 }
 
@@ -444,7 +429,7 @@ async fn replace_128_with_128() {
     let app = replay_stock(&case, dir.path(), |step| (step >= 3).then(|| members.clone())).await;
     let state = app.state().unwrap();
     assert_eq!(sources(state), [SignerSource::Candidate; 2]);
-    assert_eq!(state.parent_signers.len(), 128);
+    assert_eq!(state.val_state.current.entries.len(), 128);
 }
 
 /// 128 origin keys and a 128-member candidate at a total of the maximum power replace each
@@ -771,7 +756,7 @@ mod fallback_prefetch {
         app.l1().state().log_fail = Some(L1Error::Rpc("eth_getLogs rate limited".into()));
         let logs = LogCapture::start();
 
-        let req = prepare_req(&app, next_height(&app), bft_time(&app));
+        let req = prepare_req(next_height(&app), bft_time(&app));
         assert!(prepare(&mut app, req).await.is_empty(), "a placeholder proposal");
         assert_eq!(app.halt.as_deref(), Some("fallback_keys_unavailable"));
 
@@ -803,7 +788,7 @@ mod fallback_prefetch {
         assert_eq!(resp, response::ProcessProposal::Accept);
 
         let calls = list_reads(&app).len();
-        let req = prepare_req(&app, next_height(&app), bft_time(&app));
+        let req = prepare_req(next_height(&app), bft_time(&app));
         assert_eq!(prepare(&mut app, req).await.len(), 1, "one envelope; halt = {:?}", app.halt);
         assert_eq!(list_reads(&app).len(), calls, "the held list needs no read");
     }
@@ -882,20 +867,15 @@ mod fallback_prefetch {
         }
     }
 
-    /// A fallback key list the node cannot obtain, and EL state it cannot read, are node-local
-    /// faults: a liveness pause, never a safety halt and never a rejection.
+    /// A fallback key list the node cannot obtain is a node-local fault: a liveness pause, never
+    /// a safety halt and never a rejection.
     #[test]
     fn unavailable_list_is_never_a_halt_or_a_reject() {
-        let list = Rejection::FallbackKeysUnavailable(B256::repeat_byte(7));
-        let state = Rejection::ElState("eth_getStorageAt answered JSON-RPC error -32000".into());
-        for (rejection, label) in
-            [(list, "fallback_keys_unavailable"), (state, "el_state_unavailable")]
-        {
-            assert!(!rejection.requires_dependency_repair(), "{rejection}");
-            assert!(rejection.retryable_dependency(), "{rejection}");
-            assert!(!rejection.logs_at_error(), "{rejection}");
-            assert_eq!(rejection.label(), label);
-        }
+        let rejection = Rejection::FallbackKeysUnavailable(B256::repeat_byte(7));
+        assert!(!rejection.requires_dependency_repair(), "{rejection}");
+        assert!(rejection.retryable_dependency(), "{rejection}");
+        assert!(!rejection.logs_at_error(), "{rejection}");
+        assert_eq!(rejection.label(), "fallback_keys_unavailable");
     }
 
     /// A list read gets a deadline long enough for one log query of the most blocks a scan asks

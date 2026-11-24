@@ -337,7 +337,6 @@ async fn finalize_updates_parent_and_anchor() {
     let h = &env.block.header;
     let mut expected = before.clone();
     expected.last_height = h0;
-    expected.parent_signers = before.val_state.current.entries.clone();
     expected.val_state = before.val_state.advance(&[]).unwrap();
     expected.last_comet_hash = B256::from_slice(req.hash.as_bytes());
     expected.parent = ParentInfo {

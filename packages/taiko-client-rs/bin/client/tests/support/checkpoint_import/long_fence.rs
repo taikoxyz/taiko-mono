@@ -34,7 +34,6 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
                 basefee_sharing_pctg: rules::BASEFEE_SHARING_PCTG,
                 generation: 0,
                 anchor: 10,
-                miss_bitmap: 0,
             })?,
             base_fee_per_gas: Some(10_000_000),
             gas_used: 30_000_000,
@@ -172,7 +171,6 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
                 anchor: &anchor,
                 bft_time_secs: parent.timestamp + 2,
                 generation: 0,
-                miss_bitmap: 0,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(167001),
             })?;
