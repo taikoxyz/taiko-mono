@@ -128,7 +128,7 @@
   hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
   a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,
   and `votes.slash_abi` in the vectors pins its calldata.
-- Etna (BREAKING, spec #22425 at 9325677de): no missed-signature penalty. A precommit missing from
+- Etna (BREAKING, spec #22425 at fb8a348e9): no missed-signature penalty. A precommit missing from
   a LastCommit is not attributable on stock CometBFT, so nothing penalizes or unseats a member that
   does not sign; an offline member keeps its seat until it exits or the DAO forfeits it. The
   block-start call is `onBlockStart(uint48 generation)`, selector `0xaa28c32e` (36 bytes of

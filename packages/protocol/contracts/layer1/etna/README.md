@@ -10,7 +10,7 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`9325677defe988cd46d305f8fcbf4b48a05a57c4`. Every spec link here points at that commit, not at this
+`fb8a348e9c9998327541d562d69a2a636f8974f8`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
@@ -526,6 +526,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/9325677defe988cd46d305f8fcbf4b48a05a57c4/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/9325677defe988cd46d305f8fcbf4b48a05a57c4/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/9325677defe988cd46d305f8fcbf4b48a05a57c4/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/fb8a348e9c9998327541d562d69a2a636f8974f8/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/fb8a348e9c9998327541d562d69a2a636f8974f8/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/fb8a348e9c9998327541d562d69a2a636f8974f8/packages/protocol/docs/etna/ANCHORLESS.md
