@@ -111,33 +111,57 @@ history and blobs. No signing state is reset by this command.
 ## Writing the Etna start
 
 S is the last Unzen block. On a switching network the EtnaInbox records it once, in the start
-write `setOrigin(uint48 S)`, which anyone may call (START-10-5a, LAND-6.1-8a). The caller
-supplies only S; the contract checks everything else and reverts otherwise:
+write `setOrigin(uint48 S)`. Only the designated multisig, the EtnaInbox's immutable
+`originMultisig()`, may send it (START-10-5a, LAND-6.1-8a). The multisig supplies only S and is
+trusted only for that height; the contract checks everything else and reverts otherwise:
 
+- the sender is `originMultisig()` (`NotOriginMultisig`);
 - the Inbox is initialized and the start is unwritten, and L1 time has reached its
   `etnaForkTime()`;
 - the live Unzen Inbox's `proposeCutoff()` is set and reached, so no proposal can follow;
 - its `getCoreState()` shows every accepted proposal finalized
-  (`nextProposalId == lastFinalizedProposalId + 1`);
-- the L1 SignalService checkpoint at S, which the final Unzen proof saved, holds that
-  `lastFinalizedBlockHash` and a nonzero state root.
+  (`nextProposalId == lastFinalizedProposalId + 1`) and a nonzero `lastFinalizedBlockHash`
+  (`UnzenTipHashZero`);
+- the L1 SignalService holds a checkpoint at S, which an Unzen proof saved, with a nonzero state
+  root.
 
-The start takes its hash and state root from that checkpoint. S is therefore the number of the
-L2 block whose hash is the Unzen Inbox's `lastFinalizedBlockHash` once the final proposal is
-proven. Once the final Unzen proof is in L1, send the call from any funded account; it needs no
-role:
+The start takes its hash from the Unzen Inbox's `lastFinalizedBlockHash` and its state root
+from the checkpoint at S. The L1 SignalService stores only state roots, so nothing on L1 ties
+that hash to the height S. Once the final Unzen proof's L1 block is finalized, the multisig
+therefore verifies that S is the number of the L2 block whose hash is `lastFinalizedBlockHash`,
+Unzen's finalized tip, and that the checkpoint at S holds that block's state root:
 
 ```sh
-cast send --rpc-url "$L1_RPC" --private-key "$ANY_FUNDED_KEY" \
+CORE=$(cast call --rpc-url "$L1_RPC" --block finalized "$UNZEN_INBOX" 'getCoreState()')
+cast block --rpc-url "$L2_RPC" "0x${CORE: -64}" --field number # must print S
+cast block --rpc-url "$L2_RPC" "$S" --field stateRoot
+cast call --rpc-url "$L1_RPC" --block finalized "$L1_SIGNAL_SERVICE" \
+  'getStateRoot(uint64)(bytes32)' "$S" # must print the same root
+```
+
+The multisig then submits one transaction to `$ETNA_INBOX` with value 0 and the data below, for
+a Safe as a transaction its owners sign and execute. On a development L1 whose node holds the
+multisig account unlocked, `cast send --from` sends it directly:
+
+```sh
+cast calldata 'setOrigin(uint48)' "$S"
+cast send --rpc-url "$L1_RPC" --unlocked --from "$ORIGIN_MULTISIG" \
   "$ETNA_INBOX" 'setOrigin(uint48)' "$S"
 cast call --rpc-url "$L1_RPC" "$ETNA_INBOX" 'etnaStart()(uint48,bytes32)'
 ```
 
-A call before the cutoff or before every proposal is proven reverts and can be repeated later; a
-second successful write is impossible (`StartAlreadyWritten`), and from the start write on the
+| Failure                                                                                    | Effect                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before the fork time, before the Unzen cutoff, or while an Unzen proposal is not finalized | Reverts. The multisig sends the same S again later.                                                                                                                                                                                                                                                                 |
+| Any sender other than the multisig                                                         | Reverts (`NotOriginMultisig`).                                                                                                                                                                                                                                                                                      |
+| No checkpoint at S, a zero finalized hash or a zero checkpoint root                        | Reverts and the Etna forced inclusion queue stays closed.                                                                                                                                                                                                                                                           |
+| Another checkpointed height than Unzen's finalized tip                                     | The write succeeds and is final once its block is: every node halts on the mismatch (SYNC-9-5a), `etna-handoff` refuses the start as different from the derived Unzen end, the lander refuses S's header, and the guests reject the origin. The multisig cannot retry (`StartAlreadyWritten`); escalate to the DAO. |
+
+A second successful write is impossible (`StartAlreadyWritten`), and from the start write on the
 Unzen checkpoint forwarder reverts at every height (`ForwardingClosed`). Neither a landing nor
 governance recovery changes the start (START-10-5c). Nodes do not trust the transaction or its
-sender: each authenticates S from its own finalized L1 view before it signs (SYNC-9-5a).
+sender's height: each binds S to Unzen's finalized tip hash from its own finalized L1 view and
+checks its own EL header of S, its number, hash and state root, before it signs (SYNC-9-5a).
 
 ## First landing
 
@@ -148,6 +172,8 @@ under the staking rules, as on a new network.
 
 The lander reads no Unzen state: the start write already required closed, fully proven Unzen
 proposals, so the first landing is built from S like any other once blocks above it are decided.
+It checks its EL header of S against the recorded height, hash and state root, so a wrong height
+stops it as it stops the nodes.
 
 The first proof request retains and host-verifies EIP-1186 proofs of the L2 SignalService and
 `EtnaStaking` proxies' EIP-1967 implementation slots under S's state root (PROOF-6.2-46a), the
