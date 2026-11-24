@@ -106,7 +106,10 @@ The Etna block-production and validation rules are in
   loses `missSlashBps` basis points of its stake; a halt penalizes nobody (4.2).
   A miss is a precommit absent from the next block's LastCommit, whatever the
   reason: a signature that arrives too late counts like one never made
-  (section 12, items 24, 31 and 33). Bond ids are never reused, and forfeiture
+  (section 12, items 24, 31 and 33). A coalition holding 1/3 or more of the
+  voting power can make members that sign miss in this sense and so turn the
+  penalty on them; the DAO's response is to hand signing to the fallback key
+  set (item 24, RECOV-8-20a). Bond ids are never reused, and forfeiture
   identifies an issued bond by that id alone. The launch checklist derives
   `minTotalStake` from an independent capital target and conservative price;
   below it the fallback key set signs, with no stake behind it, while funds on L1
@@ -143,7 +146,8 @@ The Etna block-production and validation rules are in
   scheduled time and restart through `recover`.
 - **Open design and acceptance:** deployment values for the capital target,
   reference price and forfeiture rate
-  (item 18), `missLimit` and `timeout_commit` (section 11) remain to be pinned
+  (item 18), `missLimit`, `missSlashBps` and `timeout_commit` (section 11)
+  remain to be pinned
   before launch. The
   proving capacity that lets one worst-case block be proven on its own
   (section 1), including a commit of up to 128 signatures at every block
