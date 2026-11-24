@@ -156,7 +156,7 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Sets every variable `run` reads to the base's reference deployment: the three
+    /// @dev Sets every variable `run` reads to the base's reference deployment: the five
     /// variables with defaults empty, and DEPLOYMENT_SALT and ETNA_UNSETTLED_LIMIT empty.
     function _setEnvironment() private {
         vm.setEnv("L2_CHAIN_ID", vm.toString(block.chainid));
@@ -174,9 +174,11 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
         vm.setEnv("ETNA_MIN_STAKE", "");
         vm.setEnv("ETNA_VP_UNIT", "");
         vm.setEnv("ETNA_N_MAX", "");
+        vm.setEnv("ETNA_MISS_LIMIT", "");
+        vm.setEnv("ETNA_MISS_SLASH_BPS", "");
     }
 
-    /// @dev Asserts the ten immutables `_staking` serves against `_cfg`.
+    /// @dev Asserts the twelve immutables `_staking` serves against `_cfg`.
     function _assertImmutables(
         EtnaStaking _staking,
         IEtnaStaking.Config memory _cfg
@@ -190,6 +192,8 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
         assertEq(_staking.minStake(), _cfg.minStake, "min stake");
         assertEq(_staking.vpUnit(), _cfg.vpUnit, "vp unit");
         assertEq(_staking.nMax(), _cfg.nMax, "n max");
+        assertEq(_staking.missLimit(), _cfg.missLimit, "miss limit");
+        assertEq(_staking.missSlashBps(), _cfg.missSlashBps, "miss slash bps");
         assertEq(_staking.withdrawalDelay(), _cfg.withdrawalDelay, "withdrawal delay");
         assertEq(_staking.slashBountyBps(), _cfg.slashBountyBps, "slash bounty bps");
         assertEq(_staking.slashSink(), _cfg.slashSink, "slash sink");

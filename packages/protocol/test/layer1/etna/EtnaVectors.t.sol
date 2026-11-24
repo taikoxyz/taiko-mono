@@ -51,10 +51,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return false;
     }
 
-    /// @dev Schema 11 follows the staking contract without the missed-signature penalty: a 13-byte
-    /// extraData, the one-word block-start call and the snapshot records from T + 2.
-    function test_schema_IsVersionEleven() external view {
-        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "11");
+    /// @dev Schema 10 moves staking to the L2 `EtnaStaking` contract and gives the Inbox the DAO
+    /// fallback key set and `minTotalStake`.
+    function test_schema_IsVersionTen() external view {
+        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "10");
     }
 
     // ---------------------------------------------------------------
@@ -775,21 +775,24 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     // extraData
     // ---------------------------------------------------------------
 
-    /// @dev Every `extra_data` row is the 13 bytes 0x64 ‖ uint48(generation) ‖ uint48(anchor
-    /// number), big-endian.
-    function test_extraData_ThirteenBytes() external view {
+    /// @dev Every `extra_data` row is the 29 bytes 0x64 ‖ uint48(generation) ‖ uint48(anchor
+    /// number) ‖ uint128(missBitmap), big-endian.
+    function test_extraData_TwentyNineBytes() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".extra_data");
-        assertEq(n, 3);
+        assertEq(n, 5);
         for (uint256 i; i < n; ++i) {
             string memory p = _at(".extra_data", i);
             uint256 generation = _uint(j, p, "generation");
             uint256 anchorNumber = _uint(j, p, "anchor_number");
+            uint256 missBitmap = _uint(j, p, "miss_bitmap");
             assertLe(generation, type(uint48).max);
             assertLe(anchorNumber, type(uint48).max);
-            bytes memory extraData =
-                abi.encodePacked(uint8(0x64), uint48(generation), uint48(anchorNumber));
-            assertEq(extraData.length, 13);
+            assertLe(missBitmap, type(uint128).max);
+            bytes memory extraData = abi.encodePacked(
+                uint8(0x64), uint48(generation), uint48(anchorNumber), uint128(missBitmap)
+            );
+            assertEq(extraData.length, 29);
             assertEq(extraData, _bytes(j, p, "extra_data"));
         }
     }
@@ -903,32 +906,47 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     // ---------------------------------------------------------------
 
     /// @dev The appendix A literals of the encodings the contracts share: extraData, the
-    /// block-start calldata, the config hash and the fallback key hash, each rebuilt with
-    /// Solidity, compared with the literal copied from the spec and with the vector file; the
-    /// dynamic-string twins hash differently.
+    /// missBitmap bit order, the block-start calldata, the config hash and the fallback key hash,
+    /// each rebuilt with Solidity, compared with the literal copied from the spec and with the
+    /// vector file; the dynamic-string twins hash differently.
     function test_appendixA_LiteralsReproduce() external view {
         string memory j = LibEtnaVectors.load();
         string memory a = ".appendix_a_examples.";
 
-        bytes memory zero = abi.encodePacked(uint8(0x64), uint48(0), uint48(0));
-        assertEq(zero, abi.encodePacked(uint8(0x64), new bytes(12)), "extraData literal, zeros");
+        bytes memory zero = abi.encodePacked(uint8(0x64), uint48(0), uint48(0), uint128(0));
+        assertEq(zero, abi.encodePacked(uint8(0x64), new bytes(28)), "extraData literal, zeros");
         assertEq(zero, _bytes(j, string.concat(a, "enc_a_10_f."), "extra_data"), "file, zeros");
-        bytes memory one = abi.encodePacked(uint8(0x64), uint48(1), uint48(258));
+        bytes memory one =
+            abi.encodePacked(uint8(0x64), uint48(1), uint48(258), uint128(2 ** 127 + 1));
         assertEq(
-            one, hex"64" hex"000000000001" hex"000000000102", "extraData literal, generation 1"
+            one,
+            hex"64" hex"000000000001" hex"000000000102" hex"80000000000000000000000000000001",
+            "extraData literal, generation 1"
         );
         assertEq(one, _bytes(j, string.concat(a, "enc_a_10_h."), "extra_data"), "file, gen 1");
 
-        bytes4 selector = bytes4(keccak256("onBlockStart(uint48)"));
-        assertEq(selector, bytes4(0xaa28c32e), "block-start selector literal");
+        // Seat s is bit s of missBitmap: seat 0 is the low bit of byte 28, seat 127 the high bit
+        // of byte 13.
+        bytes memory seats02 = _bytes(j, string.concat(a, "enc_a_10c_a."), "extra_data");
+        assertEq(seats02, abi.encodePacked(uint8(0x64), uint48(5), uint48(7), uint128(5)));
+        assertEq(uint8(seats02[28]), 0x05, "byte 28 of missBitmap 5");
+        _assertSeatBits(j, string.concat(a, "enc_a_10c_a."), 5);
+        bytes memory seat127 = _bytes(j, string.concat(a, "enc_a_10c_b."), "extra_data");
+        assertEq(seat127, abi.encodePacked(uint8(0x64), uint48(5), uint48(7), uint128(2 ** 127)));
+        assertEq(uint8(seat127[13]), 0x80, "byte 13 of missBitmap 2^127");
+        _assertSeatBits(j, string.concat(a, "enc_a_10c_b."), 2 ** 127);
+
+        bytes4 selector = bytes4(keccak256("onBlockStart(uint48,uint128)"));
+        assertEq(selector, bytes4(0xea987592), "block-start selector literal");
         assertEq(
             abi.encodePacked(selector),
             _bytes(j, string.concat(a, "enc_a_10d_b."), "selector"),
             "file selector"
         );
-        bytes memory calldata_ = abi.encodeWithSignature("onBlockStart(uint48)", uint48(1));
-        assertEq(calldata_.length, 36, "block-start calldata length");
-        assertEq(calldata_, abi.encodePacked(selector, uint256(1)), "one word");
+        bytes memory calldata_ =
+            abi.encodeWithSignature("onBlockStart(uint48,uint128)", uint48(1), uint128(5));
+        assertEq(calldata_.length, 68, "block-start calldata length");
+        assertEq(calldata_, abi.encodePacked(selector, uint256(1), uint256(5)), "two words");
         assertEq(calldata_, _bytes(j, string.concat(a, "enc_a_10d_a."), "calldata"), "file call");
 
         _assertConfigLiterals(j, string.concat(a, "enc_a_36_a."), string.concat(a, "enc_a_36_f."));
@@ -1052,6 +1070,27 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(dynamicTag, _bytes(_j, p, "preimage"), "dynamic [K1] file");
         assertEq(keccak256(dynamicTag), _bytes32(_j, p, "hash"), "dynamic [K1] hash");
         assertNotEq(keccak256(dynamicTag), DEFAULT_FALLBACK_KEYS_HASH, "differs from [K1]");
+    }
+
+    /// @dev The example at `_p` has missBitmap `_bitmap`, and its `seats` are exactly the set bits
+    /// of `_bitmap`, bit s for seat s.
+    function _assertSeatBits(
+        string memory _j,
+        string memory _p,
+        uint256 _bitmap
+    )
+        private
+        view
+    {
+        assertEq(_uint(_j, _p, "miss_bitmap"), _bitmap, "missBitmap");
+        string memory seats = string.concat(_p, "seats");
+        uint256 n = LibEtnaVectors.lengthAt(_j, seats);
+        uint256 rebuilt;
+        for (uint256 i; i < n; ++i) {
+            uint256 seat = LibEtnaVectors.uintAt(_j, string.concat(seats, "[", vm.toString(i), "]"));
+            rebuilt |= 2 ** seat;
+        }
+        assertEq(rebuilt, _bitmap, "the listed seats are the set bits");
     }
 
     /// @dev Each key of the accepted list at `_p` signs as the secp256k1eth address of its

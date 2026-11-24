@@ -534,6 +534,8 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
             minStake: 7_812_500 ether,
             vpUnit: 1e9,
             nMax: 128,
+            missLimit: 3600,
+            missSlashBps: 1000,
             withdrawalDelay: 302_402,
             slashBountyBps: 1000,
             slashSink: slashSink,

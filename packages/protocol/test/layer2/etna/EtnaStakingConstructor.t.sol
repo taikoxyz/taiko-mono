@@ -17,6 +17,8 @@ contract EtnaStakingConstructorTest is EtnaStakingTestBase {
         assertEq(staking.minStake(), MIN_STAKE, "min stake");
         assertEq(staking.vpUnit(), VP_UNIT, "vp unit");
         assertEq(staking.nMax(), N_MAX, "n max");
+        assertEq(staking.missLimit(), MISS_LIMIT, "miss limit");
+        assertEq(staking.missSlashBps(), MISS_SLASH_BPS, "miss slash bps");
         assertEq(staking.withdrawalDelay(), WITHDRAWAL_DELAY, "withdrawal delay");
         assertEq(staking.slashBountyBps(), SLASH_BOUNTY_BPS, "slash bounty bps");
         assertEq(staking.slashSink(), SLASH_SINK, "slash sink");
@@ -72,6 +74,30 @@ contract EtnaStakingConstructorTest is EtnaStakingTestBase {
 
         cfg.vpUnit = cfg.minStake;
         assertEq(new EtnaStaking(cfg).vpUnit(), cfg.minStake, "vp unit equal to min stake");
+    }
+
+    function test_constructor_RevertWhen_MissLimitOutOfRange() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 0;
+        _assertInvalidConfig(cfg, "zero");
+        cfg.missLimit = 65_536;
+        _assertInvalidConfig(cfg, "65,536");
+
+        cfg.missLimit = 1;
+        assertEq(new EtnaStaking(cfg).missLimit(), 1, "one");
+        cfg.missLimit = 65_535;
+        assertEq(new EtnaStaking(cfg).missLimit(), 65_535, "65,535");
+    }
+
+    function test_constructor_RevertWhen_MissSlashBpsOutOfRange() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missSlashBps = 0;
+        _assertInvalidConfig(cfg, "zero");
+        cfg.missSlashBps = 10_001;
+        _assertInvalidConfig(cfg, "10,001");
+
+        cfg.missSlashBps = 10_000;
+        assertEq(new EtnaStaking(cfg).missSlashBps(), 10_000, "the whole stake");
     }
 
     function test_constructor_RevertWhen_SlashBountyBpsAtFull() external {

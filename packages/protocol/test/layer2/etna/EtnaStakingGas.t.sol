@@ -7,19 +7,57 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { LibCometVote } from "src/layer2/etna/libs/LibCometVote.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
-/// @title EtnaStakingOnBlockStartWorstCaseGasTest
-/// @notice A gas snapshot of the block-start call in its worst case, with every one of the 128
-/// seats occupied, which must stay below the 30,000,000 gas of the call's frame. No call has run
-/// since the 128 registrations, so the measured call takes every one of the 256 snapshot record
-/// words, the height and the total from zero to nonzero.
-/// @dev `setUp` registers the bonds and the measured test is a separate transaction. The measured
-/// call therefore finds the staking storage cold and pays for each write against the storage
-/// `setUp` committed, as a block's call does. The test reads no staking storage before the
-/// measured call, since a read would warm it.
-contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingTestBase {
+/// @title EtnaStakingOnBlockStartGasBase
+/// @notice Gas snapshots of the block-start call with all 128 seats occupied, every bit set and
+/// every seated bond reaching missLimit in the same call; each must stay below the 30,000,000 gas
+/// of the call's frame.
+/// @dev `setUp` registers the bonds and makes any earlier call, and the measured test is a
+/// separate transaction. The measured call therefore finds the staking and token storage cold
+/// and pays for each write against the storage `setUp` committed, as a block's call does. A test
+/// reads no staking or token storage before the measured call, since a read would warm it.
+abstract contract EtnaStakingOnBlockStartGasBase is EtnaStakingTestBase {
     /// @dev The gas the execution layer gives the call's frame.
-    uint256 private constant _FRAME_GAS = 30_000_000;
+    uint256 internal constant FRAME_GAS = 30_000_000;
 
+    /// @dev Deploys a staking contract with `_missLimit` and seats 128 bonds of `_stake` each.
+    function _seatEveryBond(uint256 _missLimit, uint256 _stake) internal {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = _missLimit;
+        staking = _deploy(cfg);
+        for (uint256 pk = 1; pk <= N_MAX; ++pk) {
+            _register(pk, Bob, _stake);
+        }
+    }
+
+    /// @dev Measures, as `_label`, the next block's call with every bit set, which must succeed
+    /// below the frame gas and penalize every one of the 128 bonds of `_stake`.
+    function _measure(string memory _label, uint256 _stake) internal {
+        bytes memory data =
+            abi.encodeCall(IEtnaStaking.onBlockStart, (uint48(1), type(uint128).max));
+        address target = address(staking);
+        vm.roll(block.number + 1);
+        vm.prank(SYSTEM_CALLER);
+        (bool ok,) = target.call{ gas: FRAME_GAS }(data);
+        uint256 gasUsed = vm.snapshotGasLastCall(_label);
+
+        assertTrue(ok, "the call succeeds within the frame");
+        emit log_named_uint(_label, gasUsed);
+        assertLt(gasUsed, FRAME_GAS, _label);
+        assertEq(token.balanceOf(SLASH_SINK), N_MAX * (_stake / 10), "every bond penalized");
+    }
+
+    /// @dev Returns the word at T + `_offset`.
+    function _word(uint256 _offset) internal view returns (uint256) {
+        return uint256(vm.load(address(staking), bytes32(uint256(T) + _offset)));
+    }
+}
+
+/// @title EtnaStakingOnBlockStartWorstCaseGasTest
+/// @notice The worst case. missLimit is 1 and no call has run since the 128 registrations, so the
+/// measured call penalizes every bond, each bond of 2m keeps its seat, every one of the 256
+/// snapshot record words and slashSink's balance goes from zero to nonzero, and the 8 miss-count
+/// words go from zero to nonzero and back to zero, since each penalty resets its count.
+contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingOnBlockStartGasBase {
     /// @dev The EIP-170 contract size limit in bytes.
     uint256 private constant _EIP170_LIMIT = 24_576;
 
@@ -29,33 +67,26 @@ contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingTestBase {
 
     function setUp() public override {
         super.setUp();
-        for (uint256 pk = 1; pk <= N_MAX; ++pk) {
-            _register(pk, Bob, 2 * MIN_STAKE);
-        }
+        _seatEveryBond(1, 2 * MIN_STAKE);
         // Checked here, not in the test: reading the words there would warm them.
-        for (uint256 offset; offset < 258; ++offset) {
+        for (uint256 offset; offset < 259; ++offset) {
             assertEq(_word(offset), 0, "no snapshot before the call");
         }
     }
 
-    function test_gas_onBlockStart_WorstCaseFitsTheFrame() external {
-        bytes memory data = abi.encodeCall(IEtnaStaking.onBlockStart, (uint48(1)));
-        address target = address(staking);
-        vm.roll(block.number + 1);
-        vm.prank(SYSTEM_CALLER);
-        (bool ok,) = target.call{ gas: _FRAME_GAS }(data);
-        uint256 gasUsed = vm.snapshotGasLastCall("on_block_start_worst_case");
+    function test_gas_onBlockStart_WorstCasePenaltiesKeepSeats() external {
+        _measure("on_block_start_worst_case", 2 * MIN_STAKE);
 
-        assertTrue(ok, "the call succeeds within the frame");
-        emit log_named_uint("on_block_start_worst_case", gasUsed);
-        assertLt(gasUsed, _FRAME_GAS, "below the frame gas");
         for (uint8 seat; seat < N_MAX; ++seat) {
             _assertBondInSeat(seat, true, seat, "seat kept");
-            assertGt(_word(2 + 2 * uint256(seat)), 0, "record word 1 written");
-            assertGt(_word(3 + 2 * uint256(seat)), 0, "record word 2 written");
+            assertGt(_word(3 + 2 * uint256(seat)), 0, "record word 1 written");
+            assertGt(_word(4 + 2 * uint256(seat)), 0, "record word 2 written");
         }
-        assertEq(_word(1), N_MAX * 2 * MIN_STAKE, "the total of every stake");
-        assertEq(_word(0), block.number, "the height");
+        assertEq(
+            _word(1),
+            N_MAX * (2 * MIN_STAKE - 2 * MIN_STAKE / 10),
+            "the total of the reduced stakes"
+        );
     }
 
     /// @dev The implementation stays deployable under EIP-170.
@@ -65,10 +96,31 @@ contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingTestBase {
         emit log_named_uint("EtnaStaking runtime bytes", impl.code.length);
         assertLe(impl.code.length, _EIP170_LIMIT, "EIP-170");
     }
+}
 
-    /// @dev Returns the word at T + `_offset`.
-    function _word(uint256 _offset) private view returns (uint256) {
-        return uint256(vm.load(address(staking), bytes32(uint256(T) + _offset)));
+/// @title EtnaStakingOnBlockStartReleaseSeatsGasTest
+/// @notice Every bond of m loses 10% and releases its seat, one key decompression each. missLimit
+/// is 2 and `setUp` makes a call with every bit set first, so the measured call clears 256
+/// nonzero snapshot record words.
+contract EtnaStakingOnBlockStartReleaseSeatsGasTest is EtnaStakingOnBlockStartGasBase {
+    function setUp() public override {
+        super.setUp();
+        _seatEveryBond(2, MIN_STAKE);
+        _blockStart(1, type(uint128).max);
+        for (uint8 seat; seat < N_MAX; ++seat) {
+            assertEq(staking.missCount(seat), 1, "count 1 after the first call");
+        }
+    }
+
+    function test_gas_onBlockStart_PenaltiesReleaseEverySeat() external {
+        _measure("on_block_start_128_penalties_seats_released", MIN_STAKE);
+
+        for (uint8 seat; seat < N_MAX; ++seat) {
+            _assertBondInSeat(seat, false, 0, "seat released");
+        }
+        for (uint256 offset = 1; offset < 259; ++offset) {
+            assertEq(_word(offset), 0, "an empty snapshot");
+        }
     }
 }
 
@@ -110,8 +162,11 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
     /// @dev The measured registration's calldata, built in setUp.
     bytes internal registerData;
 
-    /// @dev Seats bonds 0 to 127 of m each.
-    function _seatEveryBond() internal {
+    /// @dev Deploys a staking contract with `_missLimit` and seats bonds 0 to 127 of m each.
+    function _seatEveryBond(uint256 _missLimit) internal {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = _missLimit;
+        staking = _deploy(cfg);
         for (uint256 pk = 1; pk <= N_MAX; ++pk) {
             _register(pk, Bob, MIN_STAKE);
         }
@@ -230,7 +285,7 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
 contract EtnaStakingRegisterGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _requestExit(127);
         _fundExact(Carol, MIN_STAKE);
         registerData = _registerCall(NEW_KEY, Carol);
@@ -249,7 +304,7 @@ contract EtnaStakingRegisterGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingRegisterNoEmptySeatGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _fundExact(Carol, MIN_STAKE);
         registerData = _registerCall(NEW_KEY, Carol);
     }
@@ -274,7 +329,7 @@ contract EtnaStakingRegisterNoEmptySeatGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingRegisterAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _requestExit(127);
         _register(NEW_KEY, Carol, MIN_STAKE);
         _slash(0);
@@ -295,41 +350,44 @@ contract EtnaStakingRegisterAfterSeatChangesGasTest is EtnaStakingOperationGasBa
 // ---------------------------------------------------------------
 
 /// @title EtnaStakingTopUpGasTest
-/// @notice Bob tops up bond 127, in seat 127, by m / 10; the bond keeps its seat.
+/// @notice missLimit is 1, and a block-start call with bit 127 set took m / 10 from bond 127,
+/// which released seat 127 below m. Bob tops it up by m / 10, which gives it seat 127 again.
 contract EtnaStakingTopUpGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(1);
+        _blockStart(1, uint128(1) << LAST_SEAT);
+        _assertSeatOfBond(127, false, 0, "bond 127 below m");
         _fundExact(Bob, MIN_STAKE / 10);
     }
 
-    function test_gas_topUp_SeatedBond() external {
+    function test_gas_topUp_ReseatsBondBelowMinStake() external {
         bytes memory data = abi.encodeCall(IEtnaStaking.topUp, (127, MIN_STAKE / 10));
-        _measure(TOP_UP_GAS, "top_up_seated_bond", Bob, data);
+        _measure(TOP_UP_GAS, "top_up_reseats_bond_below_min_stake", Bob, data);
 
-        _assertSeatOfBond(127, true, LAST_SEAT, "seat 127 kept");
-        assertEq(staking.bondAt(127).effStake, MIN_STAKE + MIN_STAKE / 10, "the new stake");
+        _assertSeatOfBond(127, true, LAST_SEAT, "seat 127 again");
+        assertEq(staking.bondAt(127).effStake, MIN_STAKE, "back at m");
     }
 }
 
 /// @title EtnaStakingTopUpAfterSeatChangesGasTest
-/// @notice After bond 0's exit released seat 0 and Carol's bond 128 took it, Carol tops up bond
-/// 128 by m / 10.
+/// @notice As `EtnaStakingTopUpGasTest`, and bond 0's exit then released seat 0, so the top-up
+/// gives bond 127 seat 0.
 contract EtnaStakingTopUpAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(1);
+        _blockStart(1, uint128(1) << LAST_SEAT);
         _requestExit(0);
-        _register(NEW_KEY, Carol, MIN_STAKE);
-        _fundExact(Carol, MIN_STAKE / 10);
+        _fundExact(Bob, MIN_STAKE / 10);
     }
 
     function test_gas_topUp_AfterSeatChanges() external {
-        bytes memory data = abi.encodeCall(IEtnaStaking.topUp, (128, MIN_STAKE / 10));
-        _measure(TOP_UP_GAS, "top_up_after_seats_changed", Carol, data);
+        bytes memory data = abi.encodeCall(IEtnaStaking.topUp, (127, MIN_STAKE / 10));
+        _measure(TOP_UP_GAS, "top_up_after_seats_changed", Bob, data);
 
-        _assertSeatOfBond(128, true, 0, "seat 0 kept");
-        _assertBondInSeat(0, true, 128, "seat 0 holds bond 128");
+        _assertSeatOfBond(127, true, 0, "the lowest empty seat");
+        _assertBondInSeat(LAST_SEAT, false, 0, "seat 127 stays empty");
     }
 }
 
@@ -342,7 +400,7 @@ contract EtnaStakingTopUpAfterSeatChangesGasTest is EtnaStakingOperationGasBase 
 contract EtnaStakingRequestExitGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
     }
 
     function test_gas_requestExit_ReleasesSeat0() external {
@@ -372,7 +430,7 @@ contract EtnaStakingRequestExitGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingRequestExitAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _forfeit(0);
         _register(NEW_KEY, Carol, MIN_STAKE);
     }
@@ -398,7 +456,7 @@ contract EtnaStakingRequestExitAfterSeatChangesGasTest is EtnaStakingOperationGa
 contract EtnaStakingSlashGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
     }
 
     function test_gas_slashDoubleSign_ReleasesSeat0() external {
@@ -427,7 +485,7 @@ contract EtnaStakingSlashGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingSlashAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _requestExit(127);
         _register(NEW_KEY, Carol, MIN_STAKE);
     }
@@ -458,7 +516,7 @@ contract EtnaStakingSlashAfterSeatChangesGasTest is EtnaStakingOperationGasBase 
 contract EtnaStakingForfeitGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
     }
 
     function test_gas_forfeit_ReleasesSeat0() external {
@@ -490,7 +548,7 @@ contract EtnaStakingForfeitGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingForfeitAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _slash(127);
         _register(NEW_KEY, Carol, MIN_STAKE);
     }
@@ -516,7 +574,7 @@ contract EtnaStakingForfeitAfterSeatChangesGasTest is EtnaStakingOperationGasBas
 contract EtnaStakingWithdrawGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _requestExit(0);
         vm.roll(block.number + WITHDRAWAL_DELAY);
     }
@@ -538,7 +596,7 @@ contract EtnaStakingWithdrawGasTest is EtnaStakingOperationGasBase {
 contract EtnaStakingWithdrawAfterSeatChangesGasTest is EtnaStakingOperationGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond();
+        _seatEveryBond(MISS_LIMIT);
         _forfeit(127);
         _register(NEW_KEY, Carol, MIN_STAKE);
         vm.roll(block.number + WITHDRAWAL_DELAY);

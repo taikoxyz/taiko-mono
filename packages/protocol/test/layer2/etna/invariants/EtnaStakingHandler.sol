@@ -19,8 +19,8 @@ import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 /// and records a violation when the contract disagrees, so the campaign runs with
 /// `fail_on_revert`. After every action it records each bond's exit height and forfeiture flag,
 /// so a later action that moves an exit later or clears a flag is a violation. Right after each
-/// block-start call it checks that the call changed no stake or seat and captures the snapshot
-/// words the call wrote and the words the seat table implies.
+/// block-start call it captures the snapshot words the call wrote and the words the seat table
+/// it left implies.
 contract EtnaStakingHandler is CommonBase, StdUtils {
     // ---------------------------------------------------------------
     // Constants
@@ -30,7 +30,7 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
     uint256 public constant KEY_COUNT = 40;
 
     /// @dev The snapshot words, in order: T (`snapshotHeight`), T + 1 (`snapshotTotalStake`) and
-    /// the 256 words of the 128 records at T + 2 to T + 257.
+    /// the 256 words of the 128 records at T + 3 to T + 258.
     uint256 public constant SNAPSHOT_WORDS = 258;
 
     /// @dev The `exitHeight` of a bond with no exit set.
@@ -57,6 +57,8 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
     uint256 public immutable minStake;
     uint256 public immutable vpUnit;
     uint256 public immutable nMax;
+    uint256 public immutable missLimit;
+    uint256 public immutable missSlashBps;
     uint256 public immutable withdrawalDelay;
     uint256 public immutable slashBountyBps;
     address public immutable slashSink;
@@ -81,6 +83,8 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
     uint256 public ghostBounties;
     /// @dev Penalties of forfeitures.
     uint256 public ghostForfeitPenalties;
+    /// @dev Penalties of missed signatures.
+    uint256 public ghostMissPenalties;
 
     /// @dev The private key and the owner of each bond, by bond id.
     uint256[] internal _keyOfBond;
@@ -108,12 +112,14 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
 
     uint256 public registrations;
     uint256 public topUps;
+    uint256 public reseats;
     uint256 public exits;
     uint256 public withdrawals;
     uint256 public slashes;
     uint256 public forfeitures;
     uint256 public blockStarts;
-    /// @dev Registrations the model expected to find every seat held.
+    uint256 public missPenalties;
+    /// @dev Registrations and top-ups the model expected to find every seat held.
     uint256 public fullTableRejections;
     uint256 public rejected;
 
@@ -128,6 +134,8 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         minStake = _staking.minStake();
         vpUnit = _staking.vpUnit();
         nMax = _staking.nMax();
+        missLimit = _staking.missLimit();
+        missSlashBps = _staking.missSlashBps();
         withdrawalDelay = _staking.withdrawalDelay();
         slashBountyBps = _staking.slashBountyBps();
         slashSink = _staking.slashSink();
@@ -144,9 +152,10 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
     // ---------------------------------------------------------------
 
     /// @notice A burst of one to four registrations, so the seat table fills: each by one of
-    /// three owners, of key 1 to 40, with a stake in [m, 3m]. A used key reverts `KeyAlreadyUsed`
-    /// and, failing that, a full seat table `NoEmptySeat`; otherwise the next bond id takes the
-    /// lowest empty seat.
+    /// three owners, of key 1 to 40, with a stake in [m, 3m] of which one in four is below
+    /// 10m / 9, which a single missed-signature penalty takes below m. A used key reverts
+    /// `KeyAlreadyUsed` and, failing that, a full seat table `NoEmptySeat`; otherwise the next
+    /// bond id takes the lowest empty seat.
     function register(uint256 _keySeed, uint256 _amountSeed, uint256 _ownerSeed) external {
         uint256 burst = 1 + (_ownerSeed >> 8) % 4;
         for (uint256 i; i < burst; ++i) {
@@ -159,18 +168,26 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         _afterAction();
     }
 
-    /// @notice The owner of an issued bond tops it up by 1 to m. A withdrawn bond reverts
-    /// `BondWithdrawn` and one with an exit `ExitAlreadySet`; otherwise the stake rises and the
-    /// bond keeps the seat it holds, since a bond with no exit always holds one.
+    /// @notice The owner of an issued bond tops it up by 1 to m; for an even seed the bond is,
+    /// while one exists, the lowest bond that a penalty left without a seat and no exit. A
+    /// withdrawn bond reverts `BondWithdrawn` and one with an exit `ExitAlreadySet`; a top-up that
+    /// brings a seatless bond to m takes the lowest empty seat, or reverts `NoEmptySeat` when
+    /// every seat is held.
     function topUp(uint256 _bondSeed, uint256 _amountSeed) external {
         if (_keyOfBond.length == 0) return;
-        uint256 bondId = _bondSeed % _keyOfBond.length;
+        uint256 bondId = _topUpTarget(_bondSeed);
         uint256 amount = _bound(_amountSeed, 1, minStake);
         address owner = _ownerOfBond[bondId];
         IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
+        (bool full, uint8 seat) = _lowestEmptySeat();
+        bool seats = !bond.holdsSeat && bond.effStake + amount >= minStake;
         bytes4 expected = _expectUnwithdrawn(bond);
         if (expected == 0 && bond.exitHeight != NO_EXIT) {
             expected = IEtnaStaking.ExitAlreadySet.selector;
+        }
+        if (expected == 0 && seats && full) {
+            expected = IEtnaStaking.NoEmptySeat.selector;
+            ++fullTableRejections;
         }
         _fund(owner, amount);
 
@@ -179,11 +196,12 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
             _checkAccepted("topUp", expected);
             ghostDeposited += amount;
             ++topUps;
-            if (staking.bondAt(bondId).effStake != bond.effStake + amount) {
-                _violate("topUp: wrong stake");
+            if (seats) {
+                ++reseats;
+                _checkSeat(bondId, true, seat, "topUp");
+            } else {
+                _checkSeat(bondId, bond.holdsSeat, bond.seat, "topUp");
             }
-            if (!bond.holdsSeat) _violate("topUp: a bond with no exit held no seat");
-            _checkSeat(bondId, true, bond.seat, "topUp");
         } catch (bytes memory reason) {
             _checkRejected("topUp", expected, reason);
         }
@@ -328,31 +346,44 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         _afterAction();
     }
 
-    /// @notice Rolls one block and makes its block-start call with `_generation`, which always
-    /// succeeds, stores the generation and changes no stake, seat, exit or token balance,
-    /// whichever members signed. The handler then captures the snapshot.
-    function blockStart(uint48 _generation) external {
+    /// @notice Rolls one block and makes its block-start call with `_generation` and
+    /// `_missBitmap`, which always succeeds. Each occupied seat's count rises on a set bit and
+    /// resets otherwise; a seat that reaches missLimit loses ceil(effStake * missSlashBps /
+    /// 10,000) to slashSink, resets its count and releases its seat below m. The handler then
+    /// captures the snapshot.
+    function blockStart(uint48 _generation, uint128 _missBitmap) external {
         vm.roll(block.number + 1);
-        IEtnaStaking.Bond[] memory before = new IEtnaStaking.Bond[](_keyOfBond.length);
-        for (uint256 bondId; bondId < before.length; ++bondId) {
-            before[bondId] = staking.bondAt(bondId);
+        uint256[] memory seated = new uint256[](nMax);
+        uint256[] memory counts = new uint256[](nMax);
+        uint256[] memory stakes = new uint256[](nMax);
+        uint256 penalties;
+        for (uint256 seat; seat < nMax; ++seat) {
+            (bool occupied, uint256 bondId) = staking.bondInSeat(uint8(seat));
+            if (!occupied) continue;
+            seated[seat] = bondId + 1;
+            counts[seat] =
+                ((_missBitmap >> seat) & 1) == 1 ? uint256(staking.missCount(uint8(seat))) + 1 : 0;
+            stakes[seat] = staking.bondAt(bondId).effStake;
+            if (counts[seat] < missLimit) continue;
+            uint256 penalty = Math.mulDiv(stakes[seat], missSlashBps, BPS, Math.Rounding.Up);
+            penalties += penalty;
+            stakes[seat] -= penalty;
+            counts[seat] = 0;
+            ++missPenalties;
         }
         uint256 sinkBefore = token.balanceOf(slashSink);
-        uint256 heldBefore = token.balanceOf(address(staking));
 
         vm.prank(SYSTEM_CALLER);
-        try staking.onBlockStart(_generation) {
+        try staking.onBlockStart(_generation, _missBitmap) {
             ++blockStarts;
-            if (
-                token.balanceOf(slashSink) != sinkBefore
-                    || token.balanceOf(address(staking)) != heldBefore
-            ) {
-                _violate("blockStart: tokens moved");
+            ghostMissPenalties += penalties;
+            if (token.balanceOf(slashSink) - sinkBefore != penalties) {
+                _violate("blockStart: wrong penalties");
             }
             if (staking.lastGeneration() != _generation) {
                 _violate("blockStart: generation not stored");
             }
-            _checkBlockStart(before);
+            _checkBlockStart(seated, counts, stakes);
             _capture();
         } catch {
             _violate("blockStart: reverted");
@@ -386,14 +417,14 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         if (bondIdPlusOne != 0) return (true, bondIdPlusOne - 1);
     }
 
-    /// @notice Stake paid out of the contract: withdrawals, slashes and forfeiture penalties.
+    /// @notice Stake paid out of the contract: withdrawals, slashes and both kinds of penalty.
     function ghostPaidOut() external view returns (uint256) {
-        return ghostWithdrawn + ghostSlashed + ghostForfeitPenalties;
+        return ghostWithdrawn + ghostSlashed + ghostForfeitPenalties + ghostMissPenalties;
     }
 
     /// @notice Stake paid to slashSink.
     function ghostToSink() external view returns (uint256) {
-        return ghostSlashed - ghostBounties + ghostForfeitPenalties;
+        return ghostSlashed - ghostBounties + ghostForfeitPenalties + ghostMissPenalties;
     }
 
     /// @notice The snapshot words the last block-start call wrote, read right after it, and those
@@ -406,9 +437,9 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         return (_capturedWords, _expectedWords);
     }
 
-    /// @notice The slot of snapshot word `_index`, T + `_index`.
+    /// @notice The slot of snapshot word `_index`: T and T + 1, then T + 3 onwards.
     function snapshotSlot(uint256 _index) public pure returns (bytes32) {
-        return bytes32(uint256(T) + _index);
+        return bytes32(uint256(T) + (_index < 2 ? _index : _index + 1));
     }
 
     // ---------------------------------------------------------------
@@ -418,7 +449,9 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
     /// @dev One registration of the burst `register` makes.
     function _register(uint256 _keySeed, uint256 _amountSeed, uint256 _ownerSeed) internal {
         uint256 pk = _bound(_keySeed, 1, KEY_COUNT);
-        uint256 amount = _bound(_amountSeed, minStake, 3 * minStake);
+        uint256 amount = _amountSeed % 4 == 0
+            ? minStake + (_amountSeed >> 2) % (minStake / 9)
+            : _bound(_amountSeed >> 2, minStake, 3 * minStake);
         address owner = _owners[_ownerSeed % _owners.length];
         bytes memory publicKey = EtnaTestKeys.publicKey(pk);
         bytes memory pop = EtnaVoteKeys.popSig(pk, staking, owner);
@@ -461,6 +494,20 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
             if (!occupied) return (false, uint8(seat));
         }
         return (true, 0);
+    }
+
+    /// @dev Bond `_seed / 2` modulo the bonds, or, for an even seed while one exists, the lowest
+    /// unwithdrawn bond with no exit and no seat, which only a penalty leaves.
+    function _topUpTarget(uint256 _seed) internal view returns (uint256) {
+        if (_seed % 2 == 0) {
+            for (uint256 bondId; bondId < _keyOfBond.length; ++bondId) {
+                IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
+                if (!bond.withdrawn && bond.exitHeight == NO_EXIT && !bond.holdsSeat) {
+                    return bondId;
+                }
+            }
+        }
+        return (_seed >> 1) % _keyOfBond.length;
     }
 
     /// @dev `BondWithdrawn` for a withdrawn bond, else no error.
@@ -529,16 +576,35 @@ contract EtnaStakingHandler is CommonBase, StdUtils {
         if (!occupied || bondId != _bondId) _violate(string.concat(_action, ": seat not taken"));
     }
 
-    /// @dev Checks that a block-start call left every bond record as it was before the call:
-    /// the same stake, exit, seat and owner, so no member, signing or not, loses stake or a seat.
-    /// @param _before Each bond's record before the call, by bond id.
-    function _checkBlockStart(IEtnaStaking.Bond[] memory _before) internal {
-        for (uint256 bondId; bondId < _before.length; ++bondId) {
-            IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
-            if (keccak256(abi.encode(bond)) != keccak256(abi.encode(_before[bondId]))) {
-                _violate("blockStart: a bond record changed");
+    /// @dev Checks the seats, stakes and miss counts a block-start call left against those it
+    /// predicted: a bond the penalty leaves below m holds no seat and its seat is empty, every
+    /// other seated bond keeps its seat with the predicted stake and miss count.
+    /// @param _seated Bond id + 1 of the bond in each seat before the call; 0 if empty.
+    /// @param _counts The predicted miss counts.
+    /// @param _stakes The predicted stakes.
+    function _checkBlockStart(
+        uint256[] memory _seated,
+        uint256[] memory _counts,
+        uint256[] memory _stakes
+    )
+        internal
+    {
+        for (uint256 seat; seat < nMax; ++seat) {
+            if (_seated[seat] == 0) continue;
+            uint256 bondId = _seated[seat] - 1;
+            if (staking.bondAt(bondId).effStake != _stakes[seat]) {
+                _violate("blockStart: wrong stake");
             }
-            if (bond.holdsSeat) _checkSeat(bondId, true, bond.seat, "blockStart");
+            if (_stakes[seat] < minStake) {
+                _checkSeat(bondId, false, 0, "blockStart");
+                (bool occupied,) = staking.bondInSeat(uint8(seat));
+                if (occupied) _violate("blockStart: a seat below m not released");
+                continue;
+            }
+            _checkSeat(bondId, true, uint8(seat), "blockStart");
+            if (staking.missCount(uint8(seat)) != _counts[seat]) {
+                _violate("blockStart: wrong miss count");
+            }
         }
     }
 

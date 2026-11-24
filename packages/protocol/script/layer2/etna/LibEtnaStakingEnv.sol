@@ -11,8 +11,9 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 /// @dev Required: TAIKO_TOKEN (the bridged TAIKO token on L2), L1_CHAIN_ID, INBOX_PROXY (the Etna
 /// Inbox proxy on L1), ETNA_WITHDRAWAL_DELAY (L2 blocks), ETNA_SLASH_BOUNTY_BPS, ETNA_SLASH_SINK
 /// and ETNA_FORFEIT_BPS. Optional, with the reference value when unset or empty: ETNA_MIN_STAKE
-/// in token base units (7,812,500 TAIKO), ETNA_VP_UNIT (10^9) and ETNA_N_MAX (128). An optional
-/// variable that is set but malformed reverts instead of falling back to its default. `readConfig` checks no bounds: `EtnaStaking`'s
+/// in token base units (7,812,500 TAIKO), ETNA_VP_UNIT (10^9), ETNA_N_MAX (128), ETNA_MISS_LIMIT
+/// (3,600) and ETNA_MISS_SLASH_BPS (1,000). An optional variable that is set but malformed reverts
+/// instead of falling back to its default. `readConfig` checks no bounds: `EtnaStaking`'s
 /// constructor does. `checkWithdrawalDelay` checks the one bound the constructor cannot see.
 /// @custom:security-contact security@taiko.xyz
 library LibEtnaStakingEnv {
@@ -25,6 +26,12 @@ library LibEtnaStakingEnv {
 
     /// @dev `nMax` when ETNA_N_MAX is unset or empty.
     uint256 internal constant DEFAULT_N_MAX = 128;
+
+    /// @dev `missLimit` when ETNA_MISS_LIMIT is unset or empty.
+    uint256 internal constant DEFAULT_MISS_LIMIT = 3600;
+
+    /// @dev `missSlashBps` when ETNA_MISS_SLASH_BPS is unset or empty.
+    uint256 internal constant DEFAULT_MISS_SLASH_BPS = 1000;
 
     /// @dev The largest U, the Etna Inbox's maximum number of unsettled L2 blocks, that the Inbox
     /// accepts.
@@ -42,6 +49,8 @@ library LibEtnaStakingEnv {
         config_.minStake = _envUintOr("ETNA_MIN_STAKE", DEFAULT_MIN_STAKE);
         config_.vpUnit = _envUintOr("ETNA_VP_UNIT", DEFAULT_VP_UNIT);
         config_.nMax = _envUintOr("ETNA_N_MAX", DEFAULT_N_MAX);
+        config_.missLimit = _envUintOr("ETNA_MISS_LIMIT", DEFAULT_MISS_LIMIT);
+        config_.missSlashBps = _envUintOr("ETNA_MISS_SLASH_BPS", DEFAULT_MISS_SLASH_BPS);
         config_.withdrawalDelay = _VM.envUint("ETNA_WITHDRAWAL_DELAY");
         config_.slashBountyBps = _VM.envUint("ETNA_SLASH_BOUNTY_BPS");
         config_.slashSink = _VM.envAddress("ETNA_SLASH_SINK");

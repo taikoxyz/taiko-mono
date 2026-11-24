@@ -28,6 +28,8 @@ abstract contract EtnaStakingTestBase is CommonTest {
     uint256 internal constant MIN_STAKE = 7_812_500 ether;
     uint256 internal constant VP_UNIT = 1e9;
     uint256 internal constant N_MAX = 128;
+    uint256 internal constant MISS_LIMIT = 3600;
+    uint256 internal constant MISS_SLASH_BPS = 1000;
     uint256 internal constant WITHDRAWAL_DELAY = 302_402;
     uint256 internal constant SLASH_BOUNTY_BPS = 1000;
     address internal constant SLASH_SINK = address(0x5151);
@@ -61,6 +63,8 @@ abstract contract EtnaStakingTestBase is CommonTest {
             minStake: MIN_STAKE,
             vpUnit: VP_UNIT,
             nMax: N_MAX,
+            missLimit: MISS_LIMIT,
+            missSlashBps: MISS_SLASH_BPS,
             withdrawalDelay: WITHDRAWAL_DELAY,
             slashBountyBps: SLASH_BOUNTY_BPS,
             slashSink: SLASH_SINK,
@@ -105,6 +109,11 @@ abstract contract EtnaStakingTestBase is CommonTest {
         bondId_ = staking.register(publicKey, _amount, pop);
     }
 
+    /// @dev Returns the raw key-to-seat word of `_ckAddr`, at keccak256(abi.encode(ckAddr, T + 2)).
+    function _keySeatWord(address _ckAddr) internal view returns (bytes32) {
+        return vm.load(address(staking), keccak256(abi.encode(_ckAddr, uint256(T) + 2)));
+    }
+
     /// @dev Requests the exit of bond `_bondId` as its owner.
     function _requestExit(uint256 _bondId) internal {
         vm.prank(staking.bondAt(_bondId).owner);
@@ -112,10 +121,10 @@ abstract contract EtnaStakingTestBase is CommonTest {
     }
 
     /// @dev Rolls one block, then makes that block's block-start call from the system caller.
-    function _blockStart(uint48 _generation) internal {
+    function _blockStart(uint48 _generation, uint128 _missBitmap) internal {
         vm.roll(block.number + 1);
         vm.prank(SYSTEM_CALLER);
-        staking.onBlockStart(_generation);
+        staking.onBlockStart(_generation, _missBitmap);
     }
 
     /// @dev `keccak256(abi.encode(uint256(keccak256(_namespace)) - 1)) & ~0xff`.

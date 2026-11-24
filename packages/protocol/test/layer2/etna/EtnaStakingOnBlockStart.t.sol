@@ -2,11 +2,13 @@
 pragma solidity ^0.8.26;
 
 import { EtnaStakingTestBase } from "./EtnaStakingTestBase.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
-/// @dev The block-start call: the stored generation and the candidate snapshot. The call changes
-/// no stake, seat or exit, so a member that stops signing keeps its seat and power.
+/// @dev The block-start call: miss counting, missed-signature penalties and the candidate snapshot.
+/// The penalty cases scale the spec's small examples by m = minStake = 7,812,500 TAIKO, the least
+/// minStake the constructor allows with 128 seats.
 contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     /// @dev Consensus private keys: K_i is the key of private key i. K9's prefix is 0x03.
     uint256 private constant _K1 = 1;
@@ -28,16 +30,14 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     /// @dev The gas the execution layer gives the call's frame.
     uint256 private constant _FRAME_GAS = 30_000_000;
 
-    /// @dev The number of staking words at fixed slots, T to T + 389: the snapshot words, the
-    /// roots of the key lookup and the bond records, the bond count, the seat table and the word
-    /// of the occupancy bitmap and the stored generation.
-    uint256 private constant _FIXED_WORDS = 390;
+    /// @dev The number of staking words at fixed slots, T to T + 398: the snapshot words, the
+    /// seat table, the miss counts, the occupancy bitmap and the stored generation.
+    uint256 private constant _FIXED_WORDS = 399;
 
-    /// @dev The number of snapshot words, T to T + 257: the height, the total and the records.
-    uint256 private constant _SNAPSHOT_WORDS = 258;
+    /// @dev The number of snapshot words, T to T + 258: the height, the total and the records.
+    uint256 private constant _SNAPSHOT_WORDS = 259;
 
-    /// @dev The offset from T of the word holding the occupancy bitmap and the stored generation.
-    uint256 private constant _GENERATION_WORD = 389;
+    bytes32 private constant _TRANSFER_TOPIC = keccak256("Transfer(address,address,uint256)");
 
     // ---------------------------------------------------------------
     // Caller and calldata
@@ -48,106 +48,278 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         for (uint256 i; i < callers.length; ++i) {
             vm.expectRevert(IEtnaStaking.NotSystemCaller.selector);
             vm.prank(callers[i]);
-            staking.onBlockStart(1);
+            staking.onBlockStart(1, 0);
         }
         assertEq(staking.lastGeneration(), 0, "no generation stored");
         assertEq(_word(0), 0, "no snapshot written");
     }
 
-    /// @dev The execution layer's 36-byte calldata, selector 0xaa28c32e followed by the
-    /// generation as one 32-byte word, stores the generation and then the snapshot.
+    /// @dev The execution layer's 68-byte calldata, the selector followed by both arguments as
+    /// 32-byte words, decodes to the generation and the miss bitmap.
     function test_onBlockStart_AcceptsTheSpecCalldata() external {
         for (uint256 pk = 11; pk < 14; ++pk) {
             _register(pk, Bob, 2 * _M);
         }
-        bytes memory data = abi.encodePacked(bytes4(0xaa28c32e), uint256(3));
-        assertEq(data.length, 36, "4 + 32 bytes");
+        bytes memory data = abi.encodePacked(bytes4(0xea987592), uint256(3), uint256(4));
+        assertEq(data.length, 68, "4 + 2 * 32 bytes");
 
-        vm.roll(block.number + 1);
         vm.prank(SYSTEM_CALLER);
         (bool ok,) = address(staking).call(data);
         assertTrue(ok, "the call succeeds");
         assertEq(staking.lastGeneration(), 3, "generation");
-        for (uint256 seat; seat < 3; ++seat) {
-            _assertRecord(seat, 11 + seat, 2 * _M / VP_UNIT, "a seated bond's record");
-        }
-        _assertEmptyRecord(3, "the first empty seat");
-        assertEq(_word(1), 6 * _M, "the total");
+        assertEq(staking.missCount(2), 1, "bit 2 of the bitmap");
+        assertEq(staking.missCount(0), 0, "seat 0 not missing");
+        assertEq(staking.missCount(1), 0, "seat 1 not missing");
         assertEq(_word(0), block.number, "snapshot height");
     }
 
     function test_onBlockStart_StoresGenerationWithoutMonotonicity() external {
         _register(_K1, Bob, _M);
-        _blockStart(3);
+        _blockStart(3, 0);
         assertEq(staking.lastGeneration(), 3, "first");
-        _blockStart(1);
+        _blockStart(1, 0);
         assertEq(staking.lastGeneration(), 1, "a lower generation is stored as given");
-        _blockStart(type(uint48).max);
+        _blockStart(type(uint48).max, 0);
         assertEq(staking.lastGeneration(), type(uint48).max, "the largest generation");
-        _blockStart(0);
+        _blockStart(0, 0);
         assertEq(staking.lastGeneration(), 0, "zero");
-        assertEq(_word(_GENERATION_WORD), 1, "the occupancy bitmap shares the generation's word");
+        assertEq(_word(398), 1, "the occupancy bitmap shares the generation's word");
         _assertBondInSeat(0, true, 0, "seat kept");
     }
 
     // ---------------------------------------------------------------
-    // No consequence for members that do not sign
+    // Miss counting
     // ---------------------------------------------------------------
 
-    /// @dev Members that stop signing lose nothing: over 12 blocks the calls move no token,
-    /// emit nothing, and leave every bond record, seat and lookup as the transactions left them,
-    /// so each seated member keeps its seat and its whole power in every snapshot. Each call
-    /// writes only the snapshot words and the generation's word.
-    function test_onBlockStart_OfflineMembersKeepStakeAndSeat() external {
-        for (uint256 pk = 11; pk < 16; ++pk) {
-            _register(pk, Bob, _M + pk);
+    function test_onBlockStart_CountsAndResetsMisses() external {
+        for (uint256 pk = 11; pk < 15; ++pk) {
+            _register(pk, Bob, 2 * _M);
         }
-        _requestExit(2);
-        uint256 count = staking.bondCount();
-        IEtnaStaking.Bond[] memory before = new IEtnaStaking.Bond[](count);
-        for (uint256 bondId; bondId < count; ++bondId) {
-            before[bondId] = staking.bondAt(bondId);
+        _blockStart(0, 1 << 3);
+        _blockStart(0, 1 << 3);
+        assertEq(staking.missCount(3), 2, "seat 3 at count 2");
+        _blockStart(0, 1 << 3);
+        assertEq(staking.missCount(3), 3, "a set bit raises the count");
+        _blockStart(0, 1 << 9);
+        assertEq(staking.missCount(3), 0, "a clear bit resets the count");
+        assertEq(staking.missCount(9), 0, "the bit of empty seat 9 counts nothing");
+        _assertBondInSeat(9, false, 0, "seat 9 stays empty");
+        _assertMissCounts([uint16(0), 0, 0, 0], "bit 9 changes no occupied seat");
+
+        _blockStart(0, 0xf);
+        _blockStart(0, 0xf);
+        _assertMissCounts([uint16(2), 2, 2, 2], "every seat missing twice");
+        _blockStart(0, 0);
+        _assertMissCounts([uint16(0), 0, 0, 0], "a zero bitmap resets every count");
+        _blockStart(0, 0xf);
+        _blockStart(0, 4);
+        _assertMissCounts([uint16(0), 0, 2, 0], "bitmap 4 counts only seat 2");
+
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.nMax = 64;
+        cfg.minStake = _M64;
+        staking = _deploy(cfg);
+        _register(_K1, Bob, _M64);
+        _blockStart(0, 1);
+        _blockStart(0, uint128(1) << 100 | 1);
+        assertEq(staking.missCount(0), 2, "seat 0 counts");
+        _blockStart(0, uint128(1) << 100);
+        assertEq(staking.missCount(0), 0, "bit 100 is not seat 0's");
+        for (uint8 seat = 1; seat < 128; ++seat) {
+            assertEq(staking.missCount(seat), 0, "a bit at or above nMax counts nothing");
         }
-        uint256 held = token.balanceOf(address(staking));
+    }
+
+    /// @dev A seat that a bond leaves and another bond takes in the same block starts the new
+    /// bond at count 0, and the records name the new bond only from the next block-start call.
+    function test_onBlockStart_SeatVacatedAndRetakenInTheParentCarriesNoOldMisses() external {
+        for (uint256 pk = 11; pk < 15; ++pk) {
+            _register(pk, Bob, _M);
+        }
+        uint256 a = _register(_K1, Carol, _M);
+        _blockStart(0, 1 << 4);
+        _blockStart(0, 1 << 4);
+        assertEq(staking.missCount(4), 2, "bond A in seat 4 at count 2");
+        (, bytes32 xA) = EtnaTestKeys.fallbackKey(_K1);
+        (, bytes32 xB) = EtnaTestKeys.fallbackKey(_K2);
+        assertEq(bytes32(_word(3 + 2 * 4)), xA, "record 4 holds A");
+
+        _requestExit(a);
+        uint256 b = _register(_K2, David, _M);
+        _assertSeatOfBond(b, true, 4, "B takes seat 4 in the same block");
+        assertEq(staking.missCount(4), 0, "B starts at count 0");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(0), "A's key word is zero");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K2)), bytes32(uint256(0x0401)), "B's key word");
+        assertEq(bytes32(_word(3 + 2 * 4)), xA, "record 4 still holds A within the block");
+
+        _blockStart(0, 0);
+        assertEq(staking.missCount(4), 0, "a clear bit leaves count 0");
+        _assertRecord(4, _K2, _M / VP_UNIT, "record 4 holds B after the next call");
+        assertEq(bytes32(_word(3 + 2 * 4)), xB, "record 4 word 1 is B's X");
+        _blockStart(0, 1 << 4);
+        assertEq(staking.missCount(4), 1, "B's own first miss");
+    }
+
+    // ---------------------------------------------------------------
+    // Penalties
+    // ---------------------------------------------------------------
+
+    /// @dev missLimit 10 and missSlashBps 1000: a penalty is ceil(effStake / 10), taken when the
+    /// count reaches 10, and all penalties of a call reach slashSink in one transfer.
+    function test_onBlockStart_PenalizesAtMissLimitWithCeil() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 10;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        uint256 b = _register(_K2, Carol, 10 * _M + 1);
+        uint256 c = _register(_K3, David, 2 * _M);
+        for (uint256 i; i < 9; ++i) {
+            _blockStart(0, 0x3);
+        }
+        assertEq(staking.missCount(0), 9, "count 9");
+        assertEq(staking.bondAt(a).effStake, 10 * _M, "count 9 loses nothing");
+        assertEq(staking.bondAt(b).effStake, 10 * _M + 1, "count 9 loses nothing either");
+        assertEq(token.balanceOf(SLASH_SINK), 0, "nothing paid below the limit");
 
         vm.recordLogs();
-        for (uint256 i; i < 12; ++i) {
-            vm.record();
-            _blockStart(uint48(i % 3));
-            (, bytes32[] memory writes) = vm.accesses(address(staking));
-            for (uint256 w; w < writes.length; ++w) {
-                uint256 slot = uint256(writes[w]);
-                assertTrue(
-                    slot >= uint256(T)
-                        && (slot - uint256(T) < _SNAPSHOT_WORDS
-                            || slot - uint256(T) == _GENERATION_WORD),
-                    "only the snapshot and the generation are written"
-                );
-            }
-        }
-        assertEq(vm.getRecordedLogs().length, 0, "no event and no transfer");
+        _blockStart(0, 0x3);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(token.balanceOf(address(staking)), held, "no stake leaves");
-        assertEq(token.balanceOf(SLASH_SINK), 0, "nothing to slashSink");
-        for (uint256 bondId; bondId < count; ++bondId) {
-            assertEq(
-                keccak256(abi.encode(staking.bondAt(bondId))),
-                keccak256(abi.encode(before[bondId])),
-                "the bond record is unchanged"
-            );
-        }
-        for (uint8 seat; seat < 5; ++seat) {
-            if (seat == 2) {
-                _assertBondInSeat(seat, false, 0, "the exited bond's seat stays empty");
-                _assertEmptyRecord(seat, "the exited bond's record");
+        assertEq(staking.bondAt(a).effStake, 9 * _M, "10m loses exactly m");
+        assertEq(staking.bondAt(b).effStake, 9 * _M, "10m + 1 loses m + 1");
+        assertEq(staking.bondAt(c).effStake, 2 * _M, "a seat with no misses loses nothing");
+        assertEq(staking.missCount(0), 0, "count 10 resets to 0");
+        assertEq(staking.missCount(1), 0, "count 10 resets to 0 for B too");
+        _assertSeatOfBond(a, true, 0, "A keeps its seat");
+        _assertSeatOfBond(b, true, 1, "B keeps its seat");
+
+        uint256 transfers;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter != address(token) || logs[i].topics[0] != _TRANSFER_TOPIC) {
                 continue;
             }
-            _assertSeatOfBond(seat, true, seat, "the member keeps its seat");
-            _assertBondInSeat(seat, true, seat, "the seat keeps its member");
-            _assertRecord(seat, 11 + seat, (_M + 11 + seat) / VP_UNIT, "the member's whole power");
+            ++transfers;
+            assertEq(logs[i].topics[1], bytes32(uint256(uint160(address(staking)))), "from");
+            assertEq(logs[i].topics[2], bytes32(uint256(uint160(SLASH_SINK))), "to slashSink");
+            assertEq(abi.decode(logs[i].data, (uint256)), 2 * _M + 1, "the total");
         }
-        assertEq(_word(1), 4 * _M + 11 + 12 + 14 + 15, "the total keeps every member's stake");
-        assertEq(staking.lastGeneration(), 2, "the last generation");
+        assertEq(transfers, 1, "one transfer for both penalties");
+        assertEq(_logsFrom(logs, address(staking)), 0, "the call emits no events");
+        assertEq(token.balanceOf(SLASH_SINK), 2 * _M + 1, "slashSink receives the total");
+        assertEq(token.balanceOf(address(staking)), 20 * _M, "the rest stays staked");
+        assertEq(token.balanceOf(Bob), 0, "no bounty to A's owner");
+        assertEq(token.balanceOf(Carol), 0, "no bounty to B's owner");
+        assertEq(token.balanceOf(David), 0, "no bounty to C's owner");
+        assertEq(token.balanceOf(SYSTEM_CALLER), 0, "no bounty to the caller");
+
+        assertEq(_word(1), 20 * _M, "this call's snapshot holds the reduced stakes");
+        _assertRecord(0, _K1, 9 * _M / VP_UNIT, "record 0");
+        _assertRecord(1, _K2, 9 * _M / VP_UNIT, "record 1");
+        _assertRecord(2, _K3, 2 * _M / VP_UNIT, "record 2");
+    }
+
+    /// @dev A penalty that leaves a bond below minStake releases its seat in the call without
+    /// setting an exit, and the same call's snapshot leaves it out. The owner can then top up,
+    /// taking the lowest empty seat, or request an exit.
+    function test_onBlockStart_PenaltyBelowMinStakeReleasesSeatWithoutExit() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, _M);
+        uint256 b = _register(_K2, Carol, _M);
+        uint256 c = _register(_K3, David, 2 * _M);
+
+        _blockStart(1, 0x3);
+
+        uint256 penalty = _M / 10;
+        for (uint256 i; i < 2; ++i) {
+            uint256 bondId = i == 0 ? a : b;
+            IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
+            assertEq(bond.effStake, _M - penalty, "loses 10%");
+            assertEq(bond.exitHeight, NO_EXIT, "no exit set");
+            assertFalse(bond.holdsSeat, "the record holds no seat");
+            _assertSeatOfBond(bondId, false, 0, "seat released");
+            _assertBondInSeat(uint8(i), false, 0, "the seat is empty");
+            assertEq(staking.missCount(uint8(i)), 0, "the seat's count is reset");
+            assertEq(
+                _keySeatWord(EtnaTestKeys.ckAddr(i == 0 ? _K1 : _K2)), bytes32(0), "key word zero"
+            );
+            _assertEmptyRecord(i, "released in this call's snapshot");
+        }
+        _assertSeatOfBond(c, true, 2, "C keeps its seat");
+        _assertRecord(2, _K3, 2 * _M / VP_UNIT, "record 2");
+        assertEq(_word(1), 2 * _M, "the total leaves the released bonds out");
+        assertEq(token.balanceOf(SLASH_SINK), 2 * penalty, "both penalties paid");
+
+        // B tops up to minStake and takes the lowest empty seat, seat 0, not its old seat 1.
+        _fund(Carol, penalty);
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.TopUpDeposited(b, penalty);
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.SeatTaken(b, 0);
+        vm.prank(Carol);
+        staking.topUp(b, penalty);
+        _assertSeatOfBond(b, true, 0, "B re-seated");
+        _assertBondInSeat(0, true, b, "seat 0 holds B");
+        assertEq(
+            _keySeatWord(EtnaTestKeys.ckAddr(_K2)),
+            bytes32(uint256(0x0001)),
+            "B's key word: holdsSeat 1, seat 0"
+        );
+        assertEq(staking.missCount(0), 0, "B starts at count 0");
+
+        // A requests an exit instead, which only sets the exit height.
+        vm.recordLogs();
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.ExitRequested(a, block.number);
+        vm.prank(Bob);
+        staking.requestExit(a);
+        assertEq(_logsFrom(vm.getRecordedLogs(), address(staking)), 1, "no seat to release");
+        assertEq(staking.bondAt(a).exitHeight, block.number, "exit at the current block");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(0), "A's key word stays zero");
+
+        _blockStart(2, 0);
+        _assertRecord(0, _K2, _M / VP_UNIT, "record 0 holds B");
+        _assertEmptyRecord(1, "record 1");
+        assertEq(_word(1), 3 * _M, "the total holds B and C");
+    }
+
+    function test_onBlockStart_MissLimitOnePenalizesAtOnce() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, 2 * _M);
+
+        _blockStart(1, 1);
+        uint256 effStake = 2 * _M - 2 * _M / 10;
+        assertEq(staking.bondAt(a).effStake, effStake, "the first miss is penalized");
+        assertEq(staking.missCount(0), 0, "count reset");
+        _assertSeatOfBond(a, true, 0, "still at or above minStake");
+        assertEq(token.balanceOf(SLASH_SINK), 2 * _M / 10, "penalty paid");
+        assertEq(_word(1), effStake, "the snapshot holds the reduced stake");
+
+        _blockStart(1, 1);
+        assertEq(staking.bondAt(a).effStake, effStake - effStake / 10, "and again");
+    }
+
+    function test_onBlockStart_FullSlashBpsTakesWholeStake() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        cfg.missSlashBps = 10_000;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, 2 * _M);
+        uint256 b = _register(_K2, Carol, 2 * _M);
+
+        _blockStart(1, 1);
+        IEtnaStaking.Bond memory bond = staking.bondAt(a);
+        assertEq(bond.effStake, 0, "effStake zero");
+        assertEq(bond.exitHeight, NO_EXIT, "no exit set");
+        _assertSeatOfBond(a, false, 0, "seat released");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(0), "key word zero");
+        _assertEmptyRecord(0, "record 0");
+        assertEq(token.balanceOf(SLASH_SINK), 2 * _M, "the whole stake paid");
+        _assertSeatOfBond(b, true, 1, "B kept");
+        assertEq(_word(1), 2 * _M, "the total holds B only");
     }
 
     // ---------------------------------------------------------------
@@ -159,7 +331,7 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         (uint8 prefix9,) = EtnaTestKeys.fallbackKey(_K9);
         assertEq(prefix9, 3, "K9 covers prefix 0x03");
 
-        _blockStart(7);
+        _blockStart(7, 0);
         for (uint256 seat; seat < 128; ++seat) {
             if (seat == 0) _assertRecord(0, _K1, _STAKE0 / VP_UNIT, "record 0");
             else if (seat == 2) _assertRecord(2, _K9, _STAKE2 / VP_UNIT, "record 2");
@@ -171,14 +343,14 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     }
 
     function test_onBlockStart_EmptySeatTableWritesZeros() external {
-        _blockStart(0);
+        _blockStart(0, type(uint128).max);
         _assertSnapshotEmpty("a contract with no bond");
 
         uint256 a = _register(_K1, Bob, _M);
-        _blockStart(0);
+        _blockStart(0, 0);
         assertEq(_word(1), _M, "one bond");
         _requestExit(a);
-        _blockStart(0);
+        _blockStart(0, 0);
         _assertSnapshotEmpty("after the only bond exits");
     }
 
@@ -198,12 +370,12 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         }
         _assertBondInSeat(63, true, 63, "every seat is held");
 
-        _blockStart(0);
+        _blockStart(0, type(uint128).max);
         _assertRecord(0, _K1, 2, "2.5 vpUnit gives power 2");
         _assertRecord(1, _K2, 1, "effStake = minStake = vpUnit gives power 1");
         _assertRecord(2, _K3, 1, "just under 2 vpUnit gives power 1");
         for (uint256 seat = 3; seat < 64; ++seat) {
-            assertEq(_word(3 + 2 * seat) >> 8, 1, "power 1");
+            assertEq(_word(4 + 2 * seat) >> 8, 1, "power 1");
         }
         for (uint256 seat = 64; seat < 128; ++seat) {
             _assertEmptyRecord(seat, "a record at or above nMax");
@@ -215,42 +387,22 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     function test_onBlockStart_TransactionsReachTheSnapshotAtTheNextCall() external {
         uint256 a = _register(_K1, Bob, _M);
         uint256 b = _register(_K2, Carol, _M);
-        _blockStart(0);
+        _blockStart(0, 0);
         bytes32[] memory atX = _words(0, _SNAPSHOT_WORDS);
 
         _topUp(a, 3 * VP_UNIT);
         _requestExit(b);
         assertEq(_words(0, _SNAPSHOT_WORDS), atX, "X's transactions leave X's snapshot");
 
-        _blockStart(0);
+        _blockStart(0, 0);
         _assertRecord(0, _K1, _M / VP_UNIT + 3, "the top-up at X + 1");
         _assertEmptyRecord(1, "the exit at X + 1");
         assertEq(_word(1), _M + 3 * VP_UNIT, "the total at X + 1");
     }
 
-    /// @dev A seat that a bond leaves and another bond takes in the same block keeps the old
-    /// bond's record until the next block-start call, which names the new bond.
-    function test_onBlockStart_SeatVacatedAndRetakenInOneBlockReachesTheNextCall() external {
-        for (uint256 pk = 11; pk < 15; ++pk) {
-            _register(pk, Bob, _M);
-        }
-        uint256 a = _register(_K1, Carol, _M);
-        _blockStart(0);
-        _assertRecord(4, _K1, _M / VP_UNIT, "record 4 holds A");
-
-        _requestExit(a);
-        uint256 b = _register(_K2, David, 2 * _M);
-        _assertSeatOfBond(b, true, 4, "B takes seat 4 in the same block");
-        _assertRecord(4, _K1, _M / VP_UNIT, "record 4 still holds A within the block");
-
-        _blockStart(0);
-        _assertRecord(4, _K2, 2 * _M / VP_UNIT, "record 4 holds B after the next call");
-        assertEq(_word(1), 6 * _M, "the total holds B's stake, not A's");
-    }
-
     function test_snapshot_ReturnsTheWholeHeightWordAndOccupiedRecords() external {
         _seatZeroTwoFive();
-        _blockStart(0);
+        _blockStart(0, 0);
         uint256 h = block.number;
 
         (uint256 height, uint256 total, IEtnaStaking.SeatMember[] memory members) =
@@ -279,26 +431,52 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         _register(_K2, Carol, _M);
         uint256 limit = (2 ** 64) * cfg.vpUnit;
         _topUp(a, limit - 1 - _M);
-        _blockStart(1);
-        assertEq(_word(3) >> 8, type(uint64).max, "the largest power fits");
+        _blockStart(1, 0x2);
+        assertEq(_word(4) >> 8, type(uint64).max, "the largest power fits");
+        assertEq(staking.missCount(1), 1, "seat 1 at count 1");
 
         _topUp(a, 1);
-        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, _FRAME_GAS);
+        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, 0x3, _FRAME_GAS);
         assertEq(
             revertData,
             abi.encodeWithSignature("Error(string)", "SafeCast: value doesn't fit in 64 bits"),
             "the power of 2^64 does not fit"
         );
         assertEq(staking.bondAt(a).effStake, limit, "effStake kept");
-        assertEq(staking.lastGeneration(), 1, "the generation of the last successful call");
+    }
+
+    function test_onBlockStart_RevertWhen_PenaltyTransferFails_ChangesNothing() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, _M);
+        uint256 b = _register(_K2, Carol, 2 * _M);
+        _blockStart(1, 0);
+
+        bytes memory refusal = abi.encodeWithSignature("SinkRefuses()");
+        vm.mockCallRevert(
+            address(token), abi.encodeWithSelector(token.transfer.selector, SLASH_SINK), refusal
+        );
+        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, 0x3, _FRAME_GAS);
+        assertEq(revertData, refusal, "the penalty transfer reverts");
+        assertEq(staking.bondAt(a).effStake, _M, "A's effStake kept");
+        assertEq(staking.bondAt(b).effStake, 2 * _M, "B's effStake kept");
+        _assertSeatOfBond(a, true, 0, "A keeps the seat the penalty would release");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(uint256(0x0001)), "A's key word");
+        assertEq(token.balanceOf(SLASH_SINK), 0, "nothing paid");
+
+        vm.clearMockedCalls();
+        _blockStart(2, 0x3);
+        assertEq(token.balanceOf(SLASH_SINK), _M / 10 + 2 * _M / 10, "paid once the sink accepts");
+        _assertSeatOfBond(a, false, 0, "A released");
     }
 
     function test_onBlockStart_OutOfGas_ChangesNothing() external {
         for (uint256 pk = 1; pk <= N_MAX; ++pk) {
             _register(pk, Bob, _M);
         }
-        _blockStart(1);
-        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, 100_000);
+        _blockStart(1, 0xff);
+        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, type(uint128).max, 100_000);
         assertEq(revertData.length, 0, "out of gas");
     }
 
@@ -330,17 +508,18 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
 
     /// @dev Rolls one block and makes its block-start call with `_gas` gas, which must fail, then
     /// asserts that the call left every fixed staking word as it was: T, T + 1, the 128 records,
-    /// the seat table, the occupancy bitmap and the stored generation.
+    /// the seat table, every miss count, the occupancy bitmap and the stored generation.
     /// @return revertData_ The call's revert data.
     function _assertBlockStartFailsWithoutChange(
         uint48 _generation,
+        uint128 _missBitmap,
         uint256 _gas
     )
         private
         returns (bytes memory revertData_)
     {
         bytes32[] memory before = _words(0, _FIXED_WORDS);
-        bytes memory data = abi.encodeCall(IEtnaStaking.onBlockStart, (_generation));
+        bytes memory data = abi.encodeCall(IEtnaStaking.onBlockStart, (_generation, _missBitmap));
         address target = address(staking);
         vm.roll(block.number + 1);
         vm.prank(SYSTEM_CALLER);
@@ -351,7 +530,7 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     }
 
     /// @dev Asserts that snapshot record `_seat` holds the key of `_pk` with power `_power`: word 1
-    /// at T + 2 + 2s is ckX and word 2 at T + 3 + 2s is ckPrefix | power << 8.
+    /// at T + 3 + 2s is ckX and word 2 at T + 4 + 2s is ckPrefix | power << 8.
     function _assertRecord(
         uint256 _seat,
         uint256 _pk,
@@ -361,9 +540,9 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         private
     {
         (uint8 prefix, bytes32 x) = EtnaTestKeys.fallbackKey(_pk);
-        assertEq(bytes32(_word(2 + 2 * _seat)), x, string.concat(_label, ": ckX"));
+        assertEq(bytes32(_word(3 + 2 * _seat)), x, string.concat(_label, ": ckX"));
         assertEq(
-            _word(3 + 2 * _seat),
+            _word(4 + 2 * _seat),
             uint256(prefix) | _power << 8,
             string.concat(_label, ": ckPrefix and power")
         );
@@ -372,8 +551,8 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     /// @dev Asserts that snapshot record `_seat` is all zero.
     function _assertEmptyRecord(uint256 _seat, string memory _label) private view {
         string memory label = string.concat(_label, " ", vm.toString(_seat));
-        assertEq(_word(2 + 2 * _seat), 0, string.concat(label, ": word 1"));
-        assertEq(_word(3 + 2 * _seat), 0, string.concat(label, ": word 2"));
+        assertEq(_word(3 + 2 * _seat), 0, string.concat(label, ": word 1"));
+        assertEq(_word(4 + 2 * _seat), 0, string.concat(label, ": word 2"));
     }
 
     /// @dev Asserts an empty snapshot written at the current block: 128 zero records, a zero
@@ -403,6 +582,19 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         assertEq(_member.power, _power, string.concat(label, ": power"));
     }
 
+    /// @dev Asserts the miss counts of seats 0 to 3.
+    function _assertMissCounts(
+        uint16[4] memory _counts,
+        string memory _label
+    )
+        private
+        view
+    {
+        for (uint8 seat; seat < 4; ++seat) {
+            assertEq(staking.missCount(seat), _counts[seat], _label);
+        }
+    }
+
     /// @dev Returns the word at T + `_offset`.
     function _word(uint256 _offset) private view returns (uint256) {
         return uint256(vm.load(address(staking), bytes32(uint256(T) + _offset)));
@@ -420,6 +612,20 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         words_ = new bytes32[](_count);
         for (uint256 i; i < _count; ++i) {
             words_[i] = vm.load(address(staking), bytes32(uint256(T) + _offset + i));
+        }
+    }
+
+    /// @dev Counts the logs `_emitter` emitted.
+    function _logsFrom(
+        Vm.Log[] memory _logs,
+        address _emitter
+    )
+        private
+        pure
+        returns (uint256 n_)
+    {
+        for (uint256 i; i < _logs.length; ++i) {
+            if (_logs[i].emitter == _emitter) ++n_;
         }
     }
 }

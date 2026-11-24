@@ -81,14 +81,14 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
 
     /// @dev Bond 1 in seat 1 stakes m + 1. At 1000 bps it loses ceil((m + 1) / 10) = m / 10 + 1,
     /// all of it to slashSink with no bounty. The call sets the lifetime flag and an exit at the
-    /// current block and releases seat 1, and emits `Forfeited` with the balance before the
-    /// deduction, then `SeatReleased`.
+    /// current block, releases seat 1 and clears the key-to-seat word, and emits `Forfeited` with
+    /// the balance before the deduction, then `SeatReleased`.
     function test_forfeit_DeductsCeilFlagsExitsAndReleases() external {
         uint256 stake = MIN_STAKE + 1;
         uint256 penalty = MIN_STAKE / 10 + 1;
         assertEq(_register(_PK_B, Bob, stake), 1, "bond 1");
         address ckAddr = EtnaTestKeys.ckAddr(_PK_B);
-        _assertSeatOfBond(1, true, 1, "seat 1 before");
+        assertEq(_keySeatWord(ckAddr), bytes32(uint256(0x0101)), "seat 1 before");
 
         vm.recordLogs();
         vm.expectEmit(address(staking));
@@ -110,6 +110,7 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
         assertFalse(staking.forfeited(0), "bond 0 untouched");
         _assertSeatOfBond(1, false, 0, "bond 1");
         _assertBondInSeat(1, false, 0, "seat 1");
+        assertEq(_keySeatWord(ckAddr), bytes32(0), "key-to-seat word cleared");
         _assertBondForKey(ckAddr, true, 1, "key registration kept");
         assertEq(token.balanceOf(SLASH_SINK), penalty, "penalty to the sink");
         assertEq(token.balanceOf(STAKING_OWNER), 0, "no bounty");
@@ -176,7 +177,7 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
         assertEq(_register(_PK_B, Bob, MIN_STAKE), 1, "bond 1");
         _requestExit(1);
         uint256 validUntil = block.timestamp + 1 days;
-        _blockStart(10);
+        _blockStart(10, 0);
         assertEq(staking.lastGeneration(), 10, "generation changed");
 
         vm.startPrank(STAKING_OWNER);
@@ -281,26 +282,27 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
     // Seats
     // ---------------------------------------------------------------
 
-    /// @dev A forfeiture in block X releases the seat in X, but X's snapshot stays as X's
-    /// block-start call wrote it; X + 1's call drops the record and the stake from the total.
+    /// @dev A forfeiture in block X releases the seat and zeroes the key-to-seat word in X, but
+    /// X's snapshot stays as X's block-start call wrote it; X + 1's call drops the record and the
+    /// stake from the total.
     function test_forfeit_SeatChangesLiveRecordsAtNextCall() external {
         assertEq(_register(_PK_B, Bob, 2 * MIN_STAKE), 1, "bond 1 in seat 1");
-        _blockStart(0);
+        _blockStart(0, 0);
         uint256 x = block.number;
         (, bytes32 ckX) = EtnaTestKeys.fallbackKey(_PK);
-        assertEq(bytes32(_word(2)), ckX, "record 0 holds bond 0 at X");
+        assertEq(bytes32(_word(3)), ckX, "record 0 holds bond 0 at X");
         assertEq(_word(1), 3 * MIN_STAKE, "total at X");
 
         _forfeit(0);
-        _assertSeatOfBond(0, false, 0, "bond 0 seatless in X");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_PK)), bytes32(0), "key word zero in X");
         _assertBondInSeat(0, false, 0, "seat 0 empty in X");
-        assertEq(bytes32(_word(2)), ckX, "record 0 unchanged in X");
+        assertEq(bytes32(_word(3)), ckX, "record 0 unchanged in X");
         assertEq(_word(1), 3 * MIN_STAKE, "total unchanged in X");
         assertEq(_word(0), x, "height X");
 
-        _blockStart(0);
-        assertEq(_word(2), 0, "record 0 word 1 cleared at X + 1");
-        assertEq(_word(3), 0, "record 0 word 2 cleared at X + 1");
+        _blockStart(0, 0);
+        assertEq(_word(3), 0, "record 0 word 1 cleared at X + 1");
+        assertEq(_word(4), 0, "record 0 word 2 cleared at X + 1");
         assertEq(_word(1), 2 * MIN_STAKE, "total without bond 0 at X + 1");
         assertEq(_word(0), x + 1, "height X + 1");
     }
@@ -474,14 +476,18 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
     }
 
     /// @dev Asserts that bond 0 is as registered: unforfeited with all of `MIN_STAKE`, no exit
-    /// and seat 0.
+    /// and seat 0, with its key-to-seat word set.
     function _assertUntouched(string memory _label) private view {
         IEtnaStaking.Bond memory bond = staking.bondAt(0);
         assertFalse(staking.forfeited(0), string.concat(_label, ": no flag"));
         assertEq(bond.effStake, MIN_STAKE, string.concat(_label, ": stake"));
         assertEq(bond.exitHeight, NO_EXIT, string.concat(_label, ": no exit"));
         assertTrue(bond.holdsSeat && bond.seat == 0, string.concat(_label, ": seat 0"));
-        _assertBondInSeat(0, true, 0, _label);
+        assertEq(
+            _keySeatWord(EtnaTestKeys.ckAddr(_PK)),
+            bytes32(uint256(0x0001)),
+            string.concat(_label, ": key-to-seat word")
+        );
     }
 
     /// @dev Two generation-0 precommits for different blocks at the same height and round,

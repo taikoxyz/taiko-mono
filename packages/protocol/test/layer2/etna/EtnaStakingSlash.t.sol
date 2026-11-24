@@ -187,8 +187,8 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
     /// votes' generation, not the stored one: generation-0 votes signed under generation 2's
     /// chain id do not verify.
     function test_slashDoubleSign_AcceptsHistoricalGeneration() external {
-        _blockStart(1);
-        _blockStart(2);
+        _blockStart(1, 0);
+        _blockStart(2, 0);
 
         for (uint48 generation; generation < 2; ++generation) {
             uint256 snapshot = vm.snapshotState();
@@ -226,6 +226,36 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
         assertEq(staking.bondAt(0).effStake, 0, "slashed");
         assertEq(token.balanceOf(Bob), _BOUNTY, "bounty");
         assertEq(token.balanceOf(SLASH_SINK), _TO_SINK, "rest to the sink");
+    }
+
+    /// @dev A bond that a missed-signature penalty left below minStake holds no seat and has no
+    /// exit. A slash still takes the rest of its stake and sets its exit at the current block, and
+    /// it releases no seat, so it emits no `SeatReleased` and leaves the seat table as it was.
+    function test_slashDoubleSign_SlashesSeatlessBondBelowMinStake() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        staking = _deploy(cfg);
+        assertEq(_register(_CK_A, Alice, MIN_STAKE), 0, "bond 0");
+        assertEq(_register(_CK_B, Carol, MIN_STAKE), 1, "bond 1");
+        _blockStart(0, 1);
+        uint256 rest = MIN_STAKE - MIN_STAKE / 10;
+        assertEq(staking.bondAt(0).effStake, rest, "penalized below minStake");
+        _assertSeatOfBond(0, false, 0, "seat released by the penalty");
+        assertEq(staking.bondAt(0).exitHeight, NO_EXIT, "no exit");
+
+        vm.roll(block.number + 5);
+        (IEtnaStaking.Vote memory a, IEtnaStaking.Vote memory b) = _conflict(_CK_A);
+        vm.recordLogs();
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.DoubleSignSlashed(0, Bob, rest, rest / 10, 0, _HEIGHT, _ROUND, 2);
+        _slash(0, a, b);
+
+        assertEq(_logsFrom(vm.getRecordedLogs(), address(staking)), 1, "no seat event");
+        assertEq(staking.bondAt(0).effStake, 0, "rest slashed");
+        assertEq(staking.bondAt(0).exitHeight, block.number, "exit set now");
+        _assertBondInSeat(0, false, 0, "seat 0 still empty");
+        _assertBondInSeat(1, true, 1, "seat 1 untouched");
+        assertEq(token.balanceOf(Bob), rest / 10, "bounty on the rest");
     }
 
     /// @dev The staking contract reads no Inbox state: nothing is deployed at the Inbox address,
@@ -400,7 +430,7 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
     /// pair for an unknown bond, still revert `NotDoubleSign`.
     function test_slashDoubleSign_RevertWhen_DifferentRoundTypeHeightOrGeneration() external {
         bytes4 notDoubleSign = IEtnaStaking.NotDoubleSign.selector;
-        _blockStart(1);
+        _blockStart(1, 0);
         IEtnaStaking.Vote memory a = _signed(_CK_A, _vote(_BLOCK_A, 0));
 
         IEtnaStaking.Vote memory b = _vote(_BLOCK_B, 0);
@@ -452,7 +482,7 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
             "generation 2^48 - 1"
         );
 
-        _blockStart(3);
+        _blockStart(3, 0);
         IEtnaStaking.Vote memory a = _signed(_CK_A, _vote(_BLOCK_A, 4));
         IEtnaStaking.Vote memory b = _signed(_CK_A, _vote(_BLOCK_B, 4));
         _assertSlashReverts(0, a, b, futureGeneration, "generation 4 after storing 3");
@@ -512,7 +542,7 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
     /// (1, 167001) slash.
     function test_slash_RevertWhen_VotesSignedWithChainIdsSwapped() external {
         for (uint48 generation; generation < 2; ++generation) {
-            if (generation != 0) _blockStart(generation);
+            if (generation != 0) _blockStart(generation, 0);
             bytes memory swapped = _chainIdOf(L2_CHAIN_ID, L1_CHAIN_ID, INBOX, generation);
             _assertSlashReverts(
                 0,
@@ -578,18 +608,19 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
 
     /// @dev The lifetime key lookup written at registration decides, and the stored key is not
     /// decompressed again, not even to release the seat. With bond 0's stored X overwritten, its
-    /// own key's evidence still slashes it and releases its seat.
+    /// own key's evidence still slashes it and clears that key's key-to-seat word.
     function test_slashDoubleSign_UsesTheLifetimeKeyLookupNotTheStoredKey() external {
         bytes32 ckXWord = _bondWord(0, 1);
         assertEq(vm.load(address(staking), ckXWord), staking.bondAt(0).ckX, "ckX word");
         vm.store(address(staking), ckXWord, bytes32(uint256(1)));
         assertEq(staking.bondAt(0).ckX, bytes32(uint256(1)), "stored X overwritten");
-        _assertSeatOfBond(0, true, 0, "seat 0 before the slash");
+        address ckAddr = EtnaTestKeys.ckAddr(_CK_A);
+        assertEq(_keySeatWord(ckAddr), bytes32(uint256(0x0001)), "seat 0 before the slash");
 
         (IEtnaStaking.Vote memory a, IEtnaStaking.Vote memory b) = _conflict(_CK_A);
         _slash(0, a, b);
         assertEq(staking.bondAt(0).effStake, 0, "slashed through the key lookup");
-        _assertSeatOfBond(0, false, 0, "the signer's bond holds no seat");
+        assertEq(_keySeatWord(ckAddr), bytes32(0), "the signer's key-to-seat word cleared");
         _assertBondInSeat(0, false, 0, "seat 0 released");
     }
 
@@ -826,7 +857,7 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
     /// @dev Bob reports a conflicting pair of `_pk` against bond `_bondId`, which stakes
     /// `_stake`: `DoubleSignSlashed` is emitted, then `SeatReleased` if the bond held a seat, Bob
     /// receives `_bounty` and slashSink the rest. The bond keeps its owner and key registration,
-    /// with no stake, exit height `_exit` and no seat.
+    /// with no stake, exit height `_exit`, no seat and a zero key-to-seat word.
     function _assertSlashTakesAll(
         uint256 _bondId,
         uint256 _pk,
@@ -894,7 +925,9 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
         assertTrue(bond.owner != address(0), string.concat(_label, ": owner kept"));
         _assertSeatOfBond(_bondId, false, 0, _label);
         if (_wasSeated) _assertBondInSeat(_seat, false, 0, _label);
-        _assertBondForKey(EtnaTestKeys.ckAddr(_pk), true, _bondId, _label);
+        address ckAddr = EtnaTestKeys.ckAddr(_pk);
+        assertEq(_keySeatWord(ckAddr), bytes32(0), string.concat(_label, ": key-to-seat word"));
+        _assertBondForKey(ckAddr, true, _bondId, _label);
     }
 
     /// @dev Deploys a staking contract with bounty rate `_bps`, gives bond 0 (key `_CK_B`, owner
@@ -1081,7 +1114,7 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
         string memory name = _pairField(_j, p, "name");
         IEtnaStaking.Vote memory a = _vectorVote(_j, _names, _pairField(_j, p, "a"));
         IEtnaStaking.Vote memory b = _vectorVote(_j, _names, _pairField(_j, p, "b"));
-        _blockStart(uint48(LibEtnaVectors.uintAt(_j, string.concat(p, "current_generation"))));
+        _blockStart(uint48(LibEtnaVectors.uintAt(_j, string.concat(p, "current_generation"))), 0);
 
         slashed_ = vm.parseJsonBool(_j, string.concat(p, "double_sign"));
         if (!slashed_) {
@@ -1177,9 +1210,9 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
     }
 
     /// @dev The slot of word `_word` (0 to 2) of bond `_bondId`'s record, at
-    /// keccak256(abi.encode(bondId, T + 259)) + word.
+    /// keccak256(abi.encode(bondId, T + 260)) + word.
     function _bondWord(uint256 _bondId, uint256 _word) private pure returns (bytes32) {
-        return bytes32(uint256(keccak256(abi.encode(_bondId, uint256(T) + 259))) + _word);
+        return bytes32(uint256(keccak256(abi.encode(_bondId, uint256(T) + 260))) + _word);
     }
 
     /// @dev Splits a 65-byte signature into R, S and V.

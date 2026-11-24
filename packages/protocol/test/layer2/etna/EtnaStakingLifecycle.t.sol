@@ -111,7 +111,7 @@ contract EtnaStakingLifecycleTest is EtnaStakingTestBase {
         }
         uint256 bondId = _register(_K1, Carol, MIN_STAKE + 5);
         address ckAddr = EtnaTestKeys.ckAddr(_K1);
-        _assertSeatOfBond(bondId, true, 5, "seat 5 before the exit");
+        assertEq(_keySeatWord(ckAddr), bytes32(uint256(0x0501)), "seat 5 before the exit");
 
         vm.expectEmit(address(staking));
         emit IEtnaStaking.ExitRequested(bondId, block.number);
@@ -122,6 +122,7 @@ contract EtnaStakingLifecycleTest is EtnaStakingTestBase {
 
         _assertSeatOfBond(bondId, false, 0, "bond holds no seat");
         _assertBondInSeat(5, false, 0, "seat 5 empty");
+        assertEq(_keySeatWord(ckAddr), bytes32(0), "key-to-seat word cleared to zero");
         IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
         assertEq(bond.exitHeight, block.number, "exit height");
         assertFalse(bond.holdsSeat, "record holds no seat");
