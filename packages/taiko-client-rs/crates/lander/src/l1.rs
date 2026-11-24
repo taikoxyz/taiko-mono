@@ -30,13 +30,15 @@ use crate::{
 };
 
 alloy::sol! {
-    /// SignalService's checkpoint read, which authenticates the Unzen checkpoint at S.
+    /// SignalService's checkpoint read, which authenticates the state root of the Unzen
+    /// checkpoint at S.
     interface ISwitchCheckpointStore {
         /// Unzen's settled execution checkpoint.
         struct Checkpoint {
             /// Settled execution height.
             uint48 blockNumber;
-            /// Settled execution hash.
+            /// The writer's hash, which the root-only SignalService returns as zero at every
+            /// height; never read.
             bytes32 blockHash;
             /// Settled execution state root.
             bytes32 stateRoot;
@@ -582,11 +584,14 @@ impl LandingSource for RpcLandingSource {
 }
 
 /// On a switching network, checks that the L1 SignalService checkpoint at S, which the Unzen
-/// Inbox saved and the start write read, holds S's hash and state root from the Inbox's start
-/// record (DATA-5.3-4), read at the snapshot's canonical L1 block. Checkpoint import at s = S
-/// needs it; a landing needs no Unzen read, because the permissionless start write `setOrigin`
-/// itself requires Unzen proposals closed and finalized at that hash (START-10-5a, LAND-6.1-8a).
-/// A failed or reverted read is retryable, a differing checkpoint a safety contradiction.
+/// Inbox saved and the start write read, is at S and holds the state root of the Inbox's start
+/// record, read at the snapshot's canonical L1 block. The SignalService stores only state roots
+/// and returns a zero hash, so its hash field is not read; the import checks S's hash against
+/// the EL header it installs. Checkpoint import at s = S needs it; a landing needs no Unzen
+/// read, because the start write `setOrigin`, sent by the designated multisig, takes its hash
+/// from the Unzen Inbox's finalized tip only once every Unzen proposal is closed and finalized,
+/// and the first landing checks S's header against that height and hash. A failed or reverted
+/// read is retryable; another height, another or a zero state root is a safety contradiction.
 pub(crate) async fn verify_start_checkpoint<L: AnchorSource + ?Sized>(
     l1: &L,
     params: &ChainParams,
@@ -619,10 +624,12 @@ pub(crate) async fn verify_start_checkpoint<L: AnchorSource + ?Sized>(
     let checkpoint = ISwitchCheckpointStore::getCheckpointCall::abi_decode_returns(&bytes)
         .map_err(|_| LanderError::Safety("invalid SignalService checkpoint ABI response".into()))?;
     if checkpoint.blockNumber.to::<u64>() != snapshot.genesis.genesis_height ||
-        checkpoint.blockHash != snapshot.genesis.genesis_hash ||
+        checkpoint.stateRoot.is_zero() ||
         checkpoint.stateRoot != snapshot.genesis.genesis_state_root
     {
-        return Err(LanderError::Safety("SignalService checkpoint contradicts the S tuple".into()));
+        return Err(LanderError::Safety(
+            "SignalService checkpoint contradicts the start record's height or state root".into(),
+        ));
     }
     Ok(())
 }

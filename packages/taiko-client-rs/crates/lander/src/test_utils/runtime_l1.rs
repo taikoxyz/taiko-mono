@@ -1115,12 +1115,13 @@ const L1_SIGNAL_SERVICE: alloy_primitives::Address = alloy_primitives::Address::
 #[derive(Clone)]
 struct SwitchL1 {
     signal_service: alloy_primitives::Address,
-    /// SignalService's checkpoint at S; `None` reverts as SignalService does for a missing one.
+    /// SignalService's checkpoint at S as `(height, hash, state root)`; `None` reverts as
+    /// SignalService does for a missing one.
     checkpoint: Option<(u64, B256, B256)>,
 }
 
 /// A snapshot at L1 block 20 whose latest checkpoint is S, switching chain parameters, and an L1
-/// whose SignalService holds S's start tuple.
+/// whose root-only SignalService holds S's start state root under S, with a zero hash.
 fn switch_case() -> (BTreeMap<u64, RawL1Header>, LandingSnapshot, ChainParams, SwitchL1) {
     let headers = header_chain();
     let mut snapshot = snapshot(&headers);
@@ -1136,7 +1137,7 @@ fn switch_case() -> (BTreeMap<u64, RawL1Header>, LandingSnapshot, ChainParams, S
     let genesis = &snapshot.genesis;
     let l1 = SwitchL1 {
         signal_service: L1_SIGNAL_SERVICE,
-        checkpoint: Some((SWITCH_S, genesis.genesis_hash, genesis.genesis_state_root)),
+        checkpoint: Some((SWITCH_S, B256::ZERO, genesis.genesis_state_root)),
     };
     (headers, snapshot, params, l1)
 }
@@ -1205,11 +1206,11 @@ fn switch_calls(l1: &RpcFixture, to: alloy_primitives::Address) -> usize {
         .count()
 }
 
-/// DATA-5.3-4: at s = S, SignalService's checkpoint at S holds S's hash and start state root,
-/// read at the snapshot. The check reads nothing of the Unzen Inbox: the start write already
-/// required closed, finalized Unzen proposals (START-10-5a, LAND-6.1-8a).
+/// At s = S, SignalService's checkpoint at S holds the start state root, read at the snapshot.
+/// The check reads nothing of the Unzen Inbox: the start write already required closed,
+/// finalized Unzen proposals.
 #[tokio::test]
-async fn start_checkpoint_matches_the_s_tuple_without_unzen_reads() {
+async fn start_checkpoint_matches_s_and_its_state_root_without_unzen_reads() {
     let (headers, snapshot, params, facts) = switch_case();
     let facts = Arc::new(Mutex::new(facts));
     let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts).await;
@@ -1222,6 +1223,30 @@ async fn start_checkpoint_matches_the_s_tuple_without_unzen_reads() {
     let fresh = ChainParams { switch: None, ..params.clone() };
     super::verify_start_checkpoint(&source, &fresh, &snapshot).await.unwrap();
     assert_eq!(l1.requests.lock().unwrap().len(), 2);
+}
+
+/// The root-only SignalService returns a zero hash at every height, so the check reads only the
+/// height and state root: S's root passes under a zero hash or any other, and another root
+/// halts even under S's own hash.
+#[tokio::test]
+async fn start_checkpoint_reads_the_state_root_and_never_the_hash() {
+    let (headers, snapshot, params, facts) = switch_case();
+    let honest = facts.clone();
+    let facts = Arc::new(Mutex::new(facts));
+    let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts.clone()).await;
+    let source = abci::l1::source::RpcL1Source::new(l1.provider.clone());
+    let (s, hash, root) = honest.checkpoint.unwrap();
+    assert!(hash.is_zero(), "the root-only SignalService returns no hash");
+    for any in [B256::ZERO, snapshot.genesis.genesis_hash, B256::repeat_byte(0x99)] {
+        *facts.lock().unwrap() = SwitchL1 { checkpoint: Some((s, any, root)), ..honest.clone() };
+        super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap();
+    }
+    let other = B256::repeat_byte(0x99);
+    for hash in [B256::ZERO, snapshot.genesis.genesis_hash] {
+        *facts.lock().unwrap() = SwitchL1 { checkpoint: Some((s, hash, other)), ..honest.clone() };
+        let error = super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    }
 }
 
 /// A missing checkpoint at S (SignalService reverts) is retryable; an Inbox naming no
@@ -1241,8 +1266,8 @@ async fn start_checkpoint_missing_is_retryable_and_a_zero_signal_service_is_refu
     assert!(matches!(error, LanderError::Configuration(_)), "{error}");
 }
 
-/// A SignalService checkpoint at S that differs from the start record is an authenticated
-/// contradiction.
+/// A SignalService checkpoint at S whose height or state root differs from the start record,
+/// or whose state root is zero, is an authenticated contradiction.
 #[tokio::test]
 async fn start_checkpoint_halts_on_a_contradicting_checkpoint() {
     let (headers, snapshot, params, facts) = switch_case();
@@ -1253,8 +1278,8 @@ async fn start_checkpoint_halts_on_a_contradicting_checkpoint() {
     let (s, hash, root) = honest.checkpoint.unwrap();
     let other = B256::repeat_byte(0x99);
     let contradictions = [
-        SwitchL1 { checkpoint: Some((s, other, root)), ..honest.clone() },
         SwitchL1 { checkpoint: Some((s, hash, other)), ..honest.clone() },
+        SwitchL1 { checkpoint: Some((s, hash, B256::ZERO)), ..honest.clone() },
         SwitchL1 { checkpoint: Some((s + 1, hash, root)), ..honest },
     ];
     for contradiction in contradictions {
