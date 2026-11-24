@@ -110,10 +110,11 @@ async fn decided(rpc: &CmtClient, s: u64, h: u64) -> Result<pb::Request> {
         "source decision must be a canonical skip at {h}"
     );
     ensure!(header.hash().to_string() == r["block_id"]["hash"].as_str().unwrap());
+    let decided_last_commit = decided_last_commit(rpc, &r, h).await?;
     Ok(pb::Request {
         value: Some(pb::request::Value::FinalizeBlock(pb::RequestFinalizeBlock {
             txs: vec![env.encode().0],
-            decided_last_commit: Some(Default::default()),
+            decided_last_commit: Some(decided_last_commit),
             hash: header.hash().as_bytes().to_vec().into(),
             height: h as i64,
             time: Some(header.time.into()),
@@ -122,6 +123,36 @@ async fn decided(rpc: &CmtClient, s: u64, h: u64) -> Result<pb::Request> {
             ..Default::default()
         })),
     })
+}
+
+/// The LastCommit of the `/block` result `block` at `h` as `FinalizeBlock` receives it: every
+/// validator of the set that signs h - 1, in CometBFT order with its power, with its flag in the
+/// block's LastCommit.
+async fn decided_last_commit(rpc: &CmtClient, block: &Value, h: u64) -> Result<pb::CommitInfo> {
+    let last = &block["block"]["last_commit"];
+    let flags = last["signatures"].as_array().context("LastCommit signatures")?;
+    let signers = rpc.validator_entries(Some(h - 1)).await?;
+    ensure!(
+        flags.len() == signers.len(),
+        "the LastCommit of {h} lists the set that signs {}",
+        h - 1
+    );
+    let votes = signers
+        .iter()
+        .zip(flags)
+        .map(|(entry, signature)| {
+            let flag = signature["block_id_flag"].as_i64().context("block_id_flag")?;
+            Ok(pb::VoteInfo {
+                validator: Some(pb::Validator {
+                    address: entry.key.address().to_vec().into(),
+                    power: entry.power,
+                }),
+                block_id_flag: i32::try_from(flag)?,
+            })
+        })
+        .collect::<Result<_>>()?;
+    let round = last["round"].as_i64().context("LastCommit round")?;
+    Ok(pb::CommitInfo { round: i32::try_from(round)?, votes })
 }
 
 async fn send(proxy: u16, request: &pb::Request) -> Result<pb::response::Value> {

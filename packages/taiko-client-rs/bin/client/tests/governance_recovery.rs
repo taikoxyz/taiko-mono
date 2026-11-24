@@ -381,6 +381,7 @@ async fn build_unpromoted_origin_candidate(
         anchor: &anchor,
         bft_time_secs: anchor.timestamp,
         generation: origin.generation,
+        miss_bitmap: 0,
         beneficiary: f.params.fee_recipient,
         params: &f.params,
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(f.params.l2_chain_id),

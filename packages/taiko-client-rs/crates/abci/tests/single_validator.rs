@@ -83,7 +83,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         assert_eq!(header.beneficiary, proposer_recipient, "block {h}: coinbase");
         let ExtraData { basefee_sharing_pctg, generation, anchor, .. } =
             decode_extra_data(&header.extra_data)?;
-        assert_eq!(header.extra_data.len(), 13, "block {h}: extraData length");
+        assert_eq!(header.extra_data.len(), 29, "block {h}: extraData length");
         assert_eq!(
             (basefee_sharing_pctg, generation),
             (100, 0),

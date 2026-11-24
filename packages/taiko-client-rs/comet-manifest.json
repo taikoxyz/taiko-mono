@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 2,
   "engine": "cometbft",
   "release": "v0.40.0",
   "source_commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
@@ -45,6 +45,7 @@
     "blocksync.adaptive_sync": false,
     "consensus.double_sign_check_height": 0,
     "consensus.block_time_tolerance": "1m0s",
+    "consensus.timeout_commit": { "min": "4s" },
     "p2p.pex": false,
     "p2p.seeds": "",
     "p2p.seed_mode": false,

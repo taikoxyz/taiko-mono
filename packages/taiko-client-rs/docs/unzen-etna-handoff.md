@@ -7,7 +7,7 @@ and switch deployment remain separate work.
 
 ## Required deployment inputs
 
-Use alethia-reth revision `493b6074b6d5749cea5e566b444bced8f14b258b` or a compatible release.
+Use alethia-reth revision `7174fd0064c69fa75ce784b8ec13702fffa5d429` or a compatible release.
 Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Run it with
 exactly the client's Etna time ([below](#the-els-etna-time)). Existing L2 history and state stay
 in place. The Etna L2 SignalService implementation and the EIP-4788/2935 code must already be
@@ -182,7 +182,7 @@ latter at the staking address the configuration hash commits, read as
 only for development deployments; a real backend must verify this witness as well as the
 remaining private inputs.
 
-Lander journal schema 22 includes these witnesses (`start_staking_witness` for the staking
+Lander journal schema 21 includes these witnesses (`start_staking_witness` for the staking
 proxy). Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the

@@ -121,7 +121,7 @@ async fn placeholder_proposal_keeps_the_recorded_halt_reason() {
     // The node's own build fails, so it proposes nothing; judging that placeholder proposal
     // keeps the build's reason.
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
-    let req = prepare_req(h, t);
+    let req = prepare_req(&app, h, t);
     assert!(prepare(&mut app, req).await.is_empty());
     assert_eq!(app.halt.as_deref(), Some("l1_error"));
     let req = process_req(&app, h, t, vec![]);
@@ -469,6 +469,7 @@ async fn proposer_outside_the_replica_set_is_unknown() {
             state.last_height + 1,
             bft,
             id,
+            0,
         )
         .map(|_| ())
     };
@@ -888,7 +889,7 @@ async fn proposals_before_init_chain_are_errors() {
     let req = process_req(&app, 1_001, 0, vec![]);
     let err = app.handle(Request::ProcessProposal(req)).await.expect_err("not initialized");
     assert!(matches!(err, AbciError::Uninitialized("ProcessProposal")), "{err:?}");
-    let req = super::proposal::prepare_req(1_001, 0);
+    let req = super::proposal::prepare_req(&app, 1_001, 0);
     let err = app.handle(Request::PrepareProposal(req)).await.expect_err("not initialized");
     assert!(matches!(err, AbciError::Uninitialized("PrepareProposal")), "{err:?}");
 }
@@ -979,7 +980,7 @@ async fn historical_state_unavailable_halts_every_handler_and_survives_restart()
         let request = match method {
             "prepare" => {
                 app.engine().state().build_script.push_back(Err(error));
-                Request::PrepareProposal(prepare_req(next_height(&app), bft_time(&app)))
+                Request::PrepareProposal(prepare_req(&app, next_height(&app), bft_time(&app)))
             }
             "process" => {
                 app.engine().state().new_payload_script.push_back(Err(error));

@@ -263,8 +263,8 @@ pub fn seed_key(seed: u8) -> SigningKey {
 pub type StakingScript = fn(u64, &FallbackKeys) -> Vec<(B256, U256)>;
 
 /// The default [`StakingScript`]: after `height`, a candidate snapshot taken at `height` with a
-/// total stake of `1000 + height`, whose seat `i` holds origin key `i` at power `i + 1`. Unless a
-/// [`SigningPlan`] lowers it, every
+/// total stake of `1000 + height`, whose seat `i` holds origin key `i` at power `i + 1`, and each
+/// origin key's live key-to-seat word naming its seat. Unless a [`SigningPlan`] lowers it, every
 /// fixture anchor proves a minimum total stake of 2^256 − 1, so the candidate never signs and the
 /// origin keys sign every height.
 pub fn staking_words(height: u64, keys: &FallbackKeys) -> Vec<(B256, U256)> {
@@ -273,13 +273,16 @@ pub fn staking_words(height: u64, keys: &FallbackKeys) -> Vec<(B256, U256)> {
 }
 
 /// The staking words of a candidate snapshot whose `snapshotHeight` is `snapshot_height` and
-/// `snapshotTotalStake` `total`, whose seat `i` holds the key of `members[i]` at its power.
+/// `snapshotTotalStake` `total`, whose seat `i` holds the key of `members[i]` at its power, each of
+/// those keys' live key-to-seat word naming its seat.
 pub fn candidate_words(
     snapshot_height: U256,
     total: U256,
     members: &[(ConsensusKey, u64)],
 ) -> Vec<(B256, U256)> {
-    use abci::staking::{record_slots, snapshot_height_slot, snapshot_total_stake_slot};
+    use abci::staking::{
+        key_to_seat_slot, record_slots, snapshot_height_slot, snapshot_total_stake_slot,
+    };
     let mut words =
         vec![(snapshot_height_slot(), snapshot_height), (snapshot_total_stake_slot(), total)];
     for (seat, (key, power)) in (0u8..).zip(members) {
@@ -287,6 +290,7 @@ pub fn candidate_words(
         words.extend([
             (x, U256::from_be_bytes(key.x().0)),
             (packed, U256::from(key.prefix()) | U256::from(*power) << 8),
+            (key_to_seat_slot(key.address()), U256::from(1) | U256::from(seat) << 8),
         ]);
     }
     words
@@ -1046,7 +1050,9 @@ impl Fixture {
                 "plan consumes at height {height} without a pending entry"
             );
             // The precommits the LastCommit lacks are taken out of the parent's `/commit`, which
-            // the block carries as its LastCommit.
+            // the block carries as its LastCommit; each missing validator's key-to-seat word in
+            // the parent's post-state sets its seat's bit.
+            let mut missing = Vec::new();
             if height > 1 {
                 let set = &signing_sets[&(height - 1)];
                 let previous = blocks.get_mut(&(height - 1)).unwrap();
@@ -1058,8 +1064,17 @@ impl Fixture {
                         }
                     };
                     previous.commit.signatures[index] = sig;
+                    let validator = &set.validators.validators()[index];
+                    missing.push(Address::from_slice(validator.address.as_bytes()));
                 }
             }
+            let seat_words = &staking_values[&(height - 1)];
+            let miss_bitmap = abci::miss::miss_bitmap(&missing, |address| {
+                seat_words
+                    .get(&abci::staking::key_to_seat_slot(address))
+                    .copied()
+                    .unwrap_or_default()
+            });
             let expected = rules::expected_header(&HeaderInputs {
                 height,
                 beneficiary: super::consensus::BATCH_RECIPIENT,
@@ -1067,6 +1082,7 @@ impl Fixture {
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
                 generation: 0,
+                miss_bitmap,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
                     params.l2_chain_id,
@@ -1855,7 +1871,7 @@ impl Fixture {
     /// The staking proof an import package at `height` carries: the proxy's proofs of the
     /// candidate snapshot's words in the L2 post-state after `height`, when the fixture built it.
     pub fn package_staking_witness(&self, height: u64) -> Option<AccountWitness> {
-        let slots = abci::staking::snapshot_slots();
+        let slots = crate::l1::staking_slots(&[]);
         self.l2_states.get(&height).map(|state| state.witness(self.params.staking, &slots))
     }
 

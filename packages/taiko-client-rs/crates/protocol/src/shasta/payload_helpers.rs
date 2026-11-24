@@ -72,7 +72,7 @@ pub struct PayloadAttributesInput {
     pub gas_limit: u64,
     /// Encoded transaction list, or `None` to let the engine build from its mempool.
     pub tx_list: Option<Bytes>,
-    /// Header `extraData`: the 7-byte pre-Etna or 13-byte Etna layout.
+    /// Header `extraData`: the 7-byte pre-Etna or 29-byte Etna layout.
     pub extra_data: Bytes,
     /// Base fee per gas for the block.
     pub base_fee_per_gas: U256,

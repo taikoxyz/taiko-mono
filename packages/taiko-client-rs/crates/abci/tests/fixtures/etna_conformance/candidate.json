@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "candidate",
   "generator": "transcribed by hand from packages/protocol/docs/etna/rules/vectors/4.3.md",
-  "provenance": {"specCommit": "fb8a348e9c9998327541d562d69a2a636f8974f8"},
+  "provenance": {"specCommit": "b01356ddc942ee10e67d1f506bf4acd043b8686c"},
   "vectorCount": 25,
   "vectors": [
     {

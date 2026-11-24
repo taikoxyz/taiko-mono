@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "11").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "10").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's
 dependencies installed (the output is formatted with the repository root's
@@ -28,11 +28,11 @@ classified again from its bytes, an ineligible case must break only the rule it 
 and the written file is checked against go-ethereum v1.15.5 (`ficheck/`, run with `go run`).
 Every literal hash and byte string that the spec's appendix A vectors list is recomputed
 (`appendix_a_examples`), and generation stops if one differs. The staking contract's block-start
-call and the candidate decision (spec 4.1-4.3) are small Python models written from the spec, and
-`test_vectors.py` decides every case again with models of its own. Only the inputs, the packing
-table and the storage slot numbers are written by hand, following the Etna spec's appendix A
-(encodings) and appendix B (storage layout). All integers are decimal strings so that every value
-survives JSON parsing exactly.
+call, the missBitmap a block sets and the candidate decision (spec 3.4, 4.1-4.3) are small Python
+models written from the spec, and `test_vectors.py` decides every case again with models of its
+own. Only the inputs, the packing table and the storage slot numbers are written by hand,
+following the Etna spec's appendix A (encodings) and appendix B (storage layout). All integers
+are decimal strings so that every value survives JSON parsing exactly.
 """
 
 import base64
@@ -92,10 +92,12 @@ DEPLOYMENT = {
     "token": constant_address(L2_CHAIN_ID, 7),
     "l2_block_gas_limit": 45_000_000,
     # The staking contract's immutables at their reference values (spec 11): the registration
-    # minimum, the power unit, the number of seats, the slash bounty and the forfeiture rate.
+    # minimum, the power unit, the number of seats, the miss limit and the three penalty rates.
     "min_stake": 7_812_500 * TAIKO,
     "vp_unit": 10**9,
     "n_max": 128,
+    "miss_limit": 3_600,
+    "miss_slash_bps": 1_000,
     "slash_bounty_bps": 1_000,
     "forfeit_bps": 1_000,
     # In L2 blocks: U + 2 + the evidence window.
@@ -112,12 +114,14 @@ assert DEPLOYMENT["staking"] == "0x1670010000000000000000000000000000010003"
 assert DEPLOYMENT["token"] == "0x1670010000000000000000000000000000000007"
 # The staking contract's bounds (spec 11): vp_unit is at least ceil(10^27 / MaxTotalVotingPower);
 # minStake is at least vp_unit, and n_max seats at minStake hold at least 10^27 base units;
-# 1 <= n_max <= 128; forfeitBps is in (0, 10,000] and slashBountyBps is below 10,000;
-# 1 <= U <= 262,144; withdrawalDelay is at least U + 2 + the evidence window and below 2^48.
+# 1 <= n_max <= 128 and 1 <= missLimit <= 65,535; missSlashBps and forfeitBps are in (0, 10,000]
+# and slashBountyBps is below 10,000; 1 <= U <= 262,144; withdrawalDelay is at least U + 2 + the
+# evidence window and below 2^48.
 assert DEPLOYMENT["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER) == 867_361_738
 assert DEPLOYMENT["min_stake"] >= DEPLOYMENT["vp_unit"]
 assert DEPLOYMENT["n_max"] * DEPLOYMENT["min_stake"] >= TAIKO_SUPPLY
-assert 1 <= DEPLOYMENT["n_max"] <= 128 and 0 < DEPLOYMENT["forfeit_bps"] <= 10_000
+assert 1 <= DEPLOYMENT["n_max"] <= 128 and 1 <= DEPLOYMENT["miss_limit"] <= 65_535
+assert 0 < DEPLOYMENT["miss_slash_bps"] <= 10_000 and 0 < DEPLOYMENT["forfeit_bps"] <= 10_000
 assert DEPLOYMENT["slash_bounty_bps"] < 10_000 and 1 <= DEPLOYMENT["unsettled_limit"] <= 262_144
 assert (
     DEPLOYMENT["unsettled_limit"] + 2 + DEPLOYMENT["evidence_window_blocks"]
@@ -934,46 +938,58 @@ def chain_domains():
     return decimals(out)
 
 
-ON_BLOCK_START = "onBlockStart(uint48)"
-# generation, anchorNumber: both zero, the spec's mixed example and both at their maximum.
+ON_BLOCK_START = "onBlockStart(uint48,uint128)"
+# generation, anchorNumber, missBitmap: all zero, the spec's mixed example, every field at its
+# maximum, and seat 0 and seat 127 alone.
 EXTRA_DATA_CASES = (
-    (0, 0),
-    (1, 258),
-    (U48_MAX, U48_MAX),
+    (0, 0, 0),
+    (1, 258, 2**127 + 1),
+    (U48_MAX, U48_MAX, 2**128 - 1),
+    (5, 7, 1),
+    (5, 7, 2**127),
 )
 
 
-def encode_extra_data(generation, anchor_number):
-    """extraData = 0x64 || uint48_be(generation) || uint48_be(anchorNumber): 13 bytes,
-    `cast abi-encode --packed`, checked against a direct big-endian layout."""
+def encode_extra_data(generation, anchor_number, miss_bitmap):
+    """extraData = 0x64 || uint48_be(generation) || uint48_be(anchorNumber) ||
+    uint128_be(missBitmap): 29 bytes, `cast abi-encode --packed`, checked against a direct
+    big-endian layout. Seat s is bit s of missBitmap, so seat 0 is the low bit of the last byte."""
     packed = cast(
-        "abi-encode", "--packed", "f(uint8,uint48,uint48)", 0x64, generation, anchor_number
+        "abi-encode", "--packed", "f(uint8,uint48,uint48,uint128)", 0x64, generation,
+        anchor_number, miss_bitmap,
     )
-    direct = bytes([0x64]) + generation.to_bytes(6, "big") + anchor_number.to_bytes(6, "big")
-    assert len(direct) == 13
-    assert packed == "0x" + direct.hex(), (generation, anchor_number)
+    direct = (
+        bytes([0x64])
+        + generation.to_bytes(6, "big")
+        + anchor_number.to_bytes(6, "big")
+        + miss_bitmap.to_bytes(16, "big")
+    )
+    assert packed == "0x" + direct.hex(), (generation, anchor_number, miss_bitmap)
     return packed
 
 
-def on_block_start_calldata(generation):
-    """The block-start call with a block's own generation: the selector, then the generation as
-    one standard ABI word, 36 bytes with nothing after them."""
-    calldata = cast("calldata", ON_BLOCK_START, generation)
-    assert calldata == cast("sig", ON_BLOCK_START) + format(generation, "064x")
-    assert len(calldata) == 2 + 2 * 36
+def on_block_start_calldata(generation, miss_bitmap):
+    """The block-start call with a block's own generation and missBitmap: the selector, then one
+    standard ABI word for each, 68 bytes with nothing after them."""
+    calldata = cast("calldata", ON_BLOCK_START, generation, miss_bitmap)
+    assert calldata == (
+        cast("sig", ON_BLOCK_START) + format(generation, "064x") + format(miss_bitmap, "064x")
+    )
+    assert len(calldata) == 2 + 2 * 68
     return calldata
 
 
 def extra_data():
-    """Each case's 13-byte extraData and the block-start calldata it implies."""
+    """Each case's 29-byte extraData and the block-start calldata it implies."""
     out = []
-    for generation, anchor_number in EXTRA_DATA_CASES:
+    for generation, anchor_number, miss_bitmap in EXTRA_DATA_CASES:
         out.append(
             {
                 "generation": generation,
                 "anchor_number": anchor_number,
-                "extra_data": encode_extra_data(generation, anchor_number),
-                "on_block_start_calldata": on_block_start_calldata(generation),
+                "miss_bitmap": miss_bitmap,
+                "extra_data": encode_extra_data(generation, anchor_number, miss_bitmap),
+                "on_block_start_calldata": on_block_start_calldata(generation, miss_bitmap),
             }
         )
     return decimals(out)
@@ -2363,10 +2379,11 @@ def run_ficheck():
 
 # --- storage layout ------------------------------------------------------------------------------
 
-# Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix
-# takes 8 bits, power 64 and every other field 48; unused high bits are zero. Each entry: vector
-# key -> (layout table, packing name, fields, ordinary values). Every kind also gets an all-max
-# item, each field at its largest value: ckPrefix 3 and every other field all ones of its width.
+# Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix,
+# holdsSeat and seat take 8 bits, power 64 and every other field 48; unused high bits are zero.
+# Each entry: vector key -> (layout table, packing name, fields, ordinary values). Every kind also
+# gets an all-max item, each field at its largest value: ckPrefix 3, holdsSeat 1, seat 127 and
+# every other field all ones of its width.
 PACKED = {
     "inbox_272": (
         "inbox",
@@ -2399,11 +2416,13 @@ PACKED = {
         ("active_rules", "next_rules", "rules_time", "stop_time"),
         (1, 2, 1_700_003_600, 1_700_007_200),
     ),
-    # The second word of a staking snapshot seat record with prefix 0x02 and power 250,000.
+    # The staking contract's key-to-seat value of a key whose bond holds seat 5, and the second
+    # word of a snapshot seat record with prefix 0x02 and power 250,000.
+    "staking_key_seat": ("staking", "key_seat", ("holds_seat", "seat"), (1, 5)),
     "staking_record_word2": ("staking", "record_word2", ("ck_prefix", "power"), (2, 250_000)),
 }
-FIELD_BITS = {"ck_prefix": 8, "power": 64}
-FIELD_MAX = {"ck_prefix": 3}
+FIELD_BITS = {"ck_prefix": 8, "holds_seat": 8, "seat": 8, "power": 64}
+FIELD_MAX = {"ck_prefix": 3, "holds_seat": 1, "seat": 127}
 
 
 def bits_of(field_name):
@@ -2445,10 +2464,11 @@ def packed_words():
             {**dict(zip(fields, values)), "word": pack(fields, values)}
             for values in (ordinary, maximum)
         ]
-    # Slot 293 packs four 48-bit fields, so bits 192 and up stay zero; a record's second word
-    # takes 72 bits.
-    for key, width in (("inbox_293", 192), ("staking_record_word2", 72)):
+    # Slot 293 packs four 48-bit fields, so bits 192 and up stay zero; the key-to-seat value takes
+    # 16 bits and a record's second word 72.
+    for key, width in (("inbox_293", 192), ("staking_key_seat", 16), ("staking_record_word2", 72)):
         assert all(int(item["word"], 16) >> width == 0 for item in out[key]), key
+    assert out["staking_key_seat"][0]["word"] == word(0x0501)
     assert out["staking_record_word2"][0]["word"] == word(0x3D09002)
     return decimals(out)
 
@@ -2523,7 +2543,7 @@ def layout():
     return decimals({"inbox": inbox})
 
 
-# --- L2 staking: fallback keys, storage words, candidate, block-start call -----------------------
+# --- L2 staking: fallback keys, storage words, missBitmap, candidate, block-start call ----------
 
 MAX_FALLBACK_KEYS = 128  # a fallback key list holds 1 to 128 keys
 FALLBACK_KEYS_UPDATED = "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])"
@@ -2533,6 +2553,8 @@ STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E0
 SNAPSHOT_RECORDS = 128  # snapshot seat records, one per seat number 0..127 whatever n_max is
 EIP1967_IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
 U64_MAX = 2**64 - 1
+# CometBFT's BlockIDFlag values in a LastCommit; only COMMIT is a precommit for the parent block.
+BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL = 1, 2, 3
 
 
 @functools.cache
@@ -2640,25 +2662,62 @@ def staking_base():
     return base
 
 
+def key_seat_of(value):
+    """The seat a key-to-seat value gives: s for holdsSeat = 1 (bits 0-7), seat = s below 128
+    (bits 8-15) and every bit from bit 16 up zero; None for any other value."""
+    holds_seat, seat = value & 0xFF, value >> 8 & 0xFF
+    if holds_seat == 1 and seat < SNAPSHOT_RECORDS and value >> 16 == 0:
+        return seat
+    return None
+
+
 def record_word2(ck_prefix, power):
     """Word 2 of a snapshot seat record: ckPrefix in bits 0-7, power in bits 8-71."""
     return pack(("ck_prefix", "power"), (ck_prefix, power))
 
 
-def staking_layout():
+# Key-to-seat values and the seat each gives: seats 5, 0 and 127; 0, the value of a key that holds
+# no seat; 0x0500, holdsSeat 0 with the seat kept, which a released key must not keep; and the
+# values that are not well formed: holdsSeat 2, seat 128 and bit 16 set.
+KEY_SEAT_WORDS = (
+    (0x0501, 5),
+    (0x0001, 0),
+    (0x7F01, 127),
+    (0x0000, None),
+    (0x0500, None),
+    (0x0502, None),
+    (0x8001, None),
+    (0x10501, None),
+)
+
+
+def staking_layout(key_list):
     """The words of the L2 staking contract that nodes and guests read (appendix B): snapshotHeight
-    at T, snapshotTotalStake at T + 1 and record s at T + 2 + 2s and T + 3 + 2s, record second
-    words, the proxy's EIP-1967 implementation slot and the no-exit value of exitHeight."""
+    at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2 and record s at
+    T + 3 + 2s and T + 4 + 2s, with the key-to-seat elements of K1, K2 and keys a1-a4 (`cast
+    index`), how key-to-seat values decode, record second words, the proxy's EIP-1967
+    implementation slot and the no-exit value of exitHeight."""
     base = staking_base()
+    addresses = [scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]]
+    addresses += [key["ck_addr"] for key in key_list[:4]]
+    key_seat_slots = [
+        {"ck_addr": a, "slot": cast("index", "address", a, word(base + 2))} for a in addresses
+    ]
+    assert key_seat_slots[0] == {
+        "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        "slot": "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27",
+    }
     record_slots = [
-        {"seat": s, "word1": word(base + 2 + 2 * s), "word2": word(base + 3 + 2 * s)}
+        {"seat": s, "word1": word(base + 3 + 2 * s), "word2": word(base + 4 + 2 * s)}
         for s in (0, 5, SNAPSHOT_RECORDS - 1)
     ]
-    assert record_slots[-1] == {
-        "seat": SNAPSHOT_RECORDS - 1,
-        "word1": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f00",
-        "word2": "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01",
-    }
+    assert record_slots[-1]["word1"] == (
+        "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+    )
+    key_seat_words = []
+    for value, seat in KEY_SEAT_WORDS:
+        assert key_seat_of(value) == seat, hex(value)
+        key_seat_words.append({"word": word(value), "seat": seat})
     words2 = [
         {"ck_prefix": prefix, "power": power, "word": record_word2(prefix, power)}
         for prefix, power in ((2, 250_000), (3, U64_MAX))
@@ -2672,12 +2731,83 @@ def staking_layout():
             "base": word(base),
             "snapshot_height_slot": word(base),
             "snapshot_total_stake_slot": word(base + 1),
+            "key_seat_slot": word(base + 2),
             "record_slots": record_slots,
+            "key_seat_slots": key_seat_slots,
+            "key_seat_words": key_seat_words,
             "record_word2": words2,
             "implementation_slot": implementation,
             "no_exit": NO_EXIT,
         }
     )
+
+
+def miss_bitmap_of(first_block, validators):
+    """The missBitmap block H sets (spec 3.4 rule 6): 0 for the first block of a generation;
+    otherwise bit s is 1 exactly when a validator of the set that signs the parent is missing from
+    H's LastCommit (any flag but commit) and its key-to-seat value in the parent's post-state gives
+    seat s."""
+    if first_block:
+        return 0
+    bitmap = 0
+    for _, flag, value in validators:
+        seat = key_seat_of(value)
+        if flag != BLOCK_ID_FLAG_COMMIT and seat is not None:
+            bitmap |= 1 << seat
+    return bitmap
+
+
+def miss_bitmap(key_list):
+    """missBitmap cases: the validators of the set that signs the parent, each with its address,
+    its flag in the block's LastCommit and its key-to-seat value in the parent's post-state."""
+    a1, a2, a3, a4 = (key["ck_addr"] for key in key_list[:4])
+    # The fallback keys K1 and K2, for the cases where the fallback key set signs the parent.
+    f1, f2 = scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]
+    absent, commit, nil = BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL
+    cases = (
+        ("all_commit", False, ((a1, commit, 0x0001), (a2, commit, 0x0101), (a3, commit, 0x0201)),
+         0),
+        ("absent_seat_5", False,
+         ((a1, commit, 0x0001), (a2, absent, 0x0501), (a3, commit, 0x0201)), 1 << 5),
+        ("nil_seat_0", False, ((a1, nil, 0x0001), (a2, commit, 0x0101)), 1 << 0),
+        # Two missing validators at seats 0 and 3: the bitmap ORs both bits.
+        ("two_seats", False,
+         ((a1, absent, 0x0001), (a2, commit, 0x0101), (a3, nil, 0x0301)), 1 << 0 | 1 << 3),
+        ("seat_127", False, ((a1, commit, 0x0001), (a2, absent, 0x7F01)), 1 << 127),
+        # K1 is the key of no bond, so it maps to 0.
+        ("fallback_key_without_bond", False, ((f1, absent, 0), (f2, commit, 0)), 0),
+        # K1 is also the key of a bond that holds seat 7.
+        ("fallback_key_with_seated_bond", False, ((f1, absent, 0x0701), (f2, commit, 0)), 1 << 7),
+        # a1's bond vacated seat 4 in the parent and a bond whose key is not in the set took it.
+        ("vacated_in_parent", False, ((a1, absent, 0), (a2, commit, 0x0101)), 0),
+        ("malformed_words", False,
+         ((a1, absent, 0x0502), (a2, absent, 0x8001), (a3, nil, 0x10501), (a4, commit, 0x0001)),
+         0),
+        ("two_addresses_one_seat", False, ((a1, absent, 0x0301), (a2, commit, 0x0301)), 1 << 3),
+        # The same two addresses, both missing: the seat's bit is set once, not toggled.
+        ("two_addresses_one_seat_both_missing", False,
+         ((a1, absent, 0x0301), (a2, nil, 0x0301), (a3, commit, 0x0001)), 1 << 3),
+        # n_max 64 does not matter: the bit is set, and onBlockStart then ignores it.
+        ("seat_100", False, ((a1, absent, 0x6401), (a2, commit, 0x0001)), 1 << 100),
+        # The first block of a generation has no LastCommit.
+        ("first_block", True, ((a1, absent, 0x0001), (a2, commit, 0x0101)), 0),
+    )
+    out = []
+    for name, first_block, validators, expected in cases:
+        bitmap = miss_bitmap_of(first_block, validators)
+        assert bitmap == expected, name
+        out.append(
+            {
+                "name": name,
+                "first_block_of_generation": first_block,
+                "validators": [
+                    {"ck_addr": addr, "block_id_flag": flag, "key_seat_word": word(value)}
+                    for addr, flag, value in validators
+                ],
+                "miss_bitmap": bitmap,
+            }
+        )
+    return decimals({"cases": out})
 
 
 CANDIDATE_HEIGHT = 100
@@ -2824,7 +2954,7 @@ def candidate(key_list):
     return decimals({"cases": out})
 
 
-BLOCK_START_FIELDS = ("n_max", "min_stake", "vp_unit")
+BLOCK_START_FIELDS = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
 BLOCK_START_KEY = 0x100  # bond i of a block-start case registers the key of private key 0x100 + i
 BLOCK_START_NUMBER = 1000
 BLOCK_START_GENERATION = 1
@@ -2835,57 +2965,87 @@ def check_staking_params(params):
     assert params["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER)
     assert params["min_stake"] >= params["vp_unit"]
     assert params["n_max"] * params["min_stake"] >= TAIKO_SUPPLY
-    assert 1 <= params["n_max"] <= 128
+    assert 1 <= params["n_max"] <= 128 and 1 <= params["miss_limit"] <= 65_535
+    assert 0 < params["miss_slash_bps"] <= 10_000
 
 
-def block_start_run(params, amounts, prior_generations, generation):
+def block_start_run(params, amounts, prior_bitmaps, bitmap):
     """A fresh staking contract (spec 4.1, 4.2): each amount registers a bond, which takes the
-    lowest empty seat; then each prior call and the call run onBlockStart, which stores the
-    generation and writes the snapshot from the seat table, changing no stake, seat or exit.
-    Returns the registrations' seats, the effStakes, the seat table after the call and the
-    generation the call leaves stored."""
-    seat_bond, eff, seats = {}, [], []
+    lowest empty seat; then each prior call and the call run onBlockStart: count a miss for each
+    occupied seat whose bit is 1 and reset the count of the others; then for each seat whose count
+    reached missLimit deduct ceil(effStake * missSlashBps / 10000), reset the count and release
+    the seat if effStake fell below minStake. Returns the registrations' seats, the seats held when
+    the call starts, the miss counts, the effStakes, the bonds the call released, its penalty and
+    the seats held after it (the records follow from them)."""
+    seat_bond, eff, misses, seats = {}, [], [0] * SNAPSHOT_RECORDS, []
     for amount in amounts:
         assert amount >= params["min_stake"]
         seat = next(s for s in range(params["n_max"]) if s not in seat_bond)
-        seat_bond[seat] = len(eff)
+        seat_bond[seat], misses[seat] = len(eff), 0
         eff.append(amount)
         seats.append(seat)
-    stored = 0
-    for g in (*prior_generations, generation):
-        # Each call stores its generation and rewrites the snapshot; the seats and stakes stay.
-        stored = g
-    return seats, eff, seat_bond, stored
+
+    def call(bits):
+        for seat in seat_bond:
+            misses[seat] = misses[seat] + 1 if bits >> seat & 1 else 0
+        penalty, released = 0, []
+        for seat in sorted(seat_bond):
+            if misses[seat] < params["miss_limit"]:
+                continue
+            bond = seat_bond[seat]
+            cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
+            eff[bond] -= cut
+            penalty += cut
+            misses[seat] = 0
+            if eff[bond] < params["min_stake"]:
+                del seat_bond[seat]
+                released.append(bond)
+        return penalty, released
+
+    for bits in prior_bitmaps:
+        assert call(bits) == (0, []), "a case's penalties happen only in its call"
+    held = sorted(seat_bond)
+    penalty, released = call(bitmap)
+    return seats, held, misses, eff, released, penalty, seat_bond
 
 
 def on_block_start():
-    """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit and
-    n_max unless a case overrides them: registrations, earlier block-start calls, then the call in
-    block 1000, with the effStakes, records, total, height and generation it leaves. m is
-    minStake."""
+    """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit,
+    n_max, missLimit and missSlashBps unless a case overrides them: registrations, earlier
+    block-start calls, then the call in block 1000, with the miss counts, effStakes, released
+    bonds, penalty, records, total, height and generation it leaves. m is minStake."""
     m = DEPLOYMENT["min_stake"]
-    vp_unit = DEPLOYMENT["vp_unit"]
     base = {field: DEPLOYMENT[field] for field in BLOCK_START_FIELDS}
     n_max_64 = {"n_max": 64, "min_stake": 2 * m}  # ceil(10^27 / 64) = 2m
-    g = BLOCK_START_GENERATION
     cases = (
-        # name, overrides, registration amounts, prior calls' generations, the call's generation
-        ("one_member", {}, (m,), (), g),
-        ("three_members", {}, (m, 2 * m + 5, 3 * m + vp_unit - 1), (), g),
-        ("prior_calls_change_nothing", {}, (m, m, 2 * m), (0, 3, 1), g),
-        ("no_seats", {}, (), (), g),
-        ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), g),
-        ("n_max_64_records", n_max_64, (2 * m,) * 64, (), g),
-        ("max_generation", {}, (m,), (), U48_MAX),
+        # name, overrides, registration amounts, prior calls' missBitmaps, the call's missBitmap
+        ("count_up", {}, (m,) * 4, (8, 8), 8),
+        ("count_reset", {}, (m,) * 4, (8, 8), 0),
+        ("empty_seat_bit", {}, (m,), (1,), 1 << 9 | 1),
+        ("zero_bitmap", {}, (m,) * 3, (7, 7), 0),
+        ("bitmap_4", {}, (m,) * 3, (), 4),
+        ("n_max_64_bit_100", n_max_64, (2 * m,), (), 1 << 100 | 1),
+        ("ceil_exact", {"miss_limit": 10}, (10 * m,), (1,) * 9, 1),
+        ("ceil_round_up", {"miss_limit": 10}, (10 * m + 1,), (1,) * 9, 1),
+        ("below_limit", {"miss_limit": 10}, (10 * m,), (1,) * 8, 1),
+        ("release_below_min", {"miss_limit": 10}, (m, m), (1,) * 9, 1),
+        ("miss_limit_1", {"miss_limit": 1}, (2 * m,), (), 1),
+        ("full_bps", {"miss_limit": 1, "miss_slash_bps": 10_000}, (3 * m, m), (), 1),
+        # Seats 1, 3 and 4 fall below minStake in step 2, leaving seats 0, 2 and 5.
+        ("three_seats", {"miss_limit": 1}, (m, m, 2 * m, m, m, 3 * m), (), 0b11010),
+        ("no_seats", {}, (), (), 2**128 - 1),
+        ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), 0),
+        ("n_max_64_records", n_max_64, (2 * m,) * 64, (), 0),
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(scalar_key, range(BLOCK_START_KEY, BLOCK_START_KEY + 64)))
     out = []
-    for name, overrides, amounts, priors, generation in cases:
+    for name, overrides, amounts, priors, bitmap in cases:
         params = {**base, **overrides}
         check_staking_params(params)
-        seats, eff, seat_bond, stored = block_start_run(params, amounts, priors, generation)
-        assert eff == list(amounts), name
+        seats, held, misses, eff, released, penalty, seat_bond = block_start_run(
+            params, amounts, priors, bitmap
+        )
         keys = [scalar_key(BLOCK_START_KEY + i) for i in range(len(amounts))]
         records = []
         for seat in sorted(seat_bond):
@@ -2904,31 +3064,35 @@ def on_block_start():
                          "seat": seats[i]}
                         for i, amount in enumerate(amounts)
                     ],
-                    "prior_calls": [{"generation": prior} for prior in priors],
+                    "prior_calls": [
+                        {"generation": BLOCK_START_GENERATION, "miss_bitmap": bits}
+                        for bits in priors
+                    ],
                 },
                 "call": {
                     "block_number": BLOCK_START_NUMBER,
-                    "generation": generation,
-                    "calldata": on_block_start_calldata(generation),
+                    "generation": BLOCK_START_GENERATION,
+                    "miss_bitmap": bitmap,
+                    "calldata": on_block_start_calldata(BLOCK_START_GENERATION, bitmap),
                 },
                 "expect": {
+                    "miss_counts": [{"seat": s, "count": misses[s]} for s in held],
                     "eff_stakes": [{"bond_id": i, "eff_stake": e} for i, e in enumerate(eff)],
+                    "released": released,
+                    "penalty_total": penalty,
                     "records": records,
                     "snapshot_total_stake": sum(eff[bond] for bond in seat_bond.values()),
                     "snapshot_height": BLOCK_START_NUMBER,
-                    "last_generation": stored,
+                    "last_generation": BLOCK_START_GENERATION,
                 },
             }
         )
     expect = {case["name"]: case["expect"] for case in out}
+    assert expect["ceil_exact"]["penalty_total"] == m
+    assert expect["ceil_round_up"]["penalty_total"] == m + 1
+    assert [r["seat"] for r in expect["three_seats"]["records"]] == [0, 2, 5]
     assert [int(r["word2"], 16) >> 8 for r in expect["power_floor"]["records"]] == [2, 1, 1]
-    assert [int(r["word2"], 16) >> 8 for r in expect["three_members"]["records"]] == [
-        m // vp_unit, (2 * m + 5) // vp_unit, (3 * m + vp_unit - 1) // vp_unit
-    ]
-    assert [r["seat"] for r in expect["n_max_64_records"]["records"]] == list(range(64))
-    assert expect["no_seats"]["records"] == [] and expect["no_seats"]["snapshot_total_stake"] == 0
-    assert expect["prior_calls_change_nothing"]["snapshot_total_stake"] == 4 * m
-    assert expect["max_generation"]["last_generation"] == U48_MAX
+    assert expect["release_below_min"]["released"] == [0] == expect["full_bps"]["released"]
     return decimals({"deployment": base, "cases": out})
 
 
@@ -3009,7 +3173,7 @@ def governance_abi(digests, slash_abi):
         "request_exit": ("staking", "requestExit(uint256)", [0]),
         "withdraw": ("staking", "withdraw(uint256,address)", [0, OWNERS[0]]),
         "forfeit": ("staking", "forfeit(uint256,bytes32,uint256)", [0, INCIDENT_ID, VALID_UNTIL]),
-        "on_block_start": ("staking", ON_BLOCK_START, [1]),
+        "on_block_start": ("staking", ON_BLOCK_START, [1, 5]),
     }
     out = {
         name: {
@@ -3021,7 +3185,7 @@ def governance_abi(digests, slash_abi):
         for name, (contract, signature, args) in calls.items()
     }
     assert out["recover"]["selector"] == "0x95e4b1e5"
-    assert out["on_block_start"]["calldata"] == on_block_start_calldata(1)
+    assert out["on_block_start"]["calldata"] == on_block_start_calldata(1, 5)
     out["slash_double_sign"] = {
         "contract": "staking",
         **{field: slash_abi[field] for field in ("signature", "selector", "calldata")},
@@ -3333,11 +3497,16 @@ def governance_events(cfg):
 # The literal values the spec's appendix A vector catalogue lists, as (field, value) of the
 # example that recomputes each; generation stops if one does not reproduce.
 APPENDIX_LITERALS = {
-    "enc_a_10_f": ("extra_data", "0x64" + "00" * 12),
-    "enc_a_10_h": ("extra_data", "0x64" + "000000000001" + "000000000102"),
+    "enc_a_10_f": ("extra_data", "0x64" + "00" * 28),
+    "enc_a_10_h": (
+        "extra_data",
+        "0x64" + "000000000001" + "000000000102" + "80000000000000000000000000000001",
+    ),
     "enc_a_10b_a": ("hash", "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507"),
-    "enc_a_10d_a": ("calldata", "0xaa28c32e" + "00" * 31 + "01"),
-    "enc_a_10d_b": ("selector", "0xaa28c32e"),
+    "enc_a_10c_a": ("extra_data_byte_28", "0x05"),
+    "enc_a_10c_b": ("extra_data_byte_13", "0x80"),
+    "enc_a_10d_a": ("calldata", "0xea987592" + "00" * 31 + "01" + "00" * 31 + "05"),
+    "enc_a_10d_b": ("selector", "0xea987592"),
     # Blob bytes from byte 0 up to the last nonzero one; every later byte is zero.
     "enc_a_23b_a": ("blob_prefix", "0x3f0000001c" + "ff" * 27 + "30"),
     "enc_a_23c_a": ("blob_prefix", "0x00000000" + "01ff"),
@@ -3561,10 +3730,13 @@ def appendix_a_examples(cfg, states, apps, cut_vectors, statements, domains, vot
     `validator_states` and `app_hashes`. The extraData examples are rows of `extra_data`; the
     config hash and fallback key examples use the spec's own inputs, not the deployment's."""
     out = {}
-    rows = {tuple(int(r[k]) for k in ("generation", "anchor_number")): r for r in extra_rows}
+    rows = {
+        tuple(int(r[k]) for k in ("generation", "anchor_number", "miss_bitmap")): r
+        for r in extra_rows
+    }
     for name, vector, inputs in (
-        ("enc_a_10_f", "ENC-A-10 10.f", (0, 0)),
-        ("enc_a_10_h", "ENC-A-10 10.h", (1, 258)),
+        ("enc_a_10_f", "ENC-A-10 10.f", (0, 0, 0)),
+        ("enc_a_10_h", "ENC-A-10 10.h", (1, 258, 2**127 + 1)),
     ):
         row = rows[inputs]
         assert row["extra_data"] == encode_extra_data(*inputs)
@@ -3572,6 +3744,7 @@ def appendix_a_examples(cfg, states, apps, cut_vectors, statements, domains, vot
             "vector": vector,
             "generation": inputs[0],
             "anchor_number": inputs[1],
+            "miss_bitmap": inputs[2],
             "extra_data": row["extra_data"],
         }
     mix_preimage = abi_encode("f(bytes32,uint256)", word(1_000_000), 12_345)
@@ -3582,10 +3755,27 @@ def appendix_a_examples(cfg, states, apps, cut_vectors, statements, domains, vot
         "preimage": mix_preimage,
         "hash": keccak(mix_preimage),
     }
+    # The missBitmap bit order: seat s is bit s, so missBitmap 5 sets seats 0 and 2 in the last
+    # byte, and 2^127 sets only seat 127, the high bit of byte 13.
+    for name, vector, inputs, byte_index in (
+        ("enc_a_10c_a", "ENC-A-10c 10c.a", (5, 7, 5), 28),
+        ("enc_a_10c_b", "ENC-A-10c 10c.b", (5, 7, 2**127), 13),
+    ):
+        data = encode_extra_data(*inputs)
+        if inputs in rows:
+            assert rows[inputs]["extra_data"] == data
+        out[name] = {
+            "vector": vector,
+            "miss_bitmap": inputs[2],
+            "seats": [s for s in range(128) if inputs[2] >> s & 1],
+            "extra_data": data,
+            f"extra_data_byte_{byte_index}": "0x" + bytes.fromhex(data[2:])[byte_index:][:1].hex(),
+        }
     out["enc_a_10d_a"] = {
         "vector": "ENC-A-10d 10d.a",
         "generation": 1,
-        "calldata": on_block_start_calldata(1),
+        "miss_bitmap": 5,
+        "calldata": on_block_start_calldata(1, 5),
     }
     out["enc_a_10d_b"] = {
         "vector": "ENC-A-10d 10d.b",
@@ -3742,7 +3932,7 @@ def main():
     vote_vectors = votes(key_list, domains)
     extra_rows = extra_data()
     vectors = {
-        "schema_version": "11",
+        "schema_version": "10",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
@@ -3763,7 +3953,8 @@ def main():
         "origin_words": origin_words(),
         "layout": layout(),
         "fallback_keys": fallback_keys(),
-        "staking_layout": staking_layout(),
+        "staking_layout": staking_layout(key_list),
+        "miss_bitmap": miss_bitmap(key_list),
         "candidate": candidate(key_list),
         "on_block_start": on_block_start(),
         "governance_abi": governance_abi(digests, vote_vectors["slash_abi"]),

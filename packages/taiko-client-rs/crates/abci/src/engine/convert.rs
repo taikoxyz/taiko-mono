@@ -167,9 +167,10 @@ mod tests {
     use alloy_primitives::{Address, Bloom, b256, bytes};
     use serde_json::Value;
 
-    /// `engine_getPayloadV5` output of the pinned alethia-reth for block 1 on the test harness's
-    /// devnet genesis (see the fixture's `source` field), plus the `parentBeaconBlockRoot` sent
-    /// with the build. The tests check the payload only against itself.
+    /// `engine_getPayloadV5` output of the pinned alethia-reth for block 1 on an earlier build of
+    /// the test harness's devnet genesis (see the fixture's `source` field), plus the
+    /// `parentBeaconBlockRoot` sent with the build. The tests check the payload only against
+    /// itself, so the genesis it was built on does not matter.
     const GOLDEN: &str = include_str!("testdata/etna_block_1.json");
 
     /// `transactionsRoot` alethia-reth reported for the golden block (`eth_getBlockByNumber`).
@@ -209,7 +210,7 @@ mod tests {
             gas_limit: 45_000_000,
             gas_used: 63_000,
             timestamp: 1_791_526_500,
-            extra_data: bytes!("64000000000002000000000007"),
+            extra_data: bytes!("64000000000002000000000007" "00000000000000000000000000000001"),
             mix_hash: B256::repeat_byte(0x07),
             nonce: B64::ZERO,
             base_fee_per_gas: Some(25_000_000),

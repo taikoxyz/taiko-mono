@@ -74,7 +74,8 @@ pub async fn sign_transfer(
     Ok(TxEnvelope::Eip1559(tx.into_signed(signature)))
 }
 
-/// The decoded `extraData` of L2 block `h`: its generation and anchor L1 block number.
+/// The decoded `extraData` of L2 block `h`: generation, anchor L1 block number and
+/// `missBitmap`.
 pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<ExtraData> {
     let block = l2
         .get_block_by_number(BlockNumberOrTag::Number(h))

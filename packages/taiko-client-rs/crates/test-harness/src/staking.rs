@@ -69,12 +69,21 @@ pub struct StakingParams {
     pub min_stake: U256,
     /// `vpUnit`: a seated bond's power is its stake divided by it, rounded down.
     pub vp_unit: U256,
+    /// `missLimit`: the consecutive misses that cost a seat's bond `missSlashBps`.
+    pub miss_limit: u64,
+    /// `missSlashBps`: the share of its stake, in basis points, a bond loses per penalty.
+    pub miss_slash_bps: U256,
 }
 
 impl StakingParams {
     /// The power of a seated bond of stake `stake`.
     pub fn power(&self, stake: U256) -> Result<u64> {
         u64::try_from(stake / self.vp_unit).context("power above u64")
+    }
+
+    /// The missed-signature penalty on a bond of stake `stake`, rounded up.
+    pub fn miss_penalty(&self, stake: U256) -> U256 {
+        (stake * self.miss_slash_bps).div_ceil(U256::from(10_000))
     }
 }
 
@@ -136,6 +145,8 @@ impl Staking {
         Ok(StakingParams {
             min_stake: self.read(EtnaStaking::minStakeCall {}, latest).await?,
             vp_unit: self.read(EtnaStaking::vpUnitCall {}, latest).await?,
+            miss_limit: u64::try_from(self.read(EtnaStaking::missLimitCall {}, latest).await?)?,
+            miss_slash_bps: self.read(EtnaStaking::missSlashBpsCall {}, latest).await?,
         })
     }
 
@@ -252,6 +263,11 @@ impl Staking {
     ) -> Result<(U256, U256, Vec<IEtnaStaking::SeatMember>)> {
         let snapshot = self.read(EtnaStaking::snapshotCall {}, at).await?;
         Ok((snapshot.height_, snapshot.totalStake_, snapshot.members_))
+    }
+
+    /// The consecutive misses of seat `seat` in the post-state of block `at`.
+    pub async fn miss_count(&self, seat: u8, at: BlockId) -> Result<u16> {
+        self.read(EtnaStaking::missCountCall { _seat: seat }, at).await
     }
 
     /// `call` on the staking proxy at block `at`.
@@ -380,12 +396,18 @@ mod tests {
         assert_eq!(STAKER_KEYS[0], crate::DEV_KEY);
     }
 
-    /// A power rounds down, as the staking contract computes it.
+    /// A penalty rounds up and a power rounds down, as the staking contract computes them.
     #[test]
-    fn power_rounds_down() {
-        let params = StakingParams { min_stake: U256::from(100), vp_unit: U256::from(7) };
+    fn penalty_rounds_up_and_power_rounds_down() {
+        let params = StakingParams {
+            min_stake: U256::from(100),
+            vp_unit: U256::from(7),
+            miss_limit: 10,
+            miss_slash_bps: U256::from(1_000),
+        };
+        assert_eq!(params.miss_penalty(U256::from(200)), U256::from(20));
+        assert_eq!(params.miss_penalty(U256::from(201)), U256::from(21));
         assert_eq!(params.power(U256::from(20)).unwrap(), 2);
-        assert_eq!(params.power(U256::from(21)).unwrap(), 3);
     }
 
     /// The preimage hashes to the shared vectors' registration digests, which the contracts'

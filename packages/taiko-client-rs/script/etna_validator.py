@@ -38,6 +38,8 @@ sealed memfd whose digest must be the one the deployment manifest pins and execs
 (CONS-3.1-1), and, with Comet stopped, deletes the node's pending-evidence store and nothing else
 (CONS-3.1-10). The executable and pending-evidence checks are shared with the full-node launcher
 (etna_comet_guard.py). A failed check stops the supervisor before any child of that start runs.
+The configuration checks include the validators' timeout_commit floor, which the deployment
+manifest pins too: an effective value below it refuses the start.
 
 The supervisor also serves the signer's authenticated channel (RECOV-8.2-2): a Unix socket in
 its private run directory that only the signer it started may use (peer credentials). Over it
@@ -196,6 +198,27 @@ def duration(value):
     if type(value) is int:
         return value
     return go_duration(value) if isinstance(value, str) else None
+
+
+# The validators' timeout_commit floor. On a validator timeout_commit is also how long Comet waits
+# for late precommits before the next height starts, and a precommit it processes later counts as
+# a miss, so the deployment manifest pins a floor for it, configuration["consensus.timeout_commit"]
+# ["min"], that every effective value must reach; stock Comet uses 1s when none is set. Full nodes
+# do not check it.
+TIMEOUT_COMMIT = "consensus.timeout_commit"
+STOCK_TIMEOUT_COMMIT = "1s"
+
+
+def timeout_commit_floor(manifest):
+    """The timeout_commit floor the deployment manifest pins, as its Go duration string and its
+    nanoseconds; a manifest without a valid one is refused."""
+    configuration = manifest.get("configuration")
+    pinned = configuration.get(TIMEOUT_COMMIT) if isinstance(configuration, dict) else None
+    floor = pinned.get("min") if isinstance(pinned, dict) else None
+    nanoseconds = go_duration(floor) if isinstance(floor, str) else None
+    if nanoseconds is None:
+        raise ValueError(f"the deployment manifest pins no valid CometBFT {TIMEOUT_COMMIT} floor")
+    return floor, nanoseconds
 
 
 # CometBFT v0.40.0 settings every validator pins (START-10-6), by Viper path: the stock default
@@ -479,14 +502,16 @@ class Supervisor:
     def check_effective_settings(self):
         """Refuse a validator whose effective CometBFT configuration moves a pinned setting
         (START-10-6, LIMIT-12-2), a Comet argv that sets one by flag, which would beat both
-        config.toml and the environment, and a CMTHOME/TMHOME that moves Comet off its home."""
+        config.toml and the environment, a CMTHOME/TMHOME that moves Comet off its home, and an
+        effective timeout_commit below the deployment manifest's floor or that Comet would not read
+        as a duration."""
         for name in ("CMTHOME", "TMHOME"):
             value = os.environ.get(name, "")
             if value and Path(value).resolve() != self.home:
                 raise ValueError(f"{name}={value} would start Comet outside ETNA_COMET_HOME")
         flagged = {argument.lstrip("-").split("=", 1)[0].lower()
                    for argument in self.comet_command[1:] if argument.startswith("-")}
-        for path in [*PINNED_SETTINGS, *READ_SETTINGS, "priv_validator_laddr"]:
+        for path in [*PINNED_SETTINGS, TIMEOUT_COMMIT, *READ_SETTINGS, "priv_validator_laddr"]:
             if path in flagged:
                 raise ValueError(f"validator startup refuses a --{path} flag in the Comet argv; set it in config.toml (START-10-6)")
         for path, (default, kind, requirement, check) in PINNED_SETTINGS.items():
@@ -494,6 +519,12 @@ class Supervisor:
                 if not check(value, self.inbound_peers):
                     raise ValueError(f"validator startup requires CometBFT {path} {requirement}; "
                                      f"{source} gives {value!r} (START-10-6)")
+        floor, minimum = self.timeout_commit_floor
+        for source, value in self.effective_values(TIMEOUT_COMMIT, STOCK_TIMEOUT_COMMIT, "duration"):
+            nanoseconds = duration(value)
+            if nanoseconds is None or nanoseconds < minimum:
+                raise ValueError(f"validator startup requires CometBFT {TIMEOUT_COMMIT} at least {floor}, the "
+                                 f"deployment manifest's floor; {source} gives {value!r}")
 
     def read_setting(self, path):
         """The one value stock Comet uses for an unpinned setting; candidates that disagree are
@@ -672,6 +703,8 @@ class Supervisor:
         if len(set(inbound)) != len(inbound):
             raise ValueError("ETNA_P2P_INBOUND_PEER_IDS lists a peer twice")
         self.inbound_peers = sorted(inbound)
+        self.manifest = GUARD.load_manifest()
+        self.timeout_commit_floor = timeout_commit_floor(self.manifest)
         self.load_comet_config()
         self.observer = None
         self.preflight = None
@@ -680,7 +713,6 @@ class Supervisor:
         self.stop_armed = False
         self.stop_reached = None
         self.stopped_for_upgrade = False
-        self.manifest = GUARD.load_manifest()
         os.close(self.comet_executable())
         self.address = self.comet_listener = None
         self.signer = self.comet = None

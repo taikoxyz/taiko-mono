@@ -20,7 +20,7 @@ pub mod convert;
 pub mod forced;
 /// [`Engine`] over the `rpc` crate's Engine API wrappers and an L2 JSON-RPC provider.
 pub mod rpc_engine;
-/// Hash-pinned reads of the `EtnaStaking` candidate snapshot.
+/// Hash-pinned reads of the `EtnaStaking` candidate snapshot and key-to-seat words.
 pub mod staking;
 
 pub use convert::{block_from_payload, payload_from_block};

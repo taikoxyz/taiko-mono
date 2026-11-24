@@ -408,7 +408,7 @@ async fn prepare_parent_recovery_uses_the_same_total_proposal_timeout() {
     lose_suffix(&app);
     app.store.execution_blocks().remove(3).expect("the body is retained");
     app.engine().state().delay = Some(app.opts.prepare_timeout / 2);
-    let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+    let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
     let start = tokio::time::Instant::now();
     let output = super::proposal::prepare(&mut app, request).await;
     assert!(output.is_empty(), "unavailable parent produces a nonconsuming placeholder");
@@ -516,7 +516,7 @@ async fn repeated_prepare_deadlines_do_not_cancel_a_long_execution_repair() {
     app.engine().state().delay = Some(Duration::from_millis(200));
     let mut envelope = None;
     for _ in 0..12 {
-        let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+        let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
         let started = tokio::time::Instant::now();
         let output = super::proposal::prepare(&mut app, request).await;
         assert!(
@@ -547,7 +547,7 @@ async fn app_drop_aborts_owned_parent_repair_without_a_later_forkchoice() {
     lose_suffix(&app);
     app.opts.prepare_timeout = Duration::from_secs(1);
     app.engine().state().delay = Some(Duration::from_millis(200));
-    let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+    let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
     assert!(super::proposal::prepare(&mut app, request).await.is_empty());
     let engine = Arc::clone(&app.engine);
     let calls = engine.calls();
@@ -581,7 +581,7 @@ async fn committing_a_new_parent_aborts_the_obsolete_owned_repair() {
     lose_suffix(&app);
     app.opts.prepare_timeout = Duration::from_secs(1);
     app.engine().state().delay = Some(Duration::from_millis(200));
-    let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+    let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
     assert!(super::proposal::prepare(&mut app, request).await.is_empty());
     {
         let mut engine = app.engine().state();
@@ -665,7 +665,7 @@ async fn delivered_execution_repair_failure(
     lose_suffix(&app);
     app.opts.prepare_timeout = Duration::from_secs(1);
     app.engine().state().delay = Some(Duration::from_millis(400));
-    let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+    let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
     assert!(super::proposal::prepare(&mut app, request).await.is_empty());
     for _ in 0..8 {
         tokio::time::advance(Duration::from_secs(1)).await;
@@ -765,7 +765,7 @@ async fn completed_prepare_forkchoice_is_not_repeated_when_its_parent_read_timed
     let mut envelope = None;
     for _ in 0..12 {
         let started = tokio::time::Instant::now();
-        let request = super::proposal::prepare_req(next_height(&app), bft_time(&app));
+        let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
         let output = super::proposal::prepare(&mut app, request).await;
         assert!(started.elapsed() <= app.opts.prepare_timeout);
         if let Some(bytes) = output.first() {

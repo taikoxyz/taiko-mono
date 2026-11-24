@@ -84,6 +84,7 @@ pub(crate) fn request() -> ProofRequest {
                 super::consensus_mpt::seed_key(1),
             ]),
             header_p: None,
+            validators_p: None,
             validators_p1: None,
             staking_at_p: None,
             start_signal_service_witness: None,

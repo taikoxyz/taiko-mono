@@ -376,7 +376,7 @@ impl Commands {
                     &installed.app,
                     key_dir,
                     &installed.chain_id()?,
-                );
+                )?;
                 supervisor
                     .env("ETNA_SIGNER_BIN", helper("ETNA_SIGNER_BIN", "etna-signer"))
                     .env("ETNA_COMET_BIN", &comet);

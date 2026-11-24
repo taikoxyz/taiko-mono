@@ -539,10 +539,10 @@ async fn app_new_rejects_a_changed_authenticated_unsettled_limit() {
 }
 
 /// A state file of the previous schema is refused, never migrated: one in the previous shape (a
-/// `parent_signers` list beside the validator state) does not even decode, and one in the current
-/// shape claiming schema 22 fails the schema check.
+/// `committees` map beside the validator state) does not even decode, and one in the current
+/// shape claiming schema 21 fails the schema check.
 #[test]
-fn schema_22_state_is_refused() {
+fn schema_21_state_is_refused() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let store = Store::volatile(dir.path().into());
@@ -555,23 +555,23 @@ fn schema_22_state_is_refused() {
             crate::test_utils::test_options(),
         )
     };
-    assert_eq!(crate::store::STATE_SCHEMA_VERSION, 23);
+    assert_eq!(crate::store::STATE_SCHEMA_VERSION, 22);
 
     let mut old = fx.expected_state();
-    old.schema_version = 22;
+    old.schema_version = 21;
     store.save(&old).unwrap();
-    let err = open(&store).expect_err("schema 22 is refused");
+    let err = open(&store).expect_err("schema 21 is refused");
     assert!(
         matches!(&err, AbciError::StoredState(msg)
-            if msg == "unsupported app state schema 22 (expected 23)"),
+            if msg == "unsupported app state schema 21 (expected 22)"),
         "{err:?}"
     );
 
     let mut json = serde_json::to_value(&old).unwrap();
-    json.as_object_mut().unwrap().insert("parent_signers".into(), serde_json::json!([]));
+    json.as_object_mut().unwrap().insert("committees".into(), serde_json::json!({}));
     std::fs::write(dir.path().join(crate::store::STATE_FILE), serde_json::to_vec(&json).unwrap())
         .unwrap();
-    let err = open(&store).expect_err("the schema-22 shape does not decode");
+    let err = open(&store).expect_err("the schema-21 shape does not decode");
     assert!(matches!(err, AbciError::Store(StoreError::Corrupt { .. })), "{err:?}");
 }
 

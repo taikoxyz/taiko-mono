@@ -37,13 +37,15 @@ def supervisor_module(name="etna_validator_under_test"):
     return module
 
 
-def write_manifest(path, executable):
+def write_manifest(path, executable, floor="1s"):
     """A deployment manifest that pins executable for this host's platform, as the shipped one
-    pins the official linux/amd64 executable."""
+    pins the official linux/amd64 executable, and the validators' timeout_commit floor `floor`:
+    by default stock Comet's 1 s, which a config.toml without timeout_commit meets."""
     module = supervisor_module("etna_manifest_writer")
-    path.write_text(json.dumps(dict(schema=3, engine="cometbft", release="v0.40.0",
+    path.write_text(json.dumps(dict(schema=2, engine="cometbft", release="v0.40.0",
                                     source_commit="0880b4d378f347ab16e54ec677ff50d803f37d62",
-                                    platforms={module.comet_platform(): dict(sha256=module.sha256_file(executable))})))
+                                    platforms={module.comet_platform(): dict(sha256=module.sha256_file(executable))},
+                                    configuration={"consensus.timeout_commit": dict(min=floor)})))
 
 
 def write_node_key(path):
@@ -1498,6 +1500,91 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
                 self.assert_refused_before_children(f"refuses a --{flag.lstrip('-').split('=')[0]} flag",
                                                     env={"ETNA_COMET_COMMAND_JSON": json.dumps([str(self.bin / "cometbft"), "start", flag])})
 
+    def pin_floor(self, floor):
+        """The deployment manifest the next supervisor reads pins the timeout_commit floor `floor`."""
+        write_manifest(self.manifest, self.bin / "cometbft", floor)
+
+    def test_timeout_commit_below_the_floor_is_refused_in_config_toml(self):
+        """A validator sets timeout_commit no lower than the floor the deployment manifest pins.
+        Every config.toml spelling is a candidate: Viper folds key case and reads a literal dotted
+        key, and Comet reads a bare integer as nanoseconds. One candidate below the floor, or one
+        that is no Go duration, refuses the start."""
+        self.pin_floor("4s")
+        self.assert_settings_refused("consensus.timeout_commit",
+                                     '[consensus]\ntimeout_commit = "3999ms"',
+                                     '[CONSENSUS]\nTimeout_Commit = "3.5s"',
+                                     '"consensus.timeout_commit" = "1s"',
+                                     "[consensus]\ntimeout_commit = 3999999999",
+                                     '"consensus.timeout_commit" = "1s"\n[consensus]\ntimeout_commit = "4s"',
+                                     '[consensus]\ntimeout_commit = "4"',
+                                     "[consensus]\ntimeout_commit = 4.0")
+
+    def test_timeout_commit_below_the_floor_is_refused_in_env(self):
+        """CMT_* overrides of timeout_commit are candidates too, in both spellings, even over a
+        config.toml value at the floor; Viper hands their text to Go's duration parser, so a bare
+        integer, which it refuses, is refused here as well."""
+        self.pin_floor("4s")
+        at_floor = '[consensus]\ntimeout_commit = "4s"'
+        for env in ({"CMT_CONSENSUS_TIMEOUT_COMMIT": "1s"}, {"CMTCONSENSUS_TIMEOUT_COMMIT": "3.999s"},
+                    {"CMT_CONSENSUS_TIMEOUT_COMMIT": "4000000000"}):
+            with self.subTest(env=env):
+                self.assert_refused_before_children("requires CometBFT consensus.timeout_commit at least 4s",
+                                                    at_floor, env=env)
+
+    def test_timeout_commit_below_the_floor_is_refused_as_argv_flag(self):
+        """A flag would beat config.toml and the environment, so an explicit Comet argv may not
+        set timeout_commit."""
+        self.pin_floor("4s")
+        for argv in (["--consensus.timeout_commit=1s"], ["--consensus.timeout_commit", "1s"]):
+            with self.subTest(argv=argv):
+                self.assert_refused_before_children(
+                    "refuses a --consensus.timeout_commit flag",
+                    env={"ETNA_COMET_COMMAND_JSON": json.dumps([str(self.bin / "cometbft"), "start", *argv])})
+
+    def test_timeout_commit_at_and_above_the_floor_starts(self):
+        """An effective timeout_commit equal to the floor, in any spelling of that duration, or
+        above it starts the pair, and so does an override that is; an empty override is ignored."""
+        self.pin_floor("4s")
+        starts = 1
+        for settings, env in (('[consensus]\ntimeout_commit = "4s"', {}),
+                              ('[consensus]\ntimeout_commit = "4000ms"', {}),
+                              ("[consensus]\ntimeout_commit = 4000000000", {}),
+                              ('[CONSENSUS]\nTIMEOUT_COMMIT = "3s1000ms"', {}),
+                              ('[consensus]\ntimeout_commit = "1m0s"', {}),
+                              ('[consensus]\ntimeout_commit = "5s"', {"CMT_CONSENSUS_TIMEOUT_COMMIT": "4s"}),
+                              ('[consensus]\ntimeout_commit = "4s"',
+                               {"CMTCONSENSUS_TIMEOUT_COMMIT": "4.5s", "CMT_CONSENSUS_TIMEOUT_COMMIT": ""})):
+            starts += 1
+            with self.subTest(settings=settings, env=env):
+                self.restart_over_settings(settings, env=env)
+                self.wait(lambda: self.starts() == starts and len(self.signers()) == starts)
+
+    def test_absent_timeout_commit_is_stock_one_second(self):
+        """Without timeout_commit in config.toml or the environment Comet uses its stock 1 s: a 4 s
+        floor refuses the start, a 1 s floor accepts it."""
+        self.pin_floor("4s")
+        self.assert_refused_before_children("requires CometBFT consensus.timeout_commit at least 4s, the deployment "
+                                            "manifest's floor; stock default gives '1s'")
+        self.pin_floor("1s")
+        self.restart_over_settings("")
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+
+    def test_schema_1_manifest_is_refused(self):
+        """The deployment manifest is schema 2, which pins the validators' timeout_commit floor: an
+        earlier schema 1 manifest, and a schema 2 one without a valid floor, are refused before any
+        child starts."""
+        manifest = json.loads(self.manifest.read_text())
+        earlier = {key: value for key, value in manifest.items() if key != "configuration"}
+        self.manifest.write_text(json.dumps(dict(earlier, schema=1)))
+        self.assert_refused_before_children("is not a schema 2 manifest for CometBFT v0.40.0")
+        for configuration in ({}, {"consensus.timeout_commit": "4s"}, {"consensus.timeout_commit": {}},
+                              {"consensus.timeout_commit": {"min": "4"}}, {"consensus.timeout_commit": {"min": 4}}):
+            with self.subTest(configuration=configuration):
+                self.manifest.write_text(json.dumps(dict(manifest, configuration=configuration)))
+                self.assert_refused_before_children("pins no valid CometBFT consensus.timeout_commit floor")
+        self.manifest.write_text(json.dumps(earlier))
+        self.assert_refused_before_children("pins no valid CometBFT consensus.timeout_commit floor")
+
     def test_pending_evidence_store_is_deleted_before_every_comet_start(self):
         """With Comet stopped, every start deletes <db_dir>/evidence.db and nothing else: the WAL,
         block and state stores, the dummy FilePV state, the app store and the signer's files stay
@@ -1549,11 +1636,9 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         unsupported = dict(manifest, platforms={}, unsupported_platforms={platform: "no official executable here"})
         self.manifest.write_text(json.dumps(unsupported))
         self.assert_refused_before_children("no official executable here (CONS-3.1-1)")
-        floor = dict(manifest, schema=2, configuration={"consensus.timeout_commit": dict(min="1s")})
-        for broken in (dict(manifest, release="v0.38.0"), dict(manifest, source_commit="00" * 20),
-                       dict(manifest, schema=1), floor):
+        for broken in (dict(manifest, release="v0.38.0"), dict(manifest, source_commit="00" * 20)):
             self.manifest.write_text(json.dumps(broken))
-            self.assert_refused_before_children("is not a schema 3 manifest for CometBFT v0.40.0")
+            self.assert_refused_before_children("is not a schema 2 manifest for CometBFT v0.40.0")
         self.assert_refused_before_children("deployment manifest", env={"ETNA_COMET_MANIFEST": str(self.root / "absent.json")})
         self.manifest.write_text(json.dumps(manifest))
         self.restart_over_settings("")
@@ -2209,15 +2294,14 @@ class SupervisorUnitTests(unittest.TestCase):
                 self.assertTrue(check(configuration[path], []), path)
         self.assertEqual(configuration["db_backend"], list(module.COMET_DB_BACKENDS))
 
-    def test_shipped_manifest_pins_no_timeout_commit_floor(self):
-        """comet-manifest.json is the schema 3 deployment manifest the supervisor reads, and
-        timeout_commit is each node's own block-cadence setting: the manifest pins nothing for it
-        and the supervisor checks nothing about it."""
-        module = supervisor_module("etna_shipped_manifest")
+    def test_shipped_manifest_pins_the_timeout_commit_floor(self):
+        """comet-manifest.json, a schema 2 deployment manifest, pins the validators' timeout_commit
+        floor for the 4 s block-time target, and the supervisor reads it as 4 s."""
+        module = supervisor_module("etna_shipped_floor")
         manifest = json.loads((ROOT / "comet-manifest.json").read_text())
-        self.assertEqual((manifest["schema"], module.COMET_MANIFEST_SCHEMA), (3, 3))
-        self.assertNotIn("consensus.timeout_commit", manifest["configuration"])
-        self.assertNotIn("consensus.timeout_commit", module.PINNED_SETTINGS)
+        self.assertEqual((manifest["schema"], module.COMET_MANIFEST_SCHEMA), (2, 2))
+        self.assertEqual(manifest["configuration"]["consensus.timeout_commit"], {"min": "4s"})
+        self.assertEqual(module.timeout_commit_floor(manifest), ("4s", 4 * 10**9))
 
     def test_durations_follow_go_parsing(self):
         """Comet reads a duration setting's string with Go's time.ParseDuration and a bare TOML

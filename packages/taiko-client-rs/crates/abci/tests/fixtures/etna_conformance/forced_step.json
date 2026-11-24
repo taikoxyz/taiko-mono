@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "forced_step",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5", "specCommit": "fb8a348e9c9998327541d562d69a2a636f8974f8"},
+  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5", "specCommit": "b01356ddc942ee10e67d1f506bf4acd043b8686c"},
   "constants": {
     "maxForcedTxBytes": 8192,
     "entryTimestamp": 1700000000,

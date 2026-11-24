@@ -89,8 +89,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     (home / "run").mkdir(mode=0o700)
     # The configured path only selects Unix mode; the supervisor names each pair's socket. The
     # validator exchanges P2P messages only with listed peers (START-10-6).
+    # Its timeout_commit is the floor the shipped deployment manifest pins.
     config = ('proxy_app = "kvstore"\npriv_validator_laddr = "unix://run/signer.sock"\n'
-              '[p2p]\npex = false\nmax_num_inbound_peers = 0\n')
+              '[p2p]\npex = false\nmax_num_inbound_peers = 0\n'
+              f'[consensus]\ntimeout_commit = "{manifest["configuration"]["consensus.timeout_commit"]["min"]}"\n')
     (home / "config/config.toml").write_text(config)
     assert tomllib.loads(config)["priv_validator_laddr"].startswith("unix://")
     # Only public registered metadata is installed in the Comet home.

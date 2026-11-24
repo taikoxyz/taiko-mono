@@ -191,17 +191,18 @@ async fn import_accepts_preimage_for_s_minus_1() {
     assert_eq!(imported.val_state_before(), Some(&fx.val_states[&5]));
     assert_eq!(imported.state().val_state, fx.val_states[&6]);
     assert_eq!(imported.state().last_height, 6);
+    // s + 1's LastCommit lists the set that signs s, the current set after s - 1.
+    assert_eq!(imported.state().parent_signers, fx.val_states[&5].current.entries);
 }
 
 /// A package of schema 2, whose generation-zero genesis carried a registry committee, is
-/// refused as a candidate before anything is authenticated, as are schema 1 and schema 3, whose
-/// staking proof covered the earlier snapshot slots; schema 4 imports.
+/// refused as a candidate before anything is authenticated, as is schema 1; schema 3 imports.
 #[tokio::test]
 async fn package_schema_2_is_refused() {
     let fx = std::sync::Arc::new(Fixture::new(6, 6));
     let honest = import_package(&fx, 6).await;
-    assert_eq!(IMPORT_SCHEMA, 4);
-    for schema in [1, 2, 3, 5] {
+    assert_eq!(IMPORT_SCHEMA, 3);
+    for schema in [1, 2, 4] {
         let old = ImportPackage { schema, ..honest.clone() };
         let result =
             authenticate_import(&old, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
@@ -1163,7 +1164,7 @@ fn el_manifest_is_the_helpers_parsed_fixture() {
             state_root: B256::repeat_byte(0x13),
             gas_limit: 45_000_000,
             base_fee_per_gas: Some(10_000_000),
-            extra_data: vec![0x5a; 13].into(),
+            extra_data: vec![0x5a; 29].into(),
             withdrawals_root: Some(B256::repeat_byte(0x25)),
             blob_gas_used: Some(0),
             excess_blob_gas: Some(0),
@@ -1781,6 +1782,7 @@ async fn review_self_signed_prefix_cannot_trigger_an_own_l1_exclusion_halt() {
         basefee_sharing_pctg: abci::rules::BASEFEE_SHARING_PCTG,
         generation: 0,
         anchor: 9,
+        miss_bitmap: 0,
     })
     .unwrap();
     first.block.data[0] = env.encode().to_vec();
@@ -2316,10 +2318,12 @@ async fn s_at_a_failed_block_start_call() {
     );
 }
 
-/// Window blocks whose LastCommit lacks a precommit import like any other: the package proves
-/// s's snapshot alone, and the import reads no L2 state.
+/// Window blocks whose LastCommit misses a validator carry a nonzero `missBitmap` that depends
+/// on the parent's key-to-seat words. The import holds no such words, and none at all below s:
+/// it checks no bitmap at or below s (the landings' proofs cover them), reads no L2 state and
+/// imports.
 #[tokio::test]
-async fn window_blocks_with_absent_precommits_import() {
+async fn window_blocks_are_not_bitmap_checked() {
     let plan = SigningPlan {
         origin_keys: 4,
         missing: Box::new(|height| {
@@ -2333,20 +2337,43 @@ async fn window_blocks_with_absent_precommits_import() {
     };
     let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
     for height in [5, 9, S] {
-        let last = fx.blocks[&height].block.last_commit.as_ref().unwrap();
-        assert!(
-            matches!(last.signatures[0], crate::native::CommitSig::BlockIdFlagAbsent),
-            "height {height}"
-        );
+        let extra = abci::rules::decode_extra_data(&fx.headers[&height].extra_data).unwrap();
+        assert_ne!(extra.miss_bitmap, 0, "height {height}");
     }
     let package = import_package(&fx, S).await;
     assert_eq!(
         package.staking_witness.as_ref().unwrap().storage.len(),
         abci::staking::snapshot_slots().len(),
-        "the package proves s's snapshot alone"
+        "the package proves s's snapshot alone, no key-to-seat word"
     );
     let state = import_with(&fx, S, &package).await.unwrap().state().clone();
     assert_eq!(state.val_state, fx.val_states[&S]);
+}
+
+/// The set that signs s, the current set after s − 1 from the authenticated preimage, is the
+/// one s + 1's LastCommit lists, not the set that signs s + 1; here every height has a set of
+/// its own.
+#[tokio::test]
+async fn import_installs_the_set_that_signs_s_as_parent_signers() {
+    let plan = SigningPlan {
+        anchor_words: minimum(1000),
+        staking: Box::new(|height, origin| origin_candidate(height, 1000 + height, origin, height)),
+        ..SigningPlan::default()
+    };
+    let fx = std::sync::Arc::new(Fixture::with_plan(S, S, plan));
+    let state = import(&fx, S).await.unwrap().state().clone();
+    let before = &fx.val_states[&(S - 1)];
+    assert_eq!(state.parent_signers, before.current.entries);
+    assert_eq!(
+        state.parent_signers.iter().map(|e| (e.key, e.power as u64)).collect::<BTreeMap<_, _>>(),
+        fx.signing_sets[&S].members.iter().copied().collect()
+    );
+    assert_ne!(state.parent_signers, state.val_state.current.entries);
+    assert_eq!(state.val_state.current, before.next);
+    assert_eq!(
+        powers(&state.val_state.next),
+        origin_members(&fx.origin_keys, S).into_iter().collect()
+    );
 }
 
 /// At s = c + 1 the origin record's keys sign s + 1 = c + 2 whatever the candidate is, and s

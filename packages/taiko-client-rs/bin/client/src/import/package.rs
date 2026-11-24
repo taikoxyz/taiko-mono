@@ -164,7 +164,7 @@ mod tests {
         Header {
             number,
             base_fee_per_gas: Some(10_000_000),
-            extra_data: vec![0x5a; 13].into(),
+            extra_data: vec![0x5a; 29].into(),
             withdrawals_root: Some(B256::repeat_byte(1)),
             blob_gas_used: Some(0),
             excess_blob_gas: Some(0),

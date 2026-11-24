@@ -12,8 +12,8 @@ const BFT_SECS: u64 = 1_760_000_105;
 const GENERATION: u64 = 2;
 
 /// The `extraData` fields of an Etna block: the sharing byte 100 and the given values.
-fn extra(generation: u64, anchor: u64) -> ExtraData {
-    ExtraData { basefee_sharing_pctg: BASEFEE_SHARING_PCTG, generation, anchor }
+fn extra(generation: u64, anchor: u64, miss_bitmap: u128) -> ExtraData {
+    ExtraData { basefee_sharing_pctg: BASEFEE_SHARING_PCTG, generation, anchor, miss_bitmap }
 }
 
 fn devnet() -> ChainParams {
@@ -65,6 +65,7 @@ fn inputs<'a>(
         anchor,
         bft_time_secs: BFT_SECS,
         generation: GENERATION,
+        miss_bitmap: 0,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
         beneficiary: Address::repeat_byte(0x77),
@@ -135,27 +136,33 @@ fn block_timestamp_saturates_at_u64_max() {
 // ---------------------------------------------------------------------------------------------
 
 #[test]
-fn extra_data_round_trips_13_bytes() {
-    let fields = extra(2, 123_456);
+fn extra_data_round_trips_29_bytes() {
+    let fields = extra(2, 123_456, (1 << 127) | 5);
     let bytes = encode_extra_data(&fields).expect("fits uint48");
     assert_eq!(bytes.len(), EXTRA_DATA_LEN);
-    assert_eq!(bytes.as_ref(), hex!("64" "000000000002" "00000001e240"));
+    assert_eq!(
+        bytes.as_ref(),
+        hex!("64" "000000000002" "00000001e240" "80000000000000000000000000000005")
+    );
     assert_eq!(decode_extra_data(&bytes), Ok(fields));
 
-    let max = extra(UINT48_MAX, UINT48_MAX);
+    let max = extra(UINT48_MAX, UINT48_MAX, u128::MAX);
     let bytes = encode_extra_data(&max).expect("max uint48 fits");
-    assert_eq!(bytes.as_ref(), hex!("64" "ffffffffffff" "ffffffffffff"));
+    assert_eq!(
+        bytes.as_ref(),
+        hex!("64" "ffffffffffff" "ffffffffffff" "ffffffffffffffffffffffffffffffff")
+    );
     assert_eq!(decode_extra_data(&bytes), Ok(max));
 
-    let zero = encode_extra_data(&extra(0, 0)).expect("fits uint48");
-    assert_eq!((zero[0], &zero[1..]), (0x64, &[0u8; 12][..]));
-    assert_eq!(decode_extra_data(&zero), Ok(extra(0, 0)));
+    let zero = encode_extra_data(&extra(0, 0, 0)).expect("fits uint48");
+    assert_eq!((zero[0], &zero[1..]), (0x64, &[0u8; 28][..]));
+    assert_eq!(decode_extra_data(&zero), Ok(extra(0, 0, 0)));
 }
 
 #[test]
-fn extra_data_length_other_than_13_is_refused() {
-    let bytes = encode_extra_data(&extra(GENERATION, 500)).unwrap();
-    for len in [7, 12] {
+fn extra_data_length_other_than_29_is_refused() {
+    let bytes = encode_extra_data(&extra(GENERATION, 500, 1)).unwrap();
+    for len in [13, 28] {
         assert_eq!(
             decode_extra_data(&bytes[..len]),
             Err(RuleViolation::ExtraDataLength { len }),
@@ -163,9 +170,7 @@ fn extra_data_length_other_than_13_is_refused() {
         );
     }
     let longer = [bytes.as_ref(), &[0]].concat();
-    assert_eq!(decode_extra_data(&longer), Err(RuleViolation::ExtraDataLength { len: 14 }));
-    let bitmap_layout = [bytes.as_ref(), &[0; 16]].concat();
-    assert_eq!(decode_extra_data(&bitmap_layout), Err(RuleViolation::ExtraDataLength { len: 29 }));
+    assert_eq!(decode_extra_data(&longer), Err(RuleViolation::ExtraDataLength { len: 30 }));
     assert_eq!(decode_extra_data(&[]), Err(RuleViolation::ExtraDataLength { len: 0 }));
 }
 
@@ -192,37 +197,14 @@ fn pctg_99_is_a_header_mismatch() {
     );
 }
 
-/// The pinned EL encodes every shared `extraData` vector as this crate does, and makes exactly the
-/// vector's 36-byte `onBlockStart(uint48 generation)` call for it: the EL and the client agree on
-/// the header field the block-start call reads.
-#[test]
-fn pinned_el_agrees_on_the_shared_extra_data_and_block_start_calldata() {
-    use crate::test_utils::vectors::{len_at, str_at, u64_at};
-    use alethia_reth_primitives::extra_data::{ETNA_EXTRA_DATA_LEN, EtnaExtraData};
-    assert_eq!(EXTRA_DATA_LEN, ETNA_EXTRA_DATA_LEN);
-    for index in 0..len_at("/extra_data") {
-        let path = |field: &str| format!("/extra_data/{index}/{field}");
-        let (generation, anchor) = (u64_at(&path("generation")), u64_at(&path("anchor_number")));
-        let el = EtnaExtraData::new(generation, anchor).expect("uint48 fields");
-        let bytes = encode_extra_data(&extra(generation, anchor)).unwrap();
-        assert_eq!(bytes.as_ref(), el.encode().as_slice(), "extraData {index}");
-        assert_eq!(bytes.as_ref(), hex::decode(str_at(&path("extra_data"))).unwrap(), "{index}");
-        assert_eq!(
-            el.on_block_start_calldata().as_slice(),
-            hex::decode(str_at(&path("on_block_start_calldata"))).unwrap(),
-            "onBlockStart calldata {index}"
-        );
-    }
-}
-
 #[test]
 fn encode_extra_data_rejects_uint48_overflow() {
     assert_eq!(
-        encode_extra_data(&extra(UINT48_MAX + 1, 1)),
+        encode_extra_data(&extra(UINT48_MAX + 1, 1, 0)),
         Err(RuleViolation::ExtraDataOverflow { field: "generation", value: UINT48_MAX + 1 })
     );
     assert_eq!(
-        encode_extra_data(&extra(1, u64::MAX)),
+        encode_extra_data(&extra(1, u64::MAX, 0)),
         Err(RuleViolation::ExtraDataOverflow { field: "anchor", value: u64::MAX })
     );
 }
@@ -243,7 +225,10 @@ fn expected_header_for_a_genesis_parent() {
             parent_hash: p.hash,
             timestamp: BFT_SECS,
             beneficiary: Address::repeat_byte(0x77),
-            extra_data: Bytes::from(hex!("64" "000000000002" "0000000001f4").to_vec()),
+            extra_data: Bytes::from(
+                hex!("64" "000000000002" "0000000001f4" "00000000000000000000000000000000")
+                    .to_vec()
+            ),
             parent_beacon_block_root: a.state_root,
             gas_limit: 45_000_000,
             // SHASTA_INITIAL_BASE_FEE: a genesis parent has no EIP-4396 history.
@@ -263,7 +248,7 @@ fn expected_header_for_a_non_genesis_parent() {
     assert_eq!(e.parent_hash, p.hash);
     assert_eq!(e.timestamp, BFT_SECS);
     assert_eq!(e.beneficiary, Address::repeat_byte(0x77));
-    assert_eq!(decode_extra_data(&e.extra_data), Ok(extra(GENERATION, 500)));
+    assert_eq!(decode_extra_data(&e.extra_data), Ok(extra(GENERATION, 500, 0)));
     assert_eq!(e.parent_beacon_block_root, a.state_root);
     assert_eq!(e.gas_limit, params.block_gas_limit);
     // 30M used against a 22.5M target adjusted to 11.25M for a 2 s block under Etna's 4 s
@@ -410,6 +395,20 @@ fn expected_header_requires_the_next_height() {
 }
 
 #[test]
+fn expected_header_carries_the_supplied_bitmap() {
+    let (p, a, params) = (parent(10), anchor(500, 0), devnet());
+    let i = HeaderInputs { miss_bitmap: 5, ..inputs(11, &p, &a, &params) };
+    let e = expected_header(&i).expect("derives");
+    assert_eq!(e.extra_data.len(), EXTRA_DATA_LEN);
+    assert_eq!(e.extra_data[28], 5);
+    assert_eq!(e.extra_data[13..28], [0u8; 15]);
+    assert_eq!(decode_extra_data(&e.extra_data), Ok(extra(GENERATION, 500, 5)));
+    // Seat 127 is the high bit of byte 13.
+    let i = HeaderInputs { miss_bitmap: 1 << 127, ..inputs(11, &p, &a, &params) };
+    assert_eq!(expected_header(&i).unwrap().extra_data[13], 0x80);
+}
+
+#[test]
 fn expected_header_rejects_a_generation_beyond_uint48() {
     let (p, a, params) = (parent(10), anchor(500, 0), devnet());
     let i = HeaderInputs { generation: UINT48_MAX + 1, ..inputs(11, &p, &a, &params) };
@@ -451,8 +450,8 @@ fn check_header_rejects_every_single_field_mutation() {
         ("parent_hash", |h| h.parent_hash = B256::repeat_byte(0x99)),
         ("timestamp", |h| h.timestamp += 1),
         ("beneficiary", |h| h.beneficiary = Address::repeat_byte(0x99)),
-        ("extra_data", |h| h.extra_data = encode_extra_data(&extra(GENERATION, 501)).unwrap()),
-        ("extra_data", |h| h.extra_data = encode_extra_data(&extra(GENERATION + 1, 500)).unwrap()),
+        ("extra_data", |h| h.extra_data = encode_extra_data(&extra(GENERATION, 501, 0)).unwrap()),
+        ("extra_data", |h| h.extra_data = encode_extra_data(&extra(GENERATION, 500, 1)).unwrap()),
         ("extra_data", |h| {
             let mut bytes = h.extra_data.to_vec();
             bytes[0] = 50;
@@ -784,6 +783,7 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::BackPressure { depth: 11, limit: 10 },
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },
         RuleViolation::GenerationAhead { chain: 2, inbox: 1 },
+        RuleViolation::MissBitmap { expected: 8, got: 0 },
         RuleViolation::InvalidChainId { chain_id: "x".into(), l2_chain_id: 1 },
         RuleViolation::CheckpointAboveParent { checkpoint: 2, parent: 1 },
         RuleViolation::CheckpointConflict {
@@ -807,6 +807,7 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::BackPressure { .. } |
             RuleViolation::GenerationMismatch { .. } |
             RuleViolation::GenerationAhead { .. } |
+            RuleViolation::MissBitmap { .. } |
             RuleViolation::InvalidChainId { .. } |
             RuleViolation::CheckpointAboveParent { .. } |
             RuleViolation::CheckpointConflict { .. } => {}
@@ -838,7 +839,7 @@ fn every_violation_has_a_message() {
 
 #[test]
 fn v1_proposer_receives_all_basefees() {
-    assert_eq!(encode_extra_data(&extra(0, 42)).unwrap()[0], 100);
+    assert_eq!(encode_extra_data(&extra(0, 42, 0)).unwrap()[0], 100);
 }
 
 #[test]

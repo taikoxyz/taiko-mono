@@ -44,8 +44,9 @@ mod recovery_fixtures;
 pub(crate) mod vectors;
 
 pub(crate) use fixture::{
-    Fixture, GenesisSpec, abci_consensus_params, committed_block, init_chain_request,
-    recovery_fallback_keys, recovery_fixture, recovery_fixture_at, test_options, validator_updates,
+    Fixture, GenesisSpec, abci_consensus_params, commit_info, committed_block,
+    extended_commit_info, init_chain_request, recovery_fallback_keys, recovery_fixture,
+    recovery_fixture_at, test_options, validator_updates,
 };
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
@@ -331,12 +332,14 @@ impl InboxStorage {
     }
 }
 
-/// The 13-byte `extraData` of an Etna block of `generation` anchored at L1 block `anchor`.
+/// The 29-byte `extraData` of an Etna block of `generation` anchored at L1 block `anchor`, with
+/// no missing signers.
 pub(crate) fn extra_data(generation: u64, anchor: u64) -> Bytes {
     crate::rules::encode_extra_data(&crate::rules::ExtraData {
         basefee_sharing_pctg: crate::rules::BASEFEE_SHARING_PCTG,
         generation,
         anchor,
+        miss_bitmap: 0,
     })
     .expect("fits uint48")
 }

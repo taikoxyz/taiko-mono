@@ -7,8 +7,9 @@
 //! - the fallback keys sign from the first block, each at power 1, until the snapshot of X + 1
 //!   holds the four bonds, X being the block of the last registration; the candidate, each member
 //!   at its stake's power, signs X + 3;
-//! - a candidate member that goes offline keeps its seat, its stake and its power while the others
-//!   produce blocks: nothing penalizes or unseats it automatically;
+//! - a candidate member offline for `missLimit` consecutive blocks loses `missSlashBps` of its
+//!   stake in the block-start call that counts its last miss, keeps its seat and is in the set of
+//!   two blocks later at its lower power;
 //! - an exit in block E drops the snapshot of E + 1 below the minimum, so the fallback keys sign E
 //!   + 3, and every fallback key's instance precommits again;
 //! - a `minTotalStake` of 2^256 − 1 hands H + 2 to the fallback keys, H being the first block whose
@@ -24,12 +25,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{FallbackReason, key::ConsensusKey};
+use abci::{FallbackReason, key::ConsensusKey, rules::ExtraData};
 use alloy_eips::BlockId;
 use alloy_primitives::U256;
 use anyhow::{Context, Result, ensure};
 use test_harness::{
-    Bond, Devnet, DevnetSpec, InboxValues, Registration, Staking, first_anchored_at, staker,
+    Bond, Devnet, DevnetSpec, InboxValues, Registration, Staking, StakingParams, extra_data_of,
+    first_anchored_at, staker, wait_until,
 };
 
 /// Validators started, each with its own instance.
@@ -39,17 +41,18 @@ const FALLBACK_KEYS: Range<usize> = 0..4;
 /// The keys that register bonds; key `CANDIDATE_KEYS.start + i` is owned by staker `i`.
 const CANDIDATE_KEYS: Range<usize> = 2..6;
 /// The planted `minTotalStake`, in minStakes: the four bonds of two minStakes reach it, three do
-/// not.
+/// not, and one missed-signature penalty of 10 % leaves the four above it.
 const MIN_TOTAL_STAKE_IN_MIN_STAKES: u64 = 7;
-/// How many blocks the offline member scenario watches after the member stops.
-const OFFLINE_BLOCKS: u64 = 30;
 /// Bound on any one wait for heights, receipts or anchors.
 const WAIT: Duration = Duration::from_secs(120);
+/// Poll interval of the waits.
+const POLL: Duration = Duration::from_millis(250);
 
 /// A devnet on which the candidate took over from the fallback keys.
 struct Takeover {
     devnet: Devnet,
     staking: Staking,
+    params: StakingParams,
     /// Each candidate key's bond, in [`CANDIDATE_KEYS`] order.
     bonds: Vec<Bond>,
     /// Each bond's stake: two minStakes.
@@ -87,48 +90,80 @@ async fn fallback_keys_sign_from_genesis_then_candidate_takes_over_at_h_plus_2()
     Ok(())
 }
 
-/// A candidate member that stops signing holds a quarter of the candidate's power, so the other
-/// three keep producing blocks. Nothing penalizes or unseats it automatically: for
-/// [`OFFLINE_BLOCKS`] blocks after it stops, no commit carries its precommit, yet its bond keeps
-/// its stake and its seat, no block returns a validator update, and the candidate, the offline
-/// member at its full power included, signs every one of them.
+/// A candidate member that stops signing is missing from every LastCommit; the block-start call
+/// of the block whose `missBitmap` carries its seat's `missLimit`-th consecutive miss deducts
+/// `missSlashBps` of its stake, rounded up. With two minStakes it keeps its seat, and the set that
+/// block decides holds it at its lower power, although it signs nothing.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn offline_member_keeps_its_seat_while_blocks_are_produced() -> Result<()> {
+async fn misses_penalize_after_miss_limit() -> Result<()> {
     let started = Instant::now();
     let mut t = take_over().await?;
     let offline = CANDIDATE_KEYS.end - 1;
     let bond = t.bonds[offline - CANDIDATE_KEYS.start];
+    let key = t.devnet.keys()[offline].pubkey();
     let before = t.staking.bond(bond.id, BlockId::latest()).await?.effStake;
     assert_eq!(before, t.stake, "the offline member's stake before it stops");
 
     t.devnet.node_stop(offline).await?;
     let stopped = t.devnet.cmt(0).latest_height().await?;
     eprintln!("validator {offline} (seat {}) stopped at height {stopped}", bond.seat);
-    let last = stopped + OFFLINE_BLOCKS;
-    t.devnet.wait_for_height(0, last + 2, WAIT).await?;
-    // The member is really offline: from two heights after the one it stopped at (a precommit
-    // for the next one may already have been sent), no commit carries its precommit.
-    let address = t.devnet.keys()[offline].address();
-    for h in stopped + 2..=last {
-        let signed = t.devnet.cmt(0).commit_signers(h).await?;
-        ensure!(!signed.contains(&address), "the stopped validator {offline} signed {h}");
+    let staking = &t.staking;
+    wait_until(
+        &format!("the miss penalty on the bond of validator {offline}"),
+        Duration::from_secs(240),
+        POLL,
+        || async move {
+            let now = staking.bond(bond.id, BlockId::latest()).await?.effStake;
+            Ok((now < before).then_some(()))
+        },
+    )
+    .await?;
+
+    // P: the first block whose post-state holds the penalty.
+    let mut p = stopped;
+    while t.staking.bond(bond.id, BlockId::number(p)).await?.effStake == before {
+        p += 1;
     }
-    for h in stopped..=last {
-        let at = BlockId::number(h);
-        assert_eq!(t.staking.bond(bond.id, at).await?.effStake, before, "the stake at {h}");
-        assert_eq!(t.staking.seat_of_bond(bond.id, at).await?, Some(bond.seat), "the seat at {h}");
-        assert_eq!(updates_at(&t.devnet, h).await?, vec![], "no update at {h}");
-        assert_eq!(
-            t.devnet.cmt(0).signing_set(h + 2).await?,
-            t.candidate,
-            "the set that signs {}",
-            h + 2
+    let after = t.staking.bond(bond.id, BlockId::number(p)).await?.effStake;
+    eprintln!("penalty in block {p}: {before} -> {after}");
+    assert_eq!(after, before - t.params.miss_penalty(before), "the penalty deducted at {p}");
+    assert!(after >= t.params.min_stake, "two minStakes keep the seat after one penalty");
+    assert_eq!(t.staking.seat_of_bond(bond.id, BlockId::number(p)).await?, Some(bond.seat));
+    assert_eq!(t.staking.miss_count(bond.seat, BlockId::number(p)).await?, 0, "count reset at {p}");
+
+    // The penalty block carries the limit-th consecutive miss: its seat's bit is set in the
+    // `missBitmap` of the `missLimit` blocks ending at P and clear in the one before them.
+    let limit = t.params.miss_limit;
+    ensure!(p > limit, "the penalty at {p} came before {limit} blocks were possible");
+    for h in p + 1 - limit..=p {
+        assert!(
+            seat_missed(&t.devnet, h, bond.seat).await?,
+            "seat {} not missed at {h}",
+            bond.seat
         );
     }
+    let first = p - limit;
+    assert!(
+        !seat_missed(&t.devnet, first, bond.seat).await?,
+        "seat {} missed at {first}",
+        bond.seat
+    );
+
+    // P decides P + 2 from its post-state: the member signs it at its lower power.
+    t.devnet.wait_for_height(0, p + 3, WAIT).await?;
+    let lower = t.params.power(after)?;
+    let reweighted: Vec<_> = t
+        .candidate
+        .iter()
+        .map(|&(member, power)| (member, if member == key { lower } else { power }))
+        .collect();
+    assert_eq!(t.devnet.cmt(0).signing_set(p + 1).await?, t.candidate, "the set that signs P + 1");
+    assert_eq!(t.devnet.cmt(0).signing_set(p + 2).await?, reweighted, "the set that signs P + 2");
+    assert_eq!(updates_at(&t.devnet, p).await?, vec![(key, lower)], "the updates of P");
 
     t.devnet.stop().await?;
-    eprintln!("offline member scenario done after {:?}", started.elapsed());
+    eprintln!("miss penalty scenario done after {:?}", started.elapsed());
     Ok(())
 }
 
@@ -293,7 +328,7 @@ async fn take_over() -> Result<Takeover> {
         !signed.is_empty() && signed.iter().all(|a| addresses.contains(a)),
         "X + 3 committed by {signed:?}, not the candidate {addresses:?}"
     );
-    Ok(Takeover { devnet, staking, bonds, stake, minimum, fallback, candidate, x })
+    Ok(Takeover { devnet, staking, params, bonds, stake, minimum, fallback, candidate, x })
 }
 
 /// Waits until every fallback key's address precommitted a block from `from` on: the union of
@@ -332,6 +367,21 @@ async fn plant_min_total_stake(devnet: &Devnet, value: U256) -> Result<u64> {
         .plant_inbox(&InboxValues { min_total_stake: Some(value), ..Default::default() })
         .await?
         .context("the minTotalStake write was a no-op")
+}
+
+/// The `extraData` of L2 block `h` on EL 0, once it serves the block.
+async fn extra_at(devnet: &Devnet, h: u64) -> Result<ExtraData> {
+    let l2 = devnet.l2_provider(0);
+    let l2 = &l2;
+    wait_until(&format!("L2 block {h} on EL 0"), WAIT, POLL, || async move {
+        Ok(Some(extra_data_of(l2, h).await?))
+    })
+    .await
+}
+
+/// Whether block `h`'s `missBitmap` has the bit of seat `seat`.
+async fn seat_missed(devnet: &Devnet, h: u64, seat: u8) -> Result<bool> {
+    Ok((extra_at(devnet, h).await?.miss_bitmap >> seat) & 1 == 1)
 }
 
 /// The one update list of a mode switch, written out: to the candidate at `power`, the fallback

@@ -280,8 +280,8 @@ mod tests {
             gas_limit: 45_000_000,
             gas_used: 42_000,
             timestamp: 1_760_000_000 + number,
-            // 100 | generation u48 | anchor u48: 13 bytes.
-            extra_data: bytes!("64000000000002000000000400"),
+            // 100 | generation u48 | anchor u48 | missBitmap u128: 29 bytes.
+            extra_data: bytes!("64000000000002000000000400" "00000000000000000000000000000000"),
             mix_hash: B256::repeat_byte(0x06),
             nonce: B64::ZERO,
             base_fee_per_gas: Some(10_000_000),

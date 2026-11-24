@@ -1,9 +1,10 @@
 # Etna client conformance fixtures
 
-Four vector families follow the Etna specification at
-[`fb8a348e9`](https://github.com/taikoxyz/taiko-mono/tree/fb8a348e9c9998327541d562d69a2a636f8974f8/packages/protocol/docs/etna),
+Five vector families follow the Etna specification at
+[`b01356ddc`](https://github.com/taikoxyz/taiko-mono/tree/b01356ddc942ee10e67d1f506bf4acd043b8686c/packages/protocol/docs/etna),
 each file's `provenance.specCommit`. `../../etna_conformance.rs` runs every vector through the
-client's validation and its signing-set decision, as that harness describes.
+client's validation, its `missBitmap` derivation and its signing-set decision, as that harness
+describes.
 
 ## Regressions from the formal model
 
@@ -19,7 +20,8 @@ They are adapted by hand for the current specification:
 
 - the files add `provenance.specCommit`, and the block rules vectors no longer carry the
   `epochLen` input, since the client has no epochs, committees or registry;
-- the harness gives every block the 13-byte `extraData` and the fallback keys `F1` to `F4` as the
+- the harness gives every block the 29-byte `extraData`, a parent LastCommit in which every
+  signer committed (so the derived `missBitmap` is 0), and the fallback keys `F1` to `F4` as the
   set that signs it, proven by its anchor with a `minTotalStake` of 2^256 − 1.
 
 Their inputs and expected decisions are otherwise the model's. The harness lists one divergence,
@@ -36,11 +38,18 @@ lake exe etna-vectors --write <client checkout>/packages/taiko-client-rs/crates/
   --provenance <formal commit>
 ```
 
-## Client-owned family
+## Client-owned families
 
-`candidate.json` is written by hand from the specification's accept/reject vectors. Each
-vector's `row` names the file and row it transcribes; `id`s describe the case in words.
+`miss_bitmap.json` and `candidate.json` are written by hand from the specification's
+accept/reject vectors. Each vector's `row` names the file and row it transcribes; `id`s
+describe the case in words.
 
+- `miss_bitmap.json` (30 vectors): every row of the miss bitmap table in `rules/vectors/3.4.md`
+  and the `extraData` rows of `rules/vectors/3.2.md`. A vector gives the set that signs the
+  parent, the LastCommit flag of each of its validators, the key-to-seat words and snapshot seat
+  records of the parent's post-state (and, where the row needs it, the block's own post-state)
+  and the header's `missBitmap` or whole `extraData`; it expects the bitmap the client derives
+  and whether the block is valid. The rejected rows are exactly those the table marks reject.
 - `candidate.json` (25 vectors): the candidate usability, valid key, valid set and fallback rows
   of `rules/vectors/4.3.md` (rows 3a.a to 3a.h, 4.b, 4.c, 8.a to 8.k, 8b.b, 8b.e and 16.c). A
   vector gives H, the minimum total stake and fallback key list that H's anchor (and its
@@ -57,8 +66,8 @@ Rows that do not map to exactly one vector:
   0, so the two rows do not share one input.
 - 7a.r and 8b.e state a seat limit `n_max`, which the client never reads.
 
-Edit this file by hand, keeping every cited row covered, and update `specCommit` with the
-specification revision it then follows.
+Edit these two files by hand, keeping every cited row covered, and update `specCommit` with the
+specification revision they then follow.
 
 From `packages/taiko-client-rs`, run:
 

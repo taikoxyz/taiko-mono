@@ -190,9 +190,8 @@ async fn generate(dir: &Path, s: u64, period: u64, u: u64) {
     let mut pkg = import_package(&fx, s).await;
     // The set that signs s + 2 is decided from the staking proxy in s's post-state, block zero's
     // materialized state here, and from the origin list every anchor proves.
-    pkg.staking_witness = Some(
-        original.account_witness(fx.params.staking, &abci::staking::snapshot_slots()).unwrap(),
-    );
+    pkg.staking_witness =
+        Some(original.account_witness(fx.params.staking, &crate::l1::staking_slots(&[])).unwrap());
     pkg.fallback_keys = Some(fx.origin_keys.clone());
     let mut frames = BufWriter::new(File::create_new(dir.join("blocks.jsonl")).unwrap());
     let keys = [SigningKey::from_slice(&[1; 32]).unwrap()];
@@ -258,6 +257,7 @@ async fn generate(dir: &Path, s: u64, period: u64, u: u64) {
             anchor: &a,
             bft_time_secs: time(h),
             generation: 0,
+            miss_bitmap: 0,
             params: &fx.params,
             min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
                 fx.params.l2_chain_id,
@@ -474,11 +474,12 @@ async fn signed_checkpoint_resource_phase() {
 fn genesis_staking_proof_verifies_under_block_zero() {
     let original = test_harness::EtnaGenesis::build().unwrap();
     let params = parameters();
-    let slots = abci::staking::snapshot_slots();
+    let slots = crate::l1::staking_slots(&[]);
     let witness = original.account_witness(params.staking, &slots).unwrap();
     assert_ne!(witness.code_hash, alloy_primitives::KECCAK256_EMPTY, "no predeployed proxy");
-    let words = crate::l1::verify_staking_witness(original.state_root, params.staking, &witness, 1)
-        .unwrap();
+    let (words, _) =
+        crate::l1::verify_staking_witness(original.state_root, params.staking, &witness, 1, &[])
+            .unwrap();
     assert!(words.snapshot_height.is_zero() && words.total_stake.is_zero());
     let roots = test_harness::genesis::ROOTS;
     let present = original.account_witness(roots, &[B256::ZERO]).unwrap();
