@@ -78,6 +78,19 @@
   The example devnet configuration and the shared vectors keep 3,600 and 1,000.
   `withdrawalDelay` counts L2 blocks and must be at least U + 2 + the evidence window, which
   `DeployEtnaStaking`, the readiness builder and the genesis tooling check.
+- Etna (BREAKING, spec #22425 at fbc7a5162): `IEtnaStaking.Config` gains `missReleaseLimit` right
+  after `missSlashBps`, an immutable with the view `missReleaseLimit()` (`0x4d6a07ee`), and the
+  constructor requires 1 ≤ `missLimit` ≤ `missReleaseLimit` ≤ 65,535, so the constructor ABI and
+  the implementation's bytecode change. `onBlockStart` no longer resets a seat's miss count at a
+  penalty: it penalizes at every positive multiple of `missLimit`, then releases the seat of each
+  bond that a penalty left below `minStake` or whose count reached `missReleaseLimit`, setting no
+  exit, deducting nothing more and emitting nothing; such a bond takes a seat again with a top-up
+  of any amount. `DeployEtnaStaking` reads `ETNA_MISS_RELEASE_LIMIT` (default 64,800, the
+  reference), and the genesis config's `etna` block needs `missReleaseLimit` (10,800 in the
+  example devnet configuration), which the genesis generator and builder check and pin. The shared
+  vectors move to schema 11: `deployment` and `on_block_start.deployment` gain
+  `miss_release_limit`, a case may override it, prior calls may take penalties, and six cases
+  cover repeated penalties and releases.
 - Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the
   new `EtnaSignalService` (`contracts/shared/signal`), which stores only the counterpart chain's
   state root per checkpoint height. `SignalService` keeps its `(syncer, remote, pauser)`

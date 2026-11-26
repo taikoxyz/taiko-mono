@@ -10,20 +10,24 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`5190bff161d04ab33a4b8f8417bae161aba66d0b`. Every spec link here points at that commit, not at this
+`fbc7a51624609f63da3391f1f24cd39085e0cb05`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
 snapshot (slot 284), recovery exclusions and the recovery capacity F are gone. The L2 `EtnaStaking`
 contract seats at most 128 bonds of bridged TAIKO and, in a call the EL makes at the start of every
-Etna block, counts missed signatures, applies their penalties and writes the candidate snapshot. The
-Inbox holds a DAO fallback key set and a `minTotalStake` threshold. The candidate that a block's call
-writes signs two blocks later if it is a valid set whose total stake reaches the threshold;
-otherwise, and for the first two blocks of every generation, the fallback keys sign. Present
-all-zero vote hashes keep stock CometBFT's encoding, which that spec states. That spec's proposer
-rule that moves the anchor once per 1,024 blocks (CONS-3.3-4) and its L1 history links in the
-guests' header chains (PROOF-6.2-34a) need no contract change; only the `MAX_ANCHOR_AGE` a
-deployment chooses follows them ([Deployment](#deployment)).
+Etna block, counts missed signatures, applies their penalties, releases the seat of a bond whose key
+has missed `missReleaseLimit` blocks in a row and writes the candidate snapshot. The Inbox holds a
+DAO fallback key set and a `minTotalStake` threshold. The candidate that a block's call writes signs
+two blocks later if it is a valid set whose total stake reaches the threshold; otherwise, and for
+the first two blocks of every generation, the fallback keys sign. Present all-zero vote hashes keep
+stock CometBFT's encoding, which that spec states. That spec's proposer rule that moves the anchor
+once per 1,024 blocks (CONS-3.3-4) and its L1 history links in the guests' header chains
+(PROOF-6.2-34a) need no contract change; only the `MAX_ANCHOR_AGE` a deployment chooses follows them
+([Deployment](#deployment)). In that spec a penalty no longer resets the miss count, so a run of
+misses is penalized at every multiple of `missLimit`, and the new staking immutable
+`missReleaseLimit` releases the seat of a bond whose run reaches it, whatever stake the bond holds
+([EtnaStaking](#etnastaking)).
 
 ## Contracts
 
@@ -159,30 +163,35 @@ required rulesets throughout.
 ## EtnaStaking
 
 `EtnaStaking` is an upgradeable L2 proxy whose owner is the DAO's execution address on L2. Its stake
-is bridged TAIKO, the immutable `token`. Every parameter is an immutable that the constructor checks:
-the L1 chain id and `inbox`, the Etna Inbox proxy, which the double-sign chain domain binds;
+is bridged TAIKO, the immutable `token`. Every parameter is an immutable that the constructor
+checks: the L1 chain id and `inbox`, the Etna Inbox proxy, which the double-sign chain domain binds;
 `vpUnit` at least 867,361,738 and `minStake` at least `vpUnit` with `minStake × nMax` ≥ 10^27,
-TAIKO's fixed supply; `nMax` in [1, 128]; `missLimit` in [1, 65,535]; `missSlashBps` and
-`forfeitBps` in [1, 10,000]; `slashBountyBps` below 10,000; `withdrawalDelay` in [1, 2^48) L2
-blocks; and a non-zero `slashSink` other than `token` (`SlashSinkIsToken`), since a bridged token may
-refuse transfers to its own address, which would make every slash, forfeiture and penalty revert.
+TAIKO's fixed supply; `nMax` in [1, 128]; 1 ≤ `missLimit` ≤ `missReleaseLimit` ≤ 65,535;
+`missSlashBps` and `forfeitBps` in [1, 10,000]; `slashBountyBps` below 10,000; `withdrawalDelay` in
+[1, 2^48) L2 blocks; and a non-zero `slashSink` other than `token` (`SlashSinkIsToken`), since a
+bridged token may refuse transfers to its own address, which would make every slash, forfeiture and
+penalty revert.
 
-- Seats: a bond holds one of the `nMax` seats exactly while it is issued, unwithdrawn, has no exit
-  and has effStake ≥ `minStake`. It takes the lowest empty seat in the call that makes it meet these
-  conditions, reverting `NoEmptySeat` if every seat is held, and releases the seat in the call that
-  ends one of them; it never moves another bond, and taking a seat resets the seat's miss count.
-  The key-to-seat mapping, the seat table and the lookups `seatOfBond` and `bondInSeat` are live:
-  every call that takes or releases a seat updates them in that call.
+- Seats: a bond can hold one of the `nMax` seats only while it is issued, unwithdrawn, has no exit
+  and has effStake ≥ `minStake`. It takes the lowest empty seat at registration and in a top-up that
+  leaves a seatless bond meeting these conditions, reverting `NoEmptySeat` if every seat is held,
+  and no other call gives it one. It releases the seat in the call that ends one of the conditions,
+  and in the block-start call in which its seat's miss count reaches `missReleaseLimit`; such a bond
+  still meets every condition but holds no seat until its owner's next top-up. It never moves
+  another bond, and taking or releasing a seat resets the seat's miss count. The key-to-seat
+  mapping, the seat table and the lookups `seatOfBond` and `bondInSeat` are live: every call that
+  takes or releases a seat updates them in that call.
 - `register(publicKey, amount, popSig)`: a 33-byte compressed consensus key with a proof of
   possession over the EIP-712 `Register(address owner)` digest (name `EtnaStaking`, version 1, the
   L2 chain id and the proxy) for the caller, who becomes the owner for life. Each key registers
   once, ever. Each registration issues the next bond id (from 0, never reused), with effStake =
   `amount` ≥ `minStake`, and takes a seat in the same call. A call naming an unissued id reverts
   `UnknownBond` without writing anything.
-- `topUp` adds stake to effStake at once and re-seats a bond that it brings back to `minStake`;
-  `requestExit` sets the exit at the current block and releases the seat; `withdraw(bondId, to)`
-  pays the whole effStake after `withdrawalDelay` L2 blocks from the exit, and anyone may withdraw a
-  bond whose balance is zero, which pays nothing.
+- `topUp` adds stake to effStake at once and re-seats a seatless bond that it leaves at `minStake`
+  or more, whatever it adds, so a bond released at `missReleaseLimit` takes a seat again with one
+  base unit; `requestExit` sets the exit at the current block and releases the seat;
+  `withdraw(bondId, to)` pays the whole effStake after `withdrawalDelay` L2 blocks from the exit,
+  and anyone may withdraw a bond whose balance is zero, which pays nothing.
 - `slashDoubleSign(bondId, voteA, voteB)`: anyone, with two votes of the same type, height, round
   and generation, at most the generation `onBlockStart` last stored, and different block ids, both
   signed by the bond's key under `chainDomain(l1ChainId, block.chainid, inbox, generation)`: the L1
@@ -197,12 +206,15 @@ refuse transfers to its own address, which would make every slash, forfeiture an
   `0xfffffffffffffffffffffffffffffffffffffffe`, from which the EL calls it at the start of every
   Etna block, before the first transaction, with both values from the block's own `extraData` and
   30,000,000 gas for its frame. It stores the generation, raises the miss count of each occupied
-  seat whose bit is set and resets the others, penalizes each seat whose count reached `missLimit`
-  by `ceil(effStake × missSlashBps / 10000)` and resets its count (a bond left below `minStake`
-  releases its seat without an exit), and writes the 128 snapshot seat records, `snapshotTotalStake`
-  and `snapshotHeight` = the block number. Only this call writes the snapshot, so a stake change in
-  block X reaches the snapshot at X + 1. It emits no events. `snapshot()` is a convenience view of
-  the stored snapshot; nodes and guests read its storage words.
+  seat whose bit is set and resets the others, penalizes each seat whose count is a positive
+  multiple of `missLimit` by `ceil(effStake × missSlashBps / 10000)` and leaves its count, then
+  releases the seat of each bond that a penalty left below `minStake` or whose count reached
+  `missReleaseLimit` (setting no exit, deducting nothing more and discarding the count, so no
+  occupied seat's count reaches `missReleaseLimit` between calls), and writes the 128 snapshot seat
+  records, `snapshotTotalStake` and `snapshotHeight` = the block number. Only this call writes the
+  snapshot, so a stake change in block X reaches the snapshot at X + 1. It emits no events.
+  `snapshot()` is a convenience view of the stored snapshot; nodes and guests read its storage
+  words.
 - The failure path: a call that reverts or runs out of its frame's gas, for example because the
   penalty transfer fails or a power does not fit 64 bits, changes nothing. The snapshot words, the
   128 records, the miss counts and the stored generation stay as they were, and the block stays
@@ -331,12 +343,13 @@ sink, every staking parameter as a decimal string, `unsettledLimit` (U) and `evi
 The example uses the reference values `minStake` 7,812,500 TAIKO (7,812,500 × 10^18 base units, the
 least value with which 128 seats cover TAIKO's 10^27 supply), `vpUnit` 10^9 and `nMax` 128,
 `slashBountyBps` and `forfeitBps` 1,000, U 151,200, a 151,200-block evidence window and
-`withdrawalDelay` 302,402 L2 blocks, U + 2 + the window. Its `missLimit` 3,600 and `missSlashBps`
-1,000, which the shared vectors also use, are not the specification's references, 21,600 (about one
-day at 4 s blocks) and 100; `DeployEtnaStaking` defaults to those. The generator refuses a
-`withdrawalDelay` below `unsettledLimit + 2 + evidenceWindowBlocks` and everything the
-`EtnaStaking` constructor would refuse. Then run `GENESIS_CONFIG=<config> pnpm genesis:gen` and
-build the genesis from the base JSON:
+`withdrawalDelay` 302,402 L2 blocks, U + 2 + the window. Its `missLimit` 3,600, `missSlashBps` 1,000
+and `missReleaseLimit` 10,800, which the shared vectors also use, are not the specification's
+references, 21,600 (about one day at 4 s blocks), 100 and 64,800 (about three days);
+`DeployEtnaStaking` defaults to those. The generator refuses a `withdrawalDelay` below
+`unsettledLimit + 2 + evidenceWindowBlocks` and everything the `EtnaStaking` constructor would
+refuse. Then run `GENESIS_CONFIG=<config> pnpm genesis:gen` and build the genesis from the base
+JSON:
 
 ```bash
 python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
@@ -483,9 +496,9 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 
 The gas suites write `snapshots/*.json` with `FORGE_SNAPSHOT_EMIT=true`, and `pnpm snapshot:l1`
 writes `gas-reports/layer1-contracts.txt`. `EtnaStakingGas.t.sol` measures each staking transaction
-with all 128 seats held and the block-start call with every seat penalized, which must stay below
-the call's 30,000,000 gas; it records call-frame gas before refunds with the test token
-`TestERC20`, not the production `BridgedTaikoToken`. It also checks that the `EtnaStaking`
+with all 128 seats held and the block-start call with every seat penalized, released or both, which
+must stay below the call's 30,000,000 gas; it records call-frame gas before refunds with the test
+token `TestERC20`, not the production `BridgedTaikoToken`. It also checks that the `EtnaStaking`
 implementation fits EIP-170. `EtnaInboxGas.t.sol` measures the Inbox's entry points; the recovery
 that sets 128 fallback keys and `init` with 128 keys must fit EIP-7825's 2^24 with `DAO_PATH_EXTRA`
 (7,250,000) added for the DAO path.
@@ -541,6 +554,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/ANCHORLESS.md
