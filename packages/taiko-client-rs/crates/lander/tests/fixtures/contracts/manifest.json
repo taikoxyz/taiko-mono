@@ -747,20 +747,20 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "d9b4a6f4a43f657332dc3318c6ef636ea98ace67a433da286d6344a651d93ba8",
+      "sha256": "e9fc11b92c0fa088759bf91b7259b059d65d0dbd846fbad17e84acde544f77f2",
       "sourceArtifact": "packages/protocol/out/layer2/EtnaStaking.sol/EtnaStaking.json",
       "sources": {
         "contracts/layer2/etna/EtnaStaking.sol": {
-          "keccak256": "0xfad85fabaa802cd1950e182929240c50e3cf8bf9b777c01014d1c1871bd81448",
-          "sha256": "9f508008f8d1b7eec1a338779eee1b4b68b216f5de2fcf558413d639bd983967"
+          "keccak256": "0xb8c68a7377f965a16675708dc77d2cb56f51324e233e0e4f28d4b8f982bf4a6d",
+          "sha256": "58ded29e610237561126d3fb02ed13ae8dbde3e4b86ef353912fcd82c3464570"
         },
         "contracts/layer2/etna/EtnaStaking_Layout.sol": {
           "keccak256": "0x845d499dfd2fa74437744388de9705f80f10aba0227f1653f26ddc807dce7ad6",
           "sha256": "88fb8a8579c96c2fcfb16c1d9c9b2046cbb89f8cbb9f54856cdd08a56443897c"
         },
         "contracts/layer2/etna/iface/IEtnaStaking.sol": {
-          "keccak256": "0x539840e44103764630089ee98fd8b4f74ebc6cda614fce3c6767110cb3873ad5",
-          "sha256": "a43d99a503355ec0f870703974d60f319ad6ee998058d91eb38b3bd5518083ae"
+          "keccak256": "0xaa92fcfa758032b5c610cbc523a2612b3c7ca652efae16039298ed1b6630fdba",
+          "sha256": "a184fad1be715d690455d2c78915973851a0c6e39a630cac3430e16098de3077"
         },
         "contracts/layer2/etna/libs/LibCometVote.sol": {
           "keccak256": "0x2485312d0fecf08097a6d9887ea77b5b7ce6ab31535266e7071645339f74d252",
@@ -1910,20 +1910,20 @@
   },
   "foundryVersion": ["Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8"],
   "generator": "script/gen_lander_artifacts.sh",
-  "protocolRevision": "dcada2ae2982f06bafa2a6da489d129b66ef6d4f",
+  "protocolRevision": "9b8d5b4c2ff4c4dcf23f3c217626070cd261d4a5",
   "vectors": {
     "files": {
-      "README.md": "e93bd2c23ca1d89271841dc410a12e4f38268f0e1cb2b5d4776d1b1d0178336c",
+      "README.md": "89dcd9b3ecd72176d0dc06dcee72f9705839b9d4d25061083e2d75db199066c3",
       "ficheck/go.mod": "9013042ad967f4e75fd6be92d8c89408a213aa8d38867717b2d40274904f3011",
       "ficheck/go.sum": "3e4f9fca9fd3b4fb497881f627d07f46c5f9867b105df9733908a6eb1a7ac7b5",
       "ficheck/main.go": "a5ea2f9f064223840b5adb33294cd3a00344bafbf111310f1122e1b9e664bebe",
-      "generate.py": "8d62d0e39bd3ba22208e92c9118e5c8d18e16dd3372c4273041a3e1fc9fde3f4",
-      "test_vectors.py": "13bb0f3a77063d1184d7391895837026ba686b749c8d3e7a38799393cbe4ffe6",
+      "generate.py": "efe493f7ba898547c0056de89ec7181bbecce825637b5c59b6e37d1dc8ad5e37",
+      "test_vectors.py": "344e447a99c53f766927640a13e9f3ced19626a55a6a537c04a3eb07a3ea5ad4",
       "valgen/go.mod": "17e5083662a0e7540daf7131d68a4c1babfcea4b89521e3f32e54b6f4d3ba012",
       "valgen/go.sum": "1163be0bf9e190c03cd0d71f064b23ba0c31418192923c1ef73f0863d2c99fc8",
       "valgen/main.go": "2494196753ad898520f5c2b64ff8d22281b586a00d1d6e4cc6fdce72e67a28c7",
       "valset_model.py": "994b5e871c24c244ed095f378f9e4d49cb97aa80145e8544871cc3d1c764f43b",
-      "vectors.json": "dfa1468d4a05155a07bc8fe89868975c97b7bbe4657d2eb5a2d38930a0836e1f",
+      "vectors.json": "c4f8f5ba51abbee615d1598f6cf60553d0299ece50c1b0c6f5cef396e475e610",
       "votegen/go.mod": "f74e7040e93a7fd3cce9fe51ca074f4e12c3bf0c3c18f6ab30d5eedecbf557f8",
       "votegen/go.sum": "5b585c03f5545f45751d018c4c538be40c8e3f9921cdf102c78664c1d28368f7",
       "votegen/main.go": "afdc1c5635c042c82d04d3c7fc0c2b217a607899b1071dc1f023b38506876287"

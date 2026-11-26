@@ -835,10 +835,11 @@ def replay_block_start(params, case):
     """The staking contract from a fresh deployment through the case's registrations, prior calls
     and call (spec 4.1 and 4.2), in plain lists: a registration takes the lowest empty seat; each
     call counts a miss for an occupied seat whose bit is 1 and resets the count otherwise, then
-    takes ceil(effStake * missSlashBps / 10000) from every seat that reached missLimit, resets its
-    count and releases a bond left below minStake, then writes the 128 records, the total and the
-    height. Returns the registration seats, the seats held when the call starts and the call's
-    effects."""
+    takes ceil(effStake * missSlashBps / 10000) from every seat whose count is missLimit, 2 *
+    missLimit, ... and keeps the count, then releases each bond left below minStake or whose count
+    reached missReleaseLimit and zeroes that seat's count, then writes the 128 records, the total
+    and the height. Prior calls may take penalties but release no seat. Returns the registration
+    seats, the seats held when the call starts and the call's effects."""
     n_max, min_stake = params["n_max"], params["min_stake"]
     stake, holder, misses = [], [None] * 128, [0] * 128
     seats = []
@@ -856,19 +857,20 @@ def replay_block_start(params, case):
         taken, released = 0, []
         for s in range(n_max):
             bond = holder[s]
-            if bond is None or misses[s] < params["miss_limit"]:
+            if bond is None:
                 continue
-            cut = (stake[bond] * params["miss_slash_bps"] + 9_999) // 10_000
-            stake[bond] -= cut
-            taken += cut
-            misses[s] = 0
-            if stake[bond] < min_stake:
-                holder[s] = None
+            multiples, rest = divmod(misses[s], params["miss_limit"])
+            if multiples and not rest:
+                cut = (stake[bond] * params["miss_slash_bps"] + 9_999) // 10_000
+                stake[bond] -= cut
+                taken += cut
+            if stake[bond] < min_stake or misses[s] >= params["miss_release_limit"]:
+                holder[s], misses[s] = None, 0
                 released.append(bond)
         return taken, released
 
     for prior in case["setup"]["prior_calls"]:
-        assert block_start(int(prior["miss_bitmap"])) == (0, []), case["name"]
+        assert block_start(int(prior["miss_bitmap"]))[1] == [], case["name"]
     held = [s for s in range(128) if holder[s] is not None]
     taken, released = block_start(int(case["call"]["miss_bitmap"]))
     keys = [scalar_key(int(reg["private_key"], 16)) for reg in case["setup"]["registrations"]]
@@ -1306,8 +1308,8 @@ class VectorsTest(unittest.TestCase):
         self.assertLess(int(installed["values"][0]), 2**48)
         self.assertEqual(not_installed["data"], uint(0))
 
-    def test_schema_is_ten(self):
-        self.assertEqual(V["schema_version"], "10")
+    def test_schema_is_eleven(self):
+        self.assertEqual(V["schema_version"], "11")
 
     def test_deployment(self):
         self.assertEqual(
@@ -1324,6 +1326,7 @@ class VectorsTest(unittest.TestCase):
                 "n_max": "128",
                 "miss_limit": "3600",
                 "miss_slash_bps": "1000",
+                "miss_release_limit": "10800",
                 "slash_bounty_bps": "1000",
                 "forfeit_bps": "1000",
                 "withdrawal_delay": "302402",
@@ -1341,7 +1344,8 @@ class VectorsTest(unittest.TestCase):
             self.assertEqual(V["deployment"][name], "0x167001" + suffix.rjust(34, "0"), name)
         # The staking contract's bounds: vp_unit at least ceil(10^27 / MaxTotalVotingPower),
         # minStake at least vp_unit and n_max seats at minStake at least 10^27 base units,
-        # 1 <= n_max <= 128, 1 <= missLimit <= 65,535, both penalty rates in (0, 10,000], the
+        # 1 <= n_max <= 128, 1 <= missLimit <= missReleaseLimit <= 65,535, both penalty rates in
+        # (0, 10,000], the
         # bounty below 10,000, 1 <= U <= 262,144, and withdrawalDelay at least U + 2 + the
         # evidence window and below 2^48.
         self.assertEqual(-(-(10**27) // ((2**63 - 1) // 8)), 867_361_738)
@@ -1349,7 +1353,7 @@ class VectorsTest(unittest.TestCase):
         self.assertGreaterEqual(d["min_stake"], d["vp_unit"])
         self.assertGreaterEqual(d["min_stake"] * d["n_max"], 10**27)
         self.assertTrue(1 <= d["n_max"] <= 128)
-        self.assertTrue(1 <= d["miss_limit"] <= 65_535)
+        self.assertTrue(1 <= d["miss_limit"] <= d["miss_release_limit"] <= 65_535)
         self.assertTrue(0 < d["miss_slash_bps"] <= 10_000)
         self.assertTrue(0 < d["forfeit_bps"] <= 10_000)
         self.assertLess(d["slash_bounty_bps"], 10_000)
@@ -2847,7 +2851,9 @@ class VectorsTest(unittest.TestCase):
     def test_on_block_start_cases(self):
         family = V["on_block_start"]
         self.assertEqual(list(family), ["deployment", "cases"])
-        fields = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+        fields = (
+            "n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps", "miss_release_limit"
+        )
         self.assertEqual(family["deployment"], {k: V["deployment"][k] for k in fields})
         base = {k: int(v) for k, v in family["deployment"].items()}
         m = base["min_stake"]
@@ -2860,16 +2866,22 @@ class VectorsTest(unittest.TestCase):
             "zero_bitmap": ([0, 0, 0], [0, 1, 2], [], 0),
             "bitmap_4": ([0, 0, 1], [0, 1, 2], [], 0),
             "n_max_64_bit_100": ([1], [0], [], 0),
-            "ceil_exact": ([0], [0], [], m),
-            "ceil_round_up": ([0], [0], [], m + 1),
+            "ceil_exact": ([10], [0], [], m),
+            "ceil_round_up": ([10], [0], [], m + 1),
             "below_limit": ([9], [0], [], 0),
             "release_below_min": ([0, 0], [1], [0], m // 10),
-            "miss_limit_1": ([0], [0], [], 2 * m // 10),
+            "miss_limit_1": ([1], [0], [], 2 * m // 10),
             "full_bps": ([0, 0], [1], [0], 3 * m),
             "three_seats": ([0] * 6, [0, 2, 5], [1, 3, 4], 3 * m // 10),
             "no_seats": ([], [], [], 0),
             "power_floor": ([0, 0, 0], [0, 1, 2], [], 0),
             "n_max_64_records": ([0] * 64, list(range(64)), [], 0),
+            "penalty_at_twice_limit": ([20], [0], [], 9 * m // 10),
+            "reset_after_penalty": ([0], [0], [], 0),
+            "release_at_limit": ([0, 0], [1], [0], 81 * m // 100),
+            "release_between_multiples": ([0], [], [0], 0),
+            "release_at_miss_limit": ([0], [], [0], m),
+            "release_below_min_before_limit": ([0], [], [0], 27 * m // 250),
         }
         cases = family["cases"]
         self.assertEqual([c["name"] for c in cases], list(pins))
@@ -2883,7 +2895,9 @@ class VectorsTest(unittest.TestCase):
             self.assertGreaterEqual(params["vp_unit"], 867_361_738, name)
             self.assertGreaterEqual(params["min_stake"], params["vp_unit"], name)
             self.assertGreaterEqual(params["min_stake"] * params["n_max"], 10**27, name)
-            self.assertTrue(1 <= params["miss_limit"] <= 65_535, name)
+            self.assertTrue(
+                1 <= params["miss_limit"] <= params["miss_release_limit"] <= 65_535, name
+            )
             self.assertTrue(0 < params["miss_slash_bps"] <= 10_000, name)
             setup, call = case["setup"], case["call"]
             self.assertEqual(list(setup), ["registrations", "prior_calls"], name)
@@ -2928,6 +2942,23 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(c["ceil_round_up"]["setup"]["registrations"][0]["amount"], str(10 * m + 1))
         # A full-rate penalty takes the whole effStake.
         self.assertEqual(eff_stakes("full_bps")[0], 0)
+        # A penalty leaves the count: 10m loses m at count 10 and 9m / 10 at count 20, and a 0 bit
+        # after the first penalty leaves 9m at count 0.
+        self.assertEqual(eff_stakes("penalty_at_twice_limit"), [81 * m // 10])
+        self.assertEqual(eff_stakes("reset_after_penalty"), [9 * m])
+        # Released at missReleaseLimit with effStake still at least m and no further deduction:
+        # after the penalty of count 30, with none at 25, and after the one penalty at 10.
+        self.assertEqual(eff_stakes("release_at_limit"), [729 * m // 100, m])
+        self.assertEqual(eff_stakes("release_between_multiples"), [81 * m // 10])
+        self.assertEqual(eff_stakes("release_at_miss_limit"), [9 * m])
+        # 1.2m keeps its seat after the penalty at 10 and drops below m at 20.
+        self.assertEqual(eff_stakes("release_below_min_before_limit"), [243 * m // 250])
+        limits = {"miss_limit": "10", "miss_release_limit": "30"}
+        for name in ("penalty_at_twice_limit", "reset_after_penalty", "release_at_limit",
+                     "release_below_min_before_limit"):
+            self.assertEqual(c[name]["overrides"], limits, name)
+        self.assertEqual(c["release_between_multiples"]["overrides"]["miss_release_limit"], "25")
+        self.assertEqual(c["release_at_miss_limit"]["overrides"]["miss_release_limit"], "10")
         # With vp_unit = m, effStake 2.5m gives power 2.
         self.assertEqual(c["power_floor"]["overrides"], {"vp_unit": str(m)})
         self.assertEqual(

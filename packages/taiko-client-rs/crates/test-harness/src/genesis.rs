@@ -458,7 +458,7 @@ mod tests {
 
     /// The devnet genesis predeploys `EtnaStaking` where alethia-reth's block-start call and the
     /// client's built-in parameters expect it, as the pinned protocol revision's proxy over its
-    /// implementation, and bridged TAIKO likewise, holding the harness stakers' premint: two
+    /// implementation, and bridged TAIKO likewise, holding the harness stakers' premint: three
     /// minStakes for each of anvil's first four dev accounts, which also hold ETH for gas.
     #[test]
     fn devnet_genesis_has_etna_staking_at_the_builtin_address() {
@@ -489,7 +489,7 @@ mod tests {
         let storage = genesis.alloc[&token].storage.as_ref().unwrap();
         let word =
             |slot: B256| U256::from_be_bytes(storage.get(&slot).copied().unwrap_or_default().0);
-        let premint = U256::from(15_625_000u64) * U256::from(10u64).pow(U256::from(18));
+        let premint = U256::from(23_437_500u64) * U256::from(10u64).pow(U256::from(18));
         let stakers = [
             address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
             address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),

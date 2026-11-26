@@ -91,9 +91,11 @@ GENESIS_DATA="$PROTOCOL/test/genesis/data"
 # The harness devnet: chain 167001 on an anvil L1 (chain 31337, the generator's default), the Inbox
 # at the client's built-in devnet address, where the harness installs it, and L1 SignalService and
 # TAIKO addresses that only fill the L2 predeploys' references (the harness deploys neither on
-# L1). EtnaStaking keeps the example's parameters except a missLimit that a test reaches in
-# seconds, and each of anvil's first four dev accounts, which the alethia-reth devnet genesis funds
-# with ETH, gets a premint of two minStakes: one to register a validator key, one to top it up.
+# L1). EtnaStaking keeps the example's parameters except a missLimit and a missReleaseLimit that a
+# test reaches in seconds: a seat that keeps missing is penalized at 10 and 20 misses, and at 30 it
+# is penalized again and released. Each of anvil's first four dev accounts, which the alethia-reth
+# devnet genesis funds with ETH, gets a premint of three minStakes: enough to register a validator
+# key with two and still top the bond up.
 L1_SIGNAL_SERVICE=0x00000000000000000000000000000000E7A10005
 L1_INBOX=0x00000000000000000000000000000000E7A10001
 L1_TAIKO_TOKEN=0x00000000000000000000000000000000E7A10007
@@ -106,12 +108,13 @@ config.etna = {
   inbox: "$L1_INBOX",
   l1TaikoToken: "$L1_TAIKO_TOKEN",
   missLimit: "10",
+  missReleaseLimit: "30",
   premint: [
     "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
     "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-  ].map((account) => ({ [account]: "15625000000000000000000000" })),
+  ].map((account) => ({ [account]: "23437500000000000000000000" })),
 };
 module.exports = config;
 CONFIG

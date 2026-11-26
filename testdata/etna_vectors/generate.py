@@ -91,13 +91,16 @@ DEPLOYMENT = {
     "staking": constant_address(L2_CHAIN_ID, 10_003),
     "token": constant_address(L2_CHAIN_ID, 7),
     "l2_block_gas_limit": 45_000_000,
-    # The staking contract's immutables at their reference values (spec 11): the registration
-    # minimum, the power unit, the number of seats, the miss limit and the three penalty rates.
+    # The staking contract's immutables (spec 11): the registration minimum, the power unit and
+    # the number of seats at their reference values; the miss limit, the miss release limit and
+    # the three penalty rates, at the values of the client's test devnet (the miss limit's and the
+    # release limit's references are 21,600 and 64,800, the miss penalty's 100).
     "min_stake": 7_812_500 * TAIKO,
     "vp_unit": 10**9,
     "n_max": 128,
     "miss_limit": 3_600,
     "miss_slash_bps": 1_000,
+    "miss_release_limit": 10_800,
     "slash_bounty_bps": 1_000,
     "forfeit_bps": 1_000,
     # In L2 blocks: U + 2 + the evidence window.
@@ -114,13 +117,15 @@ assert DEPLOYMENT["staking"] == "0x1670010000000000000000000000000000010003"
 assert DEPLOYMENT["token"] == "0x1670010000000000000000000000000000000007"
 # The staking contract's bounds (spec 11): vp_unit is at least ceil(10^27 / MaxTotalVotingPower);
 # minStake is at least vp_unit, and n_max seats at minStake hold at least 10^27 base units;
-# 1 <= n_max <= 128 and 1 <= missLimit <= 65,535; missSlashBps and forfeitBps are in (0, 10,000]
+# 1 <= n_max <= 128 and 1 <= missLimit <= missReleaseLimit <= 65,535; missSlashBps and forfeitBps
+# are in (0, 10,000]
 # and slashBountyBps is below 10,000; 1 <= U <= 262,144; withdrawalDelay is at least U + 2 + the
 # evidence window and below 2^48.
 assert DEPLOYMENT["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER) == 867_361_738
 assert DEPLOYMENT["min_stake"] >= DEPLOYMENT["vp_unit"]
 assert DEPLOYMENT["n_max"] * DEPLOYMENT["min_stake"] >= TAIKO_SUPPLY
-assert 1 <= DEPLOYMENT["n_max"] <= 128 and 1 <= DEPLOYMENT["miss_limit"] <= 65_535
+assert 1 <= DEPLOYMENT["n_max"] <= 128
+assert 1 <= DEPLOYMENT["miss_limit"] <= DEPLOYMENT["miss_release_limit"] <= 65_535
 assert 0 < DEPLOYMENT["miss_slash_bps"] <= 10_000 and 0 < DEPLOYMENT["forfeit_bps"] <= 10_000
 assert DEPLOYMENT["slash_bounty_bps"] < 10_000 and 1 <= DEPLOYMENT["unsettled_limit"] <= 262_144
 assert (
@@ -2954,7 +2959,9 @@ def candidate(key_list):
     return decimals({"cases": out})
 
 
-BLOCK_START_FIELDS = ("n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps")
+BLOCK_START_FIELDS = (
+    "n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps", "miss_release_limit"
+)
 BLOCK_START_KEY = 0x100  # bond i of a block-start case registers the key of private key 0x100 + i
 BLOCK_START_NUMBER = 1000
 BLOCK_START_GENERATION = 1
@@ -2965,7 +2972,8 @@ def check_staking_params(params):
     assert params["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER)
     assert params["min_stake"] >= params["vp_unit"]
     assert params["n_max"] * params["min_stake"] >= TAIKO_SUPPLY
-    assert 1 <= params["n_max"] <= 128 and 1 <= params["miss_limit"] <= 65_535
+    assert 1 <= params["n_max"] <= 128
+    assert 1 <= params["miss_limit"] <= params["miss_release_limit"] <= 65_535
     assert 0 < params["miss_slash_bps"] <= 10_000
 
 
@@ -2973,10 +2981,12 @@ def block_start_run(params, amounts, prior_bitmaps, bitmap):
     """A fresh staking contract (spec 4.1, 4.2): each amount registers a bond, which takes the
     lowest empty seat; then each prior call and the call run onBlockStart: count a miss for each
     occupied seat whose bit is 1 and reset the count of the others; then for each seat whose count
-    reached missLimit deduct ceil(effStake * missSlashBps / 10000), reset the count and release
-    the seat if effStake fell below minStake. Returns the registrations' seats, the seats held when
-    the call starts, the miss counts, the effStakes, the bonds the call released, its penalty and
-    the seats held after it (the records follow from them)."""
+    is a positive multiple of missLimit deduct ceil(effStake * missSlashBps / 10000), leaving the
+    count; then release each seat whose bond fell below minStake or whose count reached
+    missReleaseLimit, discarding its count. The prior calls may take penalties but release no
+    seat. Returns the registrations' seats, the seats held when the call starts, the miss counts,
+    the effStakes, the bonds the call released, its penalty and the seats held after it (the
+    records follow from them)."""
     seat_bond, eff, misses, seats = {}, [], [0] * SNAPSHOT_RECORDS, []
     for amount in amounts:
         assert amount >= params["min_stake"]
@@ -2990,20 +3000,19 @@ def block_start_run(params, amounts, prior_bitmaps, bitmap):
             misses[seat] = misses[seat] + 1 if bits >> seat & 1 else 0
         penalty, released = 0, []
         for seat in sorted(seat_bond):
-            if misses[seat] < params["miss_limit"]:
-                continue
             bond = seat_bond[seat]
-            cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
-            eff[bond] -= cut
-            penalty += cut
-            misses[seat] = 0
-            if eff[bond] < params["min_stake"]:
+            if misses[seat] > 0 and misses[seat] % params["miss_limit"] == 0:
+                cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
+                eff[bond] -= cut
+                penalty += cut
+            if eff[bond] < params["min_stake"] or misses[seat] >= params["miss_release_limit"]:
                 del seat_bond[seat]
+                misses[seat] = 0
                 released.append(bond)
         return penalty, released
 
     for bits in prior_bitmaps:
-        assert call(bits) == (0, []), "a case's penalties happen only in its call"
+        assert call(bits)[1] == [], "a case's seats are released only in its call"
     held = sorted(seat_bond)
     penalty, released = call(bitmap)
     return seats, held, misses, eff, released, penalty, seat_bond
@@ -3011,12 +3020,14 @@ def block_start_run(params, amounts, prior_bitmaps, bitmap):
 
 def on_block_start():
     """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit,
-    n_max, missLimit and missSlashBps unless a case overrides them: registrations, earlier
-    block-start calls, then the call in block 1000, with the miss counts, effStakes, released
-    bonds, penalty, records, total, height and generation it leaves. m is minStake."""
+    n_max, missLimit, missSlashBps and missReleaseLimit unless a case overrides them:
+    registrations, earlier block-start calls, then the call in block 1000, with the miss counts,
+    effStakes, released bonds, penalty, records, total, height and generation it leaves. m is
+    minStake."""
     m = DEPLOYMENT["min_stake"]
     base = {field: DEPLOYMENT[field] for field in BLOCK_START_FIELDS}
     n_max_64 = {"n_max": 64, "min_stake": 2 * m}  # ceil(10^27 / 64) = 2m
+    limits_30 = {"miss_limit": 10, "miss_release_limit": 30}
     cases = (
         # name, overrides, registration amounts, prior calls' missBitmaps, the call's missBitmap
         ("count_up", {}, (m,) * 4, (8, 8), 8),
@@ -3036,6 +3047,18 @@ def on_block_start():
         ("no_seats", {}, (), (), 2**128 - 1),
         ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), 0),
         ("n_max_64_records", n_max_64, (2 * m,) * 64, (), 0),
+        # missLimit 10 and missReleaseLimit 30 (25 or 10 where named): penalties at counts 10 and
+        # 20, the count kept; a 0 bit after the penalty at 10; the release at 30 after its
+        # penalty; the release at 25 with none; one penalty and the release at 10; and 1.2m,
+        # which the penalty at 20 leaves below m.
+        ("penalty_at_twice_limit", limits_30, (10 * m,), (1,) * 19, 1),
+        ("reset_after_penalty", limits_30, (10 * m,), (1,) * 10, 0),
+        ("release_at_limit", limits_30, (10 * m, m), (1,) * 29, 1),
+        ("release_between_multiples", {"miss_limit": 10, "miss_release_limit": 25}, (10 * m,),
+         (1,) * 24, 1),
+        ("release_at_miss_limit", {"miss_limit": 10, "miss_release_limit": 10}, (10 * m,),
+         (1,) * 9, 1),
+        ("release_below_min_before_limit", limits_30, (6 * m // 5,), (1,) * 19, 1),
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(scalar_key, range(BLOCK_START_KEY, BLOCK_START_KEY + 64)))
@@ -3093,6 +3116,18 @@ def on_block_start():
     assert [r["seat"] for r in expect["three_seats"]["records"]] == [0, 2, 5]
     assert [int(r["word2"], 16) >> 8 for r in expect["power_floor"]["records"]] == [2, 1, 1]
     assert expect["release_below_min"]["released"] == [0] == expect["full_bps"]["released"]
+    assert expect["ceil_exact"]["miss_counts"] == [{"seat": 0, "count": 10}]
+    assert expect["penalty_at_twice_limit"]["penalty_total"] == 9 * m // 10
+    assert expect["penalty_at_twice_limit"]["miss_counts"] == [{"seat": 0, "count": 20}]
+    assert expect["reset_after_penalty"]["penalty_total"] == 0
+    assert expect["release_at_limit"]["penalty_total"] == 81 * m // 100
+    assert expect["release_between_multiples"]["penalty_total"] == 0
+    assert expect["release_at_miss_limit"]["penalty_total"] == m
+    for name in ("release_at_limit", "release_between_multiples", "release_at_miss_limit"):
+        assert expect[name]["released"] == [0], name
+        assert expect[name]["eff_stakes"][0]["eff_stake"] >= m, name
+    assert expect["release_below_min_before_limit"]["released"] == [0]
+    assert expect["release_below_min_before_limit"]["eff_stakes"][0]["eff_stake"] < m
     return decimals({"deployment": base, "cases": out})
 
 
@@ -3932,7 +3967,7 @@ def main():
     vote_vectors = votes(key_list, domains)
     extra_rows = extra_data()
     vectors = {
-        "schema_version": "10",
+        "schema_version": "11",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
