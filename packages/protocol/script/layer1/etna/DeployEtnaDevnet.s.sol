@@ -59,7 +59,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// validated when the owner sends it. Nothing on chain checks the rest, which the operator must
 /// ensure: MAX_ANCHOR_AGE above the L1 finality delay (spec 11), which is three epochs (1152 s on
 /// Ethereum) plus the deployment's allowance for slots missed at an epoch boundary and for nodes'
-/// delay in importing the finalization, so on Ethereum 1152 s itself is too low; genesis values
+/// delay in importing the finalization, so on Ethereum 1152 s itself is too low, plus the time
+/// 1,024 L2 blocks take, with an allowance, so proposers can keep an anchor until the next multiple
+/// of 1,024 (spec 11 PARAM-11-5; without it anchors move when they age out); genesis values
 /// that match the L2 genesis; and nodes and guests using the same configuration. A verifier that
 /// accepts every proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz

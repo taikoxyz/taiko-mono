@@ -10,7 +10,7 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`556c7f1ca79273e8483549a10062b5230f3f21a9`. Every spec link here points at that commit, not at this
+`5190bff161d04ab33a4b8f8417bae161aba66d0b`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
@@ -20,7 +20,10 @@ Etna block, counts missed signatures, applies their penalties and writes the can
 Inbox holds a DAO fallback key set and a `minTotalStake` threshold. The candidate that a block's call
 writes signs two blocks later if it is a valid set whose total stake reaches the threshold;
 otherwise, and for the first two blocks of every generation, the fallback keys sign. Present
-all-zero vote hashes keep stock CometBFT's encoding, which that spec states.
+all-zero vote hashes keep stock CometBFT's encoding, which that spec states. That spec's proposer
+rule that moves the anchor once per 1,024 blocks (CONS-3.3-4) and its L1 history links in the
+guests' header chains (PROOF-6.2-34a) need no contract change; only the `MAX_ANCHOR_AGE` a
+deployment chooses follows them ([Deployment](#deployment)).
 
 ## Contracts
 
@@ -396,7 +399,11 @@ operator must also set `MAX_ANCHOR_AGE` above the L1 finality delay. That delay 
 the newest finalized L1 block reaches just before the next finalization while L1 finalizes on
 schedule (three epochs, 1152 s, on Ethereum), plus the deployment's allowance for slots missed at an
 epoch boundary and for nodes' delay in importing that finalization; `init` checks only the 1152 s
-floor, and on Ethereum 1152 s itself is too low. `forfeitBps` is an explicit deployment input in [1,
+floor, and on Ethereum 1152 s itself is too low. So that proposers can keep an anchor until the
+next multiple of 1,024 (CONS-3.3-4), a deployment also adds the time 1,024 blocks take (4,096 s at
+4-second blocks), with an allowance for slower blocks and for a proposer that picks an earlier
+finalized block (spec 11, PARAM-11-5); a value without this addition is valid, and anchors then move
+sooner, when they age out. `forfeitBps` is an explicit deployment input in [1,
 10,000], with no production default. The deployment manifest must also pin independent `C_CAP_MIN`
 and a conservative per-TAIKO `P_REF` in the same currency, with its source, haircut, expiry, review
 frequency and responsible owner, from which the DAO chooses `minTotalStake`. These are launch
@@ -534,6 +541,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/556c7f1ca79273e8483549a10062b5230f3f21a9/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/5190bff161d04ab33a4b8f8417bae161aba66d0b/packages/protocol/docs/etna/ANCHORLESS.md
