@@ -243,9 +243,9 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         );
     }
 
-    /// @dev The proxy uses an implementation built with another Inbox or another withdrawal
-    /// delay. The builder compares the implementation's code with one rebuilt from the expected
-    /// configuration, so each wrong immutable is refused.
+    /// @dev The proxy uses an implementation built with another Inbox, another withdrawal delay or
+    /// another miss release limit. The builder compares the implementation's code with one rebuilt
+    /// from the expected configuration, so each wrong immutable is refused.
     function test_buildChecked_RevertWhen_EtnaStakingImmutablesDiffer() external {
         IEtnaStaking.Config memory config = _etnaStakingConfig();
         config.inbox = Bob;
@@ -253,6 +253,10 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
 
         config = _etnaStakingConfig();
         config.withdrawalDelay += 1;
+        _expectEtnaStakingImplementationRefused(config);
+
+        config = _etnaStakingConfig();
+        config.missReleaseLimit += 1;
         _expectEtnaStakingImplementationRefused(config);
     }
 
@@ -536,6 +540,7 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
             nMax: 128,
             missLimit: 3600,
             missSlashBps: 1000,
+            missReleaseLimit: 10_800,
             withdrawalDelay: 302_402,
             slashBountyBps: 1000,
             slashSink: slashSink,

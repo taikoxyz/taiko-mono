@@ -6,9 +6,9 @@ import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
-/// @dev The block-start call: miss counting, missed-signature penalties and the candidate snapshot.
-/// The penalty cases scale the spec's small examples by m = minStake = 7,812,500 TAIKO, the least
-/// minStake the constructor allows with 128 seats.
+/// @dev The block-start call: miss counting, missed-signature penalties, seat releases and the
+/// candidate snapshot. The penalty cases scale the spec's small examples by m = minStake =
+/// 7,812,500 TAIKO, the least minStake the constructor allows with 128 seats.
 contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     /// @dev Consensus private keys: K_i is the key of private key i. K9's prefix is 0x03.
     uint256 private constant _K1 = 1;
@@ -165,7 +165,8 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     // ---------------------------------------------------------------
 
     /// @dev missLimit 10 and missSlashBps 1000: a penalty is ceil(effStake / 10), taken when the
-    /// count reaches 10, and all penalties of a call reach slashSink in one transfer.
+    /// count reaches 10, which the penalty leaves at 10, and all penalties of a call reach
+    /// slashSink in one transfer.
     function test_onBlockStart_PenalizesAtMissLimitWithCeil() external {
         IEtnaStaking.Config memory cfg = _config();
         cfg.missLimit = 10;
@@ -188,8 +189,8 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         assertEq(staking.bondAt(a).effStake, 9 * _M, "10m loses exactly m");
         assertEq(staking.bondAt(b).effStake, 9 * _M, "10m + 1 loses m + 1");
         assertEq(staking.bondAt(c).effStake, 2 * _M, "a seat with no misses loses nothing");
-        assertEq(staking.missCount(0), 0, "count 10 resets to 0");
-        assertEq(staking.missCount(1), 0, "count 10 resets to 0 for B too");
+        assertEq(staking.missCount(0), 10, "the count stays 10");
+        assertEq(staking.missCount(1), 10, "the count stays 10 for B too");
         _assertSeatOfBond(a, true, 0, "A keeps its seat");
         _assertSeatOfBond(b, true, 1, "B keeps its seat");
 
@@ -293,13 +294,73 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         _blockStart(1, 1);
         uint256 effStake = 2 * _M - 2 * _M / 10;
         assertEq(staking.bondAt(a).effStake, effStake, "the first miss is penalized");
-        assertEq(staking.missCount(0), 0, "count reset");
+        assertEq(staking.missCount(0), 1, "the count is not reset");
         _assertSeatOfBond(a, true, 0, "still at or above minStake");
         assertEq(token.balanceOf(SLASH_SINK), 2 * _M / 10, "penalty paid");
         assertEq(_word(1), effStake, "the snapshot holds the reduced stake");
 
         _blockStart(1, 1);
-        assertEq(staking.bondAt(a).effStake, effStake - effStake / 10, "and again");
+        assertEq(staking.bondAt(a).effStake, effStake - effStake / 10, "and again at count 2");
+        assertEq(staking.missCount(0), 2, "count 2");
+    }
+
+    /// @dev missLimit 10 and missReleaseLimit 30: a seated bond well above minStake that misses
+    /// 20 blocks in a row is penalized at counts 10 and 20, the second time on the stake the first
+    /// left, and at no count from 11 to 19; the count is never reset by a penalty.
+    function test_onBlockStart_PenalizesAtEveryMultipleOfMissLimit() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        uint256 c = _register(_K2, Carol, 2 * _M);
+        uint256 stake = 10 * _M;
+        uint256 paid;
+        for (uint256 count = 1; count <= 20; ++count) {
+            _blockStart(1, 1);
+            if (count % 10 == 0) {
+                paid += _penaltyOf(stake);
+                stake -= _penaltyOf(stake);
+            }
+            assertEq(staking.missCount(0), count, "the count keeps rising");
+            assertEq(staking.bondAt(a).effStake, stake, "penalized at multiples of 10 only");
+            assertEq(token.balanceOf(SLASH_SINK), paid, "the sink holds the penalties so far");
+        }
+        assertEq(stake, 10 * _M - _M - 9 * _M / 10, "10m, then 9m, then 8.1m");
+        _assertSeatOfBond(a, true, 0, "A keeps its seat");
+        assertEq(staking.bondAt(c).effStake, 2 * _M, "a signing bond loses nothing");
+        assertEq(staking.missCount(1), 0, "C's count");
+    }
+
+    /// @dev A count of 0 is not a multiple of missLimit, even of missLimit 1: a seat whose bit is
+    /// 0 is never penalized.
+    function test_onBlockStart_ZeroCountIsNeverPenalized() external {
+        _deployMissLimits(1, 30);
+        uint256 a = _register(_K1, Bob, 2 * _M);
+        for (uint256 i; i < 5; ++i) {
+            _blockStart(1, 0);
+            assertEq(staking.missCount(0), 0, "count 0");
+        }
+        assertEq(staking.bondAt(a).effStake, 2 * _M, "no deduction");
+        assertEq(token.balanceOf(SLASH_SINK), 0, "nothing paid");
+    }
+
+    /// @dev missLimit 10: after the penalty at count 10 a 0 bit resets the count, so the next
+    /// penalty needs 10 further consecutive misses.
+    function test_onBlockStart_ClearBitAfterPenaltyRestartsTheRun() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        _blockStarts(10, 1);
+        assertEq(staking.missCount(0), 10, "count 10 after the penalty");
+        assertEq(staking.bondAt(a).effStake, 9 * _M, "the first penalty");
+
+        _blockStart(1, 0);
+        assertEq(staking.missCount(0), 0, "a clear bit resets the count");
+        assertEq(staking.bondAt(a).effStake, 9 * _M, "no deduction at count 0");
+        _blockStarts(9, 1);
+        assertEq(staking.missCount(0), 9, "count 9");
+        assertEq(staking.bondAt(a).effStake, 9 * _M, "none below 10 further misses");
+        _blockStart(1, 1);
+        assertEq(staking.missCount(0), 10, "count 10 again");
+        assertEq(staking.bondAt(a).effStake, 9 * _M - 9 * _M / 10, "the second penalty");
+        assertEq(token.balanceOf(SLASH_SINK), _M + 9 * _M / 10, "two penalties paid");
     }
 
     function test_onBlockStart_FullSlashBpsTakesWholeStake() external {
@@ -320,6 +381,220 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         assertEq(token.balanceOf(SLASH_SINK), 2 * _M, "the whole stake paid");
         _assertSeatOfBond(b, true, 1, "B kept");
         assertEq(_word(1), 2 * _M, "the total holds B only");
+    }
+
+    // ---------------------------------------------------------------
+    // Releases at missReleaseLimit
+    // ---------------------------------------------------------------
+
+    /// @dev missLimit 10 and missReleaseLimit 30: at count 30 the bond, still above minStake, is
+    /// penalized first and then releases its seat, with no exit set, nothing more deducted and no
+    /// event; the release discards the count and the same call's snapshot leaves the bond out.
+    function test_onBlockStart_ReleasesAtMissReleaseLimitAfterThePenalty() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        uint256 b = _register(_K2, Carol, 2 * _M);
+        _blockStarts(29, 1);
+        uint256 stake = 10 * _M - _M - 9 * _M / 10;
+        assertEq(staking.bondAt(a).effStake, stake, "penalized at 10 and 20");
+        assertEq(staking.missCount(0), 29, "count 29");
+        _assertSeatOfBond(a, true, 0, "still seated at count 29");
+        uint256 paidBefore = token.balanceOf(SLASH_SINK);
+
+        vm.recordLogs();
+        _blockStart(1, 1);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        IEtnaStaking.Bond memory bond = staking.bondAt(a);
+        assertEq(bond.effStake, stake - _penaltyOf(stake), "the penalty of count 30 applies");
+        assertGe(bond.effStake, _M, "the bond stays above minStake");
+        assertEq(
+            token.balanceOf(SLASH_SINK) - paidBefore, _penaltyOf(stake), "only that penalty paid"
+        );
+        assertEq(bond.exitHeight, NO_EXIT, "no exit set");
+        assertFalse(bond.holdsSeat, "the record holds no seat");
+        _assertSeatOfBond(a, false, 0, "seat released");
+        _assertBondInSeat(0, false, 0, "seat 0 is empty");
+        assertEq(staking.missCount(0), 0, "the count is discarded");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(0), "key word zero");
+        _assertEmptyRecord(0, "released in this call's snapshot");
+        _assertRecord(1, _K2, 2 * _M / VP_UNIT, "B in record 1");
+        assertEq(_word(1), 2 * _M, "the total holds B only");
+        _assertSeatOfBond(b, true, 1, "B keeps its seat");
+        assertEq(_logsFrom(logs, address(staking)), 0, "the call emits no events");
+    }
+
+    /// @dev missLimit 10 and missReleaseLimit 25: at count 25, not a multiple of 10, the bond
+    /// releases its seat with no deduction in that call.
+    function test_onBlockStart_ReleasesAtMissReleaseLimitWithoutAPenalty() external {
+        _deployMissLimits(10, 25);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        _blockStarts(24, 1);
+        uint256 stake = 10 * _M - _M - 9 * _M / 10;
+        assertEq(staking.bondAt(a).effStake, stake, "penalized at 10 and 20");
+        uint256 paidBefore = token.balanceOf(SLASH_SINK);
+
+        _blockStart(1, 1);
+        assertEq(staking.bondAt(a).effStake, stake, "nothing deducted at count 25");
+        assertEq(token.balanceOf(SLASH_SINK), paidBefore, "nothing paid at count 25");
+        _assertSeatOfBond(a, false, 0, "seat released");
+        assertEq(staking.bondAt(a).exitHeight, NO_EXIT, "no exit set");
+        assertEq(staking.missCount(0), 0, "the count is discarded");
+        _assertSnapshotEmpty("no seat left");
+    }
+
+    /// @dev missReleaseLimit 30: a 0 bit at count 29 resets the count and the bond keeps its seat;
+    /// 29 further misses still do not release it.
+    function test_onBlockStart_ClearBitBeforeMissReleaseLimitKeepsTheSeat() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        _blockStarts(29, 1);
+        _blockStart(1, 0);
+        assertEq(staking.missCount(0), 0, "the count resets");
+        _assertSeatOfBond(a, true, 0, "the bond keeps its seat");
+        _blockStarts(29, 1);
+        assertEq(staking.missCount(0), 29, "count 29 again");
+        _assertSeatOfBond(a, true, 0, "still seated");
+    }
+
+    /// @dev missLimit = missReleaseLimit = 10: at count 10 one call deducts the penalty and then
+    /// releases the seat.
+    function test_onBlockStart_EqualLimitsPenalizeThenReleaseInOneCall() external {
+        _deployMissLimits(10, 10);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        _blockStarts(9, 1);
+        _assertSeatOfBond(a, true, 0, "seated at count 9");
+
+        _blockStart(1, 1);
+        assertEq(staking.bondAt(a).effStake, 9 * _M, "one deduction");
+        assertEq(token.balanceOf(SLASH_SINK), _M, "one penalty paid");
+        _assertSeatOfBond(a, false, 0, "then the release");
+        assertEq(staking.bondAt(a).exitHeight, NO_EXIT, "no exit set");
+        _assertEmptyRecord(0, "released in this call's snapshot");
+    }
+
+    /// @dev missReleaseLimit 30: the penalty at count 20 leaves a bond of 1.2m below minStake, so
+    /// it releases its seat then, and the release limit is never reached for it. With
+    /// missReleaseLimit 20 both reasons hold in the same call and the seat is released once,
+    /// touching no other seat.
+    function test_onBlockStart_PenaltyBelowMinStakeReleasesBeforeTheLimit() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 6 * _M / 5);
+        uint256 b = _register(_K2, Carol, 2 * _M);
+        _blockStarts(19, 1);
+        uint256 stake = 6 * _M / 5 - _penaltyOf(6 * _M / 5);
+        assertEq(staking.bondAt(a).effStake, stake, "penalized at 10, still at or above m");
+        _assertSeatOfBond(a, true, 0, "seated at count 19");
+
+        _blockStart(1, 1);
+        stake -= _penaltyOf(stake);
+        assertLt(stake, _M, "the penalty at 20 leaves the bond below m");
+        assertEq(staking.bondAt(a).effStake, stake, "the second penalty");
+        _assertSeatOfBond(a, false, 0, "released by the penalty");
+        assertEq(staking.bondAt(a).exitHeight, NO_EXIT, "no exit set");
+        assertEq(staking.missCount(0), 0, "the count is discarded");
+        uint256 paid = token.balanceOf(SLASH_SINK);
+        _blockStarts(15, 1);
+        assertEq(staking.bondAt(a).effStake, stake, "a seatless bond loses nothing more");
+        assertEq(token.balanceOf(SLASH_SINK), paid, "nothing more paid");
+        _assertSeatOfBond(b, true, 1, "B keeps its seat");
+
+        _deployMissLimits(10, 20);
+        a = _register(_K1, Bob, 6 * _M / 5);
+        b = _register(_K2, Carol, 2 * _M);
+        _blockStarts(20, 1);
+        assertEq(staking.bondAt(a).effStake, stake, "two penalties");
+        assertEq(token.balanceOf(SLASH_SINK) - paid, 6 * _M / 5 - stake, "both paid once");
+        _assertSeatOfBond(a, false, 0, "released once");
+        _assertBondInSeat(0, false, 0, "seat 0 is empty");
+        _assertSeatOfBond(b, true, 1, "B keeps seat 1");
+        _assertBondInSeat(1, true, b, "seat 1 holds B");
+        assertEq(staking.missCount(1), 0, "B's count");
+    }
+
+    /// @dev A bond released at missReleaseLimit keeps effStake >= minStake and no exit, yet holds no
+    /// seat: later block-start calls and another bond's registration give it none, its effStake
+    /// does not change while its key keeps missing, for more than three release limits, and a
+    /// top-up of one base unit gives it the lowest empty seat with count 0.
+    function test_onBlockStart_BondReleasedAtTheLimitTakesASeatOnlyThroughATopUp() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        uint256 b = _register(_K2, Carol, 2 * _M);
+        _blockStarts(30, 1);
+        uint256 stake = staking.bondAt(a).effStake;
+        assertGe(stake, _M, "at or above minStake");
+        _assertSeatOfBond(a, false, 0, "released at the limit");
+        uint256 paid = token.balanceOf(SLASH_SINK);
+
+        // Every bit but B's: seat 0 is empty, so its bit counts nothing.
+        _blockStarts(100, ~uint128(2));
+        _assertSeatOfBond(a, false, 0, "no block-start call gives it a seat");
+        assertEq(staking.bondAt(a).effStake, stake, "no miss counted, no penalty");
+        assertEq(token.balanceOf(SLASH_SINK), paid, "nothing paid");
+        assertEq(staking.missCount(0), 0, "seat 0 counts nothing");
+
+        uint256 c = _register(_K3, David, _M);
+        _assertSeatOfBond(c, true, 0, "a new bond takes seat 0");
+        _assertSeatOfBond(a, false, 0, "another bond's registration gives A no seat");
+
+        _fund(Bob, 1);
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.TopUpDeposited(a, 1);
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.SeatTaken(a, 2);
+        vm.prank(Bob);
+        staking.topUp(a, 1);
+        _assertSeatOfBond(a, true, 2, "the lowest empty seat");
+        assertEq(staking.missCount(2), 0, "count 0");
+        assertEq(staking.bondAt(a).effStake, stake + 1, "one base unit added");
+        _assertSeatOfBond(b, true, 1, "B kept");
+    }
+
+    /// @dev A bond released at missReleaseLimit in block H's call and topped up in H's
+    /// transactions takes a seat with count 0 in that transaction; H's snapshot, already written,
+    /// leaves it out and H + 1's holds it.
+    function test_onBlockStart_TopUpInTheReleasingBlockReachesTheNextSnapshot() external {
+        _deployMissLimits(10, 30);
+        uint256 a = _register(_K1, Bob, 10 * _M);
+        _blockStarts(30, 1);
+        _assertSeatOfBond(a, false, 0, "released in H's call");
+        _assertSnapshotEmpty("H's snapshot");
+
+        _topUp(a, 1);
+        _assertSeatOfBond(a, true, 0, "seated again in H");
+        assertEq(staking.missCount(0), 0, "count 0");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(uint256(0x0001)), "key word");
+        _assertSnapshotEmpty("H's snapshot is unchanged within H");
+
+        uint256 stake = staking.bondAt(a).effStake;
+        _blockStart(1, 0);
+        _assertRecord(0, _K1, stake / VP_UNIT, "record 0 holds A at H + 1");
+        assertEq(_word(1), stake, "the total at H + 1");
+    }
+
+    /// @dev Block H's call releases bond A from seat 4 at missReleaseLimit and bond B takes seat 4
+    /// in H's transactions. H's post-state maps A's key to no seat, so A's further misses set no
+    /// bit at H + 1, and B starts at count 0 and is charged nothing.
+    function test_onBlockStart_SeatReleasedAtTheLimitAndRetakenCarriesNoOldMisses() external {
+        _deployMissLimits(10, 30);
+        for (uint256 pk = 11; pk < 15; ++pk) {
+            _register(pk, Bob, _M);
+        }
+        uint256 a = _register(_K1, Carol, 10 * _M);
+        _blockStarts(30, 1 << 4);
+        _assertSeatOfBond(a, false, 0, "A released from seat 4");
+        assertEq(_keySeatWord(EtnaTestKeys.ckAddr(_K1)), bytes32(0), "A's key word is zero");
+
+        uint256 b = _register(_K2, David, _M);
+        _assertSeatOfBond(b, true, 4, "B takes seat 4 in H");
+        assertEq(staking.missCount(4), 0, "B starts at count 0");
+
+        _blockStart(1, 0);
+        assertEq(staking.missCount(4), 0, "no miss of A reaches B");
+        assertEq(staking.bondAt(b).effStake, _M, "B is charged nothing");
+        _assertRecord(4, _K2, _M / VP_UNIT, "record 4 holds B");
+        _blockStart(1, 1 << 4);
+        assertEq(staking.missCount(4), 1, "B's own first miss");
     }
 
     // ---------------------------------------------------------------
@@ -496,6 +771,26 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         _requestExit(one);
         _requestExit(three);
         _requestExit(four);
+    }
+
+    /// @dev Deploys a staking contract with the base's configuration and the given miss limits.
+    function _deployMissLimits(uint256 _missLimit, uint256 _missReleaseLimit) private {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = _missLimit;
+        cfg.missReleaseLimit = _missReleaseLimit;
+        staking = _deploy(cfg);
+    }
+
+    /// @dev Makes `_n` block-start calls of generation 1 with `_missBitmap`, one block each.
+    function _blockStarts(uint256 _n, uint128 _missBitmap) private {
+        for (uint256 i; i < _n; ++i) {
+            _blockStart(1, _missBitmap);
+        }
+    }
+
+    /// @dev The penalty at the base's missSlashBps of 1000: ceil(`_effStake` / 10).
+    function _penaltyOf(uint256 _effStake) private pure returns (uint256) {
+        return (_effStake + 9) / 10;
     }
 
     /// @dev Funds bond `_bondId`'s owner with `_amount`, which it then tops up.

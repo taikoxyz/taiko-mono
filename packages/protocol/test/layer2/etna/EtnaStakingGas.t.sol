@@ -9,8 +9,8 @@ import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
 /// @title EtnaStakingOnBlockStartGasBase
 /// @notice Gas snapshots of the block-start call with all 128 seats occupied, every bit set and
-/// every seated bond reaching missLimit in the same call; each must stay below the 30,000,000 gas
-/// of the call's frame.
+/// every seated bond's count reaching a multiple of missLimit, missReleaseLimit or both in the same
+/// call; each must stay below the 30,000,000 gas of the call's frame.
 /// @dev `setUp` registers the bonds and makes any earlier call, and the measured test is a
 /// separate transaction. The measured call therefore finds the staking and token storage cold
 /// and pays for each write against the storage `setUp` committed, as a block's call does. A test
@@ -19,10 +19,18 @@ abstract contract EtnaStakingOnBlockStartGasBase is EtnaStakingTestBase {
     /// @dev The gas the execution layer gives the call's frame.
     uint256 internal constant FRAME_GAS = 30_000_000;
 
-    /// @dev Deploys a staking contract with `_missLimit` and seats 128 bonds of `_stake` each.
-    function _seatEveryBond(uint256 _missLimit, uint256 _stake) internal {
+    /// @dev Deploys a staking contract with `_missLimit` and `_missReleaseLimit` and seats 128
+    /// bonds of `_stake` each.
+    function _seatEveryBond(
+        uint256 _missLimit,
+        uint256 _missReleaseLimit,
+        uint256 _stake
+    )
+        internal
+    {
         IEtnaStaking.Config memory cfg = _config();
         cfg.missLimit = _missLimit;
+        cfg.missReleaseLimit = _missReleaseLimit;
         staking = _deploy(cfg);
         for (uint256 pk = 1; pk <= N_MAX; ++pk) {
             _register(pk, Bob, _stake);
@@ -54,9 +62,9 @@ abstract contract EtnaStakingOnBlockStartGasBase is EtnaStakingTestBase {
 
 /// @title EtnaStakingOnBlockStartWorstCaseGasTest
 /// @notice The worst case. missLimit is 1 and no call has run since the 128 registrations, so the
-/// measured call penalizes every bond, each bond of 2m keeps its seat, every one of the 256
-/// snapshot record words and slashSink's balance goes from zero to nonzero, and the 8 miss-count
-/// words go from zero to nonzero and back to zero, since each penalty resets its count.
+/// measured call penalizes every bond, each bond of 2m keeps its seat, and every one of the 256
+/// snapshot record words, slashSink's balance and the 8 miss-count words go from zero to nonzero,
+/// since a penalty leaves its count as it is.
 contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingOnBlockStartGasBase {
     /// @dev The EIP-170 contract size limit in bytes.
     uint256 private constant _EIP170_LIMIT = 24_576;
@@ -67,7 +75,7 @@ contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingOnBlockStartGasBa
 
     function setUp() public override {
         super.setUp();
-        _seatEveryBond(1, 2 * MIN_STAKE);
+        _seatEveryBond(1, MISS_RELEASE_LIMIT, 2 * MIN_STAKE);
         // Checked here, not in the test: reading the words there would warm them.
         for (uint256 offset; offset < 259; ++offset) {
             assertEq(_word(offset), 0, "no snapshot before the call");
@@ -105,7 +113,7 @@ contract EtnaStakingOnBlockStartWorstCaseGasTest is EtnaStakingOnBlockStartGasBa
 contract EtnaStakingOnBlockStartReleaseSeatsGasTest is EtnaStakingOnBlockStartGasBase {
     function setUp() public override {
         super.setUp();
-        _seatEveryBond(2, MIN_STAKE);
+        _seatEveryBond(2, MISS_RELEASE_LIMIT, MIN_STAKE);
         _blockStart(1, type(uint128).max);
         for (uint8 seat; seat < N_MAX; ++seat) {
             assertEq(staking.missCount(seat), 1, "count 1 after the first call");
@@ -117,6 +125,36 @@ contract EtnaStakingOnBlockStartReleaseSeatsGasTest is EtnaStakingOnBlockStartGa
 
         for (uint8 seat; seat < N_MAX; ++seat) {
             _assertBondInSeat(seat, false, 0, "seat released");
+        }
+        for (uint256 offset = 1; offset < 259; ++offset) {
+            assertEq(_word(offset), 0, "an empty snapshot");
+        }
+    }
+}
+
+/// @title EtnaStakingOnBlockStartReleaseLimitGasTest
+/// @notice Every bond of 2m reaches missLimit and missReleaseLimit, both 2, in the same call: each
+/// loses 10%, stays above m and then releases its seat, one key decompression each. `setUp` makes
+/// a call with every bit set first, so the measured call clears 256 nonzero snapshot record words.
+contract EtnaStakingOnBlockStartReleaseLimitGasTest is EtnaStakingOnBlockStartGasBase {
+    function setUp() public override {
+        super.setUp();
+        _seatEveryBond(2, 2, 2 * MIN_STAKE);
+        _blockStart(1, type(uint128).max);
+        for (uint8 seat; seat < N_MAX; ++seat) {
+            assertEq(staking.missCount(seat), 1, "count 1 after the first call");
+        }
+    }
+
+    function test_gas_onBlockStart_PenaltiesThenReleaseEverySeatAtTheLimit() external {
+        _measure("on_block_start_128_penalties_released_at_limit", 2 * MIN_STAKE);
+
+        for (uint8 seat; seat < N_MAX; ++seat) {
+            _assertBondInSeat(seat, false, 0, "seat released");
+            assertEq(staking.missCount(seat), 0, "the count is discarded");
+            IEtnaStaking.Bond memory bond = staking.bondAt(seat);
+            assertGe(bond.effStake, MIN_STAKE, "above m after the penalty");
+            assertEq(bond.exitHeight, NO_EXIT, "no exit set");
         }
         for (uint256 offset = 1; offset < 259; ++offset) {
             assertEq(_word(offset), 0, "an empty snapshot");

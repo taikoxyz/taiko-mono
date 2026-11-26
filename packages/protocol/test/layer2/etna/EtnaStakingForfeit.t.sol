@@ -117,6 +117,38 @@ contract EtnaStakingForfeitTest is EtnaStakingTestBase {
         assertEq(token.balanceOf(address(staking)), MIN_STAKE + stake - penalty, "rest held");
     }
 
+    /// @dev A bond released at missReleaseLimit keeps a stake of at least minStake, no exit and no
+    /// seat. A forfeiture deducts from it, flags it and sets its exit at the current block as for
+    /// any unwithdrawn bond, and releases no seat.
+    function test_forfeit_TakesFromABondReleasedAtMissReleaseLimit() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 2;
+        cfg.missReleaseLimit = 2;
+        staking = _deploy(cfg);
+        assertEq(_register(_PK, Alice, 2 * MIN_STAKE), 0, "bond 0");
+        assertEq(_register(_PK_B, Bob, MIN_STAKE), 1, "bond 1");
+        _blockStart(0, 1);
+        _blockStart(0, 1);
+        uint256 balance = 2 * MIN_STAKE - 2 * MIN_STAKE / 10;
+        assertEq(staking.bondAt(0).effStake, balance, "one penalty, still above minStake");
+        _assertSeatOfBond(0, false, 0, "seat released at the limit");
+        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
+
+        vm.recordLogs();
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.Forfeited(0, _INCIDENT, balance, balance / 10);
+        _forfeit(0);
+        assertEq(_logsFrom(vm.getRecordedLogs(), address(staking)), 1, "no seat event");
+
+        IEtnaStaking.Bond memory bond = staking.bondAt(0);
+        assertEq(bond.effStake, balance - balance / 10, "the forfeiture deducted");
+        assertEq(bond.exitHeight, block.number, "exit set now");
+        assertTrue(staking.forfeited(0), "flag set");
+        assertEq(token.balanceOf(SLASH_SINK) - sinkBefore, balance / 10, "penalty to the sink");
+        _assertBondInSeat(0, false, 0, "seat 0 still empty");
+        _assertBondInSeat(1, true, 1, "seat 1 untouched");
+    }
+
     /// @dev An exit set earlier keeps its height, so the withdrawal delay is not restarted; the
     /// bond, which holds no seat, releases none. The owner withdraws the rest when the delay from
     /// the earlier exit has passed, and the flag survives the withdrawal.

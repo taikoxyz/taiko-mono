@@ -3,17 +3,19 @@ pragma solidity ^0.8.26;
 
 /// @title IEtnaStaking
 /// @notice The L2 staking contract the Etna candidate validator set comes from (spec 4.1, 4.2).
-/// @dev Section numbers refer to the Etna specification. Validators register a secp256k1
-/// consensus key with a stake of the bridged TAIKO token on L2. Each registration issues a new
-/// bond id, counting up from 0 and never reused. A bond holds one of `nMax` seats exactly while it
-/// is issued and unwithdrawn, has no exit set and has effStake >= minStake: it takes the lowest
-/// empty seat in the call that makes it meet these conditions, never moving another bond, and
-/// releases the seat in the call that ends one of them. At the start of every Etna block the
-/// execution layer calls `onBlockStart` from the system caller, which counts missed signatures,
-/// applies their penalties and writes the candidate snapshot. Nodes and guests read the snapshot
-/// and the live key-to-seat mapping from storage under the ERC-7201 namespace
-/// `taiko.etna.staking` (spec appendix B), not through this interface. The interface has no
-/// imports, so clients can copy it.
+/// @dev Section numbers refer to the Etna specification. Validators register a secp256k1 consensus
+/// key with a stake of the bridged TAIKO token on L2. Each registration issues a new bond id,
+/// counting up from 0 and never reused. A bond can hold one of `nMax` seats only while it is issued
+/// and unwithdrawn, has no exit set and has effStake >= minStake. It takes the lowest empty seat at
+/// registration and in a top-up that leaves a seatless bond meeting these conditions, never moving
+/// another bond, and no other call gives it one. It releases the seat in the call that ends one of
+/// the conditions, and in the block-start call in which its seat's miss count reaches
+/// `missReleaseLimit`; such a bond still meets every condition but holds no seat until its owner's
+/// next top-up. At the start of every Etna block the execution layer calls `onBlockStart` from the
+/// system caller, which counts missed signatures, applies their penalties and releases, and writes
+/// the candidate snapshot. Nodes and guests read the snapshot and the live key-to-seat mapping from
+/// storage under the ERC-7201 namespace `taiko.etna.staking` (spec appendix B), not through this
+/// interface. The interface has no imports, so clients can copy it.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaStaking {
     // ---------------------------------------------------------------
@@ -38,11 +40,15 @@ interface IEtnaStaking {
         uint256 vpUnit;
         /// @notice The number of seats, in [1, 128].
         uint256 nMax;
-        /// @notice The consecutive missed signatures at which a seated bond is penalized, in
-        /// [1, 65,535].
+        /// @notice The consecutive missed signatures at which a seated bond is penalized, and
+        /// again at every further multiple of it; in [1, `missReleaseLimit`].
         uint256 missLimit;
         /// @notice The missed-signature penalty in basis points of effStake, in [1, 10,000].
         uint256 missSlashBps;
+        /// @notice The consecutive missed signatures at which a seated bond releases its seat,
+        /// after any penalty due in the same call, with no exit set and nothing more deducted; in
+        /// [`missLimit`, 65,535].
+        uint256 missReleaseLimit;
         /// @notice The L2 blocks from a bond's exit height until it can be withdrawn, in
         /// [1, 2^48). Deployment also requires at least U + 2 + the double-sign evidence window;
         /// U is an L1 Inbox value, so the deployment tooling checks that bound, not the
@@ -172,8 +178,8 @@ interface IEtnaStaking {
     event SeatTaken(uint256 indexed bondId, uint8 seat);
 
     /// @notice Emitted when `requestExit`, `slashDoubleSign` or `forfeit` releases a bond's seat.
-    /// `onBlockStart` emits no events, so a seat that a missed-signature penalty releases is not
-    /// reported.
+    /// `onBlockStart` emits no events, so a seat released there, by a missed-signature penalty or
+    /// at `missReleaseLimit`, is not reported.
     /// @param bondId The bond id.
     /// @param seat The seat the bond releases.
     event SeatReleased(uint256 indexed bondId, uint8 seat);
@@ -239,10 +245,11 @@ interface IEtnaStaking {
     /// @dev Only the bond owner (`NotBondOwner`), for an issued (`UnknownBond`) and unwithdrawn
     /// (`BondWithdrawn`) bond with no exit set (`ExitAlreadySet`), and only a positive `_amount`
     /// (`ZeroAmount`). Transfers `_amount` TAIKO in, rejecting overflow of effStake, and changes
-    /// neither owner nor key. A seatless bond that it brings to minStake or more takes the lowest
-    /// empty seat in the same call, reverting `NoEmptySeat` if every seat is held. A top-up
-    /// cannot be withdrawn separately; it leaves with the rest of the principal, through
-    /// `withdraw`.
+    /// neither owner nor key. A seatless bond that it leaves at minStake or more takes the lowest
+    /// empty seat in the same call, whatever `_amount` is, so a bond released at `missReleaseLimit`
+    /// takes a seat again with a top-up of one base unit; it reverts `NoEmptySeat` if every seat is
+    /// held. A top-up cannot be withdrawn separately; it leaves with the rest of the principal,
+    /// through `withdraw`.
     /// @param _bondId The bond id.
     /// @param _amount The positive TAIKO base units approved to this contract.
     function topUp(uint256 _bondId, uint256 _amount) external;
@@ -304,20 +311,23 @@ interface IEtnaStaking {
     /// @param _validUntil The inclusive deadline, an L2 Unix timestamp in seconds.
     function forfeit(uint256 _bondId, bytes32 _incidentId, uint256 _validUntil) external;
 
-    /// @notice The block-start call: counts missed signatures, applies their penalties and writes
-    /// the candidate snapshot (spec 4.2).
+    /// @notice The block-start call: counts missed signatures, applies their penalties and
+    /// releases, and writes the candidate snapshot (spec 4.2).
     /// @dev Only the system caller 0xfffffffffffffffffffffffffffffffffffffffe
     /// (`NotSystemCaller`), from which the execution layer makes this call at the start of every
     /// Etna block with both arguments taken from the block's extraData. Stores `_generation` as
     /// `lastGeneration()`, then, in order: counts misses, raising the count of each occupied seat
     /// s by one if bit s of `_missBitmap` is set and resetting it to zero otherwise (bits of empty
-    /// seats and at or above nMax change nothing); penalizes each seat whose count reached
-    /// missLimit: deducts ceil(effStake * missSlashBps / 10000) from the seated bond for
-    /// slashSink with no bounty and resets the count to zero, and a bond that this leaves below
-    /// minStake also releases its seat, without an exit being set; and writes the 128 snapshot
+    /// seats and at or above nMax change nothing); penalizes each seat whose count is a positive
+    /// multiple of missLimit: deducts ceil(effStake * missSlashBps / 10000) from the seated bond
+    /// for slashSink with no bounty and leaves the count as it is, so a run of misses is
+    /// penalized at missLimit and at every further multiple of it; then releases the seat of each
+    /// bond that a penalty left below minStake or whose seat's count reached missReleaseLimit,
+    /// without an exit being set or anything more deducted, discarding the count, so after the
+    /// call no occupied seat's count exceeds missReleaseLimit - 1; and writes the 128 snapshot
     /// seat records, `snapshotTotalStake` and `snapshotHeight` = block.number, so the snapshot
-    /// already reflects this call's penalties. Only this call writes the snapshot, and it emits
-    /// no events. If it reverts, nothing changes and the block stays valid.
+    /// already reflects this call's penalties and releases. Only this call writes the snapshot,
+    /// and it emits no events. If it reverts, nothing changes and the block stays valid.
     /// @param _generation The block's recovery generation.
     /// @param _missBitmap The block's missed-signature bitmap; bit s is seat s.
     function onBlockStart(uint48 _generation, uint128 _missBitmap) external;
@@ -379,7 +389,8 @@ interface IEtnaStaking {
 
     /// @notice Returns a seat's count of consecutive missed signatures (spec 4.2).
     /// @param _seat The seat.
-    /// @return The miss count; taking a seat resets it to zero.
+    /// @return The miss count; taking or releasing a seat resets it to zero, a penalty does not,
+    /// and an occupied seat's count is below missReleaseLimit after every `onBlockStart`.
     function missCount(uint8 _seat) external view returns (uint16);
 
     /// @notice Returns the generation `onBlockStart` last stored, the upper bound for the
@@ -411,13 +422,19 @@ interface IEtnaStaking {
     /// @return The seat count, in [1, 128].
     function nMax() external view returns (uint256);
 
-    /// @notice Returns the consecutive missed signatures at which a seated bond is penalized.
+    /// @notice Returns the consecutive missed signatures at which, and at every further multiple
+    /// of which, a seated bond is penalized.
     /// @return The miss limit.
     function missLimit() external view returns (uint256);
 
     /// @notice Returns the missed-signature penalty in basis points of effStake.
     /// @return The penalty rate.
     function missSlashBps() external view returns (uint256);
+
+    /// @notice Returns the consecutive missed signatures at which a seated bond releases its
+    /// seat.
+    /// @return The miss release limit.
+    function missReleaseLimit() external view returns (uint256);
 
     /// @notice Returns the L2 blocks from a bond's exit height until it can be withdrawn.
     /// @return The withdrawal delay.

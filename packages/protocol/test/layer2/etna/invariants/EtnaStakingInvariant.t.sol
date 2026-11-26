@@ -11,8 +11,9 @@ import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 /// snapshot records, exit heights, forfeiture flags and key registrations under random sequences
 /// of registrations, top-ups, exits, withdrawals, double-sign slashes, forfeitures, block-start
 /// calls and L2 blocks.
-/// @dev The deployment has 8 seats, missLimit 2 and minStake 1.25 * 10^26, so 8 * minStake is
-/// TAIKO's 10^27 supply; the stand-in token mints freely, so more bonds than seats can reach m.
+/// @dev The deployment has 8 seats, missLimit 2, missReleaseLimit 4 and minStake 1.25 * 10^26, so
+/// 8 * minStake is TAIKO's 10^27 supply; the stand-in token mints freely, so more bonds than seats
+/// can reach m. A run of misses is penalized at counts 2 and 4 and released at 4.
 /// Foundry runs a separate campaign per invariant function and asserts only that function in it,
 /// so every invariant also asserts that the handler saw no violation of any kind.
 /// forge-config: default.invariant.depth = 50
@@ -20,6 +21,7 @@ import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 contract EtnaStakingInvariantTest is EtnaStakingTestBase {
     uint256 internal constant INVARIANT_N_MAX = 8;
     uint256 internal constant INVARIANT_MISS_LIMIT = 2;
+    uint256 internal constant INVARIANT_MISS_RELEASE_LIMIT = 4;
     uint256 internal constant INVARIANT_MIN_STAKE = 1.25e26;
 
     /// @dev The number of snapshot records.
@@ -35,6 +37,7 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
         IEtnaStaking.Config memory cfg = _config();
         cfg.nMax = INVARIANT_N_MAX;
         cfg.missLimit = INVARIANT_MISS_LIMIT;
+        cfg.missReleaseLimit = INVARIANT_MISS_RELEASE_LIMIT;
         cfg.minStake = INVARIANT_MIN_STAKE;
         staking = _deploy(cfg);
         handler = new EtnaStakingHandler(staking, token, STAKING_OWNER);
@@ -69,15 +72,16 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
     }
 
     /// @notice A bond holds a seat exactly while it is issued, unwithdrawn, has no exit and has
-    /// effStake >= m; an unissued id holds none.
-    function invariant_seatHeldIffIssuedUnwithdrawnNoExitAndAtLeastMinStake() external view {
+    /// effStake >= m, unless a block-start call released its seat and no top-up has seated it
+    /// since; an unissued id holds none.
+    function invariant_seatHeldIffConditionsHoldAndNoReleaseSinceTopUp() external view {
         _assertNoViolation();
         uint256 count = staking.bondCount();
         assertEq(count, handler.bondTotal(), "one bond id per registration");
         for (uint256 bondId; bondId < count; ++bondId) {
             IEtnaStaking.Bond memory bond = staking.bondAt(bondId);
             bool eligible = !bond.withdrawn && bond.exitHeight == NO_EXIT
-                && bond.effStake >= INVARIANT_MIN_STAKE;
+                && bond.effStake >= INVARIANT_MIN_STAKE && !handler.releasedByBlockStart(bondId);
             assertEq(bond.holdsSeat, eligible, "the record's seat flag");
             _assertSeatOfBond(bondId, eligible, eligible ? bond.seat : 0, "seatOfBond");
         }
@@ -136,6 +140,18 @@ contract EtnaStakingInvariantTest is EtnaStakingTestBase {
                 holdsSeat ? bytes32(1 | uint256(seat) << 8) : bytes32(0),
                 "the key-to-seat word"
             );
+        }
+    }
+
+    /// @notice Between calls every occupied seat's miss count is below missReleaseLimit and every
+    /// empty seat's is zero.
+    function invariant_missCountsBelowReleaseLimit() external view {
+        _assertNoViolation();
+        for (uint256 seat; seat < INVARIANT_N_MAX; ++seat) {
+            (bool occupied,) = staking.bondInSeat(uint8(seat));
+            uint256 count = staking.missCount(uint8(seat));
+            if (occupied) assertLt(count, INVARIANT_MISS_RELEASE_LIMIT, "an occupied seat");
+            else assertEq(count, 0, "an empty seat");
         }
     }
 

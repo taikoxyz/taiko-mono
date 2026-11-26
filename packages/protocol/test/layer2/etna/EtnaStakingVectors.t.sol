@@ -245,7 +245,8 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     /// the registrations at block 1000 - k - 1, the k prior calls in the blocks before 1000 and
     /// the call at 1000 (the block numbers are this suite's; nothing expected depends on them).
     /// Every expected field is compared: every seat's miss count, every bond's effStake and seat,
-    /// the penalty sent to slashSink, all 128 records, the snapshot words and the generation. Gas
+    /// the penalty the call sends to slashSink, all 128 records, the snapshot words and the
+    /// generation. Gas
     /// metering is paused: the cases deploy a contract each, beyond the block gas limit a test runs
     /// under, and nothing compared depends on gas.
     function test_onBlockStart_ReplaysEveryVectorCase() external {
@@ -257,10 +258,11 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_uint(j, d, "vp_unit"), VP_UNIT, "vpUnit");
         assertEq(_uint(j, d, "miss_limit"), MISS_LIMIT, "missLimit");
         assertEq(_uint(j, d, "miss_slash_bps"), MISS_SLASH_BPS, "missSlashBps");
+        assertEq(_uint(j, d, "miss_release_limit"), MISS_RELEASE_LIMIT, "missReleaseLimit");
 
         string memory list = ".on_block_start.cases";
         uint256 n = LibEtnaVectors.lengthAt(j, list);
-        assertEq(n, 16, "cases");
+        assertEq(n, 22, "cases");
         for (uint256 i; i < n; ++i) {
             uint256 fresh = vm.snapshotState();
             uint256 mark = _freeMemory();
@@ -691,6 +693,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         assertEq(_uint(_j, d, "n_max"), N_MAX, "nMax");
         assertEq(_uint(_j, d, "miss_limit"), MISS_LIMIT, "missLimit");
         assertEq(_uint(_j, d, "miss_slash_bps"), MISS_SLASH_BPS, "missSlashBps");
+        assertEq(_uint(_j, d, "miss_release_limit"), MISS_RELEASE_LIMIT, "missReleaseLimit");
         assertEq(_uint(_j, d, "slash_bounty_bps"), SLASH_BOUNTY_BPS, "slashBountyBps");
         assertEq(_uint(_j, d, "forfeit_bps"), FORFEIT_BPS, "forfeitBps");
         assertEq(_uint(_j, d, "withdrawal_delay"), WITHDRAWAL_DELAY, "withdrawalDelay");
@@ -790,7 +793,9 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
     // Helpers: block-start cases
     // ---------------------------------------------------------------
 
-    /// @dev Replays the `on_block_start` case at `_p` on a fresh staking contract.
+    /// @dev Replays the `on_block_start` case at `_p` on a fresh staking contract. The prior calls
+    /// may take penalties but release no seat, so the call's penalty is what slashSink receives
+    /// in the call.
     function _replayOnBlockStart(string memory _j, string memory _p) private {
         string memory name = _string(_j, _p, "name");
         staking = _deploy(_caseConfig(_j, _p, name));
@@ -809,7 +814,12 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
                 uint48(_uint(_j, c, "generation")), uint128(_uint(_j, c, "miss_bitmap"))
             );
         }
-        assertEq(token.balanceOf(SLASH_SINK), 0, string.concat(name, ": no earlier penalty"));
+        string memory registrations = string.concat(_p, "setup.registrations");
+        for (uint256 i; i < registered; ++i) {
+            uint8 seat = uint8(_uint(_j, _at(registrations, i), "seat"));
+            _assertSeatOfBond(i, true, seat, string.concat(name, ": no earlier release"));
+        }
+        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
 
         uint48 generation = uint48(_uint(_j, call, "generation"));
         bytes memory data = _bytes(_j, call, "calldata");
@@ -825,10 +835,10 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         (bool ok,) = address(staking).call(data);
         assertTrue(ok, name);
 
-        _assertCaseExpect(_j, _p, registered, name);
+        _assertCaseExpect(_j, _p, registered, sinkBefore, name);
     }
 
-    /// @dev The reference configuration with the case's overrides, each one of the five parameters
+    /// @dev The reference configuration with the case's overrides, each one of the six parameters
     /// of `on_block_start.deployment`.
     function _caseConfig(
         string memory _j,
@@ -862,6 +872,10 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
             cfg_.missSlashBps = _uint(_j, o, "miss_slash_bps");
             ++applied;
         }
+        if (vm.keyExistsJson(_j, string.concat(o, "miss_release_limit"))) {
+            cfg_.missReleaseLimit = _uint(_j, o, "miss_release_limit");
+            ++applied;
+        }
         assertEq(
             LibEtnaVectors.entryCount(_j, string.concat(_p, "overrides")),
             applied,
@@ -891,11 +905,13 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         }
     }
 
-    /// @dev Compares the state the case's call left with its `expect`.
+    /// @dev Compares the state the case's call left with its `expect`; `_sinkBefore` is
+    /// slashSink's balance before the call.
     function _assertCaseExpect(
         string memory _j,
         string memory _p,
         uint256 _registered,
+        uint256 _sinkBefore,
         string memory _name
     )
         private
@@ -905,7 +921,7 @@ contract EtnaStakingVectorsTest is EtnaStakingTestBase, EtnaVectorReader {
         _assertCaseMissCounts(_j, e, _name);
         _assertCaseBonds(_j, _p, e, _registered, _name);
         _assertCaseRecords(_j, e, _name);
-        assertEq(token.balanceOf(SLASH_SINK), _uint(_j, e, "penalty_total"), _name);
+        assertEq(token.balanceOf(SLASH_SINK) - _sinkBefore, _uint(_j, e, "penalty_total"), _name);
         assertEq(
             uint256(vm.load(address(staking), bytes32(uint256(T) + 1))),
             _uint(_j, e, "snapshot_total_stake"),

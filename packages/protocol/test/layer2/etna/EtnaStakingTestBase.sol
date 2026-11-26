@@ -30,6 +30,7 @@ abstract contract EtnaStakingTestBase is CommonTest {
     uint256 internal constant N_MAX = 128;
     uint256 internal constant MISS_LIMIT = 3600;
     uint256 internal constant MISS_SLASH_BPS = 1000;
+    uint256 internal constant MISS_RELEASE_LIMIT = 10_800;
     uint256 internal constant WITHDRAWAL_DELAY = 302_402;
     uint256 internal constant SLASH_BOUNTY_BPS = 1000;
     address internal constant SLASH_SINK = address(0x5151);
@@ -65,6 +66,7 @@ abstract contract EtnaStakingTestBase is CommonTest {
             nMax: N_MAX,
             missLimit: MISS_LIMIT,
             missSlashBps: MISS_SLASH_BPS,
+            missReleaseLimit: MISS_RELEASE_LIMIT,
             withdrawalDelay: WITHDRAWAL_DELAY,
             slashBountyBps: SLASH_BOUNTY_BPS,
             slashSink: SLASH_SINK,

@@ -51,10 +51,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return false;
     }
 
-    /// @dev Schema 10 moves staking to the L2 `EtnaStaking` contract and gives the Inbox the DAO
-    /// fallback key set and `minTotalStake`.
-    function test_schema_IsVersionTen() external view {
-        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "10");
+    /// @dev Schema 11 adds the staking contract's `miss_release_limit` to the deployment and to
+    /// the block-start cases; schema 10 moved staking to the L2 `EtnaStaking` contract and gave the
+    /// Inbox the DAO fallback key set and `minTotalStake`.
+    function test_schema_IsVersionEleven() external view {
+        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "11");
     }
 
     // ---------------------------------------------------------------

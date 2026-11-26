@@ -148,6 +148,9 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     uint256 public immutable override missSlashBps;
 
     /// @inheritdoc IEtnaStaking
+    uint256 public immutable override missReleaseLimit;
+
+    /// @inheritdoc IEtnaStaking
     uint256 public immutable override withdrawalDelay;
 
     /// @inheritdoc IEtnaStaking
@@ -166,9 +169,9 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     /// @notice Sets the staking contract's immutable parameters.
     /// @param _config The configuration: nonzero token, inbox, slash sink and L1 chain id;
     /// a slash sink other than the token; 1 <= nMax <= 128; vpUnit >= 867,361,738;
-    /// minStake >= vpUnit and minStake * nMax >= 10^27; 1 <= missLimit <= 65,535;
-    /// 0 < missSlashBps <= 10,000; slashBountyBps < 10,000; 0 < forfeitBps <= 10,000; and
-    /// 0 < withdrawalDelay < 2^48.
+    /// minStake >= vpUnit and minStake * nMax >= 10^27; 1 <= missLimit <= missReleaseLimit <=
+    /// 65,535; 0 < missSlashBps <= 10,000; slashBountyBps < 10,000; 0 < forfeitBps <= 10,000;
+    /// and 0 < withdrawalDelay < 2^48.
     constructor(Config memory _config) {
         require(
             _config.token != address(0) && _config.inbox != address(0)
@@ -183,7 +186,11 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         require(
             _config.minStake >= (_TAIKO_SUPPLY + _config.nMax - 1) / _config.nMax, InvalidConfig()
         );
-        require(_config.missLimit != 0 && _config.missLimit <= type(uint16).max, InvalidConfig());
+        require(
+            _config.missLimit != 0 && _config.missLimit <= _config.missReleaseLimit
+                && _config.missReleaseLimit <= type(uint16).max,
+            InvalidConfig()
+        );
         require(_config.missSlashBps != 0 && _config.missSlashBps <= _BPS, InvalidConfig());
         require(_config.slashBountyBps < _BPS, InvalidConfig());
         require(_config.forfeitBps != 0 && _config.forfeitBps <= _BPS, InvalidConfig());
@@ -199,6 +206,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         nMax = _config.nMax;
         missLimit = _config.missLimit;
         missSlashBps = _config.missSlashBps;
+        missReleaseLimit = _config.missReleaseLimit;
         withdrawalDelay = _config.withdrawalDelay;
         slashBountyBps = _config.slashBountyBps;
         slashSink = _config.slashSink;
@@ -383,14 +391,15 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
 
     /// @inheritdoc IEtnaStaking
     /// @dev Three passes over the seats, in the interface's order: the miss counts, the penalties
-    /// and the snapshot. The penalties of the call reach slashSink in one transfer, made last.
+    /// with the releases, and the snapshot. The penalties of the call reach slashSink in one
+    /// transfer, made last.
     function onBlockStart(uint48 _generation, uint128 _missBitmap) external nonReentrant {
         require(msg.sender == SYSTEM_CALLER, NotSystemCaller());
         StakingStorage storage $ = _stakingStorage();
         $.lastGeneration = _generation;
 
         _countMisses($, _missBitmap);
-        uint256 penalties = _penalize($);
+        uint256 penalties = _penalizeAndRelease($);
         _writeSnapshot($);
         if (penalties != 0) IERC20(token).safeTransfer(slashSink, penalties);
     }
@@ -610,30 +619,40 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     function _countMisses(StakingStorage storage $, uint128 _missBitmap) private {
         for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
             uint256 seat = LibBit.ffs(seats);
-            // A count that reaches missLimit is reset in the same call, so between calls every
-            // count is below missLimit <= 65,535 and the increment fits in 16 bits.
+            // A seat whose count reaches missReleaseLimit is released in the same call, so between
+            // calls every occupied seat's count is at most missReleaseLimit - 1 <= 65,534 and the
+            // increment fits in 16 bits.
             $.missCounts[seat] = ((_missBitmap >> seat) & 1) == 1 ? $.missCounts[seat] + 1 : 0;
         }
     }
 
-    /// @dev Penalizes each seated bond whose seat's miss count reached missLimit: deducts
-    /// ceil(effStake * missSlashBps / 10,000) from its effStake and resets the count to zero. A
-    /// bond that this leaves below minStake releases its seat, with no exit set and no event.
+    /// @dev Penalizes each seated bond whose seat's miss count is a positive multiple of
+    /// missLimit, deducting ceil(effStake * missSlashBps / 10,000) from its effStake and leaving
+    /// the count as it is. Then a bond releases its seat if the penalty left it below minStake or
+    /// if its seat's count reached missReleaseLimit, with no exit set, nothing more deducted and
+    /// no event; the release discards the count. Visits a copy of the occupancy bits, so the
+    /// releases do not disturb the loop.
     /// @param $ The staking storage.
     /// @return total_ The sum of the penalties, owed to slashSink.
-    function _penalize(StakingStorage storage $) private returns (uint256 total_) {
+    function _penalizeAndRelease(StakingStorage storage $) private returns (uint256 total_) {
         for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
             uint256 seat = LibBit.ffs(seats);
-            if ($.missCounts[seat] < missLimit) continue;
-            $.missCounts[seat] = 0;
+            uint256 count = $.missCounts[seat];
+            // missLimit <= missReleaseLimit, so a smaller count neither penalizes nor releases.
+            if (count < missLimit) continue;
             Bond storage bond = $.bonds[$.seatBond[seat] - 1];
             uint256 effStake = bond.effStake;
-            // missSlashBps <= 10,000, so the penalty never exceeds effStake.
-            uint256 penalty = Math.mulDiv(effStake, missSlashBps, _BPS, Math.Rounding.Up);
-            effStake -= penalty;
-            bond.effStake = effStake;
-            total_ += penalty;
-            if (effStake < minStake) _releaseSeat($, bond, _ckAddrOf(bond));
+            if (count % missLimit == 0) {
+                // missSlashBps <= 10,000, so the penalty never exceeds effStake.
+                uint256 penalty = Math.mulDiv(effStake, missSlashBps, _BPS, Math.Rounding.Up);
+                effStake -= penalty;
+                bond.effStake = effStake;
+                total_ += penalty;
+            }
+            // A seated bond holds at least minStake, so only this call's penalty leaves it below.
+            if (effStake < minStake || count >= missReleaseLimit) {
+                _releaseSeat($, bond, _ckAddrOf(bond));
+            }
         }
     }
 

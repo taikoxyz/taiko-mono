@@ -19,6 +19,7 @@ contract EtnaStakingConstructorTest is EtnaStakingTestBase {
         assertEq(staking.nMax(), N_MAX, "n max");
         assertEq(staking.missLimit(), MISS_LIMIT, "miss limit");
         assertEq(staking.missSlashBps(), MISS_SLASH_BPS, "miss slash bps");
+        assertEq(staking.missReleaseLimit(), MISS_RELEASE_LIMIT, "miss release limit");
         assertEq(staking.withdrawalDelay(), WITHDRAWAL_DELAY, "withdrawal delay");
         assertEq(staking.slashBountyBps(), SLASH_BOUNTY_BPS, "slash bounty bps");
         assertEq(staking.slashSink(), SLASH_SINK, "slash sink");
@@ -76,17 +77,34 @@ contract EtnaStakingConstructorTest is EtnaStakingTestBase {
         assertEq(new EtnaStaking(cfg).vpUnit(), cfg.minStake, "vp unit equal to min stake");
     }
 
-    function test_constructor_RevertWhen_MissLimitOutOfRange() external {
+    /// @dev 1 <= missLimit <= missReleaseLimit <= 65,535.
+    function test_constructor_RevertWhen_MissLimitsOutOfRange() external {
         IEtnaStaking.Config memory cfg = _config();
         cfg.missLimit = 0;
-        _assertInvalidConfig(cfg, "zero");
+        _assertInvalidConfig(cfg, "a zero miss limit");
+        cfg.missLimit = 21_600;
+        cfg.missReleaseLimit = 21_599;
+        _assertInvalidConfig(cfg, "a miss limit above the release limit");
         cfg.missLimit = 65_536;
-        _assertInvalidConfig(cfg, "65,536");
-
+        cfg.missReleaseLimit = 65_536;
+        _assertInvalidConfig(cfg, "both limits 65,536");
         cfg.missLimit = 1;
-        assertEq(new EtnaStaking(cfg).missLimit(), 1, "one");
+        _assertInvalidConfig(cfg, "a release limit of 65,536");
+
+        cfg.missReleaseLimit = 1;
+        EtnaStaking deployed = new EtnaStaking(cfg);
+        assertEq(deployed.missLimit(), 1, "both limits one: miss limit");
+        assertEq(deployed.missReleaseLimit(), 1, "both limits one: release limit");
         cfg.missLimit = 65_535;
-        assertEq(new EtnaStaking(cfg).missLimit(), 65_535, "65,535");
+        cfg.missReleaseLimit = 65_535;
+        deployed = new EtnaStaking(cfg);
+        assertEq(deployed.missLimit(), 65_535, "both limits 65,535: miss limit");
+        assertEq(deployed.missReleaseLimit(), 65_535, "both limits 65,535: release limit");
+        cfg.missLimit = 21_600;
+        cfg.missReleaseLimit = 64_800;
+        deployed = new EtnaStaking(cfg);
+        assertEq(deployed.missLimit(), 21_600, "the references: miss limit");
+        assertEq(deployed.missReleaseLimit(), 64_800, "the references: release limit");
     }
 
     function test_constructor_RevertWhen_MissSlashBpsOutOfRange() external {

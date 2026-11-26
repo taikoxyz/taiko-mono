@@ -258,6 +258,38 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
         assertEq(token.balanceOf(Bob), rest / 10, "bounty on the rest");
     }
 
+    /// @dev A bond released at missReleaseLimit keeps a stake of at least minStake, no exit and no
+    /// seat. A slash takes the whole stake and sets its exit at the current block as for any
+    /// unwithdrawn bond, and releases no seat.
+    function test_slashDoubleSign_SlashesBondReleasedAtMissReleaseLimit() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 2;
+        cfg.missReleaseLimit = 2;
+        staking = _deploy(cfg);
+        assertEq(_register(_CK_A, Alice, 2 * MIN_STAKE), 0, "bond 0");
+        assertEq(_register(_CK_B, Carol, MIN_STAKE), 1, "bond 1");
+        _blockStart(0, 1);
+        _blockStart(0, 1);
+        uint256 rest = 2 * MIN_STAKE - 2 * MIN_STAKE / 10;
+        assertEq(staking.bondAt(0).effStake, rest, "one penalty, still above minStake");
+        _assertSeatOfBond(0, false, 0, "seat released at the limit");
+        assertEq(staking.bondAt(0).exitHeight, NO_EXIT, "no exit");
+
+        vm.roll(block.number + 5);
+        (IEtnaStaking.Vote memory a, IEtnaStaking.Vote memory b) = _conflict(_CK_A);
+        vm.recordLogs();
+        vm.expectEmit(address(staking));
+        emit IEtnaStaking.DoubleSignSlashed(0, Bob, rest, rest / 10, 0, _HEIGHT, _ROUND, 2);
+        _slash(0, a, b);
+
+        assertEq(_logsFrom(vm.getRecordedLogs(), address(staking)), 1, "no seat event");
+        assertEq(staking.bondAt(0).effStake, 0, "the whole stake slashed");
+        assertEq(staking.bondAt(0).exitHeight, block.number, "exit set now");
+        _assertBondInSeat(0, false, 0, "seat 0 still empty");
+        _assertBondInSeat(1, true, 1, "seat 1 untouched");
+        assertEq(token.balanceOf(Bob), rest / 10, "bounty on the rest");
+    }
+
     /// @dev The staking contract reads no Inbox state: nothing is deployed at the Inbox address,
     /// so votes signed before the Inbox was initialized slash like any others.
     function test_slash_NeedsNoInboxState() external {
