@@ -1,6 +1,6 @@
 //! The staking driver: bonds on the L2 `EtnaStaking` predeploy, held by the harness stakers.
 //!
-//! The harness devnet genesis premints two minStakes of bridged TAIKO to each of anvil's first
+//! The harness devnet genesis premints three minStakes of bridged TAIKO to each of anvil's first
 //! four dev accounts, the stakers ([`STAKER_KEYS`]). Its L1 TAIKO token and SignalService are
 //! placeholders without code, so nothing is bridged: a staker approves the staking contract and
 //! registers, tops up or exits straight from that premint. The ELs of a harness chain do not share
@@ -38,7 +38,7 @@ alloy::sol! {
     }
 }
 
-/// Private keys of anvil's first four dev accounts, the stakers the harness genesis premints two
+/// Private keys of anvil's first four dev accounts, the stakers the harness genesis premints three
 /// minStakes of bridged TAIKO each, in account order (`0xf39F…2266`, `0x7099…79C8`,
 /// `0x3C44…93BC`, `0x90F7…b906`). The first is also [`DEV_KEY`](crate::DEV_KEY).
 pub const STAKER_KEYS: [B256; 4] = [
@@ -69,10 +69,14 @@ pub struct StakingParams {
     pub min_stake: U256,
     /// `vpUnit`: a seated bond's power is its stake divided by it, rounded down.
     pub vp_unit: U256,
-    /// `missLimit`: the consecutive misses that cost a seat's bond `missSlashBps`.
+    /// `missLimit`: a seat's bond loses `missSlashBps` at every positive multiple of this many
+    /// consecutive misses.
     pub miss_limit: u64,
     /// `missSlashBps`: the share of its stake, in basis points, a bond loses per penalty.
     pub miss_slash_bps: U256,
+    /// `missReleaseLimit`: the consecutive misses after which a seated bond releases its seat,
+    /// whatever its stake, with no exit set.
+    pub miss_release_limit: u64,
 }
 
 impl StakingParams {
@@ -84,6 +88,20 @@ impl StakingParams {
     /// The missed-signature penalty on a bond of stake `stake`, rounded up.
     pub fn miss_penalty(&self, stake: U256) -> U256 {
         (stake * self.miss_slash_bps).div_ceil(U256::from(10_000))
+    }
+
+    /// Whether the block-start call that raises a seat's count to `count` penalizes its bond: at
+    /// every positive multiple of `missLimit`. The count is not reset by a penalty, so one run of
+    /// misses is penalized again and again.
+    pub fn penalizes(&self, count: u64) -> bool {
+        count != 0 && count.is_multiple_of(self.miss_limit)
+    }
+
+    /// Whether the block-start call that raises a seat's count to `count` releases its seat
+    /// although its bond still holds `minStake` or more: from `missReleaseLimit` on, after any
+    /// penalty due in the same call.
+    pub fn releases(&self, count: u64) -> bool {
+        count >= self.miss_release_limit
     }
 }
 
@@ -147,6 +165,9 @@ impl Staking {
             vp_unit: self.read(EtnaStaking::vpUnitCall {}, latest).await?,
             miss_limit: u64::try_from(self.read(EtnaStaking::missLimitCall {}, latest).await?)?,
             miss_slash_bps: self.read(EtnaStaking::missSlashBpsCall {}, latest).await?,
+            miss_release_limit: u64::try_from(
+                self.read(EtnaStaking::missReleaseLimitCall {}, latest).await?,
+            )?,
         })
     }
 
@@ -268,6 +289,18 @@ impl Staking {
     /// The consecutive misses of seat `seat` in the post-state of block `at`.
     pub async fn miss_count(&self, seat: u8, at: BlockId) -> Result<u16> {
         self.read(EtnaStaking::missCountCall { _seat: seat }, at).await
+    }
+
+    /// The live key-to-seat word of the consensus key address `key` in the post-state of block
+    /// `at`, the word nodes read for the `missBitmap`: zero for a key that holds no seat.
+    pub async fn key_seat_word(&self, key: Address, at: BlockId) -> Result<U256> {
+        let slot = U256::from_be_bytes(abci::staking::key_to_seat_slot(key).0);
+        let word = self.els[0]
+            .get_storage_at(self.address, slot)
+            .block_id(at)
+            .await
+            .with_context(|| format!("eth_getStorageAt {} {slot:#x}", self.address))?;
+        Ok(word)
     }
 
     /// `call` on the staking proxy at block `at`.
@@ -404,10 +437,30 @@ mod tests {
             vp_unit: U256::from(7),
             miss_limit: 10,
             miss_slash_bps: U256::from(1_000),
+            miss_release_limit: 30,
         };
         assert_eq!(params.miss_penalty(U256::from(200)), U256::from(20));
         assert_eq!(params.miss_penalty(U256::from(201)), U256::from(21));
         assert_eq!(params.power(U256::from(20)).unwrap(), 2);
+    }
+
+    /// A run of misses is penalized at every multiple of `missLimit`, its count kept, and its seat
+    /// is released at `missReleaseLimit`, in the call that also penalizes it there.
+    #[test]
+    fn penalties_repeat_at_every_miss_limit_until_the_release() {
+        let params = StakingParams {
+            min_stake: U256::from(100),
+            vp_unit: U256::from(7),
+            miss_limit: 10,
+            miss_slash_bps: U256::from(1_000),
+            miss_release_limit: 30,
+        };
+        let penalized: Vec<_> = (0..=30).filter(|&count| params.penalizes(count)).collect();
+        assert_eq!(penalized, [10, 20, 30]);
+        let released: Vec<_> = (0..=30).filter(|&count| params.releases(count)).collect();
+        assert_eq!(released, [30]);
+        let off_multiple = StakingParams { miss_release_limit: 25, ..params };
+        assert!(off_multiple.releases(25) && !off_multiple.penalizes(25));
     }
 
     /// The preimage hashes to the shared vectors' registration digests, which the contracts'

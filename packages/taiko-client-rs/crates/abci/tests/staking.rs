@@ -7,9 +7,12 @@
 //! - the fallback keys sign from the first block, each at power 1, until the snapshot of X + 1
 //!   holds the four bonds, X being the block of the last registration; the candidate, each member
 //!   at its stake's power, signs X + 3;
-//! - a candidate member offline for `missLimit` consecutive blocks loses `missSlashBps` of its
-//!   stake in the block-start call that counts its last miss, keeps its seat and is in the set of
-//!   two blocks later at its lower power;
+//! - a candidate member offline for a multiple of `missLimit` consecutive blocks loses
+//!   `missSlashBps` of its stake in the block-start call that counts its last miss, keeps its seat
+//!   and its count and is in the set of two blocks later at its lower power; at `missReleaseLimit`
+//!   consecutive misses that call also releases its seat, with no exit set, so the snapshot of that
+//!   block R falls below the minimum and the fallback keys sign R + 2, until the owner's top-up of
+//!   one base unit in block T takes the seat again and the candidate signs T + 3;
 //! - an exit in block E drops the snapshot of E + 1 below the minimum, so the fallback keys sign E
 //!   + 3, and every fallback key's instance precommits again;
 //! - a `minTotalStake` of 2^256 − 1 hands H + 2 to the fallback keys, H being the first block whose
@@ -41,12 +44,15 @@ const FALLBACK_KEYS: Range<usize> = 0..4;
 /// The keys that register bonds; key `CANDIDATE_KEYS.start + i` is owned by staker `i`.
 const CANDIDATE_KEYS: Range<usize> = 2..6;
 /// The planted `minTotalStake`, in minStakes: the four bonds of two minStakes reach it, three do
-/// not, and one missed-signature penalty of 10 % leaves the four above it.
+/// not, and the three missed-signature penalties of 10 % that one bond takes before its release
+/// leave the four above it.
 const MIN_TOTAL_STAKE_IN_MIN_STAKES: u64 = 7;
 /// Bound on any one wait for heights, receipts or anchors.
 const WAIT: Duration = Duration::from_secs(120);
 /// Poll interval of the waits.
 const POLL: Duration = Duration::from_millis(250);
+/// Bound on an offline member's run of `missReleaseLimit` misses, from its stop to its release.
+const RUN_WAIT: Duration = Duration::from_secs(240);
 
 /// A devnet on which the candidate took over from the fallback keys.
 struct Takeover {
@@ -90,18 +96,26 @@ async fn fallback_keys_sign_from_genesis_then_candidate_takes_over_at_h_plus_2()
     Ok(())
 }
 
-/// A candidate member that stops signing is missing from every LastCommit; the block-start call
-/// of the block whose `missBitmap` carries its seat's `missLimit`-th consecutive miss deducts
-/// `missSlashBps` of its stake, rounded up. With two minStakes it keeps its seat, and the set that
-/// block decides holds it at its lower power, although it signs nothing.
+/// A candidate member that stops signing is missing from every LastCommit. Each block-start call
+/// that raises its seat's count to a multiple of `missLimit` deducts `missSlashBps` of its stake,
+/// rounded up, and keeps the count; with two minStakes the bond keeps its seat, and the set that
+/// block decides holds it at its lower power, although it signs nothing. The call that raises the
+/// count to `missReleaseLimit`, R, releases the seat after its own penalty, with no exit set and
+/// nothing more deducted: R's post-state maps the key to no seat and discards the count, and R's
+/// snapshot holds the three other bonds, below the minimum, so the fallback keys sign R + 2. A
+/// top-up of one base unit by the owner in block T takes the released seat again with count 0;
+/// the snapshot of T + 1 holds the four bonds, and the candidate signs T + 3 with the member at its
+/// lower power.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn misses_penalize_after_miss_limit() -> Result<()> {
+async fn misses_penalize_at_every_miss_limit_then_release_the_seat_until_a_top_up() -> Result<()> {
     let started = Instant::now();
     let mut t = take_over().await?;
     let offline = CANDIDATE_KEYS.end - 1;
+    let owner = staker(offline - CANDIDATE_KEYS.start);
     let bond = t.bonds[offline - CANDIDATE_KEYS.start];
     let key = t.devnet.keys()[offline].pubkey();
+    let release = t.params.miss_release_limit;
     let before = t.staking.bond(bond.id, BlockId::latest()).await?.effStake;
     assert_eq!(before, t.stake, "the offline member's stake before it stops");
 
@@ -110,60 +124,176 @@ async fn misses_penalize_after_miss_limit() -> Result<()> {
     eprintln!("validator {offline} (seat {}) stopped at height {stopped}", bond.seat);
     let staking = &t.staking;
     wait_until(
-        &format!("the miss penalty on the bond of validator {offline}"),
-        Duration::from_secs(240),
+        &format!("the release of the seat of validator {offline}"),
+        RUN_WAIT,
         POLL,
         || async move {
-            let now = staking.bond(bond.id, BlockId::latest()).await?.effStake;
-            Ok((now < before).then_some(()))
+            let seat = staking.seat_of_bond(bond.id, BlockId::latest()).await?;
+            Ok(seat.is_none().then_some(()))
         },
     )
     .await?;
 
-    // P: the first block whose post-state holds the penalty.
-    let mut p = stopped;
-    while t.staking.bond(bond.id, BlockId::number(p)).await?.effStake == before {
-        p += 1;
+    // R: the first block whose post-state holds the release. Its call carries the run's
+    // `missReleaseLimit`-th miss: the seat's bit is set in the `missBitmap` of the
+    // `missReleaseLimit` blocks ending at R and clear in the one before them.
+    let mut r = stopped;
+    while t.staking.seat_of_bond(bond.id, BlockId::number(r)).await?.is_some() {
+        r += 1;
     }
-    let after = t.staking.bond(bond.id, BlockId::number(p)).await?.effStake;
-    eprintln!("penalty in block {p}: {before} -> {after}");
-    assert_eq!(after, before - t.params.miss_penalty(before), "the penalty deducted at {p}");
-    assert!(after >= t.params.min_stake, "two minStakes keep the seat after one penalty");
-    assert_eq!(t.staking.seat_of_bond(bond.id, BlockId::number(p)).await?, Some(bond.seat));
-    assert_eq!(t.staking.miss_count(bond.seat, BlockId::number(p)).await?, 0, "count reset at {p}");
-
-    // The penalty block carries the limit-th consecutive miss: its seat's bit is set in the
-    // `missBitmap` of the `missLimit` blocks ending at P and clear in the one before them.
-    let limit = t.params.miss_limit;
-    ensure!(p > limit, "the penalty at {p} came before {limit} blocks were possible");
-    for h in p + 1 - limit..=p {
+    ensure!(r > release, "the release at {r} came before {release} blocks were possible");
+    let first = r - release;
+    for h in first + 1..=r {
         assert!(
             seat_missed(&t.devnet, h, bond.seat).await?,
             "seat {} not missed at {h}",
             bond.seat
         );
     }
-    let first = p - limit;
     assert!(
         !seat_missed(&t.devnet, first, bond.seat).await?,
         "seat {} missed at {first}",
         bond.seat
     );
 
-    // P decides P + 2 from its post-state: the member signs it at its lower power.
-    t.devnet.wait_for_height(0, p + 3, WAIT).await?;
-    let lower = t.params.power(after)?;
-    let reweighted: Vec<_> = t
-        .candidate
-        .iter()
-        .map(|&(member, power)| (member, if member == key { lower } else { power }))
-        .collect();
-    assert_eq!(t.devnet.cmt(0).signing_set(p + 1).await?, t.candidate, "the set that signs P + 1");
-    assert_eq!(t.devnet.cmt(0).signing_set(p + 2).await?, reweighted, "the set that signs P + 2");
-    assert_eq!(updates_at(&t.devnet, p).await?, vec![(key, lower)], "the updates of P");
+    // Each call of the run raises the count by one and never resets it: every multiple of
+    // `missLimit` deducts a penalty from the stake the previous one left, and the bond keeps its
+    // seat, above minStake, until R.
+    let mut stake = before;
+    let mut penalties = Vec::new();
+    for h in first + 1..=r {
+        let count = h - first;
+        let now = t.staking.bond(bond.id, BlockId::number(h)).await?.effStake;
+        if t.params.penalizes(count) {
+            assert_eq!(
+                now,
+                stake - t.params.miss_penalty(stake),
+                "the penalty at {h}, miss {count}"
+            );
+            penalties.push((h, stake, now));
+        } else {
+            assert_eq!(now, stake, "no penalty at {h}, miss {count}");
+        }
+        stake = now;
+        if h < r {
+            assert!(!t.params.releases(count), "a release due at {h}, miss {count}");
+            let at = BlockId::number(h);
+            assert_eq!(t.staking.seat_of_bond(bond.id, at).await?, Some(bond.seat), "seat at {h}");
+            let kept = u64::from(t.staking.miss_count(bond.seat, at).await?);
+            assert_eq!(kept, count, "the count at {h}, a penalty's included");
+        }
+    }
+    assert!(penalties.len() >= 2, "the run is penalized more than once: {penalties:?}");
+    assert!(stake >= t.params.min_stake, "the release at {r} is the count's, not the stake's");
+    eprintln!("penalties {penalties:?}; seat released in block {r} at stake {stake}");
+
+    // A penalty before R re-weights the member in the set that its block decides.
+    for &(p, prior, lowered) in penalties.iter().filter(|&&(p, ..)| p < r) {
+        t.devnet.wait_for_height(0, p + 3, WAIT).await?;
+        let (prior, lower) = (t.params.power(prior)?, t.params.power(lowered)?);
+        let set = |power| reweighted(&t.candidate, key, power);
+        assert_eq!(
+            t.devnet.cmt(0).signing_set(p + 1).await?,
+            set(prior),
+            "the set that signs {p} + 1"
+        );
+        assert_eq!(
+            t.devnet.cmt(0).signing_set(p + 2).await?,
+            set(lower),
+            "the set that signs {p} + 2"
+        );
+        assert_eq!(updates_at(&t.devnet, p).await?, vec![(key, lower)], "the updates of {p}");
+    }
+
+    // At R the bond holds no seat and no exit, its stake is what the last penalty left, its key's
+    // key-to-seat word is zero and the seat's count is discarded.
+    let at_r = BlockId::number(r);
+    let released = t.staking.bond(bond.id, at_r).await?;
+    assert!(!released.holdsSeat, "the bond holds a seat at {r}");
+    assert!(!released.withdrawn, "the bond is withdrawn at {r}");
+    assert_eq!(released.exitHeight.to::<u64>(), abci::UINT48_MAX, "an exit set at {r}");
+    assert_eq!(released.effStake, stake, "the stake at {r}");
+    let seat_word = |at| staking.key_seat_word(key.address(), at);
+    assert_eq!(
+        abci::staking::decode_seat(seat_word(BlockId::number(r - 1)).await?),
+        Some(bond.seat)
+    );
+    assert_eq!(seat_word(at_r).await?, U256::ZERO, "the key's key-to-seat word at {r}");
+    assert_eq!(t.staking.miss_count(bond.seat, at_r).await?, 0, "the released seat's count");
+
+    // R's snapshot holds the three other bonds, below the minimum: R decides the fallback keys for
+    // R + 2, while R + 1, decided at R − 1, is still the candidate's.
+    let (height, total, members) = t.staking.snapshot(at_r).await?;
+    assert_eq!(height, U256::from(r), "the snapshot of R");
+    assert_eq!((total, members.len()), (t.stake * U256::from(3), 3), "the snapshot of R");
+    assert!(members.iter().all(|m| member_key(m).is_ok_and(|member| member != key)));
+    assert!(total < t.minimum);
+    t.devnet.wait_for_height(0, r + 3, WAIT).await?;
+    let prior = t.params.power(t.staking.bond(bond.id, BlockId::number(r - 1)).await?.effStake)?;
+    let at_prior = reweighted(&t.candidate, key, prior);
+    assert_eq!(t.devnet.cmt(0).signing_set(r + 1).await?, at_prior, "the set that signs R + 1");
+    assert_eq!(t.devnet.cmt(0).signing_set(r + 2).await?, t.fallback, "the set that signs R + 2");
+    assert_eq!(
+        updates_at(&t.devnet, r).await?,
+        switch_updates(&t.devnet, None),
+        "the mode switch's one update list at R"
+    );
+    // R's post-state maps the key to no seat, so the next block counts nothing for the seat,
+    // although the member is still missing from its LastCommit.
+    assert!(!seat_missed(&t.devnet, r + 1, bond.seat).await?, "seat {} missed at R + 1", bond.seat);
+    let signers = t.devnet.cmt(0).abci_signers().await?;
+    assert_eq!(signers.after.fallback_reason, Some(FallbackReason::BelowMinTotalStake));
+    every_fallback_key_precommits(&t, r + 2).await?;
+
+    // The owner's top-up of one base unit in block T takes the lowest empty seat, the released
+    // one, with count 0. T's snapshot was stored before it; the snapshot of T + 1 holds the four
+    // bonds again.
+    let top_up = t.staking.top_up(&owner, bond.id, U256::from(1)).await?;
+    let at_t = BlockId::number(top_up);
+    let topped = stake + U256::from(1);
+    eprintln!("bond {} topped up by one base unit in block {top_up}", bond.id);
+    assert_eq!(t.staking.bond(bond.id, at_t).await?.effStake, topped, "the stake at T");
+    assert_eq!(t.staking.seat_of_bond(bond.id, at_t).await?, Some(bond.seat), "the seat at T");
+    assert_eq!(abci::staking::decode_seat(seat_word(at_t).await?), Some(bond.seat));
+    assert_eq!(t.staking.miss_count(bond.seat, at_t).await?, 0, "the count at T");
+    let (_, total, members) = t.staking.snapshot(at_t).await?;
+    assert_eq!((total, members.len()), (t.stake * U256::from(3), 3), "the snapshot of T");
+    t.devnet.wait_for_height(0, top_up + 5, WAIT).await?;
+    let (height, total, members) = t.staking.snapshot(BlockId::number(top_up + 1)).await?;
+    assert_eq!(height, U256::from(top_up + 1), "the snapshot of T + 1");
+    assert_eq!(
+        (total, members.len()),
+        (t.stake * U256::from(3) + topped, 4),
+        "the snapshot of T + 1"
+    );
+    assert!(total >= t.minimum);
+
+    // T + 1 decides the candidate for T + 3, the member at the topped-up stake's power. The
+    // fallback keys' commits give it no miss; the candidate's first commit without it does.
+    let lower = t.params.power(topped)?;
+    assert_eq!(
+        t.devnet.cmt(0).signing_set(top_up + 2).await?,
+        t.fallback,
+        "the set that signs T + 2"
+    );
+    let back = reweighted(&t.candidate, key, lower);
+    assert_eq!(t.devnet.cmt(0).signing_set(top_up + 3).await?, back, "the set that signs T + 3");
+    let switch_back =
+        reweighted(&switch_updates(&t.devnet, Some(t.params.power(t.stake)?)), key, lower);
+    assert_eq!(updates_at(&t.devnet, top_up + 1).await?, switch_back, "the update list at T + 1");
+    let addresses = addresses(&t.devnet, CANDIDATE_KEYS.start..offline);
+    let signed = t.devnet.cmt(0).commit_signers(top_up + 3).await?;
+    ensure!(
+        !signed.is_empty() && signed.iter().all(|a| addresses.contains(a)),
+        "T + 3 committed by {signed:?}, not the online candidate members {addresses:?}"
+    );
+    for (h, count) in [(top_up + 3, 0), (top_up + 4, 1)] {
+        let counted = t.staking.miss_count(bond.seat, BlockId::number(h)).await?;
+        assert_eq!(counted, count, "the count at {h}");
+    }
 
     t.devnet.stop().await?;
-    eprintln!("miss penalty scenario done after {:?}", started.elapsed());
+    eprintln!("miss penalty and release scenario done after {:?}", started.elapsed());
     Ok(())
 }
 
@@ -404,6 +534,15 @@ fn switch_updates(devnet: &Devnet, to_candidate: Option<u64>) -> Vec<(ConsensusK
         .collect();
     updates.sort();
     updates
+}
+
+/// `set` with `key` at `power`.
+fn reweighted(
+    set: &[(ConsensusKey, u64)],
+    key: ConsensusKey,
+    power: u64,
+) -> Vec<(ConsensusKey, u64)> {
+    set.iter().map(|&(member, p)| (member, if member == key { power } else { p })).collect()
 }
 
 /// The validator updates `FinalizeBlock(h)` returned, sorted.
