@@ -103,7 +103,8 @@ The Etna block-production and validation rules are in
   fixed DAO treasury. Landing earns no protocol reward.
 - **Staking and economic security:** stake is TAIKO bridged to L2 and held by
   `EtnaStaking`, an upgradeable L2 contract the DAO owns. A bond holds one of
-  n_max ≤ 128 seats while it has no exit set and at least minStake; owner
+  n_max ≤ 128 seats while it has no exit set and at least minStake, unless
+  missed signatures released its seat (4.2); owner
   top-ups and exits take effect at once, and no bond is moved or removed to
   admit another. Deployment sets minStake × n_max at or above TAIKO's fixed
   supply, so a bond that meets the seat conditions finds an empty seat while L2
@@ -112,12 +113,16 @@ The Etna block-production and validation rules are in
   except after a verifier-failure rollback, a landed checkpoint covers the last
   block a bond's seat let its key sign before the stake leaves (4.1). While
   blocks are produced, a seated bond that misses `missLimit` consecutive blocks
-  loses `missSlashBps` basis points of its stake; a halt penalizes nobody (4.2).
+  loses `missSlashBps` basis points of its stake, and loses them again at every
+  further `missLimit` blocks of the same run; after `missReleaseLimit`
+  consecutive blocks it releases its seat, with no exit set, until its owner
+  tops it up. A halt penalizes nobody and releases no seat (4.2).
   A miss is a precommit absent from the next block's LastCommit, whatever the
   reason: a signature that arrives too late counts like one never made
   (section 12, items 24, 31 and 33). A coalition holding 1/3 or more of the
-  voting power can make members that sign miss in this sense and so turn the
-  penalty on them; the DAO's response is to hand signing to the fallback key
+  voting power, alone or together with members that have stopped signing, can
+  make members that sign miss in this sense and so turn the penalty and the
+  release on them; the DAO's response is to hand signing to the fallback key
   set (item 24, RECOV-8-20a). Bond ids are never reused, and forfeiture
   identifies an issued bond by that id alone. The launch checklist derives
   `minTotalStake` from an independent capital target and conservative price;
@@ -155,7 +160,8 @@ The Etna block-production and validation rules are in
   scheduled time and restart through `recover`.
 - **Open design and acceptance:** deployment values for the capital target,
   reference price and forfeiture rate
-  (item 18), `missLimit`, `missSlashBps` and `timeout_commit` (section 11)
+  (item 18), `missLimit`, `missReleaseLimit`, `missSlashBps` and
+  `timeout_commit` (section 11)
   remain to be pinned
   before launch. The
   proving capacity that lets one worst-case block be proven on its own
