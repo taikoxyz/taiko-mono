@@ -32,6 +32,10 @@ pub(super) struct PreparationCache {
     pub(super) seat_words: BTreeMap<(B256, Address), U256>,
     /// Anchor proof; reuse requires a freshly matching header hash.
     pub(super) anchor: Option<AnchorWitness>,
+    /// The number and L1 timestamp of the last own `finalized` block whose header the proposer
+    /// read to tell whether its parent's anchor aged out (CONS-3.3-4). A finalized header never
+    /// changes, so it is read once per finality advance.
+    pub(super) finalized_time: Option<(u64, u64)>,
     /// Entry proof bound to its state root and queue index.
     entry: Option<CachedForcedEntry>,
     /// One bounded proof read surviving cancellation of its waiting round.

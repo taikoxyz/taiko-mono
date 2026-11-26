@@ -75,7 +75,7 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It implements the Etna
-specification at `556c7f1ca` (#22425 with #22428) and is aligned with the protocol revision
+specification at `5190bff16` (#22425 with #22428) and is aligned with the protocol revision
 `dcada2ae2982f06bafa2a6da489d129b66ef6d4f` (#22286; `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh`, the Inbox and the other pinned contract artifacts)
 and alethia-reth commit `aa89a01aad2f127e342e39fd069352b2e4ebcf86` (#248). Start the EL and verify its block 0 before the Inbox
@@ -254,7 +254,7 @@ Serves the ABCI++ application to a CometBFT node.
 | `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)              |
 | `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)             |
 | `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`     |
-| `--anchor.hold`                         | `ABCI_ANCHOR_HOLD`     | Seconds the proposer keeps its parent's anchor after a newer finality (12)     |
+| `--anchor.hold`                         | `ABCI_ANCHOR_HOLD`     | Seconds a new finalized L1 block waits before the proposer anchors to it (12)  |
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
@@ -1103,12 +1103,23 @@ committing those values to the Inbox.
   serve that block yet only makes the node wait.
 - `ProcessProposal` rejects at once, without waiting, an anchor the own L1 node has not
   finalized, because its view is behind or it lags, is unreachable or times out (CONS-3.3-5,
-  RECOV-8-5); a decided block's `FinalizeBlock` waits for it instead. The proposer keeps its
-  parent's anchor for `--anchor.hold` seconds (default 12, one L1 slot) after its own L1 first
-  shows a newer finalized block, while that anchor keeps the block fresh and within
-  back-pressure, so validators slightly behind do not reject the proposal (CONS-3.3-4). The
-  hold counts from the first read that showed it, which the checkpoint trust worker makes
-  about once a second on every node, not from the node's own turn to propose.
+  RECOV-8-5); a decided block's `FinalizeBlock` waits for it instead.
+- Anchor interval (CONS-3.3-4): the proposer keeps its parent's anchor and moves it only at a
+  generation's first block, at heights that are multiples of 1,024, and when that anchor no
+  longer serves the block: with it the block would fail back-pressure or anchor freshness, the
+  own L1 cannot serve a pending forced-inclusion entry's proof under it, or the own finalized
+  block is more than `maxAnchorAge` newer than it by L1 timestamp, as after a production pause.
+  It then moves to the own finalized block. A move at a multiple takes the newest finalized
+  block the own L1 first showed at least `--anchor.hold` seconds ago (default 12, one L1 slot)
+  and keeps the parent's anchor when there is none, so validators slightly behind do not reject
+  the proposal. The hold counts from the first read that showed the block, which the checkpoint
+  trust worker makes about once a second on every node, not from the node's own turn to
+  propose. No validity rule depends on the interval: `ProcessProposal` accepts a block that
+  moves its anchor at any height 3.4 allows. L1 state, among it forced-inclusion entries,
+  fallback key and `minTotalStake` changes and landed checkpoints, therefore reaches L2 about
+  once per 1,024 blocks, about 68 minutes at 4 s blocks; `maxAnchorAge` should cover that
+  interval (spec PARAM-11-5, LIMIT-12-34), or anchors move when they age out.
+  `abci_l1_finality_lag` routinely reaches several hundred L1 blocks.
 - Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
   anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
   with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With
@@ -1200,7 +1211,7 @@ The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/REA
 the 29-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
 documented height-bound divergence and establish no conformance to the latest Etna
 specification, and two client-owned families transcribed from the specification at
-`556c7f1ca`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
+`5190bff16`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
 `missBitmap` derivation and signing-set decision. Staking contract vectors belong to the
 contract harness.
 

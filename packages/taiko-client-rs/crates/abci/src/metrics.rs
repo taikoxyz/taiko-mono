@@ -115,7 +115,9 @@ impl AbciMetrics {
     }
 
     /// `abci_l1_finality_lag`: the own L1 finalized block number minus the committed anchor's,
-    /// in L1 blocks, as last seen by `PrepareProposal`.
+    /// in L1 blocks, as last seen by `PrepareProposal`. The proposer moves the anchor once per
+    /// 1,024 blocks (CONS-3.3-4), so it routinely reaches several hundred L1 blocks, up to about
+    /// what `maxAnchorAge` spans.
     pub fn l1_finality_lag() -> &'static IntGauge {
         &METRICS.l1_finality_lag
     }

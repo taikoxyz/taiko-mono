@@ -7,8 +7,8 @@ use alloy_primitives::{B256, Bytes};
 
 use super::{
     proposal::{
-        bft_time, decide, incompressible, judge, jump, mid_epoch, next_height, prepare,
-        prepare_req, propose, set_anchor_age, step,
+        bft_time, decide, hand_envelope, incompressible, judge, jump, mid_epoch, next_height,
+        prepare, prepare_req, propose, set_anchor_age, step,
     },
     *,
 };
@@ -17,7 +17,7 @@ use crate::{
     envelope::EtnaEnvelope,
     l1::L1Error,
     rules::decode_extra_data,
-    test_utils::{GenesisSpec, L1Call, sample_transactions, simple_block},
+    test_utils::{GenesisSpec, InboxStorage, L1Call, sample_transactions, simple_block},
 };
 
 /// Prepares the next height of `app`, expects no transactions and returns the halt label.
@@ -277,8 +277,10 @@ async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
 /// more than `anchor_hold` after its own L1 showed the block moves the anchor at its first
 /// proposal; one that saw it less than `anchor_hold` ago keeps the parent's anchor until
 /// `anchor_hold` after that first sighting, which a later, higher finalized block does not
-/// restart. (`proposer_holds_the_parent_anchor_briefly_after_finality_advances` covers a first
-/// sighting inside `PrepareProposal`.)
+/// restart, and then moves to that block, an earlier finalized block than the newest one,
+/// which it moves to once that too was first seen `anchor_hold` ago (4.g).
+/// (`proposer_holds_the_parent_anchor_briefly_after_finality_advances` covers a first sighting
+/// inside `PrepareProposal`.)
 #[tokio::test(start_paused = true)]
 async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn() {
     let fx = Fixture::genesis(1);
@@ -307,7 +309,7 @@ async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn(
     let dir = tempfile::tempdir().unwrap();
     let mut app = after_first_block(&fx, dir.path(), hold).await;
     let parent_anchor = app.state().unwrap().anchor.number;
-    fx.advance_l1(app.l1(), 70, &fx.inbox);
+    let first = fx.advance_l1(app.l1(), 70, &fx.inbox);
     app.refresh_trust().await.unwrap();
     tokio::time::advance(Duration::from_secs(5)).await;
     let later = fx.advance_l1(app.l1(), 80, &fx.inbox);
@@ -319,7 +321,178 @@ async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn(
     }
     tokio::time::advance(Duration::from_secs(1)).await;
     let env = propose(&mut app).await;
+    assert_eq!(env.anchor.map(|w| w.l1_header), Some(first), "12 s after it, to that block");
+    let other = tempfile::tempdir().unwrap();
+    let mut validator = after_first_block(&fx, other.path(), hold).await;
+    fx.plant_l1_block(validator.l1(), 70, &fx.inbox);
+    validator.l1().set_finalized(70);
+    let env = propose(&mut app).await;
+    assert_eq!(judge(&mut validator, &env).await.0, response::ProcessProposal::Accept);
+    tokio::time::advance(Duration::from_secs(5)).await;
+    let env = propose(&mut app).await;
     assert_eq!(env.anchor.map(|w| w.l1_header), Some(later), "12 s after it, to the newest");
+}
+
+/// A fixture whose U is 151,200, so that back-pressure never binds at the heights below.
+fn wide_fixture() -> Fixture {
+    let mut spec = GenesisSpec::new(1);
+    spec.params.unsettled_limit = 151_200;
+    Fixture::build(spec)
+}
+
+/// An app on `fx` whose committed head is `last`, anchored at L1 block `anchor` (planted holding
+/// `inbox` unless it is `L1_0`), with the binary's anchor interval of 1,024 and no hold.
+async fn interval_app(
+    fx: &Fixture,
+    dir: &Path,
+    last: u64,
+    anchor: u64,
+    inbox: &InboxStorage,
+) -> App<MockL1, MockEngine> {
+    let mut app = initialized(fx, dir).await;
+    if anchor != fx.genesis.l1_0 {
+        fx.plant_l1_block(app.l1(), anchor, inbox);
+    }
+    let state = fx.anchor_state(app.l1(), anchor);
+    jump(&mut app, last, state);
+    app.opts.anchor_interval = AppOptions::default().anchor_interval;
+    assert_eq!(app.opts.anchor_interval, 1024, "the binary's interval (CONS-3.3-4)");
+    app
+}
+
+/// CONS-3.3-4 4.a/4.h/4.n and 4.l/4.m: the proposer keeps its parent's anchor while it serves
+/// the block, although its own L1 shows a newer finalized block, and moves it to that block only
+/// at a multiple of 1,024; at a multiple with no newer finalized block it keeps it. No validity
+/// rule depends on the interval: validators accept a block that keeps the anchor and one that
+/// moves it at another height.
+#[tokio::test]
+async fn proposer_moves_the_anchor_once_per_1024_blocks() {
+    let fx = wide_fixture();
+    let l1_0 = fx.genesis.l1_0;
+
+    // 4.n: height 2,048 with no finalized block newer than the parent's anchor keeps it.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = interval_app(&fx, dir.path(), 2047, l1_0, &fx.inbox).await;
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_none());
+    // 4.a: once the own L1 finalizes block 70, height 2,048 moves to it.
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header));
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+
+    // 4.h: height 2,049 keeps the parent's anchor although block 70 is finalized.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = interval_app(&fx, dir.path(), 2048, l1_0, &fx.inbox).await;
+    fx.advance_l1(app.l1(), 70, &fx.inbox);
+    for _ in 0..2 {
+        let env = propose(&mut app).await;
+        assert!(env.anchor.is_none(), "the parent's anchor still serves the block");
+        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().anchor, l1_0);
+        let other = tempfile::tempdir().unwrap();
+        let mut validator = interval_app(&fx, other.path(), 2048, l1_0, &fx.inbox).await;
+        fx.advance_l1(validator.l1(), 70, &fx.inbox);
+        assert_eq!(judge(&mut validator, &env).await.0, response::ProcessProposal::Accept);
+    }
+    let reads = app.l1().calls().iter().filter(|call| **call == L1Call::Header(70)).count();
+    assert_eq!(reads, 1, "the finalized header is read once per finality advance");
+
+    // 4.l/4.m: a block that moves the anchor at 2,049 is valid all the same.
+    let moved = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 70)));
+    assert_eq!(judge(&mut app, &moved).await.0, response::ProcessProposal::Accept);
+}
+
+/// CONS-3.3-4 4.i: between multiples of 1,024, a parent anchor with which the block would fail
+/// anchor freshness or back-pressure no longer serves it, and the proposer moves it to its own
+/// finalized block.
+#[tokio::test]
+async fn proposer_moves_an_anchor_that_no_longer_serves_the_block() {
+    let fx = wide_fixture();
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = interval_app(&fx, dir.path(), 2048, fx.genesis.l1_0, &fx.inbox).await;
+    set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header), "freshness");
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+
+    // U = 12: height 13 fails back-pressure with the parent's checkpoint 0, not with 6.
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), fx.params.unsettled_limit).await;
+    app.opts.anchor_interval = AppOptions::default().anchor_interval;
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(6));
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header), "back-pressure");
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+}
+
+/// CONS-3.3-4 4.k: after a production pause the own finalized block can be more than
+/// `maxAnchorAge` newer than the parent's anchor by L1 timestamp while the block's derived
+/// timestamp still keeps that anchor fresh; the proposer then moves the anchor between
+/// multiples of 1,024. At exactly `maxAnchorAge` newer it keeps it.
+#[tokio::test]
+async fn proposer_moves_an_anchor_its_own_finality_left_behind() {
+    let fx = wide_fixture();
+    let l1_0 = fx.genesis.l1_0;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = interval_app(&fx, dir.path(), 2048, l1_0, &fx.inbox).await;
+    let at_limit = l1_0 + fx.genesis.max_anchor_age / 12;
+    assert_eq!(
+        Fixture::l1_timestamp(at_limit) - Fixture::l1_timestamp(l1_0),
+        fx.genesis.max_anchor_age
+    );
+    fx.advance_l1(app.l1(), at_limit, &fx.inbox);
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_none(), "exactly maxAnchorAge newer: kept");
+    let beyond = fx.advance_l1(app.l1(), at_limit + 1, &fx.inbox);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&beyond));
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+}
+
+/// CONS-3.3-4 4.j, FI-7.2-2: a kept anchor under which the own L1 cannot serve the pending
+/// queue entry's proof, such as a block whose state it pruned, no longer serves the block: the
+/// proposer moves the anchor to its own finalized block and proves the entry there. While the
+/// proof is available it keeps the anchor, and a proof that fails to verify moves nothing.
+#[tokio::test]
+async fn proposer_moves_the_anchor_when_the_forced_witness_is_unavailable_under_it() {
+    let fx = wide_fixture();
+    let tx: Bytes = sample_transactions()[0].encoded_2718().into();
+    let mut inbox = fx.inbox.clone();
+    inbox.forced_inclusion_tail = 1;
+    inbox.forced_inclusion_queue = vec![crate::forced::ForcedEntry {
+        index: 0,
+        tx_hash: alloy_primitives::keccak256(&tx),
+        timestamp: Fixture::l1_timestamp(66),
+        l1_block: 66,
+    }];
+    let pending = async |dir: &Path| {
+        let app = interval_app(&fx, dir, 2048, 66, &inbox).await;
+        app.l1().state().forced_transactions.insert((fx.params.inbox, 0, 66), tx.clone());
+        let header = fx.advance_l1(app.l1(), 70, &inbox);
+        (app, header)
+    };
+
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = pending(dir.path()).await;
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_none(), "the entry is proven under the kept anchor");
+    assert_eq!(env.forced.as_ref().map(|forced| forced.index), Some(0));
+
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, header) = pending(dir.path()).await;
+    app.l1().state().states.remove(&66);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header));
+    assert_eq!(env.forced.as_ref().map(|forced| forced.index), Some(0));
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = pending(dir.path()).await;
+    app.l1().state().proof_tamper_at = Some((fx.params.inbox, 66));
+    let req = prepare_req(&app, next_height(&app), bft_time(&app));
+    assert!(prepare(&mut app, req).await.is_empty(), "an unverifiable proof moves nothing");
 }
 
 #[tokio::test]

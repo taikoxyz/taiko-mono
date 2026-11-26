@@ -624,11 +624,15 @@ pub(crate) fn recovery_fixture_at(
     (fx, l1, engine, witness)
 }
 
-/// [`AppOptions::default`] but with no proposer anchor hold (CONS-3.3-4): the proposer moves its
-/// anchor as soon as its own L1 finalizes a newer block, which every test but the hold's own
-/// expects.
+/// [`AppOptions::default`] but with no proposer anchor hold and an anchor interval of 1
+/// (CONS-3.3-4): the proposer moves its anchor at every height as soon as its own L1 finalizes a
+/// newer block, which every test but the hold's and the interval's own expects.
 pub(crate) fn test_options() -> AppOptions {
-    AppOptions { anchor_hold: std::time::Duration::ZERO, ..AppOptions::default() }
+    AppOptions {
+        anchor_hold: std::time::Duration::ZERO,
+        anchor_interval: 1,
+        ..AppOptions::default()
+    }
 }
 
 #[cfg(test)]

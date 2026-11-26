@@ -87,23 +87,25 @@ pub struct AbciArgs {
                 seconds (1-3600); must stay below CometBFT's timeout_propose"
     )]
     pub prepare_timeout_secs: u64,
-    /// How long the proposer keeps its parent's anchor after its own L1 node first shows a
-    /// newer block as finalized, in seconds (CONS-3.3-4); 0 moves the anchor at once.
+    /// How long after its own L1 node first shows a block as finalized the proposer waits
+    /// before moving the anchor to it, in seconds (CONS-3.3-4); 0 moves to the newest at once.
     #[clap(
         long = "anchor.hold",
         env = "ABCI_ANCHOR_HOLD",
         value_name = "SECONDS",
         default_value_t = AppOptions::default().anchor_hold.as_secs(),
         value_parser = clap::value_parser!(u64).range(0..=MAX_TIMEOUT_SECS),
-        help = "How long the proposer keeps its parent's anchor after its own L1 node first \
-                shows a newer block as finalized, so validators slightly behind accept the \
-                proposal, in seconds (0-3600; 0 moves the anchor at once)"
+        help = "How long after its own L1 node first shows a block as finalized the proposer \
+                waits before moving the anchor to it, so validators slightly behind accept the \
+                proposal, in seconds (0-3600; 0 moves to the newest finalized block at once). \
+                The anchor moves once per 1,024 blocks, or sooner when it stops serving the block"
     )]
     pub anchor_hold_secs: u64,
 }
 
 impl AbciArgs {
-    /// The app's call deadlines and proposer anchor hold.
+    /// The app's call deadlines and proposer anchor hold; the anchor interval is always the
+    /// specification's 1,024 (CONS-3.3-4).
     pub fn app_options(&self) -> AppOptions {
         AppOptions {
             l1_timeout: Duration::from_secs(self.l1_timeout_secs),
@@ -111,6 +113,7 @@ impl AbciArgs {
             elsync_timeout: Duration::from_secs(self.elsync_timeout_secs),
             prepare_timeout: Duration::from_secs(self.prepare_timeout_secs),
             anchor_hold: Duration::from_secs(self.anchor_hold_secs),
+            ..AppOptions::default()
         }
     }
 }
@@ -239,6 +242,7 @@ mod tests {
                 elsync_timeout: Duration::from_secs(60),
                 prepare_timeout: Duration::from_secs(1),
                 anchor_hold: Duration::from_secs(3),
+                anchor_interval: 1024,
             }
         );
     }
@@ -276,6 +280,7 @@ mod tests {
                 elsync_timeout: Duration::from_secs(9),
                 prepare_timeout: Duration::from_secs(1),
                 anchor_hold: Duration::ZERO,
+                anchor_interval: 1024,
             }
         );
         assert_eq!(cmd.common_flags.l1_http_endpoint.as_str(), "http://localhost:8545/");
@@ -345,6 +350,7 @@ mod tests {
                 elsync_timeout: hour,
                 prepare_timeout: hour,
                 anchor_hold: hour,
+                anchor_interval: 1024,
             }
         );
     }

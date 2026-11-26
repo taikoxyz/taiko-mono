@@ -82,17 +82,18 @@ impl AppNode {
 
     /// Loads a caller-owned store with real L1 and the selected Engine adapter.
     ///
-    /// The app has no anchor hold. A fresh app first sees the own L1's finalized block at its
-    /// first `PrepareProposal`, so the default hold would keep the parent's anchor there, and a
-    /// test that waited for L1 to finalize a new anchor would get a proposal without it. The
-    /// hold is proposer policy only: no validity rule depends on it.
+    /// The app has no anchor hold and moves its anchor at every height ([`test_options`]). A
+    /// fresh app first sees the own L1's finalized block at its first `PrepareProposal`, so the
+    /// default hold would keep the parent's anchor there, and a test that waited for L1 to
+    /// finalize a new anchor would get a proposal without it. Both are proposer policy only: no
+    /// validity rule depends on them.
     pub(crate) fn detached_app<E: Engine>(
         &self,
         store: Store,
         engine: E,
     ) -> Result<App<RpcL1Source, E>> {
         ensure!(!self.is_running(), "stop the live app before detached ABCI requests");
-        let opts = AppOptions { anchor_hold: Duration::ZERO, ..AppOptions::default() };
+        let opts = AppOptions { anchor_hold: Duration::ZERO, ..test_options() };
         let l1 = RpcL1Source::new(connect_http_with_timeout(
             self.config.l1_http.clone(),
             http_timeout_for(opts.l1_timeout),
@@ -263,9 +264,18 @@ fn run(
     runtime.shutdown_timeout(SHUTDOWN_TIMEOUT);
 }
 
+/// The options of every harness app: the defaults, but with the anchor moved at every height
+/// (an anchor interval of 1) rather than at multiples of 1,024 (CONS-3.3-4). The scenarios run
+/// short chains with U = 12 and wait seconds, not hours, for forced inclusion entries, fallback
+/// key changes and landings to reach L2 through the anchor; the interval is proposer policy
+/// only, and the abci crate's unit tests cover the 1,024-block rule.
+fn test_options() -> AppOptions {
+    AppOptions { anchor_interval: 1, ..AppOptions::default() }
+}
+
 /// Waits for the EL's Engine API and builds the app over its store and execution engine.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
-    let opts = AppOptions::default();
+    let opts = test_options();
     let engine =
         RpcEngine::new(c.reth.http.clone(), c.reth.auth.clone(), &c.jwt, opts.engine_timeout)?;
     let engine_ref = &engine;

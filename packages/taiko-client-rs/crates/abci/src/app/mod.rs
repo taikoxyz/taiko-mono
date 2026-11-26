@@ -121,7 +121,11 @@ pub const MIN_LIST_READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// executes a block whose verdict was evicted.
 pub const MAX_VERDICTS: usize = 4;
 
-/// Deadlines of the app's external calls.
+/// The height interval at which the proposer moves its anchor (CONS-3.3-4): every multiple of
+/// 1,024.
+pub const ANCHOR_INTERVAL: u64 = 1024;
+
+/// Deadlines of the app's external calls, and the proposer's anchor policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AppOptions {
     /// Deadline of one L1 operation (a finality check, a header or proof read).
@@ -134,20 +138,29 @@ pub struct AppOptions {
     /// top of their own deadlines); past it the node proposes nothing. Must stay below
     /// CometBFT's `timeout_propose`, or the round times out before the proposal is ready.
     pub prepare_timeout: Duration,
-    /// How long the proposer keeps its parent's anchor after its own L1 node first shows a
-    /// newer block as finalized, so that validators whose view is slightly behind do not
-    /// reject the proposal (CONS-3.3-4, RECOV-8-5). It counts from the first read of the own L1
-    /// that showed the newer block, by any handler or the trust worker (about once a second),
-    /// not from this node's first proposal on that anchor ([`OwnL1`]). Proposer policy only: no
-    /// validity rule depends on it. Zero moves the anchor at once.
+    /// How long after its own L1 node first shows a block as finalized the proposer waits
+    /// before moving the anchor to it, so that validators whose view is slightly behind do not
+    /// reject the proposal (CONS-3.3-4, RECOV-8-5): a move at a multiple of `anchor_interval`
+    /// takes the newest finalized block first seen at least this long ago, or keeps the
+    /// parent's anchor when there is none. It counts from the first read of the own L1 that
+    /// showed the block, by any handler or the trust worker (about once a second), not from
+    /// this node's first proposal on that anchor ([`OwnL1`]). Proposer policy only: no validity
+    /// rule depends on it. Zero moves to the newest finalized block at once.
     pub anchor_hold: Duration,
+    /// The proposer moves its anchor at heights that are multiples of this, and otherwise keeps
+    /// its parent's anchor while it serves the block (CONS-3.3-4): [`ANCHOR_INTERVAL`] (1,024),
+    /// which the binary always uses. Proposer policy only: no validity rule depends on it, and a
+    /// block that moves the anchor at another height stays valid. Tests and the Docker devnet
+    /// harness set 1, which moves the anchor at every height as soon as L1 finalizes a newer
+    /// block. Must be nonzero.
+    pub anchor_interval: u64,
 }
 
 impl Default for AppOptions {
     /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s,
     /// `prepare_timeout` 2 s (below CometBFT's default `timeout_propose` of 3 s), `anchor_hold`
     /// 12 s (one L1 slot, within which every honest L1 node normally learns a new finalized
-    /// checkpoint).
+    /// checkpoint) and `anchor_interval` 1,024 ([`ANCHOR_INTERVAL`]).
     fn default() -> Self {
         Self {
             l1_timeout: Duration::from_secs(3),
@@ -155,6 +168,7 @@ impl Default for AppOptions {
             elsync_timeout: Duration::from_secs(600),
             prepare_timeout: Duration::from_secs(2),
             anchor_hold: Duration::from_secs(12),
+            anchor_interval: ANCHOR_INTERVAL,
         }
     }
 }

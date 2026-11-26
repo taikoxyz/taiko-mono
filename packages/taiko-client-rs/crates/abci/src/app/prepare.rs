@@ -99,19 +99,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// words of its missing validators in the committed parent's post-state
     /// ([`App::miss_bitmap`]), and an unavailable EL proposes nothing. Precommits that reach
     /// this node after CometBFT built that LastCommit change nothing.
-    /// Chooses `max(parent anchor, own finalized)` subject to the proposer's short hold
+    /// Keeps the parent's anchor or moves it to the own finalized block by the proposer's rule
     /// ([`App::anchor_to_propose`]), authenticates a changed anchor or the forced H0 anchor,
     /// checks progress, generation, back-pressure and checkpoint ancestry (proposing nothing
-    /// when a moved anchor's checkpoint conflicts, see [`App::choose_anchor`]), makes sure the
-    /// node holds the fallback key list the anchor proves, which every validator needs before
-    /// the block is decided ([`App::prefetch_fallback_keys`]; proposing nothing while the own
-    /// L1 cannot give it), derives the header and checks that its timestamp keeps the anchor
-    /// fresh (an anchor older than `maxAnchorAge` proposes nothing until L1 finalizes a newer
-    /// block). Then collects the queue
-    /// entry proof and any due admission bytes, and encodes a mandatory-only block with any
-    /// singleton skip evidence. It then tries to include
-    /// optional transactions within the remaining budget. Both envelopes must fit the execution
-    /// block bound and CometBFT's transaction limit.
+    /// when a moved anchor's checkpoint conflicts, see [`App::choose_anchor`]), and reads the
+    /// queue entry proof under the anchor; a kept anchor under which the own L1 cannot serve
+    /// that proof, such as one whose state it has pruned, moves to the own finalized block
+    /// (CONS-3.3-4, FI-7.2-2). It makes sure the node holds the fallback key list the anchor
+    /// proves, which every validator needs before the block is decided
+    /// ([`App::prefetch_fallback_keys`]; proposing nothing while the own L1 cannot give it),
+    /// derives the header and checks that its timestamp keeps the anchor fresh (an anchor older
+    /// than `maxAnchorAge` proposes nothing until L1 finalizes a newer block). Then collects any
+    /// due admission bytes, and encodes a mandatory-only block with any singleton skip evidence.
+    /// It then tries to include optional transactions within the remaining budget. Both
+    /// envelopes must fit the execution block bound and CometBFT's transaction limit.
     async fn propose(
         &self,
         state: &AppState,
@@ -128,8 +129,36 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
-        let n = self.anchor_to_propose(state, height, finalized, unix_secs(req.time));
-        let (anchor, anchor_state) = self.choose_anchor(state, height, n).await?;
+        let n = self.anchor_to_propose(state, height, finalized, unix_secs(req.time)).await?;
+        let (mut anchor, mut anchor_state) = self.choose_anchor(state, height, n).await?;
+        let index = state.forced_cursor;
+        let entry = if index < anchor_state.inbox.forced_inclusion_tail {
+            match self.forced_entry(&anchor_state, index).await {
+                Ok(entry) => Some(entry),
+                // A kept anchor stops serving the block when the own L1 cannot give the forced
+                // witness under it (CONS-3.3-4, FI-7.2-2): a read that fails or times out, for
+                // example once the node pruned that block's state. Moving to the own finalized
+                // block is always valid; a witness that fails to verify does not move it.
+                Err(error @ (Rejection::L1(_) | Rejection::Timeout(_)))
+                    if anchor.is_none() &&
+                        finalized > state.anchor.number &&
+                        !error.requires_dependency_repair() =>
+                {
+                    tracing::info!(
+                        height,
+                        parent_anchor = state.anchor.number,
+                        finalized,
+                        %error,
+                        "no forced witness under the parent's anchor; moving the anchor"
+                    );
+                    (anchor, anchor_state) = self.choose_anchor(state, height, finalized).await?;
+                    Some(self.forced_entry(&anchor_state, index).await?)
+                }
+                Err(error) => return Err(error),
+            }
+        } else {
+            None
+        };
         rules::check_rules_schedule(
             anchor_state.inbox.rules_schedule,
             &state.parent,
@@ -155,12 +184,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             anchor_state.timestamp,
             state.genesis.max_anchor_age,
         )?;
-        let index = state.forced_cursor;
-        let entry = if index < anchor_state.inbox.forced_inclusion_tail {
-            Some(self.forced_entry(&anchor_state, index).await?)
-        } else {
-            None
-        };
         let due = entry.as_ref().is_some_and(|entry| {
             forced::is_due(
                 entry.proven.timestamp,
@@ -312,51 +335,97 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// The L1 block the block at `height` on top of `state` anchors at (CONS-3.3-4): the newer of
-    /// the parent's anchor and the own `finalized` block, except that for up to
-    /// [`AppOptions::anchor_hold`](super::AppOptions) after the own L1 first showed a block newer
-    /// than the parent's anchor as finalized the proposer keeps the parent's anchor, so that
-    /// validators whose view is slightly behind do not reject the proposal (RECOV-8-5). That
-    /// instant is the first read of the own L1 showing it, by the trust worker on its regular
-    /// cadence or any handler ([`OwnL1`](super::OwnL1)), whether or not this node proposed
-    /// since, so the hold ends `anchor_hold` after the first proposers saw the block, not
-    /// `anchor_hold` after each proposer's own turn. It holds only while the parent's anchor
-    /// keeps the block fresh and within back-pressure, and never at a generation's first block,
-    /// which carries a witness of the own finalized head.
-    fn anchor_to_propose(
+    /// The L1 block the block at `height` on top of `state` anchors at (CONS-3.3-4). The
+    /// proposer keeps its parent's anchor, except at a generation's first block, at a height
+    /// that is a multiple of [`AppOptions::anchor_interval`](super::AppOptions) (1,024), and
+    /// when that anchor no longer serves the block: with it the block would fail back-pressure
+    /// or anchor freshness (3.4 rules 5 and 7), or the own `finalized` block is more than
+    /// `maxAnchorAge` newer than it by L1 timestamp, as after a production pause. (A forced
+    /// witness the own L1 cannot serve under it also moves it; [`App::propose`] handles that.)
+    /// In those cases it picks the own `finalized` block, never below the parent's anchor; but
+    /// a move at a multiple whose parent anchor still serves takes the newest finalized block
+    /// the own L1 first showed at least [`AppOptions::anchor_hold`](super::AppOptions) ago, and
+    /// keeps the parent's anchor when there is none, so that validators whose view is slightly
+    /// behind do not reject the proposal (RECOV-8-5). That instant is the first read of the own
+    /// L1 showing the block, by the trust worker on its regular cadence or any handler
+    /// ([`OwnL1`](super::OwnL1)), whether or not this node proposed since. A generation's first
+    /// block carries a witness of the own finalized head. Reading the finalized block's header
+    /// for its timestamp can fail; the parent's anchor is then kept, which 3.4 still bounds.
+    async fn anchor_to_propose(
         &self,
         state: &AppState,
         height: u64,
         finalized: u64,
         bft_secs: u64,
-    ) -> u64 {
+    ) -> Result<u64, Rejection> {
         let parent = &state.anchor;
-        if finalized <= parent.number || state.origin_height().checked_add(1) == Some(height) {
-            return parent.number.max(finalized);
+        if state.origin_height().checked_add(1) == Some(height) {
+            return Ok(parent.number.max(finalized));
         }
-        // `finalized` was read through the own L1 just now, so a sighting above the parent
-        // exists; without one the hold starts now.
-        let first_seen =
-            self.l1.first_finalized_above(parent.number).unwrap_or_else(tokio::time::Instant::now);
+        if finalized <= parent.number {
+            return Ok(parent.number);
+        }
+        let max_age = state.genesis.max_anchor_age;
         let timestamp = rules::block_timestamp(state.parent.timestamp, bft_secs, parent.timestamp);
-        let usable = rules::check_anchor_freshness(
-            timestamp,
-            parent.timestamp,
-            state.genesis.max_anchor_age,
-        )
-        .is_ok() &&
+        let serves = rules::check_anchor_freshness(timestamp, parent.timestamp, max_age).is_ok() &&
             rules::check_back_pressure(
                 height,
                 parent.inbox.last_checkpoint_height,
                 self.params.unsettled_limit,
             )
             .is_ok();
-        if usable && first_seen.elapsed() < self.opts.anchor_hold {
-            tracing::debug!(height, parent = parent.number, finalized, "holding the parent anchor");
-            parent.number
-        } else {
-            finalized
+        if !serves {
+            return Ok(finalized);
         }
+        if height.checked_rem(self.opts.anchor_interval).is_some_and(|rem| rem != 0) {
+            let finalized_time = match self.finalized_timestamp(finalized).await {
+                Ok(time) => time,
+                Err(error) if error.requires_dependency_repair() => return Err(error),
+                Err(error) => {
+                    tracing::debug!(
+                        height,
+                        finalized,
+                        %error,
+                        "own finalized header unavailable; keeping the parent anchor"
+                    );
+                    return Ok(parent.number);
+                }
+            };
+            if finalized_time.saturating_sub(parent.timestamp) <= max_age {
+                return Ok(parent.number);
+            }
+            tracing::info!(
+                height,
+                parent_anchor = parent.number,
+                finalized,
+                "the own finalized L1 block is more than maxAnchorAge newer; moving the anchor"
+            );
+            return Ok(finalized);
+        }
+        Ok(self.l1.settled_finalized_above(parent.number, self.opts.anchor_hold).unwrap_or_else(
+            || {
+                tracing::debug!(
+                    height,
+                    parent = parent.number,
+                    finalized,
+                    "holding the parent anchor"
+                );
+                parent.number
+            },
+        ))
+    }
+
+    /// The L1 timestamp of the own `finalized` block `n`, read once per finality advance.
+    async fn finalized_timestamp(&self, n: u64) -> Result<u64, Rejection> {
+        if let Some((number, time)) = self.preparation_cache().finalized_time &&
+            number == n
+        {
+            return Ok(time);
+        }
+        let header = self.l1_read("L1 finalized header read", header_at(self.l1(), n)).await?;
+        let time = header.timestamp();
+        self.preparation_cache().finalized_time = Some((n, time));
+        Ok(time)
     }
 
     /// The anchor of the block at `height` on top of `state`: L1 block `n` (never below the

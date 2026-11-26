@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "candidate",
   "generator": "transcribed by hand from packages/protocol/docs/etna/rules/vectors/4.3.md",
-  "provenance": {"specCommit": "556c7f1ca79273e8483549a10062b5230f3f21a9"},
+  "provenance": { "specCommit": "5190bff161d04ab33a4b8f8417bae161aba66d0b" },
   "vectorCount": 25,
   "vectors": [
     {
@@ -10,200 +10,526 @@
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.a",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0..C2:5"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "candidate", "members": "C0..C2:5" }] }
     },
     {
       "id": "candidate.total-stake-one-below-the-minimum-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.b",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e7", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e7",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.snapshot-of-the-previous-height-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e7", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e7",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.inherited-anchor-proves-the-minimum-and-the-list",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.d",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F5..F8"}, "inheritsAnchor": true, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}, {"snapshotHeight": "0x3e9", "totalStake": "0x3e7", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0..C2:5"}, {"source": "fallback", "members": "F5..F8:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F5..F8" },
+        "inheritsAnchor": true,
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          },
+          {
+            "snapshotHeight": "0x3e9",
+            "totalStake": "0x3e7",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": {
+        "signs": [
+          { "source": "candidate", "members": "C0..C2:5" },
+          { "source": "fallback", "members": "F5..F8:1" }
+        ]
+      }
     },
     {
       "id": "candidate.minimum-and-list-of-the-block-anchor-not-the-parent-anchor",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.e",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e9", "fallbackKeys": "F1..F4"}, "parentAnchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F5..F8"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e9", "fallbackKeys": "F1..F4" },
+        "parentAnchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F5..F8" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.list-served-under-another-hash-is-not-used",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.f",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "servedList": "F5..F8", "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e7", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "servedList": "F5..F8",
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e7",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.minimum-of-all-ones-falls-back-at-any-total",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.g",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": {
+          "minTotalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "fallbackKeys": "F1..F4"
+        },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.minimum-one-below-all-ones-with-an-all-ones-total-is-usable",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 3a.h",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0..C2:5"}]}
+      "input": {
+        "height": 1000,
+        "anchor": {
+          "minTotalStake": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+          "fallbackKeys": "F1..F4"
+        },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "candidate", "members": "C0..C2:5" }] }
     },
     {
       "id": "candidate.two-members-with-one-key-fall-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 4.b",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 5}, {"seat": 1, "key": "C0", "power": 7}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "key": "C0", "power": 5 },
+              { "seat": 1, "key": "C0", "power": 7 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.member-key-with-prefix-4-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 4.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 5, "prefix": 4}, {"seat": 1, "key": "C1", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "key": "C0", "power": 5, "prefix": 4 },
+              { "seat": 1, "key": "C1", "power": 5 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.member-key-x-equal-to-the-field-prime-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 4.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "words": ["0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f", "0x502"]}, {"seat": 1, "key": "C1", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              {
+                "seat": 0,
+                "words": [
+                  "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
+                  "0x502"
+                ]
+              },
+              { "seat": 1, "key": "C1", "power": 5 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.member-key-x-off-the-curve-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 4.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "words": ["0x5", "0x502"]}, {"seat": 1, "key": "C1", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "words": ["0x5", "0x502"] },
+              { "seat": 1, "key": "C1", "power": 5 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.one-member-at-power-1-is-a-valid-set",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.a",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 1}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seat": 0, "key": "C0", "power": 1 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "candidate", "members": "C0:1" }] }
     },
     {
       "id": "candidate.128-members-are-a-valid-set",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.b",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..127", "power": 1}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0..C127:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..127", "power": 1 }]
+          }
+        ]
+      },
+      "expect": {
+        "signs": [{ "source": "candidate", "members": "C0..C127:1" }]
+      }
     },
     {
       "id": "candidate.no-member-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": []}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          { "snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [] }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.member-at-power-0-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.e",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 0}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seat": 0, "key": "C0", "power": 0 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.powers-summing-to-the-maximum-are-a-valid-set",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.f",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 1152921504606846974}, {"seat": 1, "key": "C1", "power": 1}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0:1152921504606846974 C1:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "key": "C0", "power": 1152921504606846974 },
+              { "seat": 1, "key": "C1", "power": 1 }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "signs": [
+          { "source": "candidate", "members": "C0:1152921504606846974 C1:1" }
+        ]
+      }
     },
     {
       "id": "candidate.powers-summing-to-one-above-the-maximum-fall-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.g",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 1152921504606846975}, {"seat": 1, "key": "C1", "power": 1}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "key": "C0", "power": 1152921504606846975 },
+              { "seat": 1, "key": "C1", "power": 1 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.zero-power-member-is-not-dropped-from-the-set",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.h",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 5}, {"seat": 1, "key": "C1", "power": 0}, {"seat": 2, "key": "C2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seat": 0, "key": "C0", "power": 5 },
+              { "seat": 1, "key": "C1", "power": 0 },
+              { "seat": 2, "key": "C2", "power": 5 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.second-record-word-with-bit-72-set-falls-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.i",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seat": 0, "key": "C0", "power": 5, "orPacked": "0x1000000000000000000"}, {"seat": 1, "key": "C1", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              {
+                "seat": 0,
+                "key": "C0",
+                "power": 5,
+                "orPacked": "0x1000000000000000000"
+              },
+              { "seat": 1, "key": "C1", "power": 5 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.128-powers-of-2-pow-57-sum-past-the-maximum",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.j",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..127", "power": 144115188075855872}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..127", "power": 144115188075855872 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.powers-whose-64-bit-wrapping-sum-is-1-fall-back",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8.k",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..126", "power": 144115188075855872}, {"seat": 127, "key": "C127", "power": 144115188075855873}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [
+              { "seats": "0..126", "power": 144115188075855872 },
+              { "seat": 127, "key": "C127", "power": 144115188075855873 }
+            ]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.unusable-candidate-gives-the-4-fallback-keys-at-power-1",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8b.b",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e7", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F4:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e7",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F4:1" }] }
     },
     {
       "id": "candidate.unusable-candidate-gives-all-128-fallback-keys",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 8b.e",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F128"}, "snapshots": [{"snapshotHeight": "0x3e7", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "fallback", "members": "F1..F128:1"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F128" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e7",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": { "signs": [{ "source": "fallback", "members": "F1..F128:1" }] }
     },
     {
       "id": "candidate.total-at-minimum-then-one-below-then-at-minimum",
       "family": "candidate",
       "source": "transcribed",
       "row": "4.3.md 16.c",
-      "input": {"height": 1000, "anchor": {"minTotalStake": "0x3e8", "fallbackKeys": "F1..F4"}, "snapshots": [{"snapshotHeight": "0x3e8", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}, {"snapshotHeight": "0x3e9", "totalStake": "0x3e7", "records": [{"seats": "0..2", "power": 5}]}, {"snapshotHeight": "0x3ea", "totalStake": "0x3e8", "records": [{"seats": "0..2", "power": 5}]}]},
-      "expect": {"signs": [{"source": "candidate", "members": "C0..C2:5"}, {"source": "fallback", "members": "F1..F4:1"}, {"source": "candidate", "members": "C0..C2:5"}]}
+      "input": {
+        "height": 1000,
+        "anchor": { "minTotalStake": "0x3e8", "fallbackKeys": "F1..F4" },
+        "snapshots": [
+          {
+            "snapshotHeight": "0x3e8",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          },
+          {
+            "snapshotHeight": "0x3e9",
+            "totalStake": "0x3e7",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          },
+          {
+            "snapshotHeight": "0x3ea",
+            "totalStake": "0x3e8",
+            "records": [{ "seats": "0..2", "power": 5 }]
+          }
+        ]
+      },
+      "expect": {
+        "signs": [
+          { "source": "candidate", "members": "C0..C2:5" },
+          { "source": "fallback", "members": "F1..F4:1" },
+          { "source": "candidate", "members": "C0..C2:5" }
+        ]
+      }
     }
   ]
 }
