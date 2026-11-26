@@ -53,7 +53,9 @@ sequences:
   their seats, and then lowers `minTotalStake` again: once a usable candidate's total stake
   reaches it, the candidate signs again, the whole set changing at once. With any lower value,
   the candidate that c's L2 state gives, offline members included, signs c+3 whenever it is
-  usable.
+  usable. The new generation starts every seat's miss count at zero, so an offline member keeps
+  its seat and its voting power until it has missed `missReleaseLimit` further blocks in a row,
+  unless a penalty leaves it below `minStake` or the DAO forfeits it first.
 - **At least 1/3 of the fallback key set is offline while it signs.** The DAO first replaces
   the keys with `setFallbackKeys` and then calls `recover`. The new origin record holds the new
   keys' hash, so the new keys sign c+1 and c+2 and every later block that the fallback key set

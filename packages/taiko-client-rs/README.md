@@ -75,8 +75,8 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It implements the Etna
-specification at `5190bff16` (#22425 with #22428) and is aligned with the protocol revision
-`dcada2ae2982f06bafa2a6da489d129b66ef6d4f` (#22286; `PINNED_REVISION` in
+specification at `fbc7a5162` (#22425 with #22428) and is aligned with the protocol revision
+`9b8d5b4c2ff4c4dcf23f3c217626070cd261d4a5` (#22286; `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh`, the Inbox and the other pinned contract artifacts)
 and alethia-reth commit `aa89a01aad2f127e342e39fd069352b2e4ebcf86` (#248). Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -519,8 +519,8 @@ satisfies `ceil(totalPower / 3) * vp_unit * P_REF / 10^18 >= C_CAP_MIN`. Only th
 of seated bonds counts. A candidate below `minTotalStake` does not sign and the fallback keys do,
 so launch needs no staked committee: the fallback keys sign S + 1 and S + 2 and every block whose
 candidate is not usable. Verify that the deployed `EtnaStaking` has the pinned `minStake`,
-`vp_unit`, `n_max`, `missLimit` and `missSlashBps` and that the configuration hash names its
-proxy. Concentration is monitored, not enforced: each bond and known common controller should
+`vp_unit`, `n_max`, `missLimit`, `missSlashBps` and `missReleaseLimit` and that the configuration
+hash names its proxy. Concentration is monitored, not enforced: each bond and known common controller should
 stay strictly below one third of the signing set's power, and no party should hold one third or
 more of the fallback keys. `C_CAP_MIN` and `P_REF` are a launch gate, not a price oracle; only
 `minTotalStake` is on chain. Preserve the separate real-two-proof and resource acceptance
@@ -528,9 +528,15 @@ requirements.
 
 In operation, monitor the actual signing set and the candidate's total stake against
 `minTotalStake` (`/signers` and the signing gauges above), and each fallback key's own validator
-instance and signer, which stay online and in sync at all times (see Run a validator). Owners top
-up a bond with `topUp`, which takes effect at once; a bond that reaches `minStake` takes the lowest
-empty seat. The DAO's `forfeit`, an L1 → L2 governance message to the staking contract, deducts
+instance and signer, which stay online and in sync at all times (see Run a validator). A seated
+bond whose key misses `missLimit` consecutive blocks loses `missSlashBps` of its stake, and again
+at every further `missLimit` blocks of the same run; once the run reaches `missReleaseLimit` the
+bond also releases its seat, with no exit set and nothing more deducted. A release takes the
+bond's whole stake out of the candidate's total, so it can hand signing to the fallback keys two
+blocks later, and like a penalty it emits no event: `seatOfBond` and `bondInSeat` show it. Owners
+top up a bond with `topUp`, which takes effect at once; a bond without a seat that a top-up leaves
+at `minStake` or more takes the lowest empty seat, whatever the amount, so a released bond's owner
+takes its seat again with a top-up once its validator signs. The DAO's `forfeit`, an L1 → L2 governance message to the staking contract, deducts
 the deployment's `forfeitBps` fraction of the bond's remaining principal, sets its exit and a
 lifetime flag, with no forfeiture nonce or revocation; its `validUntil` deadline is compared with
 the L2 block time, and the authorization remains usable across landing and recovery. A forfeiture
@@ -677,7 +683,8 @@ enough of them return or governance recovery replaces them.
    a validator below it. On a validator the same setting is how long Comet waits for late
    precommits after a block before the next height starts: a precommit it processes after that
    counts as a miss, and a candidate member that misses `missLimit` consecutive blocks this way is
-   penalized like an offline one. Comet reads the value as a Go duration string (`"4s"`,
+   penalized like an offline one, again at every further `missLimit` blocks, and releases its
+   seat at `missReleaseLimit`. Comet reads the value as a Go duration string (`"4s"`,
    `"4000ms"`) or a bare integer in nanoseconds, and uses its stock `1s` when it is unset, which
    the shipped floor refuses. Full nodes do not check the floor.
 
@@ -1211,7 +1218,7 @@ The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/REA
 the 29-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
 documented height-bound divergence and establish no conformance to the latest Etna
 specification, and two client-owned families transcribed from the specification at
-`5190bff16`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
+`fbc7a5162`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
 `missBitmap` derivation and signing-set decision. Staking contract vectors belong to the
 contract harness.
 
@@ -1241,8 +1248,9 @@ contract harness.
   The test-harness devnets plant a `minTotalStake` of 2^256 − 1, and the contract-backed fixtures
   initialize the real Inbox with it, so their origin fallback keys sign every height unless a
   scenario lowers it. The staking scenarios do: they register bonds on the L2 `EtnaStaking`
-  predeploy from the harness genesis's premint and cover the candidate taking over, missed
-  signatures, exits, the maximum `minTotalStake`, both DAO recovery sequences, and landing and
+  predeploy from the harness genesis's premint and cover the candidate taking over, the
+  missed-signature penalties and the seat release with the owner's top-up that takes the seat
+  again, exits, the maximum `minTotalStake`, both DAO recovery sequences, and landing and
   checkpoint import across a switch.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
@@ -1292,7 +1300,7 @@ contract harness.
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires the pinned protocol revision (`dcada2ae2`, see Fresh deployment;
+The script requires the pinned protocol revision (`9b8d5b4c2`, see Fresh deployment;
 `PINNED_REVISION` in the script) as HEAD, installs pnpm
 dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox and the root-only
 `EtnaSignalService` with
@@ -1304,7 +1312,7 @@ tests read) from that revision and records their hashes. Run it twice and requir
 generated output.
 The export includes the `EtnaSignalService` that L1 runs and an ABI-only Unzen cutoff artifact,
 whose external library references are recorded in the manifest rather than exposing unlinked
-deployment bytecode. Shared vectors follow the pinned contracts' schema 10. Test adapter updates
+deployment bytecode. Shared vectors follow the pinned contracts' schema 11. Test adapter updates
 and execution are separate from this artifact refresh.
 
 Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with
