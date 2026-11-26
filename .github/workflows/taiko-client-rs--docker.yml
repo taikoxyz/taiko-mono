@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: 36c6f60319d063275918dd4a3a52adc248243ccb
+          ref: 330825e908a8c67da09dc23f54837aa5945fdd32
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
@@ -75,9 +75,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=raw,value=sha-36c6f60
+            type=raw,value=sha-330825e
           labels: |
-            org.opencontainers.image.revision=36c6f60319d063275918dd4a3a52adc248243ccb
+            org.opencontainers.image.revision=330825e908a8c67da09dc23f54837aa5945fdd32
 
       - name: Build and push by digest
         id: build
@@ -146,9 +146,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=raw,value=sha-36c6f60
+            type=raw,value=sha-330825e
           labels: |
-            org.opencontainers.image.revision=36c6f60319d063275918dd4a3a52adc248243ccb
+            org.opencontainers.image.revision=330825e908a8c67da09dc23f54837aa5945fdd32
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
