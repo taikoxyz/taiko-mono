@@ -58,7 +58,7 @@ The Etna block-production and validation rules are in
 | [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability                                                                           |
 | [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                                                                                             |
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                                                                                               |
-| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 32 limitations and open items                                                                                                                 |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 34 limitations and open items                                                                                                                 |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                                                                                    |
 | [Appendix B: Storage layout](SPEC.md#appendix-b-storage-layout)                            | Inbox slots and the L2 staking storage that nodes and guests read, packing and namespaces                                                         |
 | [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                                                                                             |
@@ -76,6 +76,15 @@ The Etna block-production and validation rules are in
   the DAO's fallback key set, each key with power 1. The origin record's
   fallback keys sign each generation's first two blocks, and a switch between
   the two sources replaces the whole set at once.
+- **Anchors:** every block reads L1 through its anchor, a finalized L1 block.
+  Proposers move the anchor at heights that are multiples of 1,024 and keep
+  it in between while it still serves the block (3.3), so L1 → L2 messages,
+  forced-inclusion entries, DAO changes and landed checkpoints reach L2 about
+  once per 1,024 blocks. This is the proposer's rule, not a validity rule. The
+  guests authenticate every anchor on a chain of L1 headers that ends at the
+  landing's reference block. Headers are joined by parent hashes or by the
+  block hashes L1 keeps in state (EIP-2935); one such link reaches back up to
+  8,191 blocks (6.2).
 - **Settlement:** exactly two sub-proofs, at least one of them ZK. A batch proves
   the range (p,h], from its proof origin p to its terminal height h. When `land`
   executes it reads c, the latest checkpoint height, and settles only the new
