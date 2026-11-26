@@ -23,7 +23,7 @@ const MAX_UNSETTLED_LIMIT = 262_144;
 // The public Taiko networks, which must never hold the devnet premint's unbacked TAIKO.
 const PUBLIC_CHAIN_IDS = [167000, 167009, 167013];
 
-// The twelve EtnaStaking immutables, in constructor order.
+// The thirteen EtnaStaking immutables, in constructor order.
 const STAKING_IMMUTABLES = [
     "token",
     "l1ChainId",
@@ -33,6 +33,7 @@ const STAKING_IMMUTABLES = [
     "nMax",
     "missLimit",
     "missSlashBps",
+    "missReleaseLimit",
     "withdrawalDelay",
     "slashBountyBps",
     "slashSink",
@@ -61,6 +62,7 @@ interface EtnaParams {
     nMax: ethers.BigNumber;
     missLimit: ethers.BigNumber;
     missSlashBps: ethers.BigNumber;
+    missReleaseLimit: ethers.BigNumber;
     withdrawalDelay: ethers.BigNumber;
     slashBountyBps: ethers.BigNumber;
     forfeitBps: ethers.BigNumber;
@@ -123,6 +125,7 @@ export function checkEtnaConfig(config: Config): EtnaParams {
         "nMax",
         "missLimit",
         "missSlashBps",
+        "missReleaseLimit",
         "withdrawalDelay",
         "slashBountyBps",
         "forfeitBps",
@@ -154,6 +157,13 @@ export function checkEtnaConfig(config: Config): EtnaParams {
         );
     }
     inRange(params.missLimit, "etna.missLimit", 1, MAX_MISS_LIMIT);
+    // missLimit <= missReleaseLimit <= 65,535.
+    inRange(
+        params.missReleaseLimit,
+        "etna.missReleaseLimit",
+        params.missLimit,
+        MAX_MISS_LIMIT,
+    );
     inRange(params.missSlashBps, "etna.missSlashBps", 1, BPS);
     inRange(params.slashBountyBps, "etna.slashBountyBps", 0, BPS - 1);
     inRange(params.forfeitBps, "etna.forfeitBps", 1, BPS);
@@ -263,6 +273,7 @@ export async function deployEtna(
         nMax: params.nMax,
         missLimit: params.missLimit,
         missSlashBps: params.missSlashBps,
+        missReleaseLimit: params.missReleaseLimit,
         withdrawalDelay: params.withdrawalDelay,
         slashBountyBps: params.slashBountyBps,
         slashSink: params.slashSink,

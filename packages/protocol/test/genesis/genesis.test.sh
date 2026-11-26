@@ -252,6 +252,9 @@ expectGeneratorRejects "etna.premint totals 1000000000000000000000000001" \
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": "500000000000000000000000001" },
   ];'
 expectGeneratorRejects "etna.nMax 129 is not in [1, 128]" 'config.etna.nMax = "129";'
+# missLimit <= missReleaseLimit <= 65,535; the example's missLimit is 3,600.
+expectGeneratorRejects "etna.missReleaseLimit 3599 is not in [3600, 65535]" \
+  'config.etna.missReleaseLimit = "3599";'
 # ceil(10^27 / 3) = 333...334, so one wei below it is refused where a floor would accept it.
 expectGeneratorRejects "etna.minStake * etna.nMax is below 10^27" \
   'config.etna.nMax = "3"; config.etna.minStake = "333333333333333333333333333";'

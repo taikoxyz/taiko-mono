@@ -12,6 +12,7 @@ export interface EtnaConfig {
     nMax: string;
     missLimit: string;
     missSlashBps: string;
+    missReleaseLimit: string;
     withdrawalDelay: string;
     // The Inbox's unsettledLimit and the double-sign evidence window, both in L2 blocks: only
     // checked against withdrawalDelay.

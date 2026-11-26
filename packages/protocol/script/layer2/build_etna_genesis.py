@@ -138,8 +138,8 @@ DELAY_BOUND = 2**48
 # The Inbox's bound on its unsettledLimit.
 MAX_UNSETTLED_LIMIT = 262_144
 # EtnaStaking's numeric immutables, which the configuration gives as decimal strings.
-STAKING_NUMBERS = ("minStake", "vpUnit", "nMax", "missLimit", "missSlashBps", "withdrawalDelay",
-                   "slashBountyBps", "forfeitBps")
+STAKING_NUMBERS = ("minStake", "vpUnit", "nMax", "missLimit", "missSlashBps", "missReleaseLimit",
+                   "withdrawalDelay", "slashBountyBps", "forfeitBps")
 # The public Taiko networks, which must never hold the devnet premint's unbacked TAIKO.
 PUBLIC_CHAIN_IDS = (167000, 167009, 167013)
 # Keccak-f[1600] round constants and rotation offsets (by lane x, then y). The stdlib has no
@@ -378,6 +378,10 @@ def check_staking_numbers(values, label, least_delay):
         raise ValueError(label + "minStake " + str(values["minStake"]) + " times nMax "
                          + str(values["nMax"]) + " is below 10^27, TAIKO's supply")
     in_range("missLimit", 1, MAX_MISS_LIMIT)
+    if not values["missLimit"] <= values["missReleaseLimit"] <= MAX_MISS_LIMIT:
+        raise ValueError(label + "missReleaseLimit " + str(values["missReleaseLimit"])
+                         + " is not in [missLimit, " + str(MAX_MISS_LIMIT) + "] = ["
+                         + str(values["missLimit"]) + ", " + str(MAX_MISS_LIMIT) + "]")
     in_range("missSlashBps", 1, BPS)
     in_range("slashBountyBps", 0, BPS - 1)
     in_range("forfeitBps", 1, BPS)

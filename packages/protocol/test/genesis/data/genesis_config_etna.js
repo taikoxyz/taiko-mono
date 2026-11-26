@@ -34,6 +34,7 @@ module.exports = Object.assign({}, base, {
     nMax: "128",
     missLimit: "3600",
     missSlashBps: "1000",
+    missReleaseLimit: "10800",
     withdrawalDelay: "302402",
     // The Inbox's unsettledLimit and the double-sign evidence window, both in L2 blocks. Neither
     // is a staking parameter: withdrawalDelay must be at least their sum plus 2.

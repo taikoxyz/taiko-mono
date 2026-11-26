@@ -447,6 +447,7 @@ contract TestGenerateEtnaGenesis is GenerateGenesisTestBase {
         assertEq(staking.nMax(), etnaUint("nMax"));
         assertEq(staking.missLimit(), etnaUint("missLimit"));
         assertEq(staking.missSlashBps(), etnaUint("missSlashBps"));
+        assertEq(staking.missReleaseLimit(), etnaUint("missReleaseLimit"));
         assertEq(staking.withdrawalDelay(), etnaUint("withdrawalDelay"));
         assertEq(staking.slashBountyBps(), etnaUint("slashBountyBps"));
         assertEq(staking.slashSink(), configJSON.readAddress(".etna.slashSink"));
