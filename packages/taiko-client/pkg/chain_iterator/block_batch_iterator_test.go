@@ -153,6 +153,22 @@ func TestBlockBatchIterator_IterCtxCancel(t *testing.T) {
 	require.ErrorContains(t, itr.Iter(), "context canceled")
 }
 
+func TestBlockBatchIterator_RejectsZeroBatchSize(t *testing.T) {
+	var maxBlocksReadPerEpoch uint64
+	iterator, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
+		// No RPC connection is needed because validation must precede the header lookups.
+		Client:                &rpc.EthClient{},
+		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
+		StartHeight:           common.Big0,
+		EndHeight:             common.Big1,
+		OnBlocks: func(context.Context, *types.Header, *types.Header, UpdateCurrentFunc, EndIterFunc) error {
+			return nil
+		},
+	})
+	require.ErrorContains(t, err, "max blocks read per epoch must be greater than zero")
+	require.Nil(t, iterator)
+}
+
 func TestBlockBatchIterator_Config(t *testing.T) {
 	// Test nil client
 	_, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{

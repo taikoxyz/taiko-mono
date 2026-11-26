@@ -93,6 +93,10 @@ func NewBlockBatchIterator(ctx context.Context, cfg *BlockBatchIteratorConfig) (
 		return nil, fmt.Errorf("start height (%d) > end height (%d)", cfg.StartHeight, cfg.EndHeight)
 	}
 
+	if cfg.MaxBlocksReadPerEpoch != nil && *cfg.MaxBlocksReadPerEpoch == 0 {
+		return nil, errors.New("max blocks read per epoch must be greater than zero")
+	}
+
 	startHeader, err := cfg.Client.HeaderByNumber(ctx, cfg.StartHeight)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get start header, height: %s, error: %w", cfg.StartHeight, err)
