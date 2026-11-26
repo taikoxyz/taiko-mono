@@ -182,11 +182,15 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                     children = Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()
                     for pid in children:
                         try:
-                            name = Path(f"/proc/{pid}/comm").read_text().strip()
+                            # The supervisor execs Comet from its sealed memfd copy through
+                            # /proc/self/fd/<n>, so the kernel names that process after the
+                            # descriptor (`comm` is "6"); argv[0] keeps the configured name.
+                            argv0 = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")[0].decode()
+                            name = Path(argv0).name
                             status = Path(f"/proc/{pid}/status").read_text().splitlines()
                             uid = next(line for line in status if line.startswith("Uid:")).split()[1]
                             observed[name] = uid
-                        except FileNotFoundError:
+                        except (FileNotFoundError, ProcessLookupError, IndexError):
                             pass
                     listening = None
                     for line in Path("/proc/net/unix").read_text().splitlines()[1:]:
