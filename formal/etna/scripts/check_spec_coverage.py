@@ -46,7 +46,7 @@ SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
 INDEX_PATH = SPEC_DIR+'/rules/INDEX.md'
 HISTORICAL_CONFIG = 'spec-coverage.json'
 CURRENT_CONFIG = 'current-coverage.json'
-CURRENT_COMMIT = '8b99461a3f80fa79e57fb99cf92099afbbf94246'
+CURRENT_COMMIT = 'b01e3d039794e61b1835916d4266ecaaf610af33'
 CURRENT_NAMESPACES = ('Etna.Design.L2Staking.', 'Etna.Design.L2StakingProtocol.',
                       'Etna.Design.PerBlockCommittee.', 'Etna.Design.PerBlockGuest.')
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),

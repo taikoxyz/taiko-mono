@@ -357,7 +357,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-14     | rule       | deferred   | CURRENT_EN-b2ebe5074ec6cc07 |      3 |                                                                               |
 | RECOV-8-15     | rule       | deferred   | CURRENT_EN-b2ebe5074ec6cc07 |      3 |                                                                               |
 | RECOV-8-16     | rule       | deferred   | CURRENT_EN-b2ebe5074ec6cc07 |      3 |                                                                               |
-| RECOV-8-20     | rule       | deferred   | CURRENT_EN-da6beca5963084b1 |      1 |                                                                               |
+| RECOV-8-20     | rule       | deferred   | CURRENT_EN-fcb01a1c25f42856 |      1 |                                                                               |
 | RECOV-8-20a    | rule       | deferred   | CURRENT_EN-06784e747f78a369 |      1 |                                                                               |
 | RECOV-8-21     | rule       | deferred   | CURRENT_EN-6bba3311027e1b3b |      1 |                                                                               |
 | RECOV-8-22     | rule       | deferred   | CURRENT_EN-52d518c836e2f6a0 |      1 |                                                                               |
@@ -390,10 +390,10 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-53     | rule       | deferred   | CURRENT_EN-13e399a96c58ab8c |      4 |                                                                               |
 | RECOV-8-54     | rule       | deferred   | CURRENT_EN-13e399a96c58ab8c |      4 |                                                                               |
 | RECOV-8-55     | rule       | deferred   | CURRENT_EN-13e399a96c58ab8c |      4 |                                                                               |
-| RECOV-8-56     | rule       | deferred   | CURRENT_EN-740bc098f9373ee2 |      4 |                                                                               |
-| RECOV-8-57     | rule       | deferred   | CURRENT_EN-740bc098f9373ee2 |      4 |                                                                               |
-| RECOV-8-58     | rule       | deferred   | CURRENT_EN-740bc098f9373ee2 |      4 |                                                                               |
-| RECOV-8-59     | rule       | deferred   | CURRENT_EN-740bc098f9373ee2 |      4 |                                                                               |
+| RECOV-8-56     | rule       | deferred   | CURRENT_EN-2e8bc0e6a245ecfc |      4 |                                                                               |
+| RECOV-8-57     | rule       | deferred   | CURRENT_EN-2e8bc0e6a245ecfc |      4 |                                                                               |
+| RECOV-8-58     | rule       | deferred   | CURRENT_EN-2e8bc0e6a245ecfc |      4 |                                                                               |
+| RECOV-8-59     | rule       | deferred   | CURRENT_EN-2e8bc0e6a245ecfc |      4 |                                                                               |
 | RECOV-8.1-1    | rule       | deferred   | CURRENT_EN-925256f3719827c1 |      2 |                                                                               |
 | RECOV-8.1-2    | rule       | deferred   | CURRENT_EN-925256f3719827c1 |      2 |                                                                               |
 | RECOV-8.1-3    | rule       | deferred   | CURRENT_EN-e76599337cc74910 |      3 |                                                                               |
@@ -577,7 +577,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | LIMIT-12-26    | limitation | deferred   | CURRENT_EN-bf0771c2b351ec34 |      1 |                                                                               |
 | LIMIT-12-27    | limitation | deferred   | CURRENT_EN-eb39781aa903a1b2 |      1 |                                                                               |
 | LIMIT-12-28    | limitation | deferred   | CURRENT_EN-b5345e15b6865c19 |      1 |                                                                               |
-| LIMIT-12-29    | limitation | deferred   | CURRENT_EN-e19113d832557f6c |      1 |                                                                               |
+| LIMIT-12-29    | limitation | deferred   | CURRENT_EN-6130df8e8c917503 |      1 |                                                                               |
 | LIMIT-12-30    | limitation | deferred   | CURRENT_EN-d7de0c918f37da37 |      1 |                                                                               |
 | LIMIT-12-31    | limitation | deferred   | CURRENT_EN-dfa8c95570b9bfd7 |      1 |                                                                               |
 | LIMIT-12-32    | limitation | deferred   | CURRENT_EN-d7dad6c43c3880f3 |      1 |                                                                               |
