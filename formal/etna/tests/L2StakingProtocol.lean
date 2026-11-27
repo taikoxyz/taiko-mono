@@ -180,6 +180,42 @@ example : penaltyUpdates (5 * stakeFloor / 4) = some (9 * stakeFloor / 8, []) �
 example : penaltyUpdates (5 * stakeFloor / 4) false =
     some (9 * stakeFloor / 8, [⟨candidateKey, 1⟩, ⟨laterKey, 0⟩]) := by decide +kernel
 
+private def fallbackMissCounts (childCall : StakingCallOutcome) :
+    Option (List Nat × Option Nat × Option Nat) := do
+  let keys := fallbackKeys
+  let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
+  let floor := 10^27 / 4
+  let config := { stakeConfig with nMax := 4, minStake := floor, vpUnit := floor }
+  let settings : FallbackSettings := ⟨[laterKey], 2, floor⟩
+  let start ← genesisValidators rules identity origin keys
+  let registered ← ([3, 1, 2, 4] : List Nat).foldlM (fun staking key ↦ do
+    let result ← L2Staking.execute staking adapters ⟨100, 200, key, false⟩
+      (.register ⟨key, 2, key⟩ floor 0)
+    return result.state) (L2Staking.State.empty config)
+  let step := fun (prior : L2Staking.State × CommitState) (call : StakingCallOutcome)
+      (bitmap : Nat) => do
+    let (staking, validators) := prior
+    let flags := if validators.height = origin.height then [] else
+      validators.last.members.map fun member ↦
+        if bitmap = 1 && member.key == 3 then 1 else PerBlockCommittee.commitFlag
+    let result ← blockStart rules staking origin validators
+      ⟨0, settings.anchor, settings.keys, flags, bitmap, call⟩
+    let advanced ← advanceValidators identity validators result.target
+    return (result.staking, advanced)
+  let h101 ← step (registered, start) .applied 0
+  let h102 ← step h101 .applied 1
+  let h103 ← step h102 .reverted 0
+  let h104 ← step h103 .reverted 0
+  let h105 ← step h104 .applied 1
+  let h106 ← step h105 childCall 0
+  return (h105.2.last.members.map (·.key), seatZeroMisses h105.1, seatZeroMisses h106.1)
+
+-- H=105 is signed by fallback but counts the miss from its candidate parent H=104.
+-- H=106 sees the fallback parent and resets the seat only if the staking call applies.
+example : fallbackMissCounts .applied = some ([2], some 2, some 0) ∧
+    fallbackMissCounts .reverted = some ([2], some 2, some 2) ∧
+    fallbackMissCounts .noCode = some ([2], some 2, some 2) := by decide +kernel
+
 example :
     (validUnsettled 0, validUnsettled 262144, validUnsettled 262145,
       withinUnsettled targetUnsettled 100 151300, withinUnsettled targetUnsettled 100 151301,
