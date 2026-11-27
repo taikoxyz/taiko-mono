@@ -4,31 +4,31 @@
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-27",
-    "commit": "2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0",
-    "sha256": "7505c55556095c94f6b350615cdda248bf88f41aa2c5c80fa1a2086bfc33cb57"
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "2b67385023c81b7d5a4bc8077d44fff89dce66f7ff7300d72386c952257d2024"
   },
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
     "revision": "2026-11-27",
-    "commit": "2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0",
-    "sha256": "27ff64b157407eace5f1563ddecf194c6106c95f8173636830e6439e064a295f"
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "f84c503b1100d47302a7dca0b8f8467faf579b48c130137007629db20b2400b6"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
     "revision": "2026-11-27",
-    "commit": "2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
     "sha256": "c42f599218ec061eaced7eeaf897819eccf92aab5535bec19dda73ba25bebc90"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
     "revision": "2026-11-27",
-    "commit": "2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
     "sha256": "6535bc026682818f16d32e8688712664ff7d2f9614aaa8396a7c6317803240e2"
   },
   "index_source": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
     "revision": "2026-11-27",
-    "commit": "2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
     "sha256": "6396d3d48ed2ef7a99c07bb379258ca58dfb6f6d03d7eca08275b658912f8170"
   },
   "boundaries": {

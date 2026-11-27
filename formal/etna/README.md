@@ -1,7 +1,7 @@
 # Etna design verification
 
 The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
-under `packages/protocol/docs/etna` at [PR #22425, `2be1f5ec1`](https://github.com/taikoxyz/taiko-mono/commit/2be1f5ec1635cd5d9fa6fc62e8b68f4b163d0de0).
+under `packages/protocol/docs/etna` at [PR #22425, `8d1f1af71`](https://github.com/taikoxyz/taiko-mono/commit/8d1f1af718ca3bc32f7ba821585988a44734c00b).
 The exact authority hashes and current rule evidence are recorded in
 [`current-coverage.json`](current-coverage.json) and [the rule coverage report](reports/current-rule-coverage.md).
 
@@ -35,8 +35,9 @@ The exact authority hashes and current rule evidence are recorded in
   consecutive heights signed by the candidate and a switch back from fallback. Recovery regressions
   cover the first staking call applying, reverting or finding no code. A new occupant starts
   with zero misses even when it takes the seat before the first call that applies.
-  After a switch to fallback, a regression checks the first fallback block against its candidate
-  parent and checks that the next block's zero bit resets the count only if its call applies.
+  The fallback regression tracks misses across both switches. The first fallback block uses
+  its candidate-signed parent, and the first block back on the candidate still uses its
+  fallback-signed parent. Processing the zero bit resets the count only when the call applies.
   The quorum lemma concerns voting power. Fallback signing power carries no guarantee
   of slashable collateral.
 

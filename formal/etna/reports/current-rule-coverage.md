@@ -358,7 +358,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-15     | rule       | deferred   | CURRENT_EN-b2ebe5074ec6cc07 |      3 |                                                                               |
 | RECOV-8-16     | rule       | deferred   | CURRENT_EN-b2ebe5074ec6cc07 |      3 |                                                                               |
 | RECOV-8-20     | rule       | deferred   | CURRENT_EN-fcb01a1c25f42856 |      1 |                                                                               |
-| RECOV-8-20a    | rule       | deferred   | CURRENT_EN-06784e747f78a369 |      1 |                                                                               |
+| RECOV-8-20a    | rule       | deferred   | CURRENT_EN-6387d8343ff6494e |      1 |                                                                               |
 | RECOV-8-21     | rule       | deferred   | CURRENT_EN-6bba3311027e1b3b |      1 |                                                                               |
 | RECOV-8-22     | rule       | deferred   | CURRENT_EN-52d518c836e2f6a0 |      1 |                                                                               |
 | RECOV-8-23     | rule       | deferred   | CURRENT_EN-73955e550a82715b |      1 |                                                                               |

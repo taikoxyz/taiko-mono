@@ -181,7 +181,7 @@ example : penaltyUpdates (5 * stakeFloor / 4) false =
     some (9 * stakeFloor / 8, [⟨candidateKey, 1⟩, ⟨laterKey, 0⟩]) := by decide +kernel
 
 private def fallbackMissCounts (childCall : StakingCallOutcome) :
-    Option (List Nat × Option Nat × Option Nat) := do
+    Option (List (List Nat) × List (Option Nat)) := do
   let keys := fallbackKeys
   let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
   let floor := 10^27 / 4
@@ -208,13 +208,17 @@ private def fallbackMissCounts (childCall : StakingCallOutcome) :
   let h104 ← step h103 .reverted 0
   let h105 ← step h104 .applied 1
   let h106 ← step h105 childCall 0
-  return (h105.2.last.members.map (·.key), seatZeroMisses h105.1, seatZeroMisses h106.1)
+  let h107 ← step h106 .applied 0
+  let signers := fun (validators : CommitState) ↦ validators.last.members.map (·.key)
+  return ([signers h105.2, signers h106.2, signers h107.2],
+    [seatZeroMisses h105.1, seatZeroMisses h106.1, seatZeroMisses h107.1])
 
--- H=105 is signed by fallback but counts the miss from its candidate parent H=104.
--- H=106 sees the fallback parent and resets the seat only if the staking call applies.
-example : fallbackMissCounts .applied = some ([2], some 2, some 0) ∧
-    fallbackMissCounts .reverted = some ([2], some 2, some 2) ∧
-    fallbackMissCounts .noCode = some ([2], some 2, some 2) := by decide +kernel
+-- The first fallback block counts its candidate parent's miss. A fallback parent's zero bit
+-- resets the count only if the call applies, including on the first block back on the candidate.
+example : fallbackMissCounts .applied = some ([[2], [2], [1, 2, 3, 4]], [some 2, some 0, some 0]) ∧
+    fallbackMissCounts .reverted = some ([[2], [2], [1, 2, 3, 4]], [some 2, some 2, some 0]) ∧
+    fallbackMissCounts .noCode = some ([[2], [2], [1, 2, 3, 4]], [some 2, some 2, some 0]) := by
+  decide +kernel
 
 example :
     (validUnsettled 0, validUnsettled 262144, validUnsettled 262145,
