@@ -350,7 +350,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### zk Gas
 
-From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_gas_spec.md): the transaction that would exceed `BLOCK_ZK_GAS_LIMIT` is aborted, every later transaction is skipped, and the header's `difficulty` records the zk gas used. Before Etna the anchor transaction is metered but never aborted; from Etna on, the first transaction can be aborted like any other.
+From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_gas_spec.md), and the header's `difficulty` records the zk gas used. A transaction that would exceed `BLOCK_ZK_GAS_LIMIT` is not included in the block. Before Etna, derivation aborts it and skips every later transaction of the list, and the anchor transaction is metered but never aborted. From Etna on, nothing is prepended to a block's transactions, so the first transaction is metered like any other; the proposer leaves a transaction that would exceed the limit out of the block it builds, and a block that lists one is invalid (the Etna PoS + ZK spec, [3.1](./etna/SPEC.md#31-consensus-engine) and [3.4](./etna/SPEC.md#34-block-validity)).
 
 ### Anchor Transaction
 
