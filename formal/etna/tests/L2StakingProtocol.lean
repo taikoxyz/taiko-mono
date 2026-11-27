@@ -52,7 +52,7 @@ example : (do
 private def stakeFloor : Nat := 10^27 / 2
 
 private def stakeConfig : L2Staking.Config :=
-  ⟨2, stakeFloor, stakeFloor, 3, 1000, 302402, 100, 21, 20, 1000⟩
+  ⟨2, stakeFloor, stakeFloor, 3, 9, 1000, 302402, 100, 21, 20, 1000⟩
 
 private def adapters : L2Staking.Adapters :=
   ⟨fun _ _ _ ↦ true, fun _ _ ↦ none, fun _ ↦ true⟩
@@ -82,6 +82,28 @@ example : (finalizeFirst .reverted 0).map setKeys = some ([1], [2]) := by decide
 example : (finalizeFirst .noCode 0).map setKeys = some ([1], [2]) := by decide +kernel
 example : (finalizeFirst .executionFault 0).isNone = true := by decide +kernel
 example : (finalizeFirst .applied 1).isNone = true := by decide +kernel
+
+private def finalizeSecond (miss : Bool) : Option CommitState := do
+  let keys := [initialKey, laterKey, candidateKey, compressedKey 2 4]
+  let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
+  let settings : FallbackSettings := ⟨[laterKey], 2, stakeFloor⟩
+  let validators ← genesisValidators rules identity origin keys
+  let config := { stakeConfig with missLimit := 1, missReleaseLimit := 1 }
+  let registered ← L2Staking.execute (L2Staking.State.empty config) adapters ⟨100, 200, 1, false⟩
+    (.register ⟨3, 2, candidateKey % limit256⟩ (2 * stakeFloor) 0)
+  let first ← blockStart rules registered.state origin validators
+    ⟨0, settings.anchor, settings.keys, [], 0, .applied⟩
+  let validators ← advanceValidators identity validators first.target
+  let flags := validators.last.members.map fun member ↦
+    if miss && member.key == 3 then 1 else PerBlockCommittee.commitFlag
+  let second ← blockStart rules first.staking origin validators
+    ⟨0, settings.anchor, settings.keys, flags, if miss then 1 else 0, .applied⟩
+  advanceValidators identity validators second.target
+
+-- At H=102 one of four parent signers misses. Its penalty leaves it above minStake, but
+-- the release removes its whole stake from the snapshot. H+1 stays on the candidate.
+example : (finalizeSecond true).map setKeys = some ([3], [2]) := by decide +kernel
+example : (finalizeSecond false).map setKeys = some ([3], [3]) := by decide +kernel
 
 example :
     (validUnsettled 0, validUnsettled 262144, validUnsettled 262145,

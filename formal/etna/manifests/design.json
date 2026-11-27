@@ -8192,7 +8192,7 @@
       "role": "supporting",
       "sources": [
         "CURRENT_EN-b59a863c1347f710",
-        "CURRENT_EN-9bb8afe14f52d64d"
+        "CURRENT_EN-940f282c2842edb5"
       ],
       "scope": "The integer penalty is the ceiling of stake times basis points divided by 10,000."
     },
@@ -8207,9 +8207,24 @@
       "role": "supporting",
       "sources": [
         "CURRENT_EN-b59a863c1347f710",
-        "CURRENT_EN-9bb8afe14f52d64d"
+        "CURRENT_EN-940f282c2842edb5"
       ],
       "scope": "A basis-point rate of at most 10,000 never deducts more than the bond balance."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.valid_miss_parameters",
+      "type": "∀ (config : Etna.Design.L2Staking.Config) (unsettled evidenceWindow : Nat),\n  config.valid unsettled evidenceWindow = true → 1 ≤ config.missLimit ∧ config.missLimit ≤ config.missReleaseLimit ∧ config.missReleaseLimit ≤ 65535 ∧ 0 < config.missSlashBps ∧ config.missSlashBps ≤ 10000",
+      "assumptions": [
+        "Decoded deployment parameters accepted by Config.valid"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-940f282c2842edb5",
+        "CURRENT_EN-0d5fcae716d02da1"
+      ],
+      "scope": "The accepted penalty interval and release threshold are ordered positive uint16 values, and the penalty rate is in 1 through 10000 basis points."
     },
     {
       "module": "EtnaProofs.L2Staking",
@@ -8221,7 +8236,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-b4d44d47a52eb39d"
+        "CURRENT_EN-a4ee8117500e74a3"
       ],
       "scope": "A failed decoded system call preserves all staking state."
     },
@@ -8295,7 +8310,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-84e5bc97ec3cd9b9",
+        "CURRENT_EN-1bccbea1a61b1c32",
         "CURRENT_EN-ab045497c4fcde0d"
       ],
       "scope": "The maximum uint256 threshold yields the anchored fallback independently of the L2 snapshot."
@@ -8430,7 +8445,8 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "CURRENT_EN-b3b6acd273d49472"
+        "CURRENT_EN-b3b6acd273d49472",
+        "CURRENT_EN-0d5fcae716d02da1"
       ],
       "scope": "The delay covers U, two signing heights and the evidence window."
     },

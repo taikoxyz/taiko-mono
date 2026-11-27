@@ -14,6 +14,7 @@ structure Config where
   minStake : Nat
   vpUnit : Nat
   missLimit : Nat
+  missReleaseLimit : Nat
   missSlashBps : Nat
   withdrawalDelay : Nat
   slashBountyBps : Nat
@@ -26,7 +27,8 @@ structure Config where
 input expressed in L2 blocks. Token identity and its supply bound are external. -/
 def Config.valid (c : Config) (unsettled evidenceWindow : Nat) : Bool :=
   decide (1 ≤ c.nMax ∧ c.nMax ≤ seatLimit ∧ 10^27 ≤ c.minStake * c.nMax ∧
-    867361738 ≤ c.vpUnit ∧ c.vpUnit ≤ c.minStake ∧ 1 ≤ c.missLimit ∧ c.missLimit < 2^16 ∧
+    867361738 ≤ c.vpUnit ∧ c.vpUnit ≤ c.minStake ∧
+    1 ≤ c.missLimit ∧ c.missLimit ≤ c.missReleaseLimit ∧ c.missReleaseLimit < 2^16 ∧
     0 < c.missSlashBps ∧ c.missSlashBps ≤ 10000 ∧
     unsettled + 2 + evidenceWindow ≤ c.withdrawalDelay ∧ c.slashBountyBps < 10000 ∧
     c.slashSink ≠ 0 ∧ 0 < c.forfeitBps ∧ c.forfeitBps ≤ 10000)
@@ -284,7 +286,7 @@ private def penalize (prior : State × List Transfer) (seat : Nat) : State × Li
   match liveSeat s seat with
   | none => prior
   | some occupant =>
-      if occupant.misses < s.config.missLimit then prior
+      if occupant.misses = 0 || occupant.misses % s.config.missLimit != 0 then prior
       else
         match bondAt s occupant.bondId with
         | none => prior
@@ -292,9 +294,19 @@ private def penalize (prior : State × List Transfer) (seat : Nat) : State × Li
             let penalty := roundedPenalty bond.effStake s.config.missSlashBps
             let bond := { bond with effStake := bond.effStake - penalty }
             let updated := if eligible s.config bond then
-              writeSeat (writeBond s occupant.bondId bond) seat (some { occupant with misses := 0 })
+              writeBond s occupant.bondId bond
             else releaseSeat s occupant.bondId bond
             (updated, .pay s.config.slashSink penalty :: transfers)
+
+private def releaseMissedSeat (s : State) (seat : Nat) : State :=
+  match liveSeat s seat with
+  | some occupant =>
+      if s.config.missReleaseLimit ≤ occupant.misses then
+        match bondAt s occupant.bondId with
+        | some bond => releaseSeat s occupant.bondId bond
+        | none => s
+      else s
+  | none => s
 
 /-- Record the live seats and pad the storage view to 128 records. -/
 def buildSnapshot (s : State) (height : Nat) : Snapshot :=
@@ -316,8 +328,9 @@ def blockStartTransition (s : State) (height caller generation missBitmap : Nat)
     let seats := List.range s.config.nMax
     let counted := seats.foldl (countMiss missBitmap) { s with generation }
     let (penalized, transfers) := seats.foldl penalize (counted, [])
+    let released := seats.foldl releaseMissedSeat penalized
     some {
-      state := { penalized with snapshot := buildSnapshot penalized height }
+      state := { released with snapshot := buildSnapshot released height }
       transfers := transfers.reverse }
   else none
 

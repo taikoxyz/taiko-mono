@@ -13,6 +13,14 @@ theorem rounded_penalty_bounded (balance bps : Nat) (cap : bps ≤ 10000) :
     roundedPenalty balance bps ≤ balance :=
   Staking.forfeit_penalty_bounded balance bps cap
 
+/-- A validated deployment has a positive penalty interval no larger than the release limit. -/
+theorem valid_miss_parameters (config : Config) (unsettled evidenceWindow : Nat)
+    (accepted : config.valid unsettled evidenceWindow = true) :
+    1 ≤ config.missLimit ∧ config.missLimit ≤ config.missReleaseLimit ∧
+      config.missReleaseLimit ≤ 65535 ∧ 0 < config.missSlashBps ∧ config.missSlashBps ≤ 10000 := by
+  simp only [Config.valid, decide_eq_true_eq] at accepted
+  omega
+
 /-- Failure preserves the live staking state, evidence generation and stored snapshot. -/
 theorem failed_block_start_preserves_state {s : State} {height caller generation missBitmap : Nat}
     {systemSucceeded : Bool}

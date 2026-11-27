@@ -1,15 +1,18 @@
 # Etna design verification
 
 The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
-under `packages/protocol/docs/etna` at [PR #22425, `b01356ddc`](https://github.com/taikoxyz/taiko-mono/commit/b01356ddc942ee10e67d1f506bf4acd043b8686c).
+under `packages/protocol/docs/etna` at [PR #22425, `fbc7a5162`](https://github.com/taikoxyz/taiko-mono/commit/fbc7a51624609f63da3391f1f24cd39085e0cb05).
 The exact authority hashes and current rule evidence are recorded in
 [`current-coverage.json`](current-coverage.json) and [the rule coverage report](reports/current-rule-coverage.md).
 
 ## L2 staking specification
 
 - [`L2Staking`](EtnaModel/L2Staking.lean) models immediate seat admission and exit, delayed
-  withdrawal, double-sign slashing, DAO forfeiture, consecutive misses and the post-penalty
-  snapshot. Decoded vote identities distinguish empty hashes from present zero hashes.
+  withdrawal, double-sign slashing and DAO forfeiture. Block start counts consecutive misses,
+  deducts a penalty at each positive multiple of `missLimit`, releases seats at
+  `missReleaseLimit` and snapshots the remaining seats. Regression cases cover release with
+  and without a penalty and a top-up that restores a seat. Decoded vote identities distinguish
+  empty hashes from present zero hashes.
   Token calls and canonical vote encoding and verification are execution adapters.
 - [`PerBlockCommittee`](EtnaModel/PerBlockCommittee.lean) decodes the 29-byte header field
   and the parent LastCommit miss bitmap. It validates all 128 candidate seat records, reads
@@ -19,12 +22,16 @@ The exact authority hashes and current rule evidence are recorded in
 - [`PerBlockGuest`](EtnaModel/PerBlockGuest.lean) models the decoded validator openings at a
   landing's proof origin and checks the required commits at the terminal height and at
   signing-set changes. Its proof-origin anchor supplies only the two fallback settings for
-  p+2. L1 ancestry and EL and Comet header authentication are adapter boundaries.
+  p+2. L1 ancestry authentication, including EIP-2935 history links and the reference-header
+  budget, is an adapter boundary, as is EL and Comet header authentication. The proposal
+  policy for moving the anchor at multiples of 1,024 is outside the model's validity checks.
 - [`L2StakingProtocol`](EtnaModel/L2StakingProtocol.lean) connects the parent staking state and
   block-start transition to validator updates. Reverted and no-code calls preserve staking
   state, while an EL execution fault prevents the transition. The model also covers origin
   recording in plain recovery, the U range (1 to 262,144, target 151,200), the withdrawal-delay
-  bound and strict quorum overlap. The quorum lemma concerns voting power. Fallback signing power carries no guarantee
+  bound and strict quorum overlap. A regression checks that a release can select fallback
+  for H+2 by taking the released bond's entire stake out of H's snapshot. The quorum lemma
+  concerns voting power. Fallback signing power carries no guarantee
   of slashable collateral.
 
 Cryptographic authentication, block-start gas and receipts, and refinement to the contracts,
