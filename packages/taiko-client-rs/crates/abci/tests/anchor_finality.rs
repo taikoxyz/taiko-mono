@@ -4,10 +4,17 @@
 //!
 //! A legal unsettled limit `U = 18` leaves room for the blocks past the pause, so the fake
 //! lander's `lastCheckpoint`, frozen with L1 and trailing the head by a few blocks, does not stop
-//! the chain before it passes the target.
+//! the chain before it passes the target. The head's own anchor can trail L1's frozen
+//! `finalized` block by the proposer's anchor hold; a block that anchor would put past the
+//! limit moves the anchor to the frozen block, so the limit comes from the checkpoint landed
+//! there.
 
 use std::time::{Duration, Instant};
 
+use abci::l1::layout::inbox;
+use alloy_eips::BlockId;
+use alloy_primitives::U256;
+use alloy_provider::Provider;
 use anyhow::ensure;
 use test_harness::{Devnet, DevnetSpec, anchor_of, finalized_number, wait_until};
 
@@ -32,18 +39,24 @@ async fn a_paused_l1_does_not_stop_the_chain() -> anyhow::Result<()> {
     devnet.l1_pause().await?;
     tokio::time::sleep(Duration::from_millis(1500)).await;
     let frozen = finalized_number(l1).await?;
+    let slot = U256::from_be_bytes(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT).0);
+    let landed =
+        l1.get_storage_at(devnet.params().inbox, slot).block_id(BlockId::number(frozen)).await?;
+    let landed = u64::try_from(landed)?;
     let status = devnet.abci_status(0).await?;
     eprintln!(
-        "L1 paused at finalized {frozen}, CometBFT height {}, after {:?}",
+        "L1 paused at finalized {frozen} (lastCheckpoint {landed}), CometBFT height {} \
+         (anchored lastCheckpoint {}), after {:?}",
         status.head,
+        status.last_checkpoint_height,
         started.elapsed()
     );
     ensure!(status.head < target, "the chain reached the target before L1 paused");
     let limit = devnet.params().unsettled_limit;
     ensure!(
-        status.last_checkpoint_height + limit > target,
+        landed + limit > target,
         "back-pressure would stop the chain at {} before the target {target}",
-        status.last_checkpoint_height + limit
+        landed + limit
     );
 
     // The chain keeps producing on the frozen anchor past the target.
