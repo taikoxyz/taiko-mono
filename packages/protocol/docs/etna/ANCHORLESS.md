@@ -163,7 +163,7 @@ With EIP-2935 in place, the L2 matches Ethereum's post-Prague state: `BLOCKHASH`
 Both steps 1 and 2 precede the readiness upgrade in step 3.
 
 1. **Execution engines, then EIP-2935 and EIP-4788 on L2** (section 7). Step 3 cannot execute before them: its batch requires the EIP-4788 code and a successful read.
-2. **Update Unzen guests.** Take the inherited checkpoint from the parent block’s anchor transaction. These guests can ship any time before the L2 upgrade. Register the replacement images on L1 before either chain writes root-only checkpoints. See [raiko2#306](https://github.com/taikoxyz/raiko2/pull/306) and [gaiko2#64](https://github.com/taikoxyz/gaiko2/pull/64).
+2. **Update Unzen guests.** Take the inherited checkpoint from the parent block’s anchor transaction. These guests can ship any time before the L2 upgrade. Register the replacement images on L1 before either chain writes root-only checkpoints. See [raiko2#306](https://github.com/taikoxyz/raiko2/issues/306) and [gaiko2#64](https://github.com/taikoxyz/gaiko2/issues/64).
 3. **L2 readiness proposal, before scheduling the fork:**
 
    - Its L1 actions trust the new guest images, and SGX enclaves if used. They take effect when the proposal executes, before its L2 part reaches L2.
