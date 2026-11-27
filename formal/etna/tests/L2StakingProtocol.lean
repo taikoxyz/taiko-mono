@@ -93,7 +93,7 @@ private def seatZeroMisses (state : L2Staking.State) : Option Nat :=
   (L2Staking.liveSeat state 0).map L2Staking.LiveSeat.misses
 
 private def recoveryMissCounts (firstCall : StakingCallOutcome) (miss : Bool) :
-    Option (Option Nat × Option Nat) := do
+    Option (Option Nat × Option Nat × Bool) := do
   let keys := fallbackKeys
   let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
   let settings : FallbackSettings := ⟨keys, rules.hashFallbackKeys keys, stakeFloor⟩
@@ -106,14 +106,15 @@ private def recoveryMissCounts (firstCall : StakingCallOutcome) (miss : Bool) :
     if miss && member.key == 3 then 1 else PerBlockCommittee.commitFlag
   let second ← blockStart rules first.staking origin validators
     ⟨1, settings.anchor, keys, flags, if miss then 1 else 0, .applied⟩
-  return (seatZeroMisses first.staking, seatZeroMisses second.staking)
+  return (seatZeroMisses first.staking, seatZeroMisses second.staking,
+    decide (first.staking = checkpoint))
 
--- The first block's zero bitmap resets the checkpoint count only when its call applies.
--- If it does not apply, the next call uses the fallback key's actual LastCommit flag.
-example : recoveryMissCounts .applied true = some (some 0, some 1) ∧
-    recoveryMissCounts .reverted false = some (some 1, some 0) ∧
-    recoveryMissCounts .reverted true = some (some 1, some 2) ∧
-    recoveryMissCounts .noCode true = some (some 1, some 2) := by decide +kernel
+-- A reverted or no-code first call preserves the entire modeled staking state.
+-- The next applied call uses the fallback key's LastCommit flag.
+example : recoveryMissCounts .applied true = some (some 0, some 1, false) ∧
+    recoveryMissCounts .reverted false = some (some 1, some 0, true) ∧
+    recoveryMissCounts .reverted true = some (some 1, some 2, true) ∧
+    recoveryMissCounts .noCode true = some (some 1, some 2, true) := by decide +kernel
 
 private def reseatBeforeRetry : Option (Option Nat × Option Nat × Option Nat) := do
   let checkpoint ← checkpointWithMiss

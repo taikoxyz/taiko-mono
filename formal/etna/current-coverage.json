@@ -4,32 +4,32 @@
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-27",
-    "commit": "b01e3d039794e61b1835916d4266ecaaf610af33",
-    "sha256": "d39eb9960f882decbb21bf1bce35e2fa28898f1e5e0099a780fab1302aa9957a"
+    "commit": "8831ac0837bd4d20d4ba853f41d529252a654850",
+    "sha256": "3afc667ddb22eb54f0f172a5983847005393c1e6f23e9b635857c48bb0fbcb04"
   },
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
     "revision": "2026-11-27",
-    "commit": "b01e3d039794e61b1835916d4266ecaaf610af33",
-    "sha256": "031b0a9e65027acd45a4af18937f679e75dc3686a281885a83e4380fc0f6ddc7"
+    "commit": "8831ac0837bd4d20d4ba853f41d529252a654850",
+    "sha256": "27ff64b157407eace5f1563ddecf194c6106c95f8173636830e6439e064a295f"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
     "revision": "2026-11-27",
-    "commit": "b01e3d039794e61b1835916d4266ecaaf610af33",
+    "commit": "8831ac0837bd4d20d4ba853f41d529252a654850",
     "sha256": "c42f599218ec061eaced7eeaf897819eccf92aab5535bec19dda73ba25bebc90"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
     "revision": "2026-11-27",
-    "commit": "b01e3d039794e61b1835916d4266ecaaf610af33",
+    "commit": "8831ac0837bd4d20d4ba853f41d529252a654850",
     "sha256": "6535bc026682818f16d32e8688712664ff7d2f9614aaa8396a7c6317803240e2"
   },
   "index_source": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
     "revision": "2026-11-27",
-    "commit": "b01e3d039794e61b1835916d4266ecaaf610af33",
-    "sha256": "308cedf46cfb5ecfb0305ba64d73b0b04c3a1842ce851d3021f2ee8bced8bdcd"
+    "commit": "8831ac0837bd4d20d4ba853f41d529252a654850",
+    "sha256": "6396d3d48ed2ef7a99c07bb379258ca58dfb6f6d03d7eca08275b658912f8170"
   },
   "boundaries": {
     "decoded_bitmap": "Parent validator addresses, LastCommit flags and live-seat words are decoded inputs. Header and storage authentication, stock CometBFT integration and execution refinement are external.",

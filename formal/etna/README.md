@@ -1,7 +1,7 @@
 # Etna design verification
 
 The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
-under `packages/protocol/docs/etna` at [PR #22425, `b01e3d039`](https://github.com/taikoxyz/taiko-mono/commit/b01e3d039794e61b1835916d4266ecaaf610af33).
+under `packages/protocol/docs/etna` at [PR #22425, `8831ac083`](https://github.com/taikoxyz/taiko-mono/commit/8831ac0837bd4d20d4ba853f41d529252a654850).
 The exact authority hashes and current rule evidence are recorded in
 [`current-coverage.json`](current-coverage.json) and [the rule coverage report](reports/current-rule-coverage.md).
 
