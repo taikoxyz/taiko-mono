@@ -39,6 +39,8 @@ pub mod extra_data;
 pub mod fallback;
 /// Validated consensus identities and stock key JSON.
 pub mod key;
+/// Validated views of original raw L1 execution headers.
+pub mod l1_header;
 /// The validators missing from a block's LastCommit and the `missBitmap` of their seats.
 pub mod miss;
 /// Canonical deployment data and pure parameter validation.
