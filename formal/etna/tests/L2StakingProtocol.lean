@@ -83,8 +83,35 @@ example : (finalizeFirst .noCode 0).map setKeys = some ([1], [2]) := by decide +
 example : (finalizeFirst .executionFault 0).isNone = true := by decide +kernel
 example : (finalizeFirst .applied 1).isNone = true := by decide +kernel
 
+private def fallbackKeys : List Hash := [initialKey, laterKey, candidateKey, compressedKey 2 4]
+
+private def recoveryMissCounts (firstCall : StakingCallOutcome) (miss : Bool) :
+    Option (Option Nat × Option Nat) := do
+  let keys := fallbackKeys
+  let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
+  let settings : FallbackSettings := ⟨keys, rules.hashFallbackKeys keys, stakeFloor⟩
+  let validators ← genesisValidators rules identity origin keys
+  let registered ← register
+  let checkpoint := L2Staking.onBlockStart registered 100 L2Staking.systemCaller 0 1 true
+  let first ← blockStart rules checkpoint origin validators
+    ⟨1, settings.anchor, keys, [], 0, firstCall⟩
+  let validators ← advanceValidators identity validators first.target
+  let flags := validators.last.members.map fun member ↦
+    if miss && member.key == 3 then 1 else PerBlockCommittee.commitFlag
+  let second ← blockStart rules first.staking origin validators
+    ⟨1, settings.anchor, keys, flags, if miss then 1 else 0, .applied⟩
+  let misses := fun state ↦ (L2Staking.liveSeat state 0).map L2Staking.LiveSeat.misses
+  return (misses first.staking, misses second.staking)
+
+-- The first block's zero bitmap resets the checkpoint count only when its call applies.
+-- If it does not apply, the next call uses the fallback key's actual LastCommit flag.
+example : recoveryMissCounts .applied true = some (some 0, some 1) ∧
+    recoveryMissCounts .reverted false = some (some 1, some 0) ∧
+    recoveryMissCounts .reverted true = some (some 1, some 2) ∧
+    recoveryMissCounts .noCode true = some (some 1, some 2) := by decide +kernel
+
 private def finalizeSecond (miss : Bool) : Option CommitState := do
-  let keys := [initialKey, laterKey, candidateKey, compressedKey 2 4]
+  let keys := fallbackKeys
   let origin : PerBlockCommittee.GenerationOrigin := ⟨100, 20, 200, rules.hashFallbackKeys keys⟩
   let settings : FallbackSettings := ⟨[laterKey], 2, stakeFloor⟩
   let validators ← genesisValidators rules identity origin keys
@@ -104,6 +131,25 @@ private def finalizeSecond (miss : Bool) : Option CommitState := do
 -- the release removes its whole stake from the snapshot. H+1 stays on the candidate.
 example : (finalizeSecond true).map setKeys = some ([3], [2]) := by decide +kernel
 example : (finalizeSecond false).map setKeys = some ([3], [3]) := by decide +kernel
+
+private def penaltyUpdates (stake : Nat) : Option (Nat × List PerBlockCommittee.Member) := do
+  let config := { stakeConfig with missLimit := 1 }
+  let registered ← L2Staking.execute (L2Staking.State.empty config) adapters
+    ⟨100, 200, 1, false⟩ (.register ⟨3, 2, candidateKey % limit256⟩ stake 0)
+  let before := L2Staking.onBlockStart registered.state 101 L2Staking.systemCaller 0 0 true
+  let after := L2Staking.onBlockStart before 102 L2Staking.systemCaller 0 1 true
+  let settings : FallbackSettings := ⟨[laterKey], 2, stakeFloor⟩
+  let next ← PerBlockCommittee.decision rules 101 (snapshotWords before.snapshot)
+    settings.anchor settings.keys
+  let target ← PerBlockCommittee.decision rules 102 (snapshotWords after.snapshot)
+    settings.anchor settings.keys
+  return (after.snapshot.totalStake, PerBlockCommittee.validatorUpdates next target)
+
+-- Hold the anchor settings fixed and keep the candidate usable on both heights.
+-- A penalty changes the snapshot total even if both snapshots yield the same voting power.
+example : penaltyUpdates (5 * stakeFloor / 4) = some (9 * stakeFloor / 8, []) ∧
+    penaltyUpdates (2 * stakeFloor) = some (9 * stakeFloor / 5, [⟨candidateKey, 1⟩]) := by
+  decide +kernel
 
 example :
     (validUnsettled 0, validUnsettled 262144, validUnsettled 262145,

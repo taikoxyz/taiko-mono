@@ -3,33 +3,33 @@
   "scope": "conditional decoded specification property only",
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-26",
-    "commit": "fbc7a51624609f63da3391f1f24cd39085e0cb05",
-    "sha256": "a7679c4ac5ef5c523f280f60ed85329c9bf7e6aca01e0c59e7db284b3edeeafb"
+    "revision": "2026-11-27",
+    "commit": "8b99461a3f80fa79e57fb99cf92099afbbf94246",
+    "sha256": "4e06dd851b677d51a2410874beac243e7c9242442bc8c856abef46f41c0f37f5"
   },
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
-    "revision": "2026-11-26",
-    "commit": "fbc7a51624609f63da3391f1f24cd39085e0cb05",
-    "sha256": "510109e4eec4eac0e4936f28cb4b46886400cbc5d043815a06d14bd68fc4b3ea"
+    "revision": "2026-11-27",
+    "commit": "8b99461a3f80fa79e57fb99cf92099afbbf94246",
+    "sha256": "822cc4135c3084c4358eeb1cae70378583309a21bbc5c2c48646369de604abfa"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
-    "revision": "2026-11-26",
-    "commit": "fbc7a51624609f63da3391f1f24cd39085e0cb05",
+    "revision": "2026-11-27",
+    "commit": "8b99461a3f80fa79e57fb99cf92099afbbf94246",
     "sha256": "c42f599218ec061eaced7eeaf897819eccf92aab5535bec19dda73ba25bebc90"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
-    "revision": "2026-11-26",
-    "commit": "fbc7a51624609f63da3391f1f24cd39085e0cb05",
+    "revision": "2026-11-27",
+    "commit": "8b99461a3f80fa79e57fb99cf92099afbbf94246",
     "sha256": "6535bc026682818f16d32e8688712664ff7d2f9614aaa8396a7c6317803240e2"
   },
   "index_source": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-26",
-    "commit": "fbc7a51624609f63da3391f1f24cd39085e0cb05",
-    "sha256": "f696cb6dae02b51439eba13343e510af91ad7602cd8bbf4a1ae6db193abd6142"
+    "revision": "2026-11-27",
+    "commit": "8b99461a3f80fa79e57fb99cf92099afbbf94246",
+    "sha256": "308cedf46cfb5ecfb0305ba64d73b0b04c3a1842ce851d3021f2ee8bced8bdcd"
   },
   "boundaries": {
     "decoded_bitmap": "Parent validator addresses, LastCommit flags and live-seat words are decoded inputs. Header and storage authentication, stock CometBFT integration and execution refinement are external.",

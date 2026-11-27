@@ -1,7 +1,7 @@
 # Etna design verification
 
 The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
-under `packages/protocol/docs/etna` at [PR #22425, `fbc7a5162`](https://github.com/taikoxyz/taiko-mono/commit/fbc7a51624609f63da3391f1f24cd39085e0cb05).
+under `packages/protocol/docs/etna` at [PR #22425, `8b99461a3`](https://github.com/taikoxyz/taiko-mono/commit/8b99461a3f80fa79e57fb99cf92099afbbf94246).
 The exact authority hashes and current rule evidence are recorded in
 [`current-coverage.json`](current-coverage.json) and [the rule coverage report](reports/current-rule-coverage.md).
 
@@ -30,8 +30,10 @@ The exact authority hashes and current rule evidence are recorded in
   state, while an EL execution fault prevents the transition. The model also covers origin
   recording in plain recovery, the U range (1 to 262,144, target 151,200), the withdrawal-delay
   bound and strict quorum overlap. A regression checks that a release can select fallback
-  for H+2 by taking the released bond's entire stake out of H's snapshot. The quorum lemma
-  concerns voting power. Fallback signing power carries no guarantee
+  for H+2 by taking the released bond's entire stake out of H's snapshot. Other regressions
+  cover a penalty that leaves the signing set unchanged and recovery from checkpoint miss
+  counts when the new generation's first staking call applies, reverts or has no code.
+  The quorum lemma concerns voting power. Fallback signing power carries no guarantee
   of slashable collateral.
 
 Cryptographic authentication, block-start gas and receipts, and refinement to the contracts,

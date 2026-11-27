@@ -46,7 +46,7 @@ SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
 INDEX_PATH = SPEC_DIR+'/rules/INDEX.md'
 HISTORICAL_CONFIG = 'spec-coverage.json'
 CURRENT_CONFIG = 'current-coverage.json'
-CURRENT_COMMIT = 'fbc7a51624609f63da3391f1f24cd39085e0cb05'
+CURRENT_COMMIT = '8b99461a3f80fa79e57fb99cf92099afbbf94246'
 CURRENT_NAMESPACES = ('Etna.Design.L2Staking.', 'Etna.Design.L2StakingProtocol.',
                       'Etna.Design.PerBlockCommittee.', 'Etna.Design.PerBlockGuest.')
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),
@@ -208,7 +208,7 @@ def pinned_text(repo, pin, path, label, *, profile, strip_for_pin=False, fixture
     if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', pin.get('revision', '')):
         raise ValueError(f'the {label} source requires an ISO revision date')
     if profile == 'current':
-        if commit != CURRENT_COMMIT or pin['revision'] != '2026-11-26':
+        if commit != CURRENT_COMMIT or pin['revision'] != '2026-11-27':
             raise ValueError(f'{label} source pin must identify reviewed PR #22425 ({CURRENT_COMMIT})')
         data = (repo/path).read_bytes()
     else:
