@@ -1,0 +1,1420 @@
+{
+  "commit": "cdbc346b8cee1ee3b332063832c60b88f649eb7b",
+  "files": {
+    "formal/etna/.gitignore": {
+      "bytes": 64,
+      "gitBlob": "e63cc373b819d76cb830d4071ce958ef02c249e6",
+      "sha256": "01b3ab7499ce91cf5e66197b546f38077843eda0b225c9ff90e14ba26e7684ae"
+    },
+    "formal/etna/EtnaModel.lean": {
+      "bytes": 1485,
+      "gitBlob": "b3e95f9910fa382467a7b80c0e2170103e7fabeb",
+      "sha256": "e40ccbb48940224c7403b424fb06b47f4d213eb9aebca249f1d9fea1cd1d36d3"
+    },
+    "formal/etna/EtnaModel/Accountability.lean": {
+      "bytes": 743,
+      "gitBlob": "4cdc92d9adc0c5b2969f4fbf3f35d9f967db35a8",
+      "sha256": "279d0eaf3fb77edc020cd7de3f4cdb86ff1bbb1685fe3cb85325fef37ba0020e"
+    },
+    "formal/etna/EtnaModel/ActualQueue.lean": {
+      "bytes": 2254,
+      "gitBlob": "22926dda58de4c85fc4a02b68962f461082a7480",
+      "sha256": "687334678f3f8e5a1e61634478c43e1e15b2ab28ec1063db25ee4ab711b1eff7"
+    },
+    "formal/etna/EtnaModel/BlockValidity.lean": {
+      "bytes": 2058,
+      "gitBlob": "f16a86c0bb7f2cba33d305d9d318fd70aa22608d",
+      "sha256": "a733ebadc885ee710952d8415dd34b97b5e62a752f02da474c474ed560a00a68"
+    },
+    "formal/etna/EtnaModel/Committee.lean": {
+      "bytes": 1717,
+      "gitBlob": "da8180c1c61009f3c430b10bd005f10a1e19ac97",
+      "sha256": "1bc77b1ff7f67991b2682aa9a23c5874a2fbab338c9bebbba50a8cf6a7fa9991"
+    },
+    "formal/etna/EtnaModel/Common.lean": {
+      "bytes": 4628,
+      "gitBlob": "5301127f99e3d7831ac2eaded856e6a7c18f292f",
+      "sha256": "13d563d087c14540bf248a1234cfed6be660f2090dcbfac0f0a3cb341fc220d8"
+    },
+    "formal/etna/EtnaModel/Consensus.lean": {
+      "bytes": 3640,
+      "gitBlob": "3ec89cf86fbf0c4dc8c6b00f1c2ce62918d7da29",
+      "sha256": "2de9dbbee414ecbbf07f5f3bfeacb9db55608706a46c41a79b6a9ad45c69df10"
+    },
+    "formal/etna/EtnaModel/Current.lean": {
+      "bytes": 15518,
+      "gitBlob": "03ce765a9d56b4b1c3ce357b818a7d459e2a3967",
+      "sha256": "d9859d73507b57491d26602e6a7354d9e6bd974b5bcff05649b84749a307e488"
+    },
+    "formal/etna/EtnaModel/CurrentArchive.lean": {
+      "bytes": 2084,
+      "gitBlob": "fcc1edef447f8deb9f07d7f41c3106a5ee016e5b",
+      "sha256": "000949f72dbbb12aef7c3c7829967cbe9b7580738ba65369b1c175776cb58661"
+    },
+    "formal/etna/EtnaModel/CurrentBlocks.lean": {
+      "bytes": 9794,
+      "gitBlob": "2bac27b3978bfc22ffb2c4400876a4194be329e3",
+      "sha256": "a604ece712fc59d3ce0535e71eaafe163b59819be67e80a6975539143f5dd59c"
+    },
+    "formal/etna/EtnaModel/CurrentCheckpointRisk.lean": {
+      "bytes": 3713,
+      "gitBlob": "1ce54bed5cd5e8c6a8ea2c2d5b404dc6d4b5ef8b",
+      "sha256": "53bbc61cc6f0297cfc1ca658be3806e6726382c9d59614763434d9cc34a14665"
+    },
+    "formal/etna/EtnaModel/CurrentCoherentCustody.lean": {
+      "bytes": 3234,
+      "gitBlob": "852501dcb5e5638d6d752124815a0990af37f404",
+      "sha256": "d851111f1347e6c17708df774d8f69ffa6f811ef604d3056b8ea9ae8d84d78be"
+    },
+    "formal/etna/EtnaModel/CurrentCustody.lean": {
+      "bytes": 5658,
+      "gitBlob": "1003e4ca6066dedfa4b3de96f32319e3a6c1fdb0",
+      "sha256": "26775dec6f14224d1fbbfec2fa9eafbc06e72ffd06bd721dd4334a85167864b3"
+    },
+    "formal/etna/EtnaModel/CurrentEconomics.lean": {
+      "bytes": 5770,
+      "gitBlob": "9c957abd188672c08fea01d306c8e25f8d899c0b",
+      "sha256": "57b7728de176e4ccfe4c95059deedf54171917d29ebe1ce1f77bf95856f4fc7a"
+    },
+    "formal/etna/EtnaModel/CurrentEncoding.lean": {
+      "bytes": 4437,
+      "gitBlob": "38e83e321b46f32586976ca788846250c5025fff",
+      "sha256": "0032f3f61275bed5a8d337dfd27a52e324f8e552e593ba5e94824ec2e8fc2cc1"
+    },
+    "formal/etna/EtnaModel/CurrentFinality.lean": {
+      "bytes": 9207,
+      "gitBlob": "663b8d75fc8797363702e79379bad2c27726f198",
+      "sha256": "b0f6a886648c51b4b991f4223bf49ed664f5e798a48d0db58b6c854642493776"
+    },
+    "formal/etna/EtnaModel/CurrentGovernance.lean": {
+      "bytes": 6612,
+      "gitBlob": "f6cf335ebbef7d0f42c6876c09914382c14c4c24",
+      "sha256": "3d25f8ccced61dcb83f961cb749ef3e08f56e57b49bf89cda1c481938a5f38d5"
+    },
+    "formal/etna/EtnaModel/CurrentJournal.lean": {
+      "bytes": 5127,
+      "gitBlob": "ae88e953ba189dacc333480dbd80ca3d25a1272a",
+      "sha256": "65cd1f418c7d6f06aebca8985d1068574603ec2907c4abd46ab337904644660c"
+    },
+    "formal/etna/EtnaModel/CurrentMetadata.lean": {
+      "bytes": 464,
+      "gitBlob": "9c99e4f3453a0cfeda70fb16575385c2edb7b31a",
+      "sha256": "c254d449b6cee51776f5974296a5b6a89ae9c15ff1c214f0db10f7b136966592"
+    },
+    "formal/etna/EtnaModel/CurrentProtocol.lean": {
+      "bytes": 42820,
+      "gitBlob": "5ecc2d2f2aa873d1fe17e01257b7f75819288d53",
+      "sha256": "a8ddc4dfb8a2b8c2c8ce1500919dfd36a6c1afd4c9f5f02b68c5211fa0ce8f47"
+    },
+    "formal/etna/EtnaModel/CurrentProtocolFinality.lean": {
+      "bytes": 5096,
+      "gitBlob": "c45f544691fa25f15ed3bbf63ff8990a83085fd7",
+      "sha256": "f9c6d3d7d502936650875675bae20813da4558202d6403de428817d168aa897d"
+    },
+    "formal/etna/EtnaModel/CurrentQueueIntegrity.lean": {
+      "bytes": 3803,
+      "gitBlob": "6659b23e5f88ec09ab440a527aa6ced21b94e4ed",
+      "sha256": "947419fd653c182067ac436b6ba3d5449969dc731ca6db0ddbf2126f79c1053b"
+    },
+    "formal/etna/EtnaModel/CurrentRecovery.lean": {
+      "bytes": 5407,
+      "gitBlob": "f91a385237701a4ed7969fe9b0dbac7cd2a96501",
+      "sha256": "59faeb433f56635d25fd9d5db7cfe1201471adc8cd0eebf7ab32998cad7a7517"
+    },
+    "formal/etna/EtnaModel/CurrentRecoveryInterface.lean": {
+      "bytes": 6204,
+      "gitBlob": "75b39549b2aff2c2cedfa9139a40dd7a955f1576",
+      "sha256": "799ed9b7f143686eb90c1886ceb45ec6f2407e3344e20fd93cf1aa2eb44c4a04"
+    },
+    "formal/etna/EtnaModel/CurrentRegistry.lean": {
+      "bytes": 12134,
+      "gitBlob": "adc7278318730a5f97dfde26cf2f29674974717a",
+      "sha256": "040e33d5bf7a702fc9bbd38d802ce471e7c2c6cd2d4be797df63209c31491bd8"
+    },
+    "formal/etna/EtnaModel/CurrentRegistryPayments.lean": {
+      "bytes": 5466,
+      "gitBlob": "55bead51dbbced5801037c43e05731bbe2b9d39e",
+      "sha256": "b132a8d3b4854b33e68661cb637350a518925cccb9c8a81363403dac81004b89"
+    },
+    "formal/etna/EtnaModel/CurrentStakeRisk.lean": {
+      "bytes": 3711,
+      "gitBlob": "02281d3f45f4acd50b6129011f3e3364a72a7670",
+      "sha256": "57f8143b3dcc6129ed9b364eebeefb75d6e50d186270c72bb6ff6b26867f6830"
+    },
+    "formal/etna/EtnaModel/CurrentUnzen.lean": {
+      "bytes": 2587,
+      "gitBlob": "0ea3f20fa60ef3a37a71497f4fa55781309542ca",
+      "sha256": "fae11f47d1196f1f97a60def22bc1cd0ba885f36a8e5d8cd35337d6f0f18834b"
+    },
+    "formal/etna/EtnaModel/CurrentValidatorState.lean": {
+      "bytes": 10950,
+      "gitBlob": "678fcbbccecfc65965bbb4a6e395b157fd1ef659",
+      "sha256": "54aab38ae140a67d182c78f75f682331b5a8431abc26f80540efe928581d5de1"
+    },
+    "formal/etna/EtnaModel/Encoding.lean": {
+      "bytes": 708,
+      "gitBlob": "2e8bcd50bf2214cad70509dee0b8d199f3cf3ae2",
+      "sha256": "468bdfe8fbb3c863fd83bfdcbb41648e61b9ae891b15ecab17757b875fb3c984"
+    },
+    "formal/etna/EtnaModel/Forced.lean": {
+      "bytes": 3594,
+      "gitBlob": "971fae4d59541c68a1d7586274a0fe3364e5bee1",
+      "sha256": "2b386b0d68730ebc3befefe5f3b6f71fb08c69b26040eec2a852e9de55a0135f"
+    },
+    "formal/etna/EtnaModel/Landing.lean": {
+      "bytes": 3055,
+      "gitBlob": "28e8450f7260004e4c6af7c202d1ea388f54eaa9",
+      "sha256": "dbb1b60941a8e6f59bc89ea84bc5b0f49cb79dafd6b8ac4b7f9d0934445716c6"
+    },
+    "formal/etna/EtnaModel/Locking.lean": {
+      "bytes": 5595,
+      "gitBlob": "827905e8a198d94733478e8d3a2b9c194afc41bb",
+      "sha256": "2f12ce7d740987a1fe56d726f17dd89be2418ff6c7eec7f30f609e45ab3f4149"
+    },
+    "formal/etna/EtnaModel/RegistryHistory.lean": {
+      "bytes": 1309,
+      "gitBlob": "8cf301c021c2ab2fff7470fa5963a027dda6fc7c",
+      "sha256": "961f119f23eada279fd6399814d4c326d5f74f106cc40aea39e90481226b3426"
+    },
+    "formal/etna/EtnaModel/Signer.lean": {
+      "bytes": 3266,
+      "gitBlob": "1528a0c56ec567b1ab1fadfbf75084acf9dd6a0f",
+      "sha256": "5d04eb35e165434fa7ab8f98bcbb006efebef080252ee26c1d4181a1dcf46c55"
+    },
+    "formal/etna/EtnaModel/SigningBridge.lean": {
+      "bytes": 1342,
+      "gitBlob": "2fc5c68e5359cfdc22acae96f57fa7175b33ab31",
+      "sha256": "8ecd5377bfbb951bb33088070208ed440b860f295ed06afb957f646c87051a85"
+    },
+    "formal/etna/EtnaModel/Staking.lean": {
+      "bytes": 3029,
+      "gitBlob": "9e5df819f5e84c22543902ea22a2c398c14c2002",
+      "sha256": "e5d4814d80f718304fd8540f24b6dcce65e356324d51fc4988e0a59a30d19581"
+    },
+    "formal/etna/EtnaProofs.lean": {
+      "bytes": 1716,
+      "gitBlob": "402f6132d4e6a9408b464a766f1833f018a1d30f",
+      "sha256": "b29d3043ec12a839973c8546223025fd8ff8a5c81c311456bf977e2abdc3def8"
+    },
+    "formal/etna/EtnaProofs/Accountability.lean": {
+      "bytes": 1857,
+      "gitBlob": "99638ef3394257e020125b304ce0e05d06b597b1",
+      "sha256": "e646752d1b382efcac1b0ec92011656a6d851e61636bdfddcd3ee17cb476ecb6"
+    },
+    "formal/etna/EtnaProofs/ActualQueue.lean": {
+      "bytes": 1960,
+      "gitBlob": "96c8a2f2cdcdff0257c2a48e3d72a20f49a6885a",
+      "sha256": "fe194eac7a3f5f68fb1a5dfda96243a771e1b3c9c192e4d9ae14f86a75a3de49"
+    },
+    "formal/etna/EtnaProofs/Committee.lean": {
+      "bytes": 548,
+      "gitBlob": "ba3d4903b21999223a7ec2db0b21fd8d3d18993f",
+      "sha256": "f07dda89c3a2e90896adce13d3a6d9466aea017ade68a31b38895163c19a5e32"
+    },
+    "formal/etna/EtnaProofs/Consensus.lean": {
+      "bytes": 1455,
+      "gitBlob": "adf0947358928d43841be2ce8dad8c655b80c511",
+      "sha256": "10664d88ef64b338d93915a60beb1f3c615dbb5e10fca0e28c8a4e74f8b227d0"
+    },
+    "formal/etna/EtnaProofs/Contracts.lean": {
+      "bytes": 10975,
+      "gitBlob": "cc683102f52e2a3f6dce2715c43fa4d420cd7154",
+      "sha256": "50ea014045482e6c10b8f1e9dcfdca2ce17366df24a1e074655bff59695c2394"
+    },
+    "formal/etna/EtnaProofs/Current.lean": {
+      "bytes": 14661,
+      "gitBlob": "13c82530d74a7b57df06001f40dc97c1224bcb0e",
+      "sha256": "a6429c613c2e216ab4584d115783af63214d6e7569e82d64c74c011d5292aabb"
+    },
+    "formal/etna/EtnaProofs/CurrentAdmission.lean": {
+      "bytes": 7278,
+      "gitBlob": "80e161bf9e2ee82320749c176b8013812b6f4cae",
+      "sha256": "2c9138d4794389c7d42218d1147ff207f2384831e119bf85b0188b8e17434cf0"
+    },
+    "formal/etna/EtnaProofs/CurrentArchive.lean": {
+      "bytes": 14740,
+      "gitBlob": "2656adff268e5a285f61d55c61dcd41aad7e3a61",
+      "sha256": "c3918545771f6b9c45aec64495ec96d003959d0b00d2531ab0463eb591b65961"
+    },
+    "formal/etna/EtnaProofs/CurrentBlocks.lean": {
+      "bytes": 16615,
+      "gitBlob": "85494d488f6c38fb76241249cec3c5a7782bf10a",
+      "sha256": "3be2a05e1d71785a091101aa82debc3740bbe304d4b7ad80875b6af751ddc408"
+    },
+    "formal/etna/EtnaProofs/CurrentCandidate.lean": {
+      "bytes": 4765,
+      "gitBlob": "b167ed81aac251cece9f646b06666b872efe5572",
+      "sha256": "13be7e276622810069987a8d0e41b3c5feb4c902d6faec90704fa075ac2fa4b4"
+    },
+    "formal/etna/EtnaProofs/CurrentCertificate.lean": {
+      "bytes": 22025,
+      "gitBlob": "5f053ba57a73459103324ba7ad25061fb6230bd2",
+      "sha256": "523ab8390055a37dcd0539b209b7312f22e108f53074c824e2deae1de9231118"
+    },
+    "formal/etna/EtnaProofs/CurrentCheckpointRisk.lean": {
+      "bytes": 65711,
+      "gitBlob": "b4f222be8a03f2ec7fe1ed8ea714ed8226fc98ab",
+      "sha256": "fde6866bf4c967fb5f5cbac130e21d812fb7822efaa7ebce3a0c519e32a94fc3"
+    },
+    "formal/etna/EtnaProofs/CurrentCoherentCustody.lean": {
+      "bytes": 40563,
+      "gitBlob": "c981dc86deb4fc01ea668e991ba5ddfddee66623",
+      "sha256": "74e0ab753395984238971d3eef637cbb3707b0744ce91868ba10439ac72657b4"
+    },
+    "formal/etna/EtnaProofs/CurrentCustody.lean": {
+      "bytes": 21780,
+      "gitBlob": "26af9983c4326059fa8efebd308e74da12037b5e",
+      "sha256": "b39d4524bf715e09bea04378fd72e117db7c76091552d345373af27595ada1a8"
+    },
+    "formal/etna/EtnaProofs/CurrentEconomics.lean": {
+      "bytes": 44121,
+      "gitBlob": "b8250d56c4cc4e38c6f8a5dc66cec8f94468f5b7",
+      "sha256": "9b0379942233a1cc502183acc47b28b7138c0bd1a8b20a6e3dd6dc573f3d1c1b"
+    },
+    "formal/etna/EtnaProofs/CurrentEncoding.lean": {
+      "bytes": 6680,
+      "gitBlob": "e0d81b3041491fe3888e4bfaf99ece51707635e8",
+      "sha256": "87289e7d40dfdcfcde4ae92ad236564b1357ae5f8cac535047391280442a431a"
+    },
+    "formal/etna/EtnaProofs/CurrentFinality.lean": {
+      "bytes": 24635,
+      "gitBlob": "d98e07d0d7a11ed9d81c88f6575518d8beb2639f",
+      "sha256": "957ef7dc8d1292ae8699c0e46034df6b00cf651d51eee9d28d4d4275f311e3a9"
+    },
+    "formal/etna/EtnaProofs/CurrentFootprintHistory.lean": {
+      "bytes": 6747,
+      "gitBlob": "7273e50091f27061daf6b7f32eba483353346ade",
+      "sha256": "5da91642b6973ef86fb60b9f9581b93fd776191a36788e6e2fb64804ce8ef50f"
+    },
+    "formal/etna/EtnaProofs/CurrentGovernance.lean": {
+      "bytes": 7422,
+      "gitBlob": "f8a2b39c066536c99b584ddc1183f19f58613576",
+      "sha256": "d90705fc3e27f86459f0bf0bca5078a9a7490b7bb4f2d072ad0e94721da065a8"
+    },
+    "formal/etna/EtnaProofs/CurrentHistory.lean": {
+      "bytes": 55159,
+      "gitBlob": "2a050df3a2015a85b68ff27e54d73aa808c52a5b",
+      "sha256": "73c2feb0783b0ece971e577639425d4f4b0c3ac7ae2f9bf56a2583ecf78ef65c"
+    },
+    "formal/etna/EtnaProofs/CurrentJournal.lean": {
+      "bytes": 5301,
+      "gitBlob": "032742611add9c79045f346a61968824fdb77b16",
+      "sha256": "21cff8e0300f9a3f6884f5f158218b2b64c4201885525d374906b3b8de8e2920"
+    },
+    "formal/etna/EtnaProofs/CurrentLandingHistory.lean": {
+      "bytes": 12589,
+      "gitBlob": "25493ae24fdb71c5cf3d0380695719b02a1bd8b2",
+      "sha256": "47dada7e0da21a691c3ca5153ca626ad34f6c78c4be3656d7a1ade9e6bd4915a"
+    },
+    "formal/etna/EtnaProofs/CurrentLookback.lean": {
+      "bytes": 9762,
+      "gitBlob": "01d5f6ade0fafdff089a538c5122c4c862d991aa",
+      "sha256": "2ea0fa67a03611f65372a0d4bfcd15e510c8d9874143c664a8b514124d658a0f"
+    },
+    "formal/etna/EtnaProofs/CurrentMetadata.lean": {
+      "bytes": 11343,
+      "gitBlob": "fabc1d7fdf4d0ddb516ade2075acc3592d5fb78a",
+      "sha256": "f08e1a4f81b816872d12b0de7733c333d8e7f3811d19c67d3260207af4591015"
+    },
+    "formal/etna/EtnaProofs/CurrentProtocolFinality.lean": {
+      "bytes": 17660,
+      "gitBlob": "edfedb4676c4600a3674c68103e7e5b5436176ef",
+      "sha256": "fa30bec84b4d2d9ed44c710ad79bf8bb37554a139f0bcb9f7eb30a2cbba85b11"
+    },
+    "formal/etna/EtnaProofs/CurrentQueueIntegrity.lean": {
+      "bytes": 9001,
+      "gitBlob": "b1480a7626d887d01d2bf6f68ac5e11a23dd6d81",
+      "sha256": "a74f12863d9956211f82720c0e1196f9be658144f2c787bdac617b2b27ef4d74"
+    },
+    "formal/etna/EtnaProofs/CurrentRecoveryLanding.lean": {
+      "bytes": 33774,
+      "gitBlob": "63c52ddb741021bd0fa10a1ea39d7c8ecacee9cd",
+      "sha256": "f6fdca7cb37fad2e0e3e1210fdd7d1067557430117e312f7c4a79d7520a2028a"
+    },
+    "formal/etna/EtnaProofs/CurrentRecoveryPath.lean": {
+      "bytes": 63514,
+      "gitBlob": "f633ce9b58a38101d564e2e2f58b13fa3aa49dbb",
+      "sha256": "eeb3b7d936095d92551138050291b8a4cdb93dc6a04342253c88bb9703452938"
+    },
+    "formal/etna/EtnaProofs/CurrentRecoverySegment.lean": {
+      "bytes": 33428,
+      "gitBlob": "0a55d9ce89ef110937d05b7bbb972832406f06f2",
+      "sha256": "fb38d430e1049dc76b0ba420640520c5a45a8cbfa4a4a136ef1dc2100befb724"
+    },
+    "formal/etna/EtnaProofs/CurrentRecoveryTrap.lean": {
+      "bytes": 9769,
+      "gitBlob": "d0a7d2845940f86e6203328fa8b43a4b9a31aa25",
+      "sha256": "c272b4d98b9f813518733789eb891c8214eb54879e9a8b4a1576526eb223a0ff"
+    },
+    "formal/etna/EtnaProofs/CurrentReference.lean": {
+      "bytes": 4780,
+      "gitBlob": "f1c484e992488a2e08b3100835e14d75fd399164",
+      "sha256": "c0b916d7825e5d8cdc85fff91bfb09f85aa1aeae40fe7355c91631b843c297e0"
+    },
+    "formal/etna/EtnaProofs/CurrentRegistry.lean": {
+      "bytes": 47386,
+      "gitBlob": "86830d734cb3787634963d26ad6ba8b1c0e51945",
+      "sha256": "e01027155b2479dad1da14c2d3df06c80f9e801941250aaeb3e8e81b2fb9bab5"
+    },
+    "formal/etna/EtnaProofs/CurrentRegistryPayments.lean": {
+      "bytes": 14084,
+      "gitBlob": "44e98a5b61c5a66d230e8b10d1d65b55279f6f09",
+      "sha256": "fe270925b6bf484a1a369445de7f1b74f2f58da20a4ee95920d27dc3aeb8f93f"
+    },
+    "formal/etna/EtnaProofs/CurrentSettlement.lean": {
+      "bytes": 6483,
+      "gitBlob": "1cb61fd97ffc92d4f7ccf322561959c7992f9e96",
+      "sha256": "5bac05c1cd560512fab5f555dda09288d307488ee208ca4c9fcb95e70a447c4b"
+    },
+    "formal/etna/EtnaProofs/CurrentStakeRisk.lean": {
+      "bytes": 24816,
+      "gitBlob": "e4fcb53ec52a706e9fddee4ad40134f8f11f0315",
+      "sha256": "74e47605a5c1eb0e44f84d4fa284c7d6e4b6088b891092c7e8a626ac9b69970a"
+    },
+    "formal/etna/EtnaProofs/CurrentUnzen.lean": {
+      "bytes": 24885,
+      "gitBlob": "597c01134d072dea3c07a20de080e7a0bb293d76",
+      "sha256": "9d9d44b7e3899dfd749b0270fb2a3ac81ea504a4b062c827bc142f35a9dada7d"
+    },
+    "formal/etna/EtnaProofs/CurrentValidatorState.lean": {
+      "bytes": 8910,
+      "gitBlob": "cc9e5494778ac716d4b7e6aded0e80aaa88dd7d2",
+      "sha256": "79d8a845a6dede043774593a976b4e3094bd04bac2b899a79ad769737ff6ef67"
+    },
+    "formal/etna/EtnaProofs/Forced.lean": {
+      "bytes": 629,
+      "gitBlob": "d691fa078dbcd0cf4e45ac3250ca2ab55c461d0b",
+      "sha256": "2035fa1ba17965315118771452a17a3e5facb665f43464ad3f87ddb0873b5157"
+    },
+    "formal/etna/EtnaProofs/Headline/AccountableFinality.lean": {
+      "bytes": 1656,
+      "gitBlob": "b188eb6f4e1c2670e34300814ae24505c118e8cf",
+      "sha256": "8eed6b8fa1bd3d48d7758e55d05ad28aaa60c35716031940f1d2ebabf1e4a14b"
+    },
+    "formal/etna/EtnaProofs/Headline/Current.lean": {
+      "bytes": 11440,
+      "gitBlob": "49138c3f4a349733434fecd625b783983da97e8f",
+      "sha256": "60c63271a9751cc1f00ef13a6a6da31ccea2186817249d4cdb9e804a5c4b042c"
+    },
+    "formal/etna/EtnaProofs/Landing.lean": {
+      "bytes": 341,
+      "gitBlob": "f21d9831c04633eba90cd7fdf44033023a091cbe",
+      "sha256": "018195b6a8025662b02d97e5428cfcfeb726f57c08516eb76f6d406b448ba829"
+    },
+    "formal/etna/EtnaProofs/Locking.lean": {
+      "bytes": 8777,
+      "gitBlob": "27aa0bad6100ad7ff27d8a42b70a7edc6d9d08be",
+      "sha256": "e0e2b31d82e17cd772937c4a47a5a329c91d8ebc59d538844ccc35b178853a51"
+    },
+    "formal/etna/EtnaProofs/RegistryHistory.lean": {
+      "bytes": 1350,
+      "gitBlob": "12607ad3194becca827e292c7b761b4bba0f3ea3",
+      "sha256": "551530e37f844efc2d93970a938f991dabb2815f9af95512bc2ce55db58ead27"
+    },
+    "formal/etna/EtnaProofs/Staking.lean": {
+      "bytes": 983,
+      "gitBlob": "f967da2beab8b536094f929568e48acde5a5aaee",
+      "sha256": "0c56143d3afd474daf08052f2f457bfaf26d62849f49aabb7d62e1cc8044cab1"
+    },
+    "formal/etna/EtnaStatements.lean": {
+      "bytes": 175,
+      "gitBlob": "14fd220d300730b4f4194a96ff359879742cdcaa",
+      "sha256": "e03b4f83c059b24e7cbeda72719e3a0057abe3c71cdfeb6b8971683359fd3054"
+    },
+    "formal/etna/EtnaStatements/Current.lean": {
+      "bytes": 18203,
+      "gitBlob": "5949d9afb8594f3147bc46f1f5b8836ec2ded8ab",
+      "sha256": "2f7a44912b8c44f3916a78bab139a691cb86b3be0cf02c875493aeb64e8562ba"
+    },
+    "formal/etna/EtnaVectors.lean": {
+      "bytes": 292,
+      "gitBlob": "c92edc746f2dcbfb37d65b34b9a41f6574f832ef",
+      "sha256": "00223f5528e143a7c29a262c2e2caf049176d717f3b2af1b7ae357afb5ff8f6d"
+    },
+    "formal/etna/EtnaVectors/CurrentRegistry.lean": {
+      "bytes": 6404,
+      "gitBlob": "5b7f0d1093d3b1b74b27891e5890cadae1a4ee64",
+      "sha256": "33b755931079407bff17831bd6ca791e53868de51710d899ec026939931863de"
+    },
+    "formal/etna/EtnaVectors/Json.lean": {
+      "bytes": 1458,
+      "gitBlob": "4dea6ae55216ecce3a69d617cc052f052bc3a1f2",
+      "sha256": "8628896573933a18fb936cf7542050ab8a268631ef3d323b2cab156538dd920b"
+    },
+    "formal/etna/EtnaVectors/Main.lean": {
+      "bytes": 906,
+      "gitBlob": "22a8ee62aca53ffbd071641c4aeba7bd8845b9b0",
+      "sha256": "77d5a6275fc8dc80a5045fac15658e2e431b95dcba4157662da33b4730310e51"
+    },
+    "formal/etna/EtnaWitnesses.lean": {
+      "bytes": 1001,
+      "gitBlob": "686980a499caf06694a19ce4f33a53279194aca4",
+      "sha256": "46cee1fbca7282d8d9575cc13489e4fef82aec9a69095fd74ab6e323132df403"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/Current.lean": {
+      "bytes": 61200,
+      "gitBlob": "03c4bb028421026fd90a7b18ad83fa2e370bd3a8",
+      "sha256": "7a94be986a5c778d3a4b6e069e6425c32a77819d9de6c65b2c25bd164288178d"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/CurrentAgreement.lean": {
+      "bytes": 8342,
+      "gitBlob": "7a9b5e98a2c01ad0036c9ee9b8316b1860df62e3",
+      "sha256": "6381e60ea803e8ab532093c69c4b760f8918248fb15eaf1ed130c4119e576951"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/CurrentRecovery.lean": {
+      "bytes": 18437,
+      "gitBlob": "c4b28d430ba3551f50278aea4910faa21ffdd537",
+      "sha256": "742b55a9bc8e5fbfc87519b2c0300e575c15ddfc69c5a34a0d2ca77e2b163fe9"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/CurrentRecoverySwitch.lean": {
+      "bytes": 18274,
+      "gitBlob": "a36e33a240cd85959eb8c0547cef2c1d05edd6f7",
+      "sha256": "ed0a613e459296ab92347f8960dfd6b4b19e7d65b54443efd62749437114aada"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/CurrentRisk.lean": {
+      "bytes": 15195,
+      "gitBlob": "4fe4c991d883cec52ca696b0aa9a9497e40c9361",
+      "sha256": "e526cd7aabb9d19d73af0206cef04d6b519ac8b7e74c89183698da18539f762a"
+    },
+    "formal/etna/EtnaWitnesses/NonVacuity/CurrentSwitch.lean": {
+      "bytes": 15913,
+      "gitBlob": "e7222dc2ce3a24b6caf6d36dd983e060edeb54de",
+      "sha256": "bf049f2b5628d57051d2325b177e7ca7d38f612624c08be188aa8832267edc80"
+    },
+    "formal/etna/EtnaWitnesses/Traps/RollbackGrid.lean": {
+      "bytes": 8916,
+      "gitBlob": "b3126bc90b10198e5eee9e254ab2eb640278e7f6",
+      "sha256": "a0fcd757f8abffc0f26f568fed60faa73fa6102bf63cc87136a417c71ad0118a"
+    },
+    "formal/etna/README.md": {
+      "bytes": 56696,
+      "gitBlob": "445281d091c924c587bd8aa18ffa94f0e9d2f566",
+      "sha256": "eea80c13aa2bc646451eb8684ba78f9b4858f3cbbc0e18ca646fc12951dff9d0"
+    },
+    "formal/etna/lake-manifest.json": {
+      "bytes": 145,
+      "gitBlob": "68c7dfcdcecc8b2f7a458249a632c2826ec04971",
+      "sha256": "8e1efaa2bd5752779a9b041abe218055bc9a1e92838544ccb6509d1613aeec6d"
+    },
+    "formal/etna/lakefile.toml": {
+      "bytes": 366,
+      "gitBlob": "dc96c581a9bac78931b742314c340e8c2642b652",
+      "sha256": "a9dcbb8f5baca6846bb18d74f30307e3f978ea4f5ac406ad4638ea3ed6d1ecaa"
+    },
+    "formal/etna/lean-toolchain": {
+      "bytes": 25,
+      "gitBlob": "a6aff065db2882c535684f8c5bcd4f16e9a23915",
+      "sha256": "ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c"
+    },
+    "formal/etna/manifests/design.json": {
+      "bytes": 834612,
+      "gitBlob": "c2976958211adaca1220deb533bf311ef7aae669",
+      "sha256": "8c811f8b2ffb6f9c3223d2a8cbd0ab45799fd0647cf6960b5af7ffb02d3aafef"
+    },
+    "formal/etna/manifests/shadowing-allowlist.json": {
+      "bytes": 9867,
+      "gitBlob": "0f4b9000de09c637a17da5c66b6dd2156af4d7af",
+      "sha256": "c591ff9bd39313d52b92d52fdf80c33ea94e2ed6f38ce2602d147edbdf542897"
+    },
+    "formal/etna/reports/alignment-22335.md": {
+      "bytes": 7692,
+      "gitBlob": "b7587d98ed2c4473296d38a8061359c8215b5966",
+      "sha256": "71c00d8f5c20e72eb5f66e09588b89ea91ee8398b2fb829b9637350b7dc3f04d"
+    },
+    "formal/etna/reports/alignment-22338.md": {
+      "bytes": 10128,
+      "gitBlob": "7e786f8cb5fe4adc6189787f11a8fc024707ae03",
+      "sha256": "b26e23a32c9b9f3f159857f430c2fe50274a7f3c6da6094358803068269b1f28"
+    },
+    "formal/etna/reports/alignment-22341.md": {
+      "bytes": 4836,
+      "gitBlob": "eaed5c028560a5294f806bbf8f830c0afc2a23a3",
+      "sha256": "f2d578e106f1b7bb96c7c4cdc3e9ce8bde78a3524ec2f9e7c78055cef747681e"
+    },
+    "formal/etna/reports/alignment-22348.md": {
+      "bytes": 8208,
+      "gitBlob": "b889eacddf0771e82d24b34b18544dfeb2c0b1c5",
+      "sha256": "071460574dfbbcadf9f26efbba7cdc44ad155448991704232bc36940ffd7428d"
+    },
+    "formal/etna/reports/latest-design-alignment.md": {
+      "bytes": 4752,
+      "gitBlob": "40d3751699b0e87af9074a4c318a332ff992d1c5",
+      "sha256": "1ab8cb11168146c212fd2fc7eadb79541a6ef38f8f583ef62ca8a7225ec11d2f"
+    },
+    "formal/etna/reports/recoverability.md": {
+      "bytes": 56053,
+      "gitBlob": "bef2c1069316d2db043c613fbf24214ac60312a6",
+      "sha256": "3b6b309ac9d0f22831985477e15bab9d89ad8b6374837ba09bcb689c90516463"
+    },
+    "formal/etna/reports/review-round-five.md": {
+      "bytes": 7384,
+      "gitBlob": "7da6631bfa9161358cc73e8af1b7fba909a7d381",
+      "sha256": "04466c751062d528002325707687bdec2cd18253f7ff963ba46f53a3247f4aa3"
+    },
+    "formal/etna/reports/rule-coverage.md": {
+      "bytes": 146797,
+      "gitBlob": "d7111dbfebaceffd3d4d6b365ad1cf80afb2751b",
+      "sha256": "eba1407b869ff4f101359d26863a8596bcbfb2a5438cd7a8669e7d25c518019e"
+    },
+    "formal/etna/reports/validator-state.md": {
+      "bytes": 7837,
+      "gitBlob": "c50cd2a5fe61063345356b7f5da8505de523f63e",
+      "sha256": "59d87686c40f56660d1d4d620f02f64ef5f63e9dcf0ce278f02ddd9ee6d691f6"
+    },
+    "formal/etna/review-surface.lock.json": {
+      "bytes": 198324,
+      "gitBlob": "8b899f59b9ff6bb27f598475f51310d6cdee9a5a",
+      "sha256": "46cd6f39259e9ebe760c0c82127e1b8946577702bf93362f574bc89ba8786d20"
+    },
+    "formal/etna/rule-coverage.json": {
+      "bytes": 43538,
+      "gitBlob": "d1047e064a0eab1c855dade67e6c271c547a4528",
+      "sha256": "6d5442c39c7e6dcbe666a9e7deb91425ff1d95f9d94000aa38b37d3d37d92398"
+    },
+    "formal/etna/scripts/EtnaAudit.lean": {
+      "bytes": 28995,
+      "gitBlob": "b715f91289e34f55251e4988c6cc46f7be97fa9d",
+      "sha256": "2c900b8d8fffbc01cabe52c7d6f1811bb3269c99b3fd51e325c5a23ea1f1a4b2"
+    },
+    "formal/etna/scripts/audit_proofs.py": {
+      "bytes": 22985,
+      "gitBlob": "bb58395d5abf974ada03d7e2d28a0485fbd4f2d0",
+      "sha256": "7f93f927a1e365f42607e099fe553604d17a5429a140ac401a74226bc9328360"
+    },
+    "formal/etna/scripts/check_current_vectors.py": {
+      "bytes": 1458,
+      "gitBlob": "72c9c23f4fbd4491ec814bb914a969df771be7f8",
+      "sha256": "2a252eee2f3b6554fb8caa695bdb6303888669fc871ded4ed180b597b95f8a15"
+    },
+    "formal/etna/scripts/check_imports.py": {
+      "bytes": 9769,
+      "gitBlob": "e9a90b21c6ca13820143272536e642bde37a8714",
+      "sha256": "028ebe8cf0f1d47246a440a6b971f17aab21cdd220e80e412c8ccad83d7389cf"
+    },
+    "formal/etna/scripts/check_spec_coverage.py": {
+      "bytes": 15557,
+      "gitBlob": "b2e5a7a76294fb550c8cce9ec578c0fedbaec955",
+      "sha256": "ca57c1fe58b566f0e22aa2963b9e339e9f1114df92cd4a8846eff2328b1ea3a4"
+    },
+    "formal/etna/scripts/current-plumbing.json": {
+      "bytes": 121783,
+      "gitBlob": "06a9337a67e006759282d2c4d7c91158e50f8d24",
+      "sha256": "fab9429d599545efb433811185e233bbeb121387830ee81920a6ab3524da3b6b"
+    },
+    "formal/etna/scripts/generate_artifacts.py": {
+      "bytes": 3394,
+      "gitBlob": "dafcd36430f613760451a9515b7e0478bfd8a641",
+      "sha256": "0f1ab1a22afd8034ea01d966c1a2ae65e33b5bb0511c081f167627613b2ee2e3"
+    },
+    "formal/etna/scripts/generate_statements.py": {
+      "bytes": 8103,
+      "gitBlob": "f715ff6e4b02e33435b7d962306789f2da075633",
+      "sha256": "39c3c6d056ff245fd9a42728291ff94595535c619cc03fcd4b3b29277f57e30e"
+    },
+    "formal/etna/scripts/lint_sources.py": {
+      "bytes": 18427,
+      "gitBlob": "14ad47d4e6842efb873708843f5811e3aaebc9ee",
+      "sha256": "30b6d12eb3485abc05ad29ed4f372c7607f1262e43c2d46bc1147063afa738a5"
+    },
+    "formal/etna/scripts/review_surface.py": {
+      "bytes": 13544,
+      "gitBlob": "c7825de4c4dee6958ffee667422a9ae4aa09d5c8",
+      "sha256": "15bc949217d95cd19545cf05fbcc4e108b4e2817a7c3ff5eb8ab0765b11d3daf"
+    },
+    "formal/etna/scripts/rule_coverage.py": {
+      "bytes": 10895,
+      "gitBlob": "30c1513b601c752cb5a59b939ae7872d20594c3a",
+      "sha256": "5902ca7d9b012457fed7aa09b7a5c4cb4da9fc2a1334a7e510a8e2bac38ef7cd"
+    },
+    "formal/etna/scripts/statements/reader.css": {
+      "bytes": 12102,
+      "gitBlob": "76582634b6d0f8bf2764ee941e9f4cc126aa8305",
+      "sha256": "2c791defd5f7bb82d94af9c0120a024683a3d5d3c26eaf2294cc1f8f82fa6282"
+    },
+    "formal/etna/scripts/statements/reader.html": {
+      "bytes": 18069,
+      "gitBlob": "ea84e1e5eae7ab5f09141aee1658b9170787ef61",
+      "sha256": "f1521dcf82c0369c8623d6a335a5b61249f5e1d7db2c540c54db4d6f8b52afcf"
+    },
+    "formal/etna/scripts/statements/reader.js": {
+      "bytes": 23435,
+      "gitBlob": "48f01f76ff4596caa07f5e1c34e70a35ddcf6af6",
+      "sha256": "1667a6021541aabff41b343be7594ddbc4c83ab5fb3bae73def326643dbce742"
+    },
+    "formal/etna/spec-coverage.json": {
+      "bytes": 9539,
+      "gitBlob": "635be3cfb6520868436a3d3559ebadc2057207ea",
+      "sha256": "95a7863e32ed23e7e6e306db2bbc44e6ef0a2f303e89ed1d3ba5c74595f28b2f"
+    },
+    "formal/etna/tests/CurrentAdmission.lean": {
+      "bytes": 1750,
+      "gitBlob": "0955f68cf070156068a09ae00ef567229fc7433c",
+      "sha256": "a3b9dbdb4b48302804221506c8bde3c7660efefaaf059dc6b3b2f463d06c488e"
+    },
+    "formal/etna/tests/CurrentAgreement.lean": {
+      "bytes": 1746,
+      "gitBlob": "a2669aef1feb6deab3010b0d8e12478bd120dc84",
+      "sha256": "a0f7f2084010a4c4bdfeb5f05fe5c977b01dc721388cdd2d4d5bcf31540d7587"
+    },
+    "formal/etna/tests/CurrentArchive.lean": {
+      "bytes": 4423,
+      "gitBlob": "1c0e5758544d8c49efaab5c27fbdd3f39f58f250",
+      "sha256": "851ebc57cd434aa83587f1e65722a43a19f8ac5a8217c528c2e10a24954f66dd"
+    },
+    "formal/etna/tests/CurrentBlocks.lean": {
+      "bytes": 10700,
+      "gitBlob": "3b7bd7a392bef0b1e091da5861bc9f66d7589fc1",
+      "sha256": "69fa09867a54bbac793e099f6a453f958907609619587befe05646c706961ed1"
+    },
+    "formal/etna/tests/CurrentCertificateFootprint.lean": {
+      "bytes": 2721,
+      "gitBlob": "5eaf166607bd0d10fe39a53811c0924e1f26934c",
+      "sha256": "f3e25684cd6f6ebaa9e9e4147460c88fa8fbaf5222575115a5163743f25129d3"
+    },
+    "formal/etna/tests/CurrentCheckpointRisk.lean": {
+      "bytes": 2536,
+      "gitBlob": "0b489a1a5947e405a7cb0b014ae5e6c78dcff5ed",
+      "sha256": "0322156c142959a3952e13518b31ac67dc37d6b54d7815270f3671eba0a7edd9"
+    },
+    "formal/etna/tests/CurrentCommitteeRetention.lean": {
+      "bytes": 966,
+      "gitBlob": "13a2030c53e539bdef4feb498b0d16575ad5bc8a",
+      "sha256": "67dd3cd84bbc021e3ffdc4bbae3361d55ab8572499f59c0d175121cc40830ade"
+    },
+    "formal/etna/tests/CurrentCustody.lean": {
+      "bytes": 25725,
+      "gitBlob": "b1a4facef2c550281eb189a28062cc5fc7ea9bf0",
+      "sha256": "f1e92c9ce9d20b09e247f9fff33914260bcf75d66159881ef12c5557bfa5987d"
+    },
+    "formal/etna/tests/CurrentDesign.lean": {
+      "bytes": 10133,
+      "gitBlob": "2694caad2a89978f9c23bbcb905229475aa03262",
+      "sha256": "3cc5ddace1365a3ce1e874e447019da761afc3a9df529fb0e21c6a97b98153ac"
+    },
+    "formal/etna/tests/CurrentEconomics.lean": {
+      "bytes": 18885,
+      "gitBlob": "e59ba133995f6b998b0e4bd7e81d61e6ccd6480e",
+      "sha256": "79dee74882af8bf07931fcbbfb04db67c05067b9ee5e9acdb4b01bcac04c0fa8"
+    },
+    "formal/etna/tests/CurrentEvidenceDeployment.lean": {
+      "bytes": 543,
+      "gitBlob": "65f19bdea39ef1215d2236afc41e59b926a9fcd9",
+      "sha256": "d849d2622cbaedcd88d62a58ab291c45aa6373d63c690dfa51a3cc4c82627fef"
+    },
+    "formal/etna/tests/CurrentFinality.lean": {
+      "bytes": 18106,
+      "gitBlob": "78644971ae9080ae6d44529f79f866e401cae9d1",
+      "sha256": "6f5e4fe0b5c47585cdf612f5de98b122227c8458d2c0e180a01fd35f04cb1ea8"
+    },
+    "formal/etna/tests/CurrentGovernance.lean": {
+      "bytes": 16572,
+      "gitBlob": "da29770cc3e9efc1bb01aa4480c686f78075f4cd",
+      "sha256": "f6b33233e71ecb01a568bfb2df87a041b9c0b8c1025cece0db60a62cf152f4a7"
+    },
+    "formal/etna/tests/CurrentGuards.lean": {
+      "bytes": 6136,
+      "gitBlob": "ca67f9815e85722b2e8f963f0cb1385dcb8090e8",
+      "sha256": "8368ce0b09189745052b996eb0498c4b79917c7c5aaac22a9b1b1b7fbf21a22a"
+    },
+    "formal/etna/tests/CurrentHeadlines.lean": {
+      "bytes": 18718,
+      "gitBlob": "bc01fe0df45693a7dc5e5eb5af11b1ce7ef034da",
+      "sha256": "5f5050a6c0227b332478779247dc12ceac03b2d57b9a69d1f5ea67ee0e766c96"
+    },
+    "formal/etna/tests/CurrentJournal.lean": {
+      "bytes": 6987,
+      "gitBlob": "5e371c89f80d02144b7c7fce286211b26f745b3c",
+      "sha256": "f33fe5f33ff45d8d268ee397a807b0a11650259dc469981cd488990313177de7"
+    },
+    "formal/etna/tests/CurrentLookback.lean": {
+      "bytes": 5036,
+      "gitBlob": "5a031f1c25790ad4727d04b5e163faecae7b220d",
+      "sha256": "e883ff4d2d7574a30c1eb5b42557da358d0e000da529476fcfd33b98986216ac"
+    },
+    "formal/etna/tests/CurrentPremises.lean": {
+      "bytes": 4054,
+      "gitBlob": "12aa84024efcea1a735f88e7ae120a910eba50e5",
+      "sha256": "ec781f0fe1332d354d6a6a451b5a0e1e6077dfe604ec11289f3f37b525ea70df"
+    },
+    "formal/etna/tests/CurrentProtocol.lean": {
+      "bytes": 11998,
+      "gitBlob": "737a21651dd9da64d09df0dd82b39d1884e66067",
+      "sha256": "c38d337a9b00e8c7c52c9c499d6fce63ee03e7702a88b2343b98f5756839f32c"
+    },
+    "formal/etna/tests/CurrentProtocolFinality.lean": {
+      "bytes": 8598,
+      "gitBlob": "c88dc056b1b8464bf42caa1ae98ac0572aae1c3f",
+      "sha256": "0ba4e7f6f9f806543a75d2b729bd9ec8f31eac5f6fdef4ab5740d7d4a4ba4440"
+    },
+    "formal/etna/tests/CurrentQueueIntegrity.lean": {
+      "bytes": 5767,
+      "gitBlob": "07d8d59346d4d45f5282e37f036fc570b81a1614",
+      "sha256": "e3882bec321959947c0066b491af0942362b08d22309d4b00b64766bfabc9995"
+    },
+    "formal/etna/tests/CurrentRecovery.lean": {
+      "bytes": 5387,
+      "gitBlob": "770ca70d8bd693f43d8b3f019348e134e1d5ffcf",
+      "sha256": "98431e4969bd4dceaee992fcba8cca0599a841ff0d4e47a76b8a83e1fe11e761"
+    },
+    "formal/etna/tests/CurrentRecoveryProof.lean": {
+      "bytes": 9225,
+      "gitBlob": "749f0d8f107ee7389ad94d765d5db3095d22f905",
+      "sha256": "f5b5b38fc054d6a5f0b56b66d2bb992bbd336d9c3ae88341898bb37d63b57ef7"
+    },
+    "formal/etna/tests/CurrentRecoveryTrap.lean": {
+      "bytes": 4303,
+      "gitBlob": "5db2775fbba316883d267620d9304d8bcb427c8f",
+      "sha256": "771513bfa5f64937565d228c5bf196455872e9e454c14b61b1a9c30ed86c8d27"
+    },
+    "formal/etna/tests/CurrentRecoveryWitness.lean": {
+      "bytes": 6536,
+      "gitBlob": "5e39b7f31842d31679224e23cbff6f688c903775",
+      "sha256": "be225c18a600d77de596416e414eba665f152fa4ef72c6f65b204b28761c7a70"
+    },
+    "formal/etna/tests/CurrentReference.lean": {
+      "bytes": 1794,
+      "gitBlob": "19f10cee52ca8908e8309712c2761e851cd726c7",
+      "sha256": "a95bfb207c6f9071f4c0dbbeabe06d343fcc216dd65c5b66d29db7e5dfcc0bc4"
+    },
+    "formal/etna/tests/CurrentRegistry.lean": {
+      "bytes": 8804,
+      "gitBlob": "92d7377d264e965bd712a434e6aad292edf24c15",
+      "sha256": "d0edc500780edb156d01d14ee03a42eff25af690b6404dc920550a0e96abc3a9"
+    },
+    "formal/etna/tests/CurrentRegistryPayments.lean": {
+      "bytes": 6955,
+      "gitBlob": "cf72bb1eb0be616410f731f3e5f481ba0d5b59b6",
+      "sha256": "452c16338f8d29afb36c3eca8302cfa344640ae498d2241b24e3f0d632ce1721"
+    },
+    "formal/etna/tests/CurrentRisk.lean": {
+      "bytes": 318,
+      "gitBlob": "7b2d36dc5d62cfdbb613b31ed94f68844ab57509",
+      "sha256": "e46c486717cc08183210d46dc2ae1ca796359b8ed980f8896d607afb4b8ca279"
+    },
+    "formal/etna/tests/CurrentRollbackOutputs.lean": {
+      "bytes": 19848,
+      "gitBlob": "675cce35a41796fcbb14272ac501a665906c7fff",
+      "sha256": "c83cdc4595e0b65cba99932a0cf220a6c8c5d5f9e9ed4eddfd8932afd939dda8"
+    },
+    "formal/etna/tests/CurrentStakeRisk.lean": {
+      "bytes": 3152,
+      "gitBlob": "abe55cdffd279df25c1dbdf9eac0b13384bb0168",
+      "sha256": "e6d38383c42153df0280b9747110b2e5434073f458d10d7838395c051b5a7ea7"
+    },
+    "formal/etna/tests/CurrentSwitch.lean": {
+      "bytes": 1486,
+      "gitBlob": "c13c9ece878c6cfbdd6c82c92d3c5ae8c054af83",
+      "sha256": "9896505368b189861e85ce140633350a4777ba5be89b6ec19019d32b9cff2497"
+    },
+    "formal/etna/tests/CurrentUnzen.lean": {
+      "bytes": 6327,
+      "gitBlob": "71c1c9991f1418a4b2cedb0bda88fa77412a9e1a",
+      "sha256": "5334c99e1d3e8676a2a031253dcdda87ab35bd1897603f015cfec9727b6ea93e"
+    },
+    "formal/etna/tests/CurrentValidatorState.lean": {
+      "bytes": 5327,
+      "gitBlob": "ed2f2a6c24c231e718b26d60b0eeaed9474f9abc",
+      "sha256": "bf8d0e98a01d135e99e7e0a5049b2749e42b66b6907ae1479fdaab19a7c9d564"
+    },
+    "formal/etna/tests/CurrentVectors.lean": {
+      "bytes": 2889,
+      "gitBlob": "8b81fd0b03ff3318b6426fcc64ffec66a5ae634e",
+      "sha256": "f496cb256a05c6740a60aa14f7a479cf5b144b590dd1c32b71c941dfb64b0d04"
+    },
+    "formal/etna/tests/reference/comet-validator-state-v0.40.0.json": {
+      "bytes": 723,
+      "gitBlob": "984e408f58fca3b908c5825ab2dd8c1d21ed24d1",
+      "sha256": "512570a324e986c396c9700af0fb87766115bddde6c525e52a16f89cef661180"
+    },
+    "formal/etna/tests/reference/comet_validator_state.go": {
+      "bytes": 1950,
+      "gitBlob": "87ff0e1cef56b048771cc3ebc7559dfe2cfc5cae",
+      "sha256": "2fcadf078c7d968d3a182ae3c219786af2392899ecd3d4809350d6c4b4ffd942"
+    },
+    "formal/etna/tests/test_current_admission.py": {
+      "bytes": 3935,
+      "gitBlob": "e3ae09eb246d946ccdb6a4207b406855111d1d9e",
+      "sha256": "b20ac4cfddda8537d51bf96925d169d86d1e3dbc55a1bc7b968363d4fc4fcc38"
+    },
+    "formal/etna/tests/test_current_agreement.py": {
+      "bytes": 675,
+      "gitBlob": "58f1b9669e37ed0c3aaae25f5b8c17f392a5e367",
+      "sha256": "e303d96aa17ab70babfe3c5d413944ecabd7e72daa3650926e29677a54acb8a9"
+    },
+    "formal/etna/tests/test_current_archive.py": {
+      "bytes": 3575,
+      "gitBlob": "be94cbb6b8ffa71dc2ea7c5096f810edf5a8d8a3",
+      "sha256": "9e03484b2b2dd52ec0783591e3b159b4a12193d6c1f6bc42f3193a7ed6effac0"
+    },
+    "formal/etna/tests/test_current_blocks.py": {
+      "bytes": 3992,
+      "gitBlob": "c027e9877b30fb719d1fa48704f5f57d6da05536",
+      "sha256": "762c925ce957f1841ad17e5178ccf8bb0d76c7d0e87c0e6c1320df02dff07686"
+    },
+    "formal/etna/tests/test_current_custody.py": {
+      "bytes": 5936,
+      "gitBlob": "3dd131c41ede2d11e35590f147f07621b44a5608",
+      "sha256": "58e870bd294bc1c982ea4faf781e1109d62a9ef6f58457ef5bb501ec550d1849"
+    },
+    "formal/etna/tests/test_current_design.py": {
+      "bytes": 4227,
+      "gitBlob": "6e878cbb9593e0dd18852f9712e99cb643b2360e",
+      "sha256": "f816ec53072738568ac192613aa9e0dbde1cb6bbc16dc321edb68ef70aa32038"
+    },
+    "formal/etna/tests/test_current_economics.py": {
+      "bytes": 4135,
+      "gitBlob": "1b4382707e40309276b9e0c1ad54abe9467d1b52",
+      "sha256": "c918487cced7bdb215e15474ed8bbddf75cfb477763fd04ed55b2fc7de8d4e00"
+    },
+    "formal/etna/tests/test_current_encoding_audit.py": {
+      "bytes": 1731,
+      "gitBlob": "2b530c3238a512cd59ee98827ad846f1863b8f9a",
+      "sha256": "8f3bcd23e024880f60fc3c3dbc39c09e3e142991c5ec0b691dc09eadf6bd0468"
+    },
+    "formal/etna/tests/test_current_finality.py": {
+      "bytes": 4525,
+      "gitBlob": "37eef9a2603aa06e9441f8de95931a429de23435",
+      "sha256": "3f71a4c1951d0e413bba4431a6161b1edfd39cd8b439f1da553b998f810b9cf8"
+    },
+    "formal/etna/tests/test_current_guards.py": {
+      "bytes": 5180,
+      "gitBlob": "f097862033c5eab395ba9ad51c05c5a30cda6373",
+      "sha256": "8076a8808aa599eff0cec5de63464ba24e56a7d924877a139ec1847c1af439bf"
+    },
+    "formal/etna/tests/test_current_headlines.py": {
+      "bytes": 16914,
+      "gitBlob": "19921ae1f1f8990460e6b1340cc66916f5e430c7",
+      "sha256": "4892831b039dae3110aac56921a779c2d115c5558db0929843a8cc8e974e9cef"
+    },
+    "formal/etna/tests/test_current_journal.py": {
+      "bytes": 5486,
+      "gitBlob": "ccd274a038ed4c728323bf913a4e8486e8c3349c",
+      "sha256": "a896fb62a9f25527cea943d9cbe4b8403f6737e3fed072ff8af62ed72b8f9511"
+    },
+    "formal/etna/tests/test_current_mutations.py": {
+      "bytes": 6032,
+      "gitBlob": "21970c0dd121718a6e6d6bc54b08119a52cace5e",
+      "sha256": "fac778c60ee4b371229da82d98b25d4040d2e57051f96f964fe63fd9ef52ab0b"
+    },
+    "formal/etna/tests/test_current_premises.py": {
+      "bytes": 1975,
+      "gitBlob": "00844f0bce11fe8cd1404c6442bb71280ce46203",
+      "sha256": "e10be339fc172e57851b9db2ee73984e604456aaf3b49de20107e387416750a7"
+    },
+    "formal/etna/tests/test_current_protocol.py": {
+      "bytes": 8482,
+      "gitBlob": "dc43f5427a71953e14cc8aca1c4d7b1ce82220ea",
+      "sha256": "427df44da923064e6428874d1112af0d65a3fe23dbc1f537c4a7e83745cceec7"
+    },
+    "formal/etna/tests/test_current_protocol_finality.py": {
+      "bytes": 4923,
+      "gitBlob": "6dffc594c874603edcd3dddac185f97b0f99a8ac",
+      "sha256": "9816463c39749809b11287cb1f756ab9d6c3e181254790f887493c4b6f1be0e1"
+    },
+    "formal/etna/tests/test_current_queue_integrity.py": {
+      "bytes": 5745,
+      "gitBlob": "c08fcab2f9b0dcf13899d828555f16532d79ea3c",
+      "sha256": "ef783f24fa537a08148e1b6a64b70c6dabb8418aca6a0e7de9a821ca034af7e2"
+    },
+    "formal/etna/tests/test_current_recovery.py": {
+      "bytes": 6777,
+      "gitBlob": "7f9f36eb01ed62660b00d465cd3021790cc15948",
+      "sha256": "1e8ad39247caa77654d7b90e73292c1734f606cd80366dfe75d756071865f252"
+    },
+    "formal/etna/tests/test_current_reference.py": {
+      "bytes": 5615,
+      "gitBlob": "2e088270d19ca9a29d2f1d221a6931831b06afc5",
+      "sha256": "f4865ee8df8feedb27282b8c87b5e3acf1836002512f5dcdfc69ae92b3a8cd05"
+    },
+    "formal/etna/tests/test_current_registry.py": {
+      "bytes": 4060,
+      "gitBlob": "8ddf550248552f6a6df86fc2dfe85bbb88b443a7",
+      "sha256": "780610a6a3fcd3f4b300c320d1162d81f30375ba9032fb1fc4be04a01ee06f05"
+    },
+    "formal/etna/tests/test_current_registry_payments.py": {
+      "bytes": 4029,
+      "gitBlob": "61614b83185267da24e862a41dab8d437930ac06",
+      "sha256": "8e09de524f902a6a234c1160b9519b945ddecfa5db2a7083214c2a9772d41c8b"
+    },
+    "formal/etna/tests/test_current_rollback_outputs.py": {
+      "bytes": 2893,
+      "gitBlob": "bf825db64372199bf126d4955f8406b4198f810d",
+      "sha256": "fb87d73fa7d7042345ca46f01a95bc3143d4f6db22eb5b4598dc700f157a68d5"
+    },
+    "formal/etna/tests/test_current_switching_proof_mutations.py": {
+      "bytes": 9011,
+      "gitBlob": "05cf969cc5a8650c40451060ecc06708ff5eeaa0",
+      "sha256": "48e7ab81873ddc8e86c7725cc1adc62ff0da14364b8a3f60b475ff05c1c19d0c"
+    },
+    "formal/etna/tests/test_current_unzen.py": {
+      "bytes": 5017,
+      "gitBlob": "343a080a13d24bca110927ab8ea3294c56878051",
+      "sha256": "6324c525ae21f049f8afba4f79446a28288ab25a3130e5e400b024fd5882f9e7"
+    },
+    "formal/etna/tests/test_current_validator_state.py": {
+      "bytes": 3973,
+      "gitBlob": "f26113fe3a764aa39caf13fc656bb6747ed090c8",
+      "sha256": "791bd0f0799719b7fd11061664ca7fd406df03044a7001d70404be3b0bda76a7"
+    },
+    "formal/etna/tests/test_current_vectors.py": {
+      "bytes": 2884,
+      "gitBlob": "535aaad26e7d9c820256186fb549a78e8a633d94",
+      "sha256": "03721f87208b2712792e3ae94df9eb06b400494648b98d3aa5c4737bcb3e2d76"
+    },
+    "formal/etna/tests/test_design_contract.py": {
+      "bytes": 11908,
+      "gitBlob": "d6d8d7cf4b0c73f330c361035fe13be34abe5ca3",
+      "sha256": "70cc983b57153bdd6222adddbc48c2c1f4de39e0ebf8034f54ee15aa34af5bd5"
+    },
+    "formal/etna/tests/test_evidence_package.py": {
+      "bytes": 5275,
+      "gitBlob": "665194d3c022dbef4e4b4b401b76916714cfcd48",
+      "sha256": "4b8b32c2624411ba47ba91320583e3b27ef65511a7630e5a5afcde904e74468d"
+    },
+    "formal/etna/tests/test_gate_hardening.py": {
+      "bytes": 51726,
+      "gitBlob": "9c935b5713d14463016398009c42ffef49b82c7e",
+      "sha256": "db76755d4690882b6a722dd4fedca126f24611791f6267c251bc704c769e5b45"
+    },
+    "formal/etna/tests/test_library_graph.py": {
+      "bytes": 6877,
+      "gitBlob": "92cfdb24c32f5c13203ed0783e47e9b3d81cb05d",
+      "sha256": "7d226e3a54e8e38dd5d1f6cc7005a22d407918f6a18eb388c25f976e2de79935"
+    },
+    "formal/etna/tests/test_review_surface.py": {
+      "bytes": 6448,
+      "gitBlob": "fdc918101fb9eb7a84c20f9bb675304b18fbfe2f",
+      "sha256": "2b4fb2e0b95eb84fa05c9c0908f6ca0fabac24dcda219ad95105b06dbdc6fed0"
+    },
+    "formal/etna/tests/test_rule_coverage.py": {
+      "bytes": 10432,
+      "gitBlob": "5253d1077db1a2bbfd9bae754ef5b205ba933349",
+      "sha256": "e4138ff5820ec7837322dc7e0bb9f815c8f37ad09b02c71fe449e67c6b6030d7"
+    },
+    "formal/etna/tests/test_spec_coverage.py": {
+      "bytes": 13617,
+      "gitBlob": "36bafccab0b524d9190259c3ed253f8d6c700a3d",
+      "sha256": "94461cd3d1d4a9bad38fc13ed86f35bef6c53db822f4e3b520e3165816bc7908"
+    },
+    "formal/etna/tests/test_statements.py": {
+      "bytes": 3647,
+      "gitBlob": "80536e8bc7fd0872d9ab06188674e7d9105c00af",
+      "sha256": "c3c9643647c2fe0fc2af744ba54de76bf88785d7e56aa82e1cbe98ac63545480"
+    },
+    "formal/etna/tests/test_statements_html.py": {
+      "bytes": 6473,
+      "gitBlob": "c89cc3fe5acb178bcba6f90d89a85d1daf6248bb",
+      "sha256": "0910e01ac962072d8881d1bf05cf36eb87f970c336f86355e9f627cf03c1fad5"
+    },
+    "formal/etna/tests/test_witnesses.py": {
+      "bytes": 3850,
+      "gitBlob": "bb220800220b1819b6935491dc2dc6091a126d7b",
+      "sha256": "26ed14d90a892e2ace41153682c3afd51358866e6dd25a2d3f61c3a81dcf62b9"
+    },
+    "packages/protocol/docs/etna/ACCEPTANCE.md": {
+      "bytes": 35784,
+      "gitBlob": "a1beeac8fe8665615cbec138f8b65c0091bac6d9",
+      "sha256": "643bb32b82a25186f9006bfa7c5b4f503212bde235a5bf061a79a1cca4df3c69"
+    },
+    "packages/protocol/docs/etna/AGENTS.md": {
+      "kind": "symlink",
+      "target": "CLAUDE.md"
+    },
+    "packages/protocol/docs/etna/ANCHORLESS.md": {
+      "bytes": 26153,
+      "gitBlob": "a818b3fb8af35c39f40d544d5eb7b72a3204a318",
+      "sha256": "6f2227f42d966f134099af6a8b6eba8c6c0db0ac717a857a298e3131b841482b"
+    },
+    "packages/protocol/docs/etna/CLAUDE.md": {
+      "bytes": 5345,
+      "gitBlob": "cafe37d2f9c93cda4fc93e139a525a55b715e17c",
+      "sha256": "c78057f440323e6dc444c5780e4dc5dbbe89032469dba11c96f9c282e53c88ca"
+    },
+    "packages/protocol/docs/etna/README.md": {
+      "bytes": 12871,
+      "gitBlob": "f239276c068bcddb604eae1b6e45d79815998dc3",
+      "sha256": "82abc17a1fb771b4ae9b4b4b536dabfddcb167eff81cbf06ee79404f3a693bae"
+    },
+    "packages/protocol/docs/etna/SPEC.md": {
+      "bytes": 232076,
+      "gitBlob": "649548c58d6629dd85143b33efd3644a3bb71509",
+      "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+    },
+    "packages/protocol/docs/etna/SWITCH.md": {
+      "bytes": 38322,
+      "gitBlob": "ae5c1dd77851cabe090b24272f7f865b30fac697",
+      "sha256": "933eb39ed5b8290265fdf638d4f12aab64da1b85d7ce1b92cbeb0e258ca9a387"
+    },
+    "packages/protocol/docs/etna/rules/INDEX.md": {
+      "bytes": 154291,
+      "gitBlob": "03c7ac8d10f320ae3791f040b216b25def26e837",
+      "sha256": "721b38677b0901be29c934404d4dcdd344995217f49dbfbd3c5c9fc84bd40105"
+    },
+    "packages/protocol/docs/etna/rules/README.md": {
+      "bytes": 18753,
+      "gitBlob": "4e60c4833ebc2fd6de1ac8b5e759352433e38989",
+      "sha256": "5baca593ec59d604fadf759fc5d8d22f373ffe40f01fea9cc3a325015f0832f9"
+    },
+    "packages/protocol/docs/etna/rules/review/1.md": {
+      "bytes": 9354,
+      "gitBlob": "d6ffbe97dc9b145e706e4254bcdfbc4ee16a20e3",
+      "sha256": "828a9f7a20ae95f2b07ae79f6ac156463578d70fa9e74d20a478686929a68652"
+    },
+    "packages/protocol/docs/etna/rules/review/10.1.md": {
+      "bytes": 2912,
+      "gitBlob": "e06a56506eebdaf9477474ee731d7cb71988cfa4",
+      "sha256": "8aca93274cf0b1d4dc6479bfb325cf60e867e732ad92940c98060c7b61e991fc"
+    },
+    "packages/protocol/docs/etna/rules/review/10.md": {
+      "bytes": 10337,
+      "gitBlob": "540c270bbd4a8ec446670cd8253062c54b6e4cfa",
+      "sha256": "db6333658ff9a6bac837ce77bcecb33fb108e0c2ac3de753add8a2752a26300b"
+    },
+    "packages/protocol/docs/etna/rules/review/11.md": {
+      "bytes": 9244,
+      "gitBlob": "1f34681a8dee2d69ba8c459274de779c7d6f6058",
+      "sha256": "24c99bebc06d89ec85ce3eebd31ca0216f2d51c6ebd110883fc4ac731d75b5b7"
+    },
+    "packages/protocol/docs/etna/rules/review/12.md": {
+      "bytes": 4941,
+      "gitBlob": "ebb4bbc3a1b17906adae053548341e277b64355a",
+      "sha256": "d9dc842ea3b54a92db4f0d0777f73643e1d5329af120628ddbb7974950fe4fb0"
+    },
+    "packages/protocol/docs/etna/rules/review/2.md": {
+      "bytes": 3703,
+      "gitBlob": "6a0bf17a8bcefa80b5c18c1f922d0ad03cc5b44f",
+      "sha256": "74204fd02d72d1723bb55f256965abf638357e4ec65117d342af863471745d56"
+    },
+    "packages/protocol/docs/etna/rules/review/3.1.md": {
+      "bytes": 8866,
+      "gitBlob": "ffe546fa8090a201f96f2158eecfa4cf65a6bc2f",
+      "sha256": "4d5d675ba084bccb52e58d498fee94f3bb0fd5ee309eaa83b896c8c7578fed08"
+    },
+    "packages/protocol/docs/etna/rules/review/3.2.md": {
+      "bytes": 6713,
+      "gitBlob": "c84bcbc7477d8f479a0805be8f444658cc68070b",
+      "sha256": "a26f60f017ad68a0096c654d6b808b4943d12d168c764d758f51df0870ffc0f0"
+    },
+    "packages/protocol/docs/etna/rules/review/3.3.md": {
+      "bytes": 5061,
+      "gitBlob": "a802b0ce7f1c86cf63485fac365f8263f8c37ffd",
+      "sha256": "4f747b1e94294ca8d4bd735a9b7e5e0d74dbbb3f2bebdf38ba182eec10c5af3c"
+    },
+    "packages/protocol/docs/etna/rules/review/3.4.md": {
+      "bytes": 7997,
+      "gitBlob": "3f32a809cd77f750b3fff34bb69189d73ec9a366",
+      "sha256": "02e63b064c120b0290f66161cd5b1d17ee5323e73f87dbea120e9dc735a47baa"
+    },
+    "packages/protocol/docs/etna/rules/review/4.1.md": {
+      "bytes": 6183,
+      "gitBlob": "40135b70eeeed084bf1924adb1c4cf0d23f9132c",
+      "sha256": "16d7b7fe39087411cbdc701330cda71a91bddfa4df2652f7efb110457d7a6716"
+    },
+    "packages/protocol/docs/etna/rules/review/4.2.md": {
+      "bytes": 2568,
+      "gitBlob": "ba941287f50fd4a787a268ee0a72b86c3ba48daf",
+      "sha256": "d44d6b8f9c29c74ff899a59d086e7df2535d7c414907f039d071b1090c01b781"
+    },
+    "packages/protocol/docs/etna/rules/review/4.3.md": {
+      "bytes": 6788,
+      "gitBlob": "2ece5ee0d427f108cc0297011c8e0c4f377e89aa",
+      "sha256": "3a4acc3d5cdcaaf33890049c03132a5c02f510759ed1678f20652c6aee077b99"
+    },
+    "packages/protocol/docs/etna/rules/review/4.4.md": {
+      "bytes": 4368,
+      "gitBlob": "9408272f410927442c74510b13f0cd97a88da3f8",
+      "sha256": "ff63631160ab688d4c631a77c5dd1b016ad2a61ddb29fc87bf767295e9f62579"
+    },
+    "packages/protocol/docs/etna/rules/review/5.1.md": {
+      "bytes": 2318,
+      "gitBlob": "e865eba4355a275de3543a2075df82f9f8f58d77",
+      "sha256": "370521c4b41fa20dad7b600be4f149b2d1dd3e296116b44364b8489b7626a3b5"
+    },
+    "packages/protocol/docs/etna/rules/review/5.2.md": {
+      "bytes": 4913,
+      "gitBlob": "c39972b76c4116a7261d3a27c70deab996b4986c",
+      "sha256": "0b4c3c74331a5785bbd34b12ddb18975bff05d79b8e03dd41564671a131546c8"
+    },
+    "packages/protocol/docs/etna/rules/review/5.3.md": {
+      "bytes": 4044,
+      "gitBlob": "7d302847e5bf917f51b48376f8774d0c9bf0611b",
+      "sha256": "133d8df10aadafe76f118a90ba6ecfe89a43866c019d55b8d408932d35057d1f"
+    },
+    "packages/protocol/docs/etna/rules/review/5.4.md": {
+      "bytes": 2224,
+      "gitBlob": "8d6ba329c9103f2cfa138eae7684386d4e96c5e1",
+      "sha256": "546c2cfbfb390e17dc11388339660c75b702f9c94ce1b32ba541e8ee23e82361"
+    },
+    "packages/protocol/docs/etna/rules/review/6.1.md": {
+      "bytes": 5563,
+      "gitBlob": "1509f3b5ce32f507bfdf9c630fcf47daf3ec04e0",
+      "sha256": "7457a66d7a017c9c92d51ffa0aa075d7235dee2dd6c6cd9499396de8fab7db0e"
+    },
+    "packages/protocol/docs/etna/rules/review/6.2.md": {
+      "bytes": 15228,
+      "gitBlob": "15a4baaccefaf8497f139d30dbf28be110805725",
+      "sha256": "c0ffad1c75061f1eeeade0551a5ffcac01e441084be315c87c5c5037b5f06dc8"
+    },
+    "packages/protocol/docs/etna/rules/review/6.3.md": {
+      "bytes": 5518,
+      "gitBlob": "3b1a58c93d23c6f38fc23a1b8210ab78e2171d07",
+      "sha256": "038bb7b454f84463098e59665ccd026e462f2c6442265779e70c3cef4d3ef08e"
+    },
+    "packages/protocol/docs/etna/rules/review/6.4.md": {
+      "bytes": 7656,
+      "gitBlob": "93fe14f7699f259e6f6b53381b7a3168ac858dc0",
+      "sha256": "245edddc5705dbbc214ff9451d178ffae34ca1ae13e60a54c12620b229580b89"
+    },
+    "packages/protocol/docs/etna/rules/review/7.1.md": {
+      "bytes": 5346,
+      "gitBlob": "7575201b990deba91812b7af24459143b804aa9b",
+      "sha256": "4a4ed49e3e5d039a2806db838cac308eca0adf5ac987984960bb63c95bd42bc2"
+    },
+    "packages/protocol/docs/etna/rules/review/7.2.md": {
+      "bytes": 8609,
+      "gitBlob": "1bbaa1d80c300483b7e1f939ba2753562b32d9bb",
+      "sha256": "3184e358a5440b993780866c96e25f1afddb4b48040aa1d45f98c2a39b9152aa"
+    },
+    "packages/protocol/docs/etna/rules/review/7.3.md": {
+      "bytes": 5267,
+      "gitBlob": "b237de6af71db6af0fc94f167f5d0c3e32391351",
+      "sha256": "64ff8a13e077aa467813d022e52f434b29f4d01792d50b396ee64446d9dac625"
+    },
+    "packages/protocol/docs/etna/rules/review/8.1.md": {
+      "bytes": 9350,
+      "gitBlob": "0b3cd97316c349b71c9479c94b2be864057e4f53",
+      "sha256": "4562b79967fba058f19a1a9fdecd073bc03f5322252a63645e2ec07650bb9e04"
+    },
+    "packages/protocol/docs/etna/rules/review/8.2.md": {
+      "bytes": 4915,
+      "gitBlob": "f931df58e9897bc527d33fcaaec62314435f4ecf",
+      "sha256": "d03f4c4f95600161089b7355433ce36188d8203e9a7b523ba70e020f67c6eafe"
+    },
+    "packages/protocol/docs/etna/rules/review/8.3.md": {
+      "bytes": 7609,
+      "gitBlob": "93f13115cbb6c4a744e04f4e405bb4cd82bdee1e",
+      "sha256": "111fcbbc75ca10101d038e54176b185d0cd774da3ce46f9f8a95705953afd442"
+    },
+    "packages/protocol/docs/etna/rules/review/8.4.md": {
+      "bytes": 6242,
+      "gitBlob": "b79af48cf20ecaa0008c22008a303e874c3883c2",
+      "sha256": "ba5bc2b0320173bfc5b5a4e081cd7df81e6dfc4a712f4f434497f96571a98c86"
+    },
+    "packages/protocol/docs/etna/rules/review/8.md": {
+      "bytes": 15111,
+      "gitBlob": "ec0093d6d9d7b4713300d628c7160c10434cdcd5",
+      "sha256": "d718054bc32f44a92da27350be5358ca906b491d8cb757d870b7f31e87c4a3f9"
+    },
+    "packages/protocol/docs/etna/rules/review/9.1.md": {
+      "bytes": 5038,
+      "gitBlob": "07708d43a61b67154dd0c705ef2570e96e07fea5",
+      "sha256": "377ca2f83f3cb8433a2c42bf5f3d16d3a4dfabd0969fef71272ea1130020b98c"
+    },
+    "packages/protocol/docs/etna/rules/review/9.md": {
+      "bytes": 9839,
+      "gitBlob": "45d37e1cb0f44dc88949097786c495af00b4817f",
+      "sha256": "1430320398d30a2a3c9dc913dcb61122055b5f7182a30e60baf8b0ed98e2aef5"
+    },
+    "packages/protocol/docs/etna/rules/review/A.md": {
+      "bytes": 11376,
+      "gitBlob": "a47243a2c53573a213fa911702500122a2a84323",
+      "sha256": "639b976bcc72881c3b8a6a562e6b0132cf7bc8f0d75770e65dd80e5e7a8effc0"
+    },
+    "packages/protocol/docs/etna/rules/review/B.md": {
+      "bytes": 6289,
+      "gitBlob": "262e51a52efc36415a1c0023b34f26e60eafeccd",
+      "sha256": "ca32bae50f10da7a06b11b0f2ffd7157519efc081f883432119a73dc0b9c122f"
+    },
+    "packages/protocol/docs/etna/rules/review/C.md": {
+      "bytes": 6033,
+      "gitBlob": "9fcc4ee31162432cadfe891bd43e65f05043aec0",
+      "sha256": "9d9ad6a5ddc32e0f49ec689d61dafe5fd40c1096761d3d44dd3f5755f2887ede"
+    },
+    "packages/protocol/docs/etna/rules/tools/check.py": {
+      "bytes": 11920,
+      "gitBlob": "0bf13cd85426fe82b89150784cfb123ef2c04423",
+      "sha256": "7ed83ec766e1c4292aa950771b51df08c2d2f90eeb6b7c05ec47aca750d18e1d"
+    },
+    "packages/protocol/docs/etna/rules/vectors/1.md": {
+      "bytes": 6669,
+      "gitBlob": "eba106a0ab920f8efff55e8f1056529fa5e38b64",
+      "sha256": "4304ab0f62958911471645e65cf4cd438b4639e42d3c0004b8f35a9039607c3c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/10.1.md": {
+      "bytes": 33246,
+      "gitBlob": "c588412499eee4f9042e336e30bb48b7b8d97e23",
+      "sha256": "02d1d11783c3a44a431d907ddc9faa485f1e7d2c2f4fceb6a3bc302fe4cea28c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/10.md": {
+      "bytes": 48344,
+      "gitBlob": "eab20892e71325d396c003adfbc10ce124b3a5b6",
+      "sha256": "694408fd1b668e5db6fe80fe1efc6834efc896166b9e4d118720c5f6438e4d9a"
+    },
+    "packages/protocol/docs/etna/rules/vectors/11.md": {
+      "bytes": 27866,
+      "gitBlob": "ba900d44a8e796786e4912e5b67f1dbdbd62e532",
+      "sha256": "b58efdf6920fecd595099624ea3e1263e9430a3ed604bf67e85b5ad1bdafcd80"
+    },
+    "packages/protocol/docs/etna/rules/vectors/12.md": {
+      "bytes": 17891,
+      "gitBlob": "b87a7065c39bcdf91e88ef36b5a4af4e370483ae",
+      "sha256": "40b31bbd3f60b11be622ac4b94f2650580084667cc2c570ea3dd3405ed1ffc6c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/2.md": {
+      "bytes": 13055,
+      "gitBlob": "0fe4d0ab97edf5724a0e3a59899a059a9198cdcf",
+      "sha256": "0fac4d0b79c1ecf0d13866d59d343ed3e57eb5ca8df51230898fd5cce4aa48b8"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.1.md": {
+      "bytes": 37858,
+      "gitBlob": "dae726ab19356d9568074f01265360372e03f785",
+      "sha256": "530d0edb311a38e099eb8b7d2956cfe65d9df8407efdf946152832f25c572ee2"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.2.md": {
+      "bytes": 17083,
+      "gitBlob": "9c30ce5b651b942b3fedf2a2ec50358c7b54ee89",
+      "sha256": "efcd7b626652726e7b800ff7e1f07792a3d39922b5e70406cd714088a468c8a1"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.3.md": {
+      "bytes": 14238,
+      "gitBlob": "d3545206d327b67b5816e3828f734626f5ed818d",
+      "sha256": "581133eeaf436c9fc5f8654b8e9a2138a416b4d754c6424f3bede855ec43398b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.4.md": {
+      "bytes": 27748,
+      "gitBlob": "67e681ef9e69df364d2c3ec18965a744c851ec1a",
+      "sha256": "dd26de76689f7867a18ded13d99d56c73d34f1d62d7e9f28762fb4455dbeb4e0"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.1.md": {
+      "bytes": 68799,
+      "gitBlob": "28d25682563487cec4dbdf48505106c04ae71632",
+      "sha256": "e1c07b1939f2d0e9e8f0b19cc1f18898c106408c8a736f96bf61a19f8182d98b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.2.md": {
+      "bytes": 4758,
+      "gitBlob": "9955ec50aed02cb67d0e60fe83f85a300de72bca",
+      "sha256": "7d64374426dfcd92ac6578bd6b09539953e6ccebfc07e9f85cf0f67897f2575c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.3.md": {
+      "bytes": 23030,
+      "gitBlob": "0e0f2a8ca230d9b2fe861a23a0d55bef820ea2c3",
+      "sha256": "28801b5cb439331dd0be9e6060a2dfcccd39cdf1c7b310290202e51f5c1f2008"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.4.md": {
+      "bytes": 22438,
+      "gitBlob": "78ac4b82491d01c79ecb98947f12bc77d037c298",
+      "sha256": "a0fca209940e00381712e340bba716c1ce2e275e738cfbdb94ae34e63f360ce4"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.1.md": {
+      "bytes": 4717,
+      "gitBlob": "29f88a5032fdd1f31ab7d9557944316bd24ee986",
+      "sha256": "034ddcae72b30e3cc3f8179cf03b4e13f661bee55d74e60cf634af0d019523ef"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.2.md": {
+      "bytes": 11459,
+      "gitBlob": "8753a421259b18c97f0befdddb24b9560002ccf9",
+      "sha256": "59a0ce76ef3d83cef3036f981bbf3c58dfd3d8c616f4a742490b09d70b481c6e"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.3.md": {
+      "bytes": 27507,
+      "gitBlob": "677b644d2df84719ec3d1b024fd2001c3f545a19",
+      "sha256": "f0b93ae2ab2916bc055da2abf119780a7036d4c85ffa05aa9c8b431d7f7c9ba0"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.4.md": {
+      "bytes": 27676,
+      "gitBlob": "418f743dab34dd884b735f3428f3b4cb5a09590b",
+      "sha256": "e7aefa3558e24a8fbdd89e39989cd2bcf61a6901fc266a1b9491ba23f9d97c22"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.1.md": {
+      "bytes": 27239,
+      "gitBlob": "3e43c7387195131fe320374360c5a9f5381591ca",
+      "sha256": "b44d95a73d94f8e7d4c55f9c3e748074fd1cfeb2a19e403d1e76b4853da68e38"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.2.md": {
+      "bytes": 60473,
+      "gitBlob": "6d05039fff11c2edbc9178c4ab107f696196f91b",
+      "sha256": "04b3eabe8c9de7a8361be0569e71c8fecf40c4aff0e7487edfb3315c91621bb3"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.3.md": {
+      "bytes": 16768,
+      "gitBlob": "cb47d1566923b868f50555991c7af7b14fd43d94",
+      "sha256": "a423db33f61a4c0e34f1a1f7799c4ab8e610dcc0cb79e3c77b512ab5275eddae"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.4.md": {
+      "bytes": 18678,
+      "gitBlob": "1886feae0a5bf7ce77eae4c227ecf1062e9cb46f",
+      "sha256": "dd7b08ab9c78d789935d07405215768e0a9226922acb6420d3b3b3467a11ed67"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.1.md": {
+      "bytes": 13539,
+      "gitBlob": "a67588657285d415bf0ce459290938d65d55554a",
+      "sha256": "b28e260772cc50fdd2fbc7b1d2222a76064883c7cd5ebfbab2ffa6d25322ccb1"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.2.md": {
+      "bytes": 21630,
+      "gitBlob": "d437354f942af2d7a5fa0183e281ad41bb959944",
+      "sha256": "d15aef32dc6c0f4ddee215e15f64cf20e90719610a435248f81e4372ca3e2688"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.3.md": {
+      "bytes": 7854,
+      "gitBlob": "b7347176e26fa7a59a3137100e1f0fed901f133f",
+      "sha256": "8b0c75c1e9cb3106427999a18d0b762e0175782e19b4c6cb4a21cf3914b7346f"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.1.md": {
+      "bytes": 14814,
+      "gitBlob": "c090daab25298b590f1d0e8d8d642cf1608b15d7",
+      "sha256": "b2417b277a03762cb6aef61887a76f11416775d0e6d75c4f4c0a68ec2775b230"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.2.md": {
+      "bytes": 6306,
+      "gitBlob": "11f5e81966c3e1ac7f3719a9340015535822648c",
+      "sha256": "723d085ee2326d46794569a98351cbe76c2637682e6091cf576c19f93d5372be"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.3.md": {
+      "bytes": 16260,
+      "gitBlob": "fbd71205fcc861860760a898bd6a789d51034bcc",
+      "sha256": "91889a98ad837629677befee6aa0698ba40ed2938b727f63f03d78cc457cd3b9"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.4.md": {
+      "bytes": 12593,
+      "gitBlob": "af696ffe94a88794c41af96aff1d7c91e10029f7",
+      "sha256": "1c0cefeace0aba4706ed4bcdcdbe3c2c6c188548d82df88cb0dcb89b9c99283a"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.md": {
+      "bytes": 56233,
+      "gitBlob": "d53edc2910116e5a7272f006328a875b004513d4",
+      "sha256": "f29def073da1c16fb707409f61129725defdd7ed4915fae6466db62d7338e65e"
+    },
+    "packages/protocol/docs/etna/rules/vectors/9.1.md": {
+      "bytes": 11961,
+      "gitBlob": "77cacf4a3dd871a7b43c6920d7ec6f8d13f1ba7c",
+      "sha256": "216d4098b8cb0940257f6ee88655ec83f5c8e54fb8771acc6d89d1cb497381cd"
+    },
+    "packages/protocol/docs/etna/rules/vectors/9.md": {
+      "bytes": 37221,
+      "gitBlob": "ee88d376b2a9797516eed4abf4314bd1efa976da",
+      "sha256": "fdcfda9d9165288c7e9df277f31dbf0105c423fae9c8155d2ad471d86d22f408"
+    },
+    "packages/protocol/docs/etna/rules/vectors/A.md": {
+      "bytes": 88322,
+      "gitBlob": "a03e4c79b7b2424a38947f8b0a6741c55e8d1e47",
+      "sha256": "ac1b17101580cf3b833c46659cd29e849f5cfa475138122e4680b0229e4ee60b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/B.md": {
+      "bytes": 33488,
+      "gitBlob": "f4c2432ae285ec616e8d5e23f8c18b8722fe21b4",
+      "sha256": "ef16451bb953e3704b88613512896ae0f3e99b999a1242ff1c446bf94fb5e071"
+    },
+    "packages/protocol/docs/etna/rules/vectors/C.md": {
+      "bytes": 13019,
+      "gitBlob": "47aeb7f9aaac9046050c6f3e3a9cdcad4ffbe2a6",
+      "sha256": "7c7d22b79a1b8d3d2f94328631f8888f473c5a046611523d07c9981173a815ec"
+    },
+    "testdata/etna_current_conformance/registry_admission.json": {
+      "bytes": 10435,
+      "gitBlob": "e29cf9b5236f1ea076261180adce52d0b24e9cb5",
+      "sha256": "529a76149e13424c05d12e4d8c6483fe19a02be2519c3af83f11eaace4c5a969"
+    }
+  },
+  "schema": "etna-source-snapshot-1"
+}

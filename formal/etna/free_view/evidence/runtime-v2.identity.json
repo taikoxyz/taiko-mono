@@ -1,0 +1,534 @@
+{
+  "schema": "etna-free-view-runtime-1",
+  "source": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "base": "03cdafc9f91e374e34bc654bacd6c197d317a918",
+  "kernelSha256": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+  "wrapperSha256": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+  "proofSha256": "8510c7ef22b10306735c09b261c6656be2fa673c24406b60dca1b0b0cdf22d88",
+  "coverStatus": "OPEN",
+  "completedSafetyClasses": 0,
+  "inconclusiveSafetyClasses": 12,
+  "safetyTimeSeconds": 540.753,
+  "classWitnessTimeSeconds": 47.732,
+  "candidateTimeSeconds": 1.631,
+  "totalWitnessTimeSeconds": 49.363,
+  "engine": {
+    "jarSha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "perClassTimeoutSeconds": 45,
+    "heapMiB": 512,
+    "workers": 1,
+    "seed": 1
+  },
+  "executionReceipts": {
+    "safe": "bb6ccdd00bff4c8b96a92d1a3f4eaf93ebf91c908e3246dc43fedd1765ae00c3",
+    "reach": "86edebcaf229e6a634f4691b5fa2dcde655f559afb95cc28b77d213d81511ce9",
+    "candidate": "900123b5bbf3a9e35ef85df26c724b659b5644a37a693b5c9cacae9bfc904398",
+    "pairs": "d7681675fbd1786a288c9075a2eba108c99c945cc9ddf0f01c3c4b54b3da903b",
+    "normal": "d47a126efef59d896b070e1c289a2a719f132635c2b7b6a484a0450fd85e988c",
+    "faults": "c177fc5ba69a9a4349d1ca61e0b22fb4d16fb23fff1566acc9576d97648ec0a8",
+    "restored": "4a98389ee1feaaa071292dfbbf5f34cbaa454695ab23b1ddd2ed5cb57497dfcc",
+    "coarseViewRed": "ad5191e65a85249fc9482ae7a86233ebed38f47790fb42928eb1e186d5d105a0",
+    "truthBitsV1Green": "d2f4fe71d4698b083231fb61ddffcc008c720379199dbbb92062e0c705f83d9c",
+    "unfilteredClassRed": "bb0b6cda9c16af8fc15f6547aa3dfafeb48d617c775e11334643de5b399f8bbd"
+  },
+  "privateProducers": {
+    "pairs": {
+      "commandSha256": "c1756b3c88f2b3ee26c216666820df575f92637fa5b0873cda1309542868db9d",
+      "runnerLogSha256": "cc559764ac4728124c376b4a939c8b67c91d7e77df84949b7fc39efa1697c942",
+      "resultsSha256": "899b80f187e52a47a44c71eb80d2c4d41f97a6f2fe6a53e80669fb105ddae62a",
+      "packetSha256": "53174664e46f7f8db02c617a94c19a5947c4a52b04f1d3c743337be10dd95e2d",
+      "inputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateExitEarly.tla": "4c44a795b69e9c4a1f6e41d7007f055fa63dcf0b3998c6e0baa4da4dba59839a",
+        "formal/etna/PrivateExitLate.tla": "f19bdeb8a00aa4c847e60de9bc13c253d012fc8ef30717d5266ddb76ad45162d",
+        "formal/etna/PrivateFallbackAll.tla": "7a0bb9a3a1c55f13b4d860770a854ac9001d25166bd73b15ee3ad79dc9800177",
+        "formal/etna/PrivateFallbackF0.tla": "0db51d5e90d7c5838f2529b8a0b83dc3677fa59ceb96fdac406d0866bbbeb0e5",
+        "formal/etna/PrivateFallbackF1.tla": "96153d004a190c7096564b0346d521c00bf827cb16d6baa2e8cf74be6cae6e9d",
+        "formal/etna/PrivateFallbackF2.tla": "94d442867903d469a14252a015b06ee2925bfd43f1b035fea3571fc61d620bb5",
+        "formal/etna/PrivateFallbackF3.tla": "f17506182953527f04e0f87614c789a180adef8450e5ee9fed6a4ca27d347146",
+        "formal/etna/PrivateSnapEffects.tla": "639987f7dc7ecadb52932f177aa3be96ad6625d8a8dd2f9c204a1ced51b23528",
+        "formal/etna/PrivateSnapRevert.tla": "f6c2958a927f36cc3315a6f6662c44a6f45274c2f15790f351c33fd51df80154",
+        "formal/etna/PrivateStakeAll.tla": "1ecc5439028a84d38ed6368ae305e95e8a94918f07eb64824760be44d6c3c630",
+        "formal/etna/PrivateStakeLess.tla": "681c0df496471b05efb0a476ec84c41674fdb68958c62410fbbf304d60bc3d8d",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/exit_early.cfg": "07876370e332a22620333d40178225a2b53a21b43b1f724445868194769fb5b1",
+        "formal/etna/configs/exit_late.cfg": "f48f12a1bf4e2679946acd3fc8dbe203838da7e217989f44b071fa01c9c0a6ff",
+        "formal/etna/configs/fallback_all.cfg": "62298b88ea995892fce4d1fb0353c6100737131867b40fcbbb1e7554bd2d8564",
+        "formal/etna/configs/fallback_f0.cfg": "51786eb7a3ae7552db854298608e1d056de5d578c545a71c76e6b08f113d11cb",
+        "formal/etna/configs/fallback_f1.cfg": "a760b1a1bf1a775fe56d0801853bbadde9bf517d56b538f0ac4ae53bdbb5a0d5",
+        "formal/etna/configs/fallback_f2.cfg": "3fc53a01c85ca4ff81daab2e1dd9e7161b877d938b4f5e8c994954e0b8161919",
+        "formal/etna/configs/fallback_f3.cfg": "f9c21b714affad04a0577ec2c59f58618c8c6ce4dda0c0936f229d23a3847ae6",
+        "formal/etna/configs/snap_effects.cfg": "269465d399ffc7dd175cba33d3945d7047d9944695eb7bae16d73360a8671f0d",
+        "formal/etna/configs/snap_revert.cfg": "ffac4e9fc627d397ac6c882a23ac2f9c2d05c315c21e8d7596e2e0a31ab7b91f",
+        "formal/etna/configs/stake_all.cfg": "4a1ef8aae0e0590db1bab98e2b1bfbd45e22626526f75b77d66bbaac5b2e508c",
+        "formal/etna/configs/stake_less.cfg": "b1154634f7e52c0981827efbb91c633055bfe644caf6809e728a942b270f0d22"
+      },
+      "caseLogSha256": {
+        "exit_early": "6abd5b6b870c1836aa979a0c2efbf6e76900bf216fd5f1cf27f049d28c5b028b",
+        "exit_late": "a89d08931873da1e54c8f5e16707788ce4ea493790d8986aa0b27e7f96b330fe",
+        "fallback_all": "c4fcd38930bafa678f2e6d5fc5ae2b9f7637bcaf24afb2653d44a73de1f84635",
+        "fallback_f0": "8284395d10351830c9b927ce0c6d240f0e76e5dd05cc92d45dc246ae1c92d93b",
+        "fallback_f1": "8c5a8721dd0b0ad39f2c5d4a85a87ad27c0a51b3e718a5bd3d52a65258e973f6",
+        "fallback_f2": "0266ec8bed4e511246f98bc3d6bb3dcb1acf590d0e974a9a715843e4c18248fa",
+        "fallback_f3": "bb3c1fd390e4b9393af5a7a1684d100c95bac54ed3d8f5c911166afd21afdbbb",
+        "snap_effects": "c4f3dfde0c1053ad89628c9326a24ac127088ea2d932e73e379cf00c36d05cad",
+        "snap_revert": "36aeb6fb9aad25521fc8140ed05b2d2088710b6f72d852c2f6459535475acc4b",
+        "stake_all": "bbaeac1d1fc69886ddc7aba001be82a14e1b36764e365bc4e824df5d4fe66f3e",
+        "stake_less": "5d443cd251ed0d85a365886bba0d94ea48c1341f0b5b8578a0e912b324e9ad23"
+      }
+    },
+    "normal": {
+      "commandSha256": "cc9a877a22fb57b3f02c6f10afb9fb5bd8fb143070f2ca346a7ece23428e2feb",
+      "runnerLogSha256": "0c5797060a8ae2c8c7fffb775fb274e52383925739143e4b50a48b2afa20564f",
+      "resultsSha256": "b8f1f7a5d3dcb88262d510962ac905d51e2785fb99ec298a4266f07724e8da86",
+      "packetSha256": "2f522d174c1a929a85d529df85d2713e1ba17eb93d52bf19d6f81acf861aa72a",
+      "inputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateExit.tla": "58caa6d1c014fda52092c6acd4afc93254d43bc80ce944e0a1fea5329b9c8ca1",
+        "formal/etna/PrivateParent.tla": "8cc5a7b7c7bae306f40b70c660140e31845bc0165dc9836a3a17251faaeab26d",
+        "formal/etna/PrivateSaved.tla": "289219e0905118a84ea5f9c2f15c4f4d2525f1cfd06287fbda198c713bfb0335",
+        "formal/etna/PrivateSnapshot.tla": "d37939174083ba6cb9f9321a46ea30765da62c59a5b0ae761fedd6cebe5f190e",
+        "formal/etna/PrivateStored.tla": "ddd76ba0cee528ced8faacb0322ae9e2fca1c4432213244f48edbb5261ad022b",
+        "formal/etna/PrivateVotes.tla": "a20f59dd3e47cf81e3024f027c6a92619106763a964e8400ba1ea0daacabaf55",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/exit.cfg": "2eff33b8d46640d401df8a652f53a09ae046a39419fe92e23b68e29e1420860b",
+        "formal/etna/configs/parent.cfg": "76438f4af740b91d6f9c1ab16ad0563b243c222e95a0f460642e989cfe1c0850",
+        "formal/etna/configs/saved.cfg": "c363d49976db534d757140ea675e044d5515b4a929795b5cae14f1440db839c9",
+        "formal/etna/configs/snapshot.cfg": "8be20e4c24ec64e8780cbf7e95651ab68aa4c73f571d2cc64f36f7a54c20ba78",
+        "formal/etna/configs/stored.cfg": "d0b0dc4d45055b6fb4b0dc7d4de94e1957bf508fd34a0305d229108d760a28e7",
+        "formal/etna/configs/votes.cfg": "a0f6c1ae279c78d91531e99b02dc587549373482fff35a6d25ea74b400565496"
+      },
+      "caseLogSha256": {
+        "exit": "ac3866e1953f16961896bd5638b4d031c4e6b4de7947251a499b8aa776c9ceaa",
+        "parent": "3d28da7ba5744e6a25c40d9fa256d7529e6d6f5af233e3eceaa85726383164fc",
+        "saved": "41734a6442acdd40b8912794321461f4d6cec6ff3b00cb0dabf2673fc0adbbda",
+        "snapshot": "c6da99180eb444189cc08edb10abd8a92919166d3b4e526a5af9bf8ea56edaf6",
+        "stored": "5aa2562ff8bafa82aefb1a52882650966ff4f2cd5efca46fe3196caf6bb72fe2",
+        "votes": "be7f32ebb7e947a15138cabb117078c751153b0566274460b0b889d47093e8d1"
+      }
+    },
+    "faults": {
+      "commandSha256": "90bce03c690953a6d9ae211cb5da5a77ae41d01c616598c29e65584e08726453",
+      "runnerLogSha256": "5a87dac5d7813ec759eaa6778baad0d5d67cd989b889f213bb0a502426a2a228",
+      "resultsSha256": "8c5dbcb6b5b436eed6728de71ec461ac053cb01af00734d29b781403f115ad13",
+      "packetSha256": "d565644adcae700a1d4a25454a9b567672d901513275926a5f7b008495e5d833",
+      "inputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateExit.tla": "a53b4e9800b9f13ff5d79112578effe5ea76e03dd793a8a1deefbf5c2810d557",
+        "formal/etna/PrivateParent.tla": "14d0f67dd803680e51ba87ac1d5498b9d70a59b152e26bf6455b00eaf0bb4c4b",
+        "formal/etna/PrivateSaved.tla": "ea459a33199beb8dc4de56b91c0bd4c2174e50fb004e7c59b1791a93ca4463d8",
+        "formal/etna/PrivateSnapshot.tla": "4050f27c6b9ee972503580933c566a16503719db79e6ae9d03b4f2a05d2fff99",
+        "formal/etna/PrivateStored.tla": "f52935618edc07ab7a72e5adc5cda3b1aee7ce524447c307b09139d16eaddbbb",
+        "formal/etna/PrivateVotes.tla": "ef628da13905e22718036752d2788735647dc08e2b2fb5b0b4ada250a5f3c0ae",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/exit.cfg": "0ace35c4d144536f17192b0c4039cd11cc8ff1522864f8b714911518f6f655db",
+        "formal/etna/configs/parent.cfg": "f185bfc0bf007f9f5fa4ea95b21af534984bbf1a306cde09199ea2171ac8418f",
+        "formal/etna/configs/saved.cfg": "e58aa5b71578ec22e6b866f4bb0ec075d59df7c418c101f443c2e04ad5073127",
+        "formal/etna/configs/snapshot.cfg": "929718467e7bbd3df2a0ff1affb742dc12cf16119e5911646cda6bfacdc70a5f",
+        "formal/etna/configs/stored.cfg": "b83205c96a464e5884cebb6130366afb85ebdec127a77c7910a237830a955b51",
+        "formal/etna/configs/votes.cfg": "18ff1a7d194fe67ea9f7b8b256715fcbcf04414dfb1f410526a1d2be92b2d9c0"
+      },
+      "caseLogSha256": {
+        "exit": "e2e6237c879813e92b72a94ab3f5e568826b876e0fd4da53d36a517034991638",
+        "parent": "aa1ce75e44a2e6621e501cc8953794e0cecc217b89d4ae27e1515a962d3b116c",
+        "saved": "c2b236677a36586c34b1309bbda7036b8978d8676e7c49267ebcb2d514656b74",
+        "snapshot": "3985156997d5d0b78a3d36579b28e174376a1347fe611cdd116d70896cc15bd9",
+        "stored": "2b60cac8beef30226ef063d3592f4be089b502b2c1d077c85f79da4ecfd0b218",
+        "votes": "91de6ac9535213579d8a36d6c7f0015084f11456fbf5b0f94351ddf80af5789f"
+      }
+    },
+    "restored": {
+      "commandSha256": "debeeda5f22f21210157de71efdf61bb59b887c66e44f0dec8012c1c3a96efee",
+      "runnerLogSha256": "47ffeb940d57bcafd6c41d64ab6af036d24b4e0c533aa4acecd3d115e35a2ded",
+      "resultsSha256": "badc3e6ba55bfc8cd0d5bff927a188d9a0fea24bb3533be0c6ed6ffef1800f6f",
+      "packetSha256": "2f522d174c1a929a85d529df85d2713e1ba17eb93d52bf19d6f81acf861aa72a",
+      "inputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateExit.tla": "58caa6d1c014fda52092c6acd4afc93254d43bc80ce944e0a1fea5329b9c8ca1",
+        "formal/etna/PrivateParent.tla": "8cc5a7b7c7bae306f40b70c660140e31845bc0165dc9836a3a17251faaeab26d",
+        "formal/etna/PrivateSaved.tla": "289219e0905118a84ea5f9c2f15c4f4d2525f1cfd06287fbda198c713bfb0335",
+        "formal/etna/PrivateSnapshot.tla": "d37939174083ba6cb9f9321a46ea30765da62c59a5b0ae761fedd6cebe5f190e",
+        "formal/etna/PrivateStored.tla": "ddd76ba0cee528ced8faacb0322ae9e2fca1c4432213244f48edbb5261ad022b",
+        "formal/etna/PrivateVotes.tla": "a20f59dd3e47cf81e3024f027c6a92619106763a964e8400ba1ea0daacabaf55",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/exit.cfg": "2eff33b8d46640d401df8a652f53a09ae046a39419fe92e23b68e29e1420860b",
+        "formal/etna/configs/parent.cfg": "76438f4af740b91d6f9c1ab16ad0563b243c222e95a0f460642e989cfe1c0850",
+        "formal/etna/configs/saved.cfg": "c363d49976db534d757140ea675e044d5515b4a929795b5cae14f1440db839c9",
+        "formal/etna/configs/snapshot.cfg": "8be20e4c24ec64e8780cbf7e95651ab68aa4c73f571d2cc64f36f7a54c20ba78",
+        "formal/etna/configs/stored.cfg": "d0b0dc4d45055b6fb4b0dc7d4de94e1957bf508fd34a0305d229108d760a28e7",
+        "formal/etna/configs/votes.cfg": "a0f6c1ae279c78d91531e99b02dc587549373482fff35a6d25ea74b400565496"
+      },
+      "caseLogSha256": {
+        "exit": "663af6651c85fa2b5f3bc0e76f43d47de5060cf3ed8ef5b3408f063ed66b5c2d",
+        "parent": "b4659cd515f20c4131dd62f46f1c4b71377f05a27b8b2fba82f11c2caf0e126b",
+        "saved": "a18fc94402be28e1563e352bd47818d0025c1ce3770a32aeb28d767ddb57e35f",
+        "snapshot": "7ac7c3cd5b9cfd72f93cd7dc7924e3d50185cc15db6ab71c7f6984cf4b3bd6ba",
+        "stored": "574246dac9c5f5dc9b135c8c179050d618817e9367f837249a950e136fc9c392",
+        "votes": "1660958f59ab43f14daf14a5e113bfb3df7cf16df4489fc385a770a0aeac0d1f"
+      }
+    }
+  },
+  "privateRestoration": {
+    "normalPacketSha256": "2f522d174c1a929a85d529df85d2713e1ba17eb93d52bf19d6f81acf861aa72a",
+    "restoredBytesSha256": "2f522d174c1a929a85d529df85d2713e1ba17eb93d52bf19d6f81acf861aa72a",
+    "equalInputInventories": [
+      "normal",
+      "restored"
+    ],
+    "inputFileCount": 15
+  },
+  "historicalDiagnostics": {
+    "coarseViewRed": {
+      "commandSha256": "2c4206fa7d8857157850a6cad2683332fc89b09f96ee2be26d0fb368bd5dd6df",
+      "runnerLogSha256": "b1d4d21506b473606ae28d5bd0c09eff5f371dc9da8c1fa8d688507452938807",
+      "resultsSha256": "803fd0001076d743a5aba0c56c7f915a3e2252aa620074b226a12392ae5852f7",
+      "selectedInputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "1a76d934a2bbd86320894776ea154a3f6c625a718288e40d576948df18daf408",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateRed.tla": "4ef84edaa28c880d3c5fd5b0687e6118e034604b5a8ade5ca89597fa71565a37",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/private-red.cfg": "373af8b0d173b1ca988f4344fd543cbe4e4931f8f9d85db2c3633d7821ee1383"
+      },
+      "case": "private-red",
+      "expectedInvariant": "QuorumSafe",
+      "detected": false,
+      "tlcExitCode": 0,
+      "rawLogSha256": "c4e22666babc25d242af0924e7da30825ddaf4ddda836a518d39262107d8db43"
+    },
+    "truthBitsV1Green": {
+      "commandSha256": "34286d9a0f6f1bf7f14c0f34fc3bd27391023f4b2b6e2afe7e0fbaef8dc073d6",
+      "runnerLogSha256": "ae28e49a02ce900bcc426fc1aaa7ee59db7ef5e029b070d70f7d79559ecf8ba5",
+      "resultsSha256": "e7d1035d6c404f7f478c1ce690dd885b4b800db3388c2d12db534cc49f37062c",
+      "selectedInputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "1a5e6220db41a339d6212b10de8620441f5b7365c985acd19347d47163f2a246",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/PrivateRed.tla": "4ef84edaa28c880d3c5fd5b0687e6118e034604b5a8ade5ca89597fa71565a37",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/private-view-diagnostic.cfg": "373af8b0d173b1ca988f4344fd543cbe4e4931f8f9d85db2c3633d7821ee1383"
+      },
+      "case": "private-view-diagnostic",
+      "expectedInvariant": "QuorumSafe",
+      "detected": true,
+      "tlcExitCode": 12,
+      "rawLogSha256": "3c765bf0eeb5e7a2c63688ed1f2c7fd9a74190dd9513ef3ec20d7ea0f9ef4eba"
+    },
+    "unfilteredClassRed": {
+      "commandSha256": "92f24608db0cf1ad9536e096cdc4137cfdeabe331e462ce4a6e50ed240ddbc86",
+      "runnerLogSha256": "0329c2c48191c04fb6ecda6d7d410d487731f132c3ab2ad9fd54d6f36f57a65d",
+      "resultsSha256": "d2807b69ffbaeb3c7db207431dc7e1ffd48bb35b049a9e36ae1c38dd8317b8ba",
+      "selectedInputSha256": {
+        "formal/etna/EtnaL2CommitteeFreeView.tla": "e7d4eb4ed366d4abe02fede89c24905288ce33f011ba8bd7008e34e85b87527a",
+        "formal/etna/EtnaL2CommitteeRecovery.tla": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+        "formal/etna/check.py": "96215826d1be8706071453bf5309a946795b6009e0a2c124842309982db1641d",
+        "formal/etna/configs/private-cover-red.cfg": "fe1fc820db2b13ebe31b8ba02b76a7f06156a5c2652d3c41d10341b01187f835"
+      },
+      "case": "private-cover-red",
+      "expectedInvariant": "InputClassSafe",
+      "detected": true,
+      "tlcExitCode": 12,
+      "rawLogSha256": "115fd9758a2cfc9f74636f13d59aa42be1c554f2a33a01debbc48ca1e546aa2c"
+    }
+  },
+  "files": {
+    "safe-v2.results.json": "a4590c38f3e4dc2d606f4150ed344d1146cafc2a5f6db6cf1934a7081b804704",
+    "l2fv-safe-l0-m2-3.log": "b47469b546acbcbc5ef9d5a9eb3434647e73923f73e47187bdb63985654fc0b8",
+    "l2fv-safe-l0-m2-4.log": "4fbad8f7e80ab159d0ccfd1b79562c5804bb28dab70dc31588b23a165a8be098",
+    "l2fv-safe-l0-m4-2.log": "a90528cc3c439f242c739e796e59a2004add2e1988af252697bad40d141f35af",
+    "l2fv-safe-l0-m4-3.log": "912aff8eed62bcd9fbb587166f7ec09ceeacc126b444b8edd371e9a4adee5e6b",
+    "l2fv-safe-l1-m2-3.log": "f2b0a617fe69778e470a841b2c19d30f8c0752c5930c7f54bd948ccc12af987e",
+    "l2fv-safe-l1-m2-4.log": "884e145ab7d3bb08ded4bd6b9721fdc8529e993d22de2ad5687d33fe0d63f4ee",
+    "l2fv-safe-l1-m4-2.log": "956d523565563b49887e68709b61edba6b8833c81aa4266366ed23d37212158d",
+    "l2fv-safe-l1-m4-3.log": "f5803509f752233ba77019db53c539bb6bc5f80e72e201fdda28ca43b5b08061",
+    "l2fv-safe-l2-m2-3.log": "32cacf61e26f931d301401f2491b2dbd2a9acaea828d524d70c29a94db7f7011",
+    "l2fv-safe-l2-m2-4.log": "c7ff3d528ae7289235e23e53c33c65e8b384bd6d19e8495054e1bf88bf64d674",
+    "l2fv-safe-l2-m4-2.log": "0dfb4db637ce44e4cc08785d732efc6970d392818431b0d38ba57e552f528a79",
+    "l2fv-safe-l2-m4-3.log": "d5ad5dce27d0622e67e359fd0831bd6a8a1cdf45006159899955efdb5bfd682e",
+    "reach-v2.results.json": "9da48b8285abbfc2738aef7da2d269add36e96044cefe669d00c77ad58eec961",
+    "candidate-v2.results.json": "bfa56efb182fbfc78de87d7bd8787782138dfb0b564cd0a79ec5205ab9df3ce8",
+    "independent-pairs.txt": "c03df874c0bbd3c51d4c3bea349d57c6a00ab149f35749666a6879ad91abf6ed",
+    "independent-normal.txt": "4190796be88410e2787848a2984b93e1c7e4eaff05012fcd11daa4eb38bc63b0",
+    "independent-faults.txt": "3f765b63902e2a9fc9c2d7bfd37f4d399bcadd4039845414333d5cb14557bb0a",
+    "independent-restored.txt": "9f9adbee34db5f98f677a194fd49f09832cd0c4977d44672e2dc18e767ed652e",
+    "independent-reach.txt": "bbda9c6a31c3a3389d863d0e774af2cf8d36181c9ab73817a0255532e0140831",
+    "independent-safe.txt": "d1f2cf136da3b6b4e89876ef53d8590b6667928423c23051ba0fe3bfb3bb46a9",
+    "independent-candidate.txt": "27f7f7ae46321bd99da63f2e6daccea5b77200318fbbd7d8b8b0487de24a20fa"
+  },
+  "originalRawLogSha256": {
+    "l2fv-safe-l0-m2-3": "b47469b546acbcbc5ef9d5a9eb3434647e73923f73e47187bdb63985654fc0b8",
+    "l2fv-safe-l0-m2-4": "4fbad8f7e80ab159d0ccfd1b79562c5804bb28dab70dc31588b23a165a8be098",
+    "l2fv-safe-l0-m4-2": "a90528cc3c439f242c739e796e59a2004add2e1988af252697bad40d141f35af",
+    "l2fv-safe-l0-m4-3": "912aff8eed62bcd9fbb587166f7ec09ceeacc126b444b8edd371e9a4adee5e6b",
+    "l2fv-safe-l1-m2-3": "f2b0a617fe69778e470a841b2c19d30f8c0752c5930c7f54bd948ccc12af987e",
+    "l2fv-safe-l1-m2-4": "884e145ab7d3bb08ded4bd6b9721fdc8529e993d22de2ad5687d33fe0d63f4ee",
+    "l2fv-safe-l1-m4-2": "956d523565563b49887e68709b61edba6b8833c81aa4266366ed23d37212158d",
+    "l2fv-safe-l1-m4-3": "f5803509f752233ba77019db53c539bb6bc5f80e72e201fdda28ca43b5b08061",
+    "l2fv-safe-l2-m2-3": "32cacf61e26f931d301401f2491b2dbd2a9acaea828d524d70c29a94db7f7011",
+    "l2fv-safe-l2-m2-4": "c7ff3d528ae7289235e23e53c33c65e8b384bd6d19e8495054e1bf88bf64d674",
+    "l2fv-safe-l2-m4-2": "0dfb4db637ce44e4cc08785d732efc6970d392818431b0d38ba57e552f528a79",
+    "l2fv-safe-l2-m4-3": "d5ad5dce27d0622e67e359fd0831bd6a8a1cdf45006159899955efdb5bfd682e",
+    "l2fv-reach-l0-m2-3": "2e0b0737764aeb33e5c678139724edb28958cc1cecd725c9f29f6f169a5f98bd",
+    "l2fv-reach-l0-m2-4": "dbf7e1cacfe3490ef01bc3b729fa8e2a1f3fc6a7f6da5c706d7fe6f29d5fc409",
+    "l2fv-reach-l0-m4-2": "8d062a49728b61e7db7124f3b3de591f35bb8fea163cda5c626476f61aa34c0e",
+    "l2fv-reach-l0-m4-3": "8de4d319f2d3770cc15c0a8f6d5c8d7e5342f38f969aa0148950a1f9c3927e80",
+    "l2fv-reach-l1-m2-3": "fb1de657cc6acbde536e4786c5563425083ddc7655e4dab5addbe2dca20e7a51",
+    "l2fv-reach-l1-m2-4": "a3332fc2723950319930682ee8ede0c40cadabe21984f17dfb648a0e8747df93",
+    "l2fv-reach-l1-m4-2": "5c4009cccc4ea9a1cb0e367169526895999c77e8906db05a2f8ffa8d49cd4370",
+    "l2fv-reach-l1-m4-3": "ef7319c6cdd19e10b4a6a036e2ef4d5d09018067d4559aef740e3617a488aae8",
+    "l2fv-reach-l2-m2-3": "5b8af6c0efc0501f039013340394d96d06fa4d3f39a64c731ce85b5415116339",
+    "l2fv-reach-l2-m2-4": "e8b7f10bf51ca9cf146552696d37838fa75cb020823d6ff636366a124baadb20",
+    "l2fv-reach-l2-m4-2": "31b2669b3a77d6e49f9301792b6986125432ec2c675f062e2f3e9738909d3334",
+    "l2fv-reach-l2-m4-3": "d507b03a2fae7203647d3b546dd447902654e31d368bebad197eb464507f3dfe",
+    "l2fv-reach-candidate": "ec9dd5c962ea8e5306338833ba685677460ba9948f09853f014fc7bf51249758"
+  },
+  "rawRetention": "timeout logs checked in; original successful raw traces and receipts retained in local immutable runtime ledger; default witness CI produces separate exact-source hosted artifacts",
+  "independentReadback": {
+    "pairs": {
+      "receiptSha256": "a209c8157020193eac42279f9472ddddf29c9f52a648cc220fe343ce604b9cfd",
+      "outputSha256": "c03df874c0bbd3c51d4c3bea349d57c6a00ab149f35749666a6879ad91abf6ed",
+      "inputsSha256": {
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529",
+        "reader/reader.py": "133719ae5622cc752d4b7426c574b8ee79b26b1868a8be5d7fe1216c073c2ce9",
+        "reader/oracle.json": "6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31",
+        "data/stake_all.log": "bbaeac1d1fc69886ddc7aba001be82a14e1b36764e365bc4e824df5d4fe66f3e",
+        "data/snap_effects.log": "c4f3dfde0c1053ad89628c9326a24ac127088ea2d932e73e379cf00c36d05cad",
+        "data/stake_less.log": "5d443cd251ed0d85a365886bba0d94ea48c1341f0b5b8578a0e912b324e9ad23",
+        "data/fallback_f3.log": "bb3c1fd390e4b9393af5a7a1684d100c95bac54ed3d8f5c911166afd21afdbbb",
+        "data/fallback_f0.log": "8284395d10351830c9b927ce0c6d240f0e76e5dd05cc92d45dc246ae1c92d93b",
+        "data/fallback_all.log": "c4fcd38930bafa678f2e6d5fc5ae2b9f7637bcaf24afb2653d44a73de1f84635",
+        "data/snap_revert.log": "36aeb6fb9aad25521fc8140ed05b2d2088710b6f72d852c2f6459535475acc4b",
+        "data/exit_late.log": "a89d08931873da1e54c8f5e16707788ce4ea493790d8986aa0b27e7f96b330fe",
+        "data/fallback_f2.log": "0266ec8bed4e511246f98bc3d6bb3dcb1acf590d0e974a9a715843e4c18248fa",
+        "data/fallback_f1.log": "8c5a8721dd0b0ad39f2c5d4a85a87ad27c0a51b3e718a5bd3d52a65258e973f6",
+        "data/exit_early.log": "6abd5b6b870c1836aa979a0c2efbf6e76900bf216fd5f1cf27f049d28c5b028b"
+      }
+    },
+    "normal": {
+      "receiptSha256": "4dec86ff790e966ec8aad36d0b8d4e9f9292a66ad71aa1f8eecddd05956a1860",
+      "outputSha256": "4190796be88410e2787848a2984b93e1c7e4eaff05012fcd11daa4eb38bc63b0",
+      "inputsSha256": {
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529",
+        "reader/reader.py": "133719ae5622cc752d4b7426c574b8ee79b26b1868a8be5d7fe1216c073c2ce9",
+        "reader/oracle.json": "6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31",
+        "data/votes.log": "be7f32ebb7e947a15138cabb117078c751153b0566274460b0b889d47093e8d1",
+        "data/exit.log": "ac3866e1953f16961896bd5638b4d031c4e6b4de7947251a499b8aa776c9ceaa",
+        "data/parent.log": "3d28da7ba5744e6a25c40d9fa256d7529e6d6f5af233e3eceaa85726383164fc",
+        "data/stored.log": "5aa2562ff8bafa82aefb1a52882650966ff4f2cd5efca46fe3196caf6bb72fe2",
+        "data/saved.log": "41734a6442acdd40b8912794321461f4d6cec6ff3b00cb0dabf2673fc0adbbda",
+        "data/snapshot.log": "c6da99180eb444189cc08edb10abd8a92919166d3b4e526a5af9bf8ea56edaf6"
+      }
+    },
+    "faults": {
+      "receiptSha256": "733a1be7bbca39d6d104ffde0f100969f26e7ec1db48d808de1f95423bec12ba",
+      "outputSha256": "3f765b63902e2a9fc9c2d7bfd37f4d399bcadd4039845414333d5cb14557bb0a",
+      "inputsSha256": {
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529",
+        "reader/reader.py": "133719ae5622cc752d4b7426c574b8ee79b26b1868a8be5d7fe1216c073c2ce9",
+        "reader/oracle.json": "6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31",
+        "data/votes.log": "91de6ac9535213579d8a36d6c7f0015084f11456fbf5b0f94351ddf80af5789f",
+        "data/exit.log": "e2e6237c879813e92b72a94ab3f5e568826b876e0fd4da53d36a517034991638",
+        "data/parent.log": "aa1ce75e44a2e6621e501cc8953794e0cecc217b89d4ae27e1515a962d3b116c",
+        "data/stored.log": "2b60cac8beef30226ef063d3592f4be089b502b2c1d077c85f79da4ecfd0b218",
+        "data/saved.log": "c2b236677a36586c34b1309bbda7036b8978d8676e7c49267ebcb2d514656b74",
+        "data/snapshot.log": "3985156997d5d0b78a3d36579b28e174376a1347fe611cdd116d70896cc15bd9"
+      }
+    },
+    "restored": {
+      "receiptSha256": "d061b2107737d7ee590a02d185664dfbf77a040a2e3e2e7b8065842a472bab75",
+      "outputSha256": "9f9adbee34db5f98f677a194fd49f09832cd0c4977d44672e2dc18e767ed652e",
+      "inputsSha256": {
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529",
+        "reader/reader.py": "133719ae5622cc752d4b7426c574b8ee79b26b1868a8be5d7fe1216c073c2ce9",
+        "reader/oracle.json": "6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31",
+        "data/votes.log": "1660958f59ab43f14daf14a5e113bfb3df7cf16df4489fc385a770a0aeac0d1f",
+        "data/exit.log": "663af6651c85fa2b5f3bc0e76f43d47de5060cf3ed8ef5b3408f063ed66b5c2d",
+        "data/parent.log": "b4659cd515f20c4131dd62f46f1c4b71377f05a27b8b2fba82f11c2caf0e126b",
+        "data/stored.log": "574246dac9c5f5dc9b135c8c179050d618817e9367f837249a950e136fc9c392",
+        "data/saved.log": "a18fc94402be28e1563e352bd47818d0025c1ce3770a32aeb28d767ddb57e35f",
+        "data/snapshot.log": "7ac7c3cd5b9cfd72f93cd7dc7924e3d50185cc15db6ab71c7f6984cf4b3bd6ba"
+      }
+    },
+    "reach": {
+      "receiptSha256": "c5b419d05c2ff1a82eded76d0e495e32cac2b0d14fb775d6da4e13c4a9b47853",
+      "outputSha256": "bbda9c6a31c3a3389d863d0e774af2cf8d36181c9ab73817a0255532e0140831",
+      "inputsSha256": {
+        "data/l2fv-reach-l0-m2-3/config.cfg": "ed203412a3a32dd3e1f0fb2c62bef1661385e3a1aba57dd5bcefb6f05972953b",
+        "data/l2fv-reach-l0-m2-3/row.json": "2746f9fa4a573d9ecf7a7cd6d41e6c52d17010fae60c38b48e4a115e7630296c",
+        "data/l2fv-reach-l0-m2-3/tlc.log": "2e0b0737764aeb33e5c678139724edb28958cc1cecd725c9f29f6f169a5f98bd",
+        "data/l2fv-reach-l0-m2-4/config.cfg": "0c84175569930aef8ea9645f5a794a5a4f4e78bd5fffe36e54b1d6e190da0c90",
+        "data/l2fv-reach-l0-m2-4/row.json": "f4db22da421e2cbf81d1565ff407531a1db2d6827897b98e8279548fdf11bb40",
+        "data/l2fv-reach-l0-m2-4/tlc.log": "dbf7e1cacfe3490ef01bc3b729fa8e2a1f3fc6a7f6da5c706d7fe6f29d5fc409",
+        "data/l2fv-reach-l0-m4-2/config.cfg": "68a56dfeaa07e97085b9111f08ede7702610973a9feb8def5824ff62164b6262",
+        "data/l2fv-reach-l0-m4-2/row.json": "5cb9d7de86a3e36f8addf1fb1107e67b367610fe01b44f50b81206e8b2327af8",
+        "data/l2fv-reach-l0-m4-2/tlc.log": "8d062a49728b61e7db7124f3b3de591f35bb8fea163cda5c626476f61aa34c0e",
+        "data/l2fv-reach-l0-m4-3/config.cfg": "392b30abed23da34a08a2bfdf19924be06c55167a0a289fb28adf2d241896f69",
+        "data/l2fv-reach-l0-m4-3/row.json": "9188ff26e93c374e0ec748b7e994fb2fa9f2f31974a15984f051cedfcdc15b08",
+        "data/l2fv-reach-l0-m4-3/tlc.log": "8de4d319f2d3770cc15c0a8f6d5c8d7e5342f38f969aa0148950a1f9c3927e80",
+        "data/l2fv-reach-l1-m2-3/config.cfg": "5460157e219b0205f5abe3f377a53b5414f66511532d7a433de48c87c68d5318",
+        "data/l2fv-reach-l1-m2-3/row.json": "3f56a3d442dc14c48ddc07707d5a1e4812c6172b84ce77b84707134b8a6e973e",
+        "data/l2fv-reach-l1-m2-3/tlc.log": "fb1de657cc6acbde536e4786c5563425083ddc7655e4dab5addbe2dca20e7a51",
+        "data/l2fv-reach-l1-m2-4/config.cfg": "efe7f92e61bb28211d44220817b9cea218e2a342b44130ed1f84f5dd8ecfa29a",
+        "data/l2fv-reach-l1-m2-4/row.json": "b93032e32902240179bbe6d76c3a6d831f339d23c94ef9fc80021051431ebb1a",
+        "data/l2fv-reach-l1-m2-4/tlc.log": "a3332fc2723950319930682ee8ede0c40cadabe21984f17dfb648a0e8747df93",
+        "data/l2fv-reach-l1-m4-2/config.cfg": "517a3ef9559ae3648aaff2b90fcf4a6da020d24710c992a890d3f2200de6d17e",
+        "data/l2fv-reach-l1-m4-2/row.json": "96c5b97960bebc110ff777b2b57b28768f441a060d17ce9de2186c4135f60c75",
+        "data/l2fv-reach-l1-m4-2/tlc.log": "5c4009cccc4ea9a1cb0e367169526895999c77e8906db05a2f8ffa8d49cd4370",
+        "data/l2fv-reach-l1-m4-3/config.cfg": "8bb493ffaf691af7ce64a2fc261aea7c59da41aaa35c14c3b09df732a0b0fb68",
+        "data/l2fv-reach-l1-m4-3/row.json": "1ddff84200f36295f20c4c301aab6b211da59ab070ad09d019a6bdda9002375a",
+        "data/l2fv-reach-l1-m4-3/tlc.log": "ef7319c6cdd19e10b4a6a036e2ef4d5d09018067d4559aef740e3617a488aae8",
+        "data/l2fv-reach-l2-m2-3/config.cfg": "7da5879467a5674ba0652a8a92411b65d5f0a6597ccb8efc6170a006a692cd69",
+        "data/l2fv-reach-l2-m2-3/row.json": "edf251eedfa1446a552097307d954d28464ff56ac6bf074cd94c6559e211b5ed",
+        "data/l2fv-reach-l2-m2-3/tlc.log": "5b8af6c0efc0501f039013340394d96d06fa4d3f39a64c731ce85b5415116339",
+        "data/l2fv-reach-l2-m2-4/config.cfg": "8552d622f4e0daea3e75e6976113e98438de62b7229d250c7cc8a193928f7727",
+        "data/l2fv-reach-l2-m2-4/row.json": "a05f75a814d238e32e327eda1a122cb01490c09a47c3149976c79ce9e4fa858c",
+        "data/l2fv-reach-l2-m2-4/tlc.log": "e8b7f10bf51ca9cf146552696d37838fa75cb020823d6ff636366a124baadb20",
+        "data/l2fv-reach-l2-m4-2/config.cfg": "1c2b4b92071d4adc94c9338fc9c64d3f7a5b7aed0c50927dd2b4c0709cb80f48",
+        "data/l2fv-reach-l2-m4-2/row.json": "e63a695545cfcbd6c9ca135f1725d893c9c876fd00a3d4c1c0220aba7c70e8bf",
+        "data/l2fv-reach-l2-m4-2/tlc.log": "31b2669b3a77d6e49f9301792b6986125432ec2c675f062e2f3e9738909d3334",
+        "data/l2fv-reach-l2-m4-3/config.cfg": "fe8d257c070679cd4f823388e66a448615ccbaa2717eba128287c391f40a4705",
+        "data/l2fv-reach-l2-m4-3/row.json": "1e0b1ef36842bcfbb3bcec24d4b794ae2f0647616f6dcde14c959373e5f3bab3",
+        "data/l2fv-reach-l2-m4-3/tlc.log": "d507b03a2fae7203647d3b546dd447902654e31d368bebad197eb464507f3dfe",
+        "reader/cover-oracle.json": "016159f3b3f59ef97a4799f64e9181324071503a61043b09c64c6fab0cd50097",
+        "reader/cover_reader_v2.py": "41654e03073319951443bc946962b880e323ccec409738dafaed8a750e960e41",
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529"
+      }
+    },
+    "safe": {
+      "receiptSha256": "692306fd827dfd7544bc064a6d210af54fc40207e3e6b265c0039b7f09c1612d",
+      "outputSha256": "d1f2cf136da3b6b4e89876ef53d8590b6667928423c23051ba0fe3bfb3bb46a9",
+      "inputsSha256": {
+        "data/l2fv-safe-l0-m2-3/config.cfg": "c891b08d13d4b1a28ea2c83cf400ac7d165989ac0e4d463fb0ae744d02bf1c23",
+        "data/l2fv-safe-l0-m2-3/row.json": "248815e6983d1bc597cf082c1f3ae0f693150968527d37a16fe794d834f3f143",
+        "data/l2fv-safe-l0-m2-3/tlc.log": "b47469b546acbcbc5ef9d5a9eb3434647e73923f73e47187bdb63985654fc0b8",
+        "data/l2fv-safe-l0-m2-4/config.cfg": "62d4bb66f8eea1bd8bf73de8d5fd1f8ae2ade2efd4174bd8f62ee356dd11cd9a",
+        "data/l2fv-safe-l0-m2-4/row.json": "b2f54f5e3dde97af356874fb12d002c1be0985b47592f1aff68b8951218af581",
+        "data/l2fv-safe-l0-m2-4/tlc.log": "4fbad8f7e80ab159d0ccfd1b79562c5804bb28dab70dc31588b23a165a8be098",
+        "data/l2fv-safe-l0-m4-2/config.cfg": "05c8f987391049a21ac62417e369659cb7feaa333418f994cd88d6f2c25d7238",
+        "data/l2fv-safe-l0-m4-2/row.json": "6629508e3c84919dffc820cddefebcc191e5c56e5baa8e878cf78816f815a4dd",
+        "data/l2fv-safe-l0-m4-2/tlc.log": "a90528cc3c439f242c739e796e59a2004add2e1988af252697bad40d141f35af",
+        "data/l2fv-safe-l0-m4-3/config.cfg": "e28da2fbd3c25f7de949e04db74514729cb05070623a7b046575116b660f64aa",
+        "data/l2fv-safe-l0-m4-3/row.json": "8ca30df61a222ea253a21e610cfbf7a3d0c5e80adfa6075d0a785760a1632c42",
+        "data/l2fv-safe-l0-m4-3/tlc.log": "912aff8eed62bcd9fbb587166f7ec09ceeacc126b444b8edd371e9a4adee5e6b",
+        "data/l2fv-safe-l1-m2-3/config.cfg": "0e436a6a0fb6b63113e55a08da8b0bfac908efafc4257f606de9f40ae556508f",
+        "data/l2fv-safe-l1-m2-3/row.json": "1ef4858d0bc29a44286da35209703bf9e7d89b40084ac0fe82ca4e4e40a38028",
+        "data/l2fv-safe-l1-m2-3/tlc.log": "f2b0a617fe69778e470a841b2c19d30f8c0752c5930c7f54bd948ccc12af987e",
+        "data/l2fv-safe-l1-m2-4/config.cfg": "3bbe14948133a5355b57dec9e5bb5978c4db215fa5663f673de97a7b1b216a1b",
+        "data/l2fv-safe-l1-m2-4/row.json": "2d068b756c6b92a0cbe909454dcfbcc6ceb4ba145b929bd13862073057437cfa",
+        "data/l2fv-safe-l1-m2-4/tlc.log": "884e145ab7d3bb08ded4bd6b9721fdc8529e993d22de2ad5687d33fe0d63f4ee",
+        "data/l2fv-safe-l1-m4-2/config.cfg": "2c1fc71d5530ffab2c89bce29e67670fc9e2496bcab4c58784828e0e89d5ce08",
+        "data/l2fv-safe-l1-m4-2/row.json": "c85ab07be05f2e20657378b1376f20dbd5a89cd4bf5645e8f97b4f47c0b84e7b",
+        "data/l2fv-safe-l1-m4-2/tlc.log": "956d523565563b49887e68709b61edba6b8833c81aa4266366ed23d37212158d",
+        "data/l2fv-safe-l1-m4-3/config.cfg": "4483dc75026630898d26b894fd1b3ac0ea6991cfa68267b208dff94d1f20237b",
+        "data/l2fv-safe-l1-m4-3/row.json": "772c9cb1ddf917ecf44dc757d3464da37b8bce630784650c846e5c924bda640b",
+        "data/l2fv-safe-l1-m4-3/tlc.log": "f5803509f752233ba77019db53c539bb6bc5f80e72e201fdda28ca43b5b08061",
+        "data/l2fv-safe-l2-m2-3/config.cfg": "bad6e7721c327ec2936821b2f8762ebce2516bd005930b715147c309e7b72ab3",
+        "data/l2fv-safe-l2-m2-3/row.json": "3f42f219a07570a702ba27ff1d0e241444101ec41e97cfe7961d2afd7cff8dcc",
+        "data/l2fv-safe-l2-m2-3/tlc.log": "32cacf61e26f931d301401f2491b2dbd2a9acaea828d524d70c29a94db7f7011",
+        "data/l2fv-safe-l2-m2-4/config.cfg": "5e702ae9b62d7cc5f903ee0b8b1a899124baee6c57570b5992c37d31e03d2240",
+        "data/l2fv-safe-l2-m2-4/row.json": "51f5c58b445055540ace66c4d4f1c3e662a2163a2ccf619423872ee0fa5c58cf",
+        "data/l2fv-safe-l2-m2-4/tlc.log": "c7ff3d528ae7289235e23e53c33c65e8b384bd6d19e8495054e1bf88bf64d674",
+        "data/l2fv-safe-l2-m4-2/config.cfg": "2659d5a1d91e9dc4c59c6a70222649e235a80f05706ab356d4ad97d376781357",
+        "data/l2fv-safe-l2-m4-2/row.json": "af04f14ba85f41e1a0c4e5a91f281f322717e1f13e6a0ea9f5b79abe69826710",
+        "data/l2fv-safe-l2-m4-2/tlc.log": "0dfb4db637ce44e4cc08785d732efc6970d392818431b0d38ba57e552f528a79",
+        "data/l2fv-safe-l2-m4-3/config.cfg": "8bd9bc5a7f69eec0c30dfbe2a74b7b7e21b296d3ef6af4adcf4365d50dc004d4",
+        "data/l2fv-safe-l2-m4-3/row.json": "733ab410fa9095994a2d8af586a603c60a8cbf1dbeb8ba167e6bb7e9fd8fc3cd",
+        "data/l2fv-safe-l2-m4-3/tlc.log": "d5ad5dce27d0622e67e359fd0831bd6a8a1cdf45006159899955efdb5bfd682e",
+        "reader/cover-oracle.json": "016159f3b3f59ef97a4799f64e9181324071503a61043b09c64c6fab0cd50097",
+        "reader/cover_reader_v2.py": "41654e03073319951443bc946962b880e323ccec409738dafaed8a750e960e41",
+        "reader/cover_status_v2.py": "1d7e2b5e31b34bd556370dc5ab967a736ca35641a9a34b81552c64eef8ed0795",
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529"
+      }
+    },
+    "candidate": {
+      "receiptSha256": "265608bf8afa02f72e31c5d60f14887d4f6bab1d829545c5d1619c8d599a91ef",
+      "outputSha256": "27f7f7ae46321bd99da63f2e6daccea5b77200318fbbd7d8b8b0487de24a20fa",
+      "inputsSha256": {
+        "data/l2fv-reach-candidate/config.cfg": "62c3ed199b648dc3894ae2c1578eae6fc6b2922544eb1766bf01d5bba36ff15e",
+        "data/l2fv-reach-candidate/row.json": "89ee2a3f8bc87cf78dfd94a97c9d17c795cfa25f8b24d2dfdfc5ad0db7f5d2e4",
+        "data/l2fv-reach-candidate/tlc.log": "ec9dd5c962ea8e5306338833ba685677460ba9948f09853f014fc7bf51249758",
+        "reader/candidate_reader_v2.py": "e06a66e0cd81f133f96d7cc09c894e481f5c1fd837b53bddec68cfa285a4a31f",
+        "reader/cover-oracle.json": "016159f3b3f59ef97a4799f64e9181324071503a61043b09c64c6fab0cd50097",
+        "reader/tlc_values.py": "7879f397df3e2e76c0f16e60523f79f06e8011ff95417f9abc8fad2444e4b529"
+      }
+    }
+  },
+  "cohorts": {
+    "360262975": {
+      "result": {
+        "total": 817,
+        "rows": [
+          {
+            "suite": "formal/etna/tests",
+            "returncode": 0,
+            "discovered": 624,
+            "run": 624,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "suite": "formal/etna/conformance/tests",
+            "returncode": 0,
+            "discovered": 173,
+            "run": 173,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "suite": "formal/etna/sensitivity/tests",
+            "returncode": 0,
+            "discovered": 20,
+            "run": 20,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      "logSha256": "143c17d28d7e37ea5c5e1c50d996ca4d35f9ec38fd487f03c507cf38d6918136"
+    },
+    "f556fa941": {
+      "result": {
+        "total": 817,
+        "rows": [
+          {
+            "suite": "formal/etna/tests",
+            "returncode": 0,
+            "discovered": 624,
+            "run": 624,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "suite": "formal/etna/conformance/tests",
+            "returncode": 0,
+            "discovered": 173,
+            "run": 173,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "suite": "formal/etna/sensitivity/tests",
+            "returncode": 0,
+            "discovered": 20,
+            "run": 20,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      "logSha256": "e6f672da26245a2e247086262835db1f6c964d85b6279d6e5c5284d56d26f107"
+    }
+  },
+  "defaultCases": 516,
+  "defaultSafetyCases": 133,
+  "defaultNamedCases": 383,
+  "fullProtocolVerified": false
+}

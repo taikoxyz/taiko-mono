@@ -1,0 +1,37 @@
+{
+  "expectedSubtests": [
+    "origin-base",
+    "origin-landed-alternate",
+    "current-base",
+    "current-first-alternate",
+    "current-second-alternate",
+    "last-validator-lookup",
+    "observer-controls"
+  ],
+  "inputsSha256": {
+    "../EtnaCheckpointImport.tla": "4091cee2e355b553db60986d99ff8e29b7d4fe4285fd457c6a320dc5c0111258",
+    "checkpoint_import_cases.json": "ffb50b92a5b22220b6a1e44821e2731c1b29466cdabbea12211ca4866b71bea6",
+    "comet-pins.json": "053090c6ce3c4c6929e318cd8ff7a6002a8cb222e8481441b934ca21a86da49d",
+    "export_checkpoint_import.py": "2bee3e3fc5feb16c7c529777d97d0eb56c8219b94ef9e7fb710580aec22ec151",
+    "export_recovery.py": "52a12a70d8e4964d1420c5e19700a715f572bbf14e1bce1426b1cc0b475dac00",
+    "manifests/comet.json": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+  },
+  "receipt": {
+    "file": "checkpoint_import_cases.json",
+    "schema": "etna-checkpoint-import-replay-1",
+    "sha256": "ffb50b92a5b22220b6a1e44821e2731c1b29466cdabbea12211ca4866b71bea6"
+  },
+  "schema": "etna-comet-bootstrap-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  }
+}

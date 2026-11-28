@@ -1,0 +1,11 @@
+---------------- MODULE EtnaAPRProbe17 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInputs == SubSeq(Prefix,1,9) \o <<Local("Capture","wrongOriginNext")>>
+ProbeInit == Init /\ s.script="ShortFirst"
+ProbeNext == /\ cursor<Len(ProbeInputs)
+             /\ Take(ProbeInputs[cursor+1],cursor+1)
+ProbeSpec == ProbeInit /\ [][ProbeNext]_vars
+
+NoProbe == ~(cursor=Len(ProbeInputs) /\ Ev="Capture" /\ Arg="wrongOriginNext" /\ Result="invalid")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

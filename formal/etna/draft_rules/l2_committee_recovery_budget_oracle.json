@@ -1,0 +1,22 @@
+{
+  "schema": "etna-independent-stale-auth-budget-witness-v1",
+  "status": "source-derived-frozen-after-gap-discovery-before-inspecting-fix",
+  "source_revision": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "source_clauses": ["RECOV-8.1-4", "RECOV-8.3-3", "RECOV-8.3-7", "RECOV-8.3-12", "RECOV-8.3-14", "RECOV-8.3-16", "COMM-4.3-9", "COMM-4.3-13"],
+  "purpose": "A finite model's two-threshold-change budget cannot suppress observation of a stale-checkpoint recovery refusal. This is a model coverage gap, not a protocol defect.",
+  "assumptions": "Same fixed S10/four Q bonds/four distinct F keys/prevalidated authority+expiry+history premises as v3; all keys remain online; no ordinary calls, penalties, no-code, repair or anchor lag. Initial M=3Q. Nonce/expiry authentication stays symbolic.",
+  "fixed_ledger": {"balances_q":[1,1,1,1],"occupied":[0,1,2,3],"exit_heights":[0,0,0,0],"forfeited":[],"misses":[0,0,0,0],"sink_q":0},
+  "sets": {"F":["F0","F1","F2","F3"],"C4":["A","B","C","D"]},
+  "steps": [
+    {"step":1,"input":"Plain","result":"Commit","g":0,"head":11,"origin":10,"snapshot":{"height":11,"members":"C4","total_q":4},"current":{"members":"F","source":"Origin","target":11,"decidedAt":10},"next":{"members":"F","source":"Origin","target":12,"decidedAt":10},"pending":{"members":"C4","source":"Candidate","target":13,"decidedAt":11},"cert":{"g":0,"height":11,"members":"F","votes":"F"},"parentCert":"Empty","storedGeneration":0,"latest_c":10,"landed_present":false,"M_q":3,"changes":0,"lands":0,"auth_present":false},
+    {"step":2,"input":"Land","result":"Land","head":11,"latest_c":11,"landed_present":true,"lands":1,"saved_snapshot_height":11,"saved_current":"F","saved_next":"F","saved_pending":"C4","M_q":3,"changes":0,"auth_present":false,"chain_unchanged":true},
+    {"step":3,"input":{"Authorize":true},"result":"Authorize","head":11,"latest_c":11,"M_q":3,"changes":0,"lands":1,"auth":{"present":true,"generation":0,"c":11,"disable":true},"chain_and_landed_unchanged":true},
+    {"step":4,"input":"Plain","result":"Commit","g":0,"head":12,"origin":10,"snapshot":{"height":12,"members":"C4","total_q":4},"current":{"members":"F","source":"Origin","target":12,"decidedAt":10},"next":{"members":"C4","source":"Candidate","target":13,"decidedAt":11},"pending":{"members":"C4","source":"Candidate","target":14,"decidedAt":12},"cert":{"g":0,"height":12,"members":"F","votes":"F"},"parentCert":{"g":0,"height":11,"members":"F","votes":"F"},"storedGeneration":0,"latest_c":11,"M_q":3,"changes":0,"lands":1,"auth":{"present":true,"generation":0,"c":11,"disable":true}},
+    {"step":5,"input":"Land","result":"Land","head":12,"latest_c":12,"landed_present":true,"lands":2,"saved_snapshot_height":12,"saved_current":"F","saved_next":"C4","saved_pending":"C4","M_q":3,"changes":0,"auth":{"present":true,"generation":0,"c":11,"disable":true},"chain_unchanged":true},
+    {"step":6,"input":{"SetM_q":2},"result":"SetM","head":12,"latest_c":12,"M_q":2,"changes":1,"lands":2,"auth":{"present":true,"generation":0,"c":11,"disable":true},"chain_and_landed_unchanged":true},
+    {"step":7,"input":{"SetM_q":3},"result":"SetM","head":12,"latest_c":12,"M_q":3,"changes":2,"lands":2,"auth":{"present":true,"generation":0,"c":11,"disable":true},"chain_and_landed_unchanged":true},
+    {"step":8,"input":"Recover","result":"RefusedRecovery","g":0,"head":12,"origin":10,"latest_c":12,"M_q":3,"disabled":false,"changes":2,"lands":2,"auth":{"present":true,"generation":0,"c":11,"disable":true},"complete_chain_landed_env_equal_step7":true,"new_origin_written":false,"new_generation_written":false,"candidate_reselected":false,"threshold_max_applied":false,"only_diagnostic_receipt_and_external_cursor_may_change":true,"external_cursor":8}
+  ],
+  "decisive_rejection": {"expectedGeneration":0,"actualGeneration":0,"expectedC":11,"actualC":12,"match":false,"model_threshold_change_budget_used":2,"budget_must_not_disable_rejection_branch":true},
+  "evidence_boundary": "Unexecuted literal expectation. No operational model helper or post-fix source was used to derive these values. Full Free exploration, nonce/expiry implementation, governance transport and temporal liveness remain outside this witness."
+}

@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "design_head": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "design_base": "3602629758beb653423a23608fd1960810efcfac",
+  "normative_spec_sha256": "cae2e783a06b81b36dd0d412d678c67f764b6d96143c676aec99df8008eee7e0",
+  "scope": "Hand-derived symbolic conformance histories under the explicit assumptions below. Different alternative histories start from the named common prefix. Symbols denote literal distinct identities unless explicitly reused.",
+  "parameters": {
+    "S": 10, "U": 3, "maxBatchBlocks": 2, "maxAnchorAgeSeconds": 86400,
+    "ancestryBudgetHeaders": 131072, "widestReadableReferenceWindow": 8191,
+    "l1Timestamp": "1700000000+12*n", "forcedInclusionDelaySeconds": 86400,
+    "Q": "250000000000000000000000000", "stakePerBond": "Q", "vpUnit": "Q", "minStake": "Q", "nMax": 4,
+    "Disabled": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "Stake": ["bondA","bondB","bondC","bondD"], "F": ["f1","f2","f3","f4"], "G": ["g1","g2","g3","g4"],
+    "ready": "Four distinct controllers in each set, full participation, one vote-power unit each, valid keys and all required key-list openings. Four pre-fork seated bonds; no losses or penalties. Full protocol startup and DAO audit/readiness are external premises."
+  },
+  "l1RowsFields": ["number","generation","checkpointHeight","checkpointEL","M","fallback","fiHead","fiTail"],
+  "l1Rows": {
+    "O": [100,0,10,"E10","3Q","F",0,0],
+    "A": [200,0,10,"E10","3Q","F",0,0],
+    "B": [320,0,10,"E10","Disabled","F",0,1],
+    "C": [600,0,12,"E12","Disabled","F",0,2],
+    "J": [820,0,13,"E13","Disabled","F",1,2],
+    "L": [930,0,14,"E14","Disabled","F",2,2],
+    "R": [141000,1,14,"E14","Disabled","F",2,2],
+    "Z": [141100,1,14,"E14","Disabled","G",2,2]
+  },
+  "snapshotLedgerFields": ["seated","exitD","principalD","snapshotHeight","snapshotMembers"],
+  "ledgers": {
+    "L14": [["bondA","bondB","bondC","bondD"],"unset","Q",14,["bondA","bondB","bondC","bondD"]],
+    "oldL15": [["bondA","bondB","bondC"],15,"Q",15,["bondA","bondB","bondC","bondD"]],
+    "newL15": [["bondA","bondB","bondC","bondD"],"unset","Q",15,["bondA","bondB","bondC","bondD"]]
+  },
+  "blockFields": ["domain","height","anchor","witness","EL","Comet","stateRoot","FIcursor","signsHeight","decidedAtHeightForHeightPlus2","ordinaryTx"],
+  "blocks": {
+    "h11": [0,11,"A","carry","E11","K11","S11",0,"F","Stake","none"],
+    "h12": [0,12,"B","carry","E12","K12","S12",0,"F","F","none"],
+    "h13": [0,13,"B","inherit","E13","K13","S13",1,"Stake","F","none"],
+    "h14": [0,14,"C","carry","E14","K14","S14",2,"F","F","none"],
+    "h15": [0,15,"C","inherit","E15old","K15old","S15old",2,"F","F","ownerRequestExitD"],
+    "n15": [1,15,"Z","carry","E15new","K15new","S15new",2,"F","G","none"],
+    "n16": [1,16,"Z","inherit","E16new","K16new","S16new",2,"F","G","none"],
+    "n17": [1,17,"Z","inherit","E17new","K17new","S17new",2,"G","G","none"]
+  },
+  "proofFields": ["domain","p","h","originEL","originComet","headBefore","terminalEL","terminalComet","terminalRoot","headAfter","reference","coveredBlocks","interiorCutPreimages","blobs","proofPair"],
+  "proofs": {
+    "P": [0,10,12,"E10","ZERO",0,"E12","K12","S12",0,450,["h11","h12"],[[11,"E11","K11",0]],["BP"],["Pzk","Psecond"]],
+    "short": [0,12,13,"E12","K12",0,"E13","K13","S13",1,700,["h13"],[],["BS"],["Szk","Ssecond"]],
+    "long": [0,12,14,"E12","K12",0,"E14","K14","S14",2,700,["h13","h14"],[[13,"E13","K13",1]],["BL"],["Lzk","Lsecond"]],
+    "new": [1,14,15,"E14","K14",2,"E15new","K15new","S15new",2,141200,["n15"],[],["BN"],["Nzk","Nsecond"]]
+  },
+  "slot285Fields": ["parentHeight","generation","head","elHash","cometHash"],
+  "slot285": {
+    "10":[10,0,0,"E10","ZERO"], "12":[10,0,0,"E12","K12"], "13":[12,0,1,"E13","K13"], "14":[13,0,2,"E14","K14"]
+  },
+  "slot290Fields": ["startHeight","l1BlockNumber","l1Timestamp","fallbackKeysHash"],
+  "slot290": {"0":[10,100,1700001200,"hashF"],"1":[14,141000,1701692000,"hashF"]},
+  "operations": [
+    ["init","domain0 origin O; S retained; finalized startup checks for switching chain completed",10,10],
+    ["h11","origin-set F signs H11; A proves M=3Q; snapshot 4Q fixes Stake at13",11,10],
+    ["h12","B rules Disabled; FI entry0 proven but not due, omitted; F signs H12",12,10],
+    ["land-P","inclusion600, actual c10->12, head0->0; SignalService=(12,E12,S12); anchors on existing blocks retain A/B",12,12],
+    ["c12-D","diagnostic recovery parameter capture expectedGeneration=0,expectedC=12,expectedNonce=0,validUntil=1720000000,fiToClear=[],rules=0; contract has no recovery queue",12,12],
+    ["learn12","own-finalized target12 pending, signing closed; local E12 then record K12 match, generation0 confirmed; signing reopens; adopted anchor B",12,12],
+    ["h13","B inherited despite latest C being known; 13-10=3; FI entry0 included at tx0; four stake members sign",13,12],
+    ["bad14","with B inherited reject since 14-10=4>3 even though actual c12; no block committed",13,12],
+    ["h14","new witness C with E12 ancestor; 14-12=2; FI entry1 included at tx0; F signs; prepare both short and long in full with reference700 before inclusion820",14,12],
+    ["land-short","inclusion820; actual c12->13; head0->1; SignalService=(13,E13,S13); local head remains14",14,13],
+    ["learn13","own-finalized target13 pending, signing closed; E13, K13 match, generation0 confirmed; signing reopens; adopted anchor C",14,13],
+    ["land-long","same frozen long at inclusion930; actual c13 cut=(13,E13,K13,1); suffix only H14; head1->2; SignalService=(14,E14,S14); parent13",14,14],
+    ["learn14","own-finalized target14 pending, signing closed; E14, K14 match, generation0 confirmed; signing reopens; adopted anchor C",14,14],
+    ["stale-at14","diagnostic c12 authorization from prior row reverts at actual14; all other contract checks pass; nonce0 and full prestate preserved",14,14],
+    ["h15","C inherited, 15-12=3; F signs, snapshot before owner exit D; EL principalD remains Q, D leaves seat; no successful landing",15,14],
+    ["outage","ordinary proofs/landings unavailable until N=140000; retained C=600 ordinary ancestry now out of range for all readable references, so H15 cannot settle",15,14],
+    ["recover-and-rebuild","fresh audited DAO (0,14,0,1720000000,[],0) at R=141000, generation=1 nonce=1; checkpoint14 and heads unchanged; after authentication node rebuilds L14; oldL15 discarded; no inherited pending sets",14,14],
+    ["rotate","Z=141100 owner stores G on L1; immutable slot290[1] still hashF; finalized new domain authenticates genesis and latest checkpoint14 at origin (EL-only local comparison); old-domain signing closed",14,14],
+    ["n15","first block in domain1 carries Z; genesis parentComet/LastCommit empty, missBitmap0; parentEL E14 and cursor2; F signs; snapshot and Disabled/G choose G for17",15,14],
+    ["n16","F signs by origin despite Z, parent new H15",16,14],
+    ["n17","G signs under H15 decision; 17-14=3",17,14]
+  ],
+  "alternatives": [
+    ["delay-M","common prefix h11. B/Disabled finalized and known. H12 may inherit A if fresh: snapshot4Q and M=3Q produce Stake at14. Main path instead adopts B, giving F at14. This changes H12 and descendant identities."],
+    ["direct-long","after both proofs prepared, submit long first at actual12. Land P already succeeded. Long settles both H13/H14; head0->2, slot285[14]=[12,0,2,E14,K14], no slot285[13]; subsequent short (and replay of long) revert. Alternative parent13 exists only in short-first history."],
+    ["own-finality","after inclusion of short, a node with older own-finalized12 and no known pending target retains trust. Once its own target13 is known, no signing until its local height reaches13, E13 matches and K13 comparison completes at that pinned finalized L1 block. Available EL mismatch revokes even with slot285 unavailable. A failed read leaves an already known target pending."],
+    ["different-Comet","valid reference-history control: own local EL matches the known target, but Comet hash differs above origin. Signing closed even with permissibly inherited older anchor. For an independently certified competing chain the protocol discusses >1/3 double-sign assumptions; no such fork is assumed in the nominal history."],
+    ["p-only-positive","separate proof with p>o: p+1 carries an advanced ordinarily authenticated anchor; where p anchor is needed solely to select p+2, authenticate only p's M and fallbackKeysHash under p.EL-bound root; no ordinary ancestry to p anchor required for that isolated use."],
+    ["first-two-delayed-rotation","make new first block carry fresh finalized R instead of Z, or execute G rotation only after n15. F signs n15,n16; Disabled/F at n15 selects F at17. If n16 first adopts G, G can first sign n18 (requires newer landed c>=15 to produce n18 with U=3)."],
+    ["new-proof","after n15, submit domain1 new proof with retained p=14 record of prior domain; proper slot290[1], reference141200, all newly used roots >=R, and first block empty LastBlockID. At actual14 before any further landing, accepts, head stays2 and slot285[15]=[14,1,2,E15new,K15new]."],
+    ["H15-still-provable","if H15 can be settled before fresh authorization, governance must have landers settle it. Reaudit and reassess at actual c15; an exit in landed H15 survives any subsequent ordinary recovery at15."]
+  ],
+  "gateFields": ["event","ownFinalizedGeneration","ownKnownTarget","localCommittedHeight","comparison","signingOpen","localBlockAnchor"],
+  "gate": [
+    ["before-known-12",0,10,12,"originPreviouslyMatched",true,"B"],
+    ["learn-12",0,12,12,"pending",false,"B"],
+    ["EL12-match-slot285-pending",0,12,12,"E12-only",false,"B"],
+    ["EL12-K12-match-current-gen",0,12,12,"E12+K12",true,"B"],
+    ["before-known-13",0,12,14,"E12+K12",true,"C"],
+    ["learn-13",0,13,14,"pending",false,"C"],
+    ["EL13-match-slot285-pending",0,13,14,"E13-only",false,"C"],
+    ["EL13-K13-match-current-gen",0,13,14,"E13+K13",true,"C"],
+    ["before-known-14",0,13,14,"E13+K13",true,"C"],
+    ["learn-14",0,14,14,"pending",false,"C"],
+    ["EL14-match-slot285-pending",0,14,14,"E14-only",false,"C"],
+    ["EL14-K14-match-current-gen",0,14,14,"E14+K14",true,"C"],
+    ["learn-R-old-domain-superseded",1,14,15,"generationMismatch",false,"C"],
+    ["new-genesis-and-origin-EL-match",1,14,14,"fixedOriginAndGenesis+E14",true,"none"],
+    ["n15-committed",1,14,15,"fixedOriginAndGenesis+E14",true,"Z"]
+  ],
+  "controls": [
+    ["pressure","main prefix through h13 and learn12. Offering H14 under B gives 4>3 and rejection; the alternate offer with C succeeds. Latest actual checkpoint availability alone cannot admit H14/B."],
+    ["cut","after successful short, fixed long contains [13,E13,K13,1]. Against equal height and EL but different current Comet, exact cut equality fails before proofs. Independently compare different height, EL, Comet or FI cursor; each differs. If only cur.head differs from live fiHead, the separate consistency check also fails. These are fabricated interface controls unless an independently certified divergent history is assumed."],
+    ["full-range","after short, unchanged long still has origin12 and headBefore0, its sole interior leaf and H13/H14 blobs. Dropping H13 data or leaf from this same signed job violates range/binding. A newly prepared independent proof originating at13 is a distinct valid operation."],
+    ["origin-scope","long's p12 anchor B may bind its M/F through E12 to select H14. H13 inherits B, so B must additionally pass ordinary ancestry to reference700 for H13, and witness verifies against both p12 and H13 EL fields. Removing ordinary B ancestry while retaining the p-only evidence fails. Independently, changing origin proof values or using p-only authority for checkpoint/config/FI values fails."],
+    ["recovery","with H15 exit and stale authorization, reject (0,12,0,...) at actual14 without changing ledger/generation/nonce; fresh audited (0,14,0,...) restores L14 after execution/rebuild. Rotating F to G on L1 cannot replace hashF for new15/16. A pre-R anchor, missing first witness or old-gen proof in the new domain fails its own check."]
+  ],
+  "governanceAssumptions": [
+    "Before N=140000 an independent interruption prevented all successful submissions of H15. From N=140000 on, reference r lies in [131809,139999] or later; r>=131809 yields r-600>=131209>131072. Any earlier prepared reference usable with C has expired. Every ordinary proof containing H15 needs C as a new-block anchor, including p14->15. No competing certified H15. No verifier rollback.",
+    "At fresh authorization all through14 audits completed including original inputs, canonical receipts, references, proof/DA coverage and FI results. Actual14 is last provable. All on-chain checks and DAO authority, independent controllers, synchronized ready quorum and timing hold. C12 diagnostic parameter capture alone establishes no compliant DAO decision.",
+    "Block times respect the selected age bound in normal prefixes; O/A/B/C/G labels denote complete authenticated canonical headers/roots and consistent storage. FI entry0 exists at B and is not due there, disappears from the local pending cursor after exact tx0 inclusion in H13; entry1 was added after B before C and included in H14. Both are independently eligible and executable when included.",
+    "The generation1 G rotation is known and finalized before the first proposal using G. Genesis BFT time still equals R.timestamp; first EL timestamp is max(parentELtimestamp+1,R.timestamp,Z.timestamp). New first-block parent is old EL14, while its Comet link and LastCommit are empty. Hash comparisons use collision resistance and exact full-field openings."
+  ]
+}

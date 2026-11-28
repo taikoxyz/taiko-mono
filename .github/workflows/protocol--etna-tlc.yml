@@ -1,0 +1,112 @@
+name: "Etna TLC and Python"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "formal/etna/**"
+      - "packages/protocol/docs/etna/**"
+      - ".github/workflows/protocol--etna-tlc.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "formal/etna/**"
+      - "packages/protocol/docs/etna/**"
+      - ".github/workflows/protocol--etna-tlc.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: etna-tlc-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    # Draft PRs run the same gate. Native/contract/proof lanes are separate.
+    name: Exact TLC outcomes and Python regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare pinned TLC tool and disposable source snapshot
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/etna-ci"
+          mkdir -p "$work/tools" "$work/source/formal" "$work/source/packages/protocol"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --connect-timeout 15 --max-time 120 --retry 2 --retry-max-time 150 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$work/tools/tla2tools.jar"
+          printf '%s  %s\n' \
+            936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88 \
+            "$work/tools/tla2tools.jar" | sha256sum --check --strict
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          cp -a formal/etna "$work/source/formal/etna"
+          cp -a packages/protocol/docs "$work/source/packages/protocol/docs"
+          mkdir "$work/output"
+
+      - name: Execute inspected gate in an offline Docker runtime
+        timeout-minutes: 40
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/etna-ci"
+          /usr/bin/env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+            /usr/bin/python3 -B "$work/source/formal/etna/ci_container.py" \
+            --source "$work/source" --java-home "$JAVA_HOME_17_X64" \
+            --tlc-jar "$work/tools/tla2tools.jar" --output-dir "$work/output" \
+            --runtime-dir "$work/container-runtime" --timeout 2350
+
+      - name: Reconcile only this invocation's Docker resources
+        id: reconcile
+        if: always()
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/etna-ci"
+          if test -f "$work/source/formal/etna/ci_container.py"; then
+            /usr/bin/env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+              /usr/bin/python3 -B "$work/source/formal/etna/ci_container.py" \
+              --runtime-dir "$work/container-runtime" --cleanup-only
+          fi
+
+      - name: Verify the quiescent output tree without following links
+        id: output_check
+        if: ${{ always() && steps.reconcile.outcome == 'success' }}
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/etna-ci"
+          /usr/bin/env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+            /usr/bin/python3 -B "$work/source/formal/etna/ci_container.py" \
+            --runtime-dir "$work/container-runtime" --output-dir "$work/output" --check-output
+
+      - name: Preserve only fixed private parent diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: etna-tlc-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-ci/container-runtime/container.log
+            ${{ runner.temp }}/etna-ci/container-runtime/container-status.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve gate statuses, results and exact TLC logs
+        if: ${{ always() && steps.reconcile.outcome == 'success' && steps.output_check.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: etna-tlc-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/etna-ci/output/
+          if-no-files-found: warn
+          retention-days: 14

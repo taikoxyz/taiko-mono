@@ -1,0 +1,31 @@
+{
+  "schema": "etna-conformance-pins-1",
+  "spec": {
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+  },
+  "lean": {
+    "commit": "cdbc346b8cee1ee3b332063832c60b88f649eb7b",
+    "manifestSha256": "45fd1924e5ff434e24dddc9eed282ec8b2f18b5e1789d1ac2d9fadbfb1fb48dd",
+    "toolchain": "leanprover/lean4:v4.35.0",
+    "authorityCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "vectorSha256": "529a76149e13424c05d12e4d8c6483fe19a02be2519c3af83f11eaace4c5a969"
+  },
+  "contracts": {
+    "commit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+    "manifestSha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+    "authorityCommit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "vectorSha256": "df9c4e93f136c6f3b06a42dced5fd676da9fae7e9406d30685fd0d412c2ea704",
+    "gridInterval": 6,
+    "solcVersion": "0.8.30",
+    "forgeVersion": "1.4.2"
+  },
+  "leanSdk": {
+    "release": "v4.35.0",
+    "asset": "lean-4.35.0-linux.tar.zst",
+    "compressedBytes": 594481375,
+    "expandedBytes": 3137937793,
+    "sha256": "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+  }
+}

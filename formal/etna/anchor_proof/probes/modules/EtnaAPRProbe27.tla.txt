@@ -1,0 +1,11 @@
+---------------- MODULE EtnaAPRProbe27 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInputs == BeforeOrders \o ShortOrder \o <<I("Recover","stale",1000)>> \o BlockOffers("h15") \o <<I("Advance","outage",140000),I("Recover","fresh",141000),LearnAt(141000),Unit("Gate")>> \o <<Local("Rebuild","noStateAuth")>>
+ProbeInit == Init /\ s.script="ShortFirst"
+ProbeNext == /\ cursor<Len(ProbeInputs)
+             /\ Take(ProbeInputs[cursor+1],cursor+1)
+ProbeSpec == ProbeInit /\ [][ProbeNext]_vars
+
+NoProbe == ~(cursor=Len(ProbeInputs) /\ Ev="Rebuild" /\ Arg="noStateAuth" /\ Result="unauthenticated")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

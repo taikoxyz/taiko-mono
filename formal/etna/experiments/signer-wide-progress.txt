@@ -1,0 +1,21 @@
+Observed incomplete predecessor runs; no invariant violation was reported before timeout.
+Old module SHA-256: 7c86c43e5d10a64cf101d3c61d6ed47d7ec0212c7c59ae11266bd8ff12b957cf
+Current parameterized module SHA-256: c948786960d3dd5af381c653f3c0c28795291b19d3b96e660efa8825f6d93c4a
+Tools: TLC release1.7.4, TLC2.19, Java17.0.21+9, seed1, workers1,512MiB,45-second wall timeout.
+
+Three payloads, two slots, both domains, two signature variants:
+Progress(15) at elapsed approximately3 seconds:
+284,952 generated;98,889 distinct;45,992 queued.
+Checker timeout at45.068 seconds. No final state counts available.
+
+Two payloads, two slots, both domains, two signature variants:
+Progress(17) at elapsed approximately3 seconds:
+325,180 generated;99,329 distinct;40,959 queued.
+Checker timeout at45 seconds. No final state counts available.
+
+These are LAST REPORTED progress counts, NOT counts at the timeout boundary.
+The original source fixed signature variants to0..1. The current source exposes
+that same domain as SignatureSalts={0,1}; the wider cfgs here retain all the other
+parameters and transitions for reproduction. Reproduction time depends on host.
+The default suite excludes this experiments directory. Neither wider graph is
+claimed exhausted; its status remains INCONCLUSIVE.

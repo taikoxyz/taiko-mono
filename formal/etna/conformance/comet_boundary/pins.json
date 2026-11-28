@@ -1,0 +1,47 @@
+{
+  "cases": [
+    "terminal-a",
+    "terminal-b",
+    "missing-commit",
+    "subthreshold",
+    "wrong-domain",
+    "wrong-slot"
+  ],
+  "claim": "terminal-seen-commit",
+  "goToolSha256": {
+    "VERSION": "28ff77ac2178f2faca8a4f535e60b1738e397c9086b3ecfc18c9955abe75634a",
+    "bin/go": "de0ae3e082ce7599eae4fb69fa2ef1e43b8f31ffd3fce62cdf81930aa9005050",
+    "pkg/tool/linux_amd64/asm": "a67997d99985e3ef3ecd30f029685d67d778a0c8f78b852396ef7738426c04b5",
+    "pkg/tool/linux_amd64/compile": "40307e5f5c65a4b4220bbf35dbe014348780589ea2964003f0bf318fa14640e1",
+    "pkg/tool/linux_amd64/link": "e2248a29fbbf15dac1fe72c9d646776dbcd38c9813b78182fe01a4a47f3299c3",
+    "pkg/tool/linux_amd64/vet": "d8a579657a9222c8e69e19e3f9783d5694976b2a0bbf39cda12e90e49944ba52"
+  },
+  "inputsSha256": {
+    "go.mod": "f17bdc478d09f6fb07deb88104c63c1ecfccb18dce1e16b271a3f64b975e0851",
+    "go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "public_input.go": "5933e850c60b73872526af3e58e6a1229428f80bab207d8121ce557f1f488d46",
+    "terminal_test.go": "c4ed81c98d59372ba1e26ad2b5f6322f668ed82e536309e687b5d69265863d04"
+  },
+  "package": "example.org/etna-comet-boundary",
+  "parent": "TestTerminalSeenCommit",
+  "schema": "etna-comet-boundary-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  },
+  "sourceFault": {
+    "afterSha256": "b5fce8f0e81e1a8059d17fac6ef83e0a8b138f6e8bbdd530296e10ddad35ecdc",
+    "beforeSha256": "a48558711796ae27530b409237e879ed29cd2756d9f06ce550fd12b27a2951e5",
+    "mutantSha256": "35c674b52281e9354a1794586590a049d5873e6a2f114c27d805d3acadc42c7b",
+    "originalSha256": "ceb18a15b7062bb6d963bee637a4a86c5dcf1da87fc096f9c48952cf95243c5f",
+    "path": "types/validation.go"
+  }
+}

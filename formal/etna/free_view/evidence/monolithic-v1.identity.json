@@ -1,0 +1,15 @@
+{
+  "status": "INCONCLUSIVE",
+  "seconds": 45.06,
+  "module_sha256": "1a5e6220db41a339d6212b10de8620441f5b7365c985acd19347d47163f2a246",
+  "config_sha256": "b9e3135443b70a8583d9f518d3b38750a0a54ac4e57b4f91242db64fb3607d4d",
+  "final_counts": null,
+  "exact_execution_receipt_sha256": "e59c6a1ae1d42737229db442f75211e10ffcba2b2be376fedc138b48cba2b018",
+  "files": {
+    "monolithic-v1.tla.txt": "1a5e6220db41a339d6212b10de8620441f5b7365c985acd19347d47163f2a246",
+    "monolithic-v1.cfg.txt": "b9e3135443b70a8583d9f518d3b38750a0a54ac4e57b4f91242db64fb3607d4d",
+    "monolithic-v1.log": "9a62566ce31085daaaa66caed9ede7d7675b908dc3c7386f5adc9c79e2e20c23",
+    "monolithic-v1.results.json": "f31857ba9c8ce37a01dbbf26fc58e0039981d26d0b18bddbc7b440f0bd2a757e"
+  },
+  "scope": "one full Free45s attempt on unchanged6de with first stronger view; not a completed safety proof"
+}

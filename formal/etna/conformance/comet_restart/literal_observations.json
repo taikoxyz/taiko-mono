@@ -1,0 +1,435 @@
+{
+  "current-base": {
+    "absentHistoricalHeight": 0,
+    "params": {
+      "abci": {
+        "vote_extensions_enable_height": 0
+      },
+      "authority": {
+        "authority": ""
+      },
+      "block": {
+        "max_bytes": 55600190,
+        "max_gas": -1
+      },
+      "evidence": {
+        "max_age_duration": 172800000000000,
+        "max_age_num_blocks": 100000,
+        "max_bytes": 1048576
+      },
+      "validator": {
+        "pub_key_types": ["ed25519"]
+      },
+      "version": {
+        "app": 0
+      }
+    },
+    "paramsHeight": 5,
+    "paramsLastHeightChanged": 5,
+    "state": {
+      "AppHash": "fecad5015e18f33205b19153aec8dfab68f82729f752eab17b6bc18a09399471",
+      "ChainID": "etna-symbolic-chain-1",
+      "InitialHeight": 3,
+      "Last": {
+        "Members": [
+          {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": 1,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": -1,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          }
+        ],
+        "Proposer": {
+          "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+          "Key": 2,
+          "Power": 2,
+          "Priority": -1,
+          "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+        },
+        "Total": 5
+      },
+      "LastBlockHeight": 4,
+      "LastBlockIDHash": "f17c846fb533d32e97998b56bd908c256c35c10053a8018c9f32b5ec439d2cd3",
+      "LastBlockTime": "1970-01-01T00:01:42Z",
+      "LastResultsHash": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "Next": {
+        "Members": [
+          {
+            "Address": "eaffb2d9fb00afd9ae8ddd9ec24f839e3258139a",
+            "Key": 3,
+            "Power": 4,
+            "Priority": -1,
+            "Public": "c9a3f86aae465f0e56513864510f3997561fa2c9e85ea21dc2292309f3cd6022"
+          },
+          {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": 2,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          }
+        ],
+        "Proposer": {
+          "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+          "Key": 2,
+          "Power": 2,
+          "Priority": 2,
+          "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+        },
+        "Total": 6
+      },
+      "Params": {
+        "abci": {
+          "vote_extensions_enable_height": 0
+        },
+        "authority": {
+          "authority": ""
+        },
+        "block": {
+          "max_bytes": 55600190,
+          "max_gas": -1
+        },
+        "evidence": {
+          "max_age_duration": 172800000000000,
+          "max_age_num_blocks": 100000,
+          "max_bytes": 1048576
+        },
+        "validator": {
+          "pub_key_types": ["ed25519"]
+        },
+        "version": {
+          "app": 0
+        }
+      },
+      "ParamsChanged": 5,
+      "PartHash": "084590893530ea9269c6578a6be4820f7a7426e37c4c62cb0ba739e1e066b906",
+      "PartTotal": 1,
+      "ValChanged": 6,
+      "Validators": {
+        "Members": [
+          {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": -1,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": 1,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          }
+        ],
+        "Proposer": {
+          "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+          "Key": 1,
+          "Power": 3,
+          "Priority": -1,
+          "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+        },
+        "Total": 5
+      },
+      "Version": {
+        "App": 0,
+        "Block": 11,
+        "Software": "0.39.0"
+      }
+    },
+    "validators": [
+      {
+        "height": 4,
+        "lastHeightChanged": 4,
+        "set": {
+          "Members": [
+            {
+              "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+              "Key": 1,
+              "Power": 3,
+              "Priority": 1,
+              "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+            },
+            {
+              "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+              "Key": 2,
+              "Power": 2,
+              "Priority": -1,
+              "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+            }
+          ],
+          "Proposer": {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": -1,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          },
+          "Total": 5
+        }
+      },
+      {
+        "height": 5,
+        "lastHeightChanged": 5,
+        "set": {
+          "Members": [
+            {
+              "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+              "Key": 1,
+              "Power": 3,
+              "Priority": -1,
+              "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+            },
+            {
+              "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+              "Key": 2,
+              "Power": 2,
+              "Priority": 1,
+              "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+            }
+          ],
+          "Proposer": {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": -1,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          "Total": 5
+        }
+      },
+      {
+        "height": 6,
+        "lastHeightChanged": 6,
+        "set": {
+          "Members": [
+            {
+              "Address": "eaffb2d9fb00afd9ae8ddd9ec24f839e3258139a",
+              "Key": 3,
+              "Power": 4,
+              "Priority": -1,
+              "Public": "c9a3f86aae465f0e56513864510f3997561fa2c9e85ea21dc2292309f3cd6022"
+            },
+            {
+              "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+              "Key": 2,
+              "Power": 2,
+              "Priority": 2,
+              "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+            }
+          ],
+          "Proposer": {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": 2,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          },
+          "Total": 6
+        }
+      }
+    ]
+  },
+  "origin-base": {
+    "absentHistoricalHeight": 2,
+    "params": {
+      "abci": {
+        "vote_extensions_enable_height": 0
+      },
+      "authority": {
+        "authority": ""
+      },
+      "block": {
+        "max_bytes": 55600190,
+        "max_gas": -1
+      },
+      "evidence": {
+        "max_age_duration": 172800000000000,
+        "max_age_num_blocks": 100000,
+        "max_bytes": 1048576
+      },
+      "validator": {
+        "pub_key_types": ["ed25519"]
+      },
+      "version": {
+        "app": 0
+      }
+    },
+    "paramsHeight": 3,
+    "paramsLastHeightChanged": 3,
+    "state": {
+      "AppHash": "29fef2fad088110d511a55c48530baa7e7e5625f67eea74867826b4c824e535e",
+      "ChainID": "etna-symbolic-chain-1",
+      "InitialHeight": 3,
+      "Last": {
+        "Members": [],
+        "Proposer": {
+          "Address": "",
+          "Key": 0,
+          "Power": 0,
+          "Priority": 0,
+          "Public": ""
+        },
+        "Total": 0
+      },
+      "LastBlockHeight": 0,
+      "LastBlockIDHash": "",
+      "LastBlockTime": "1970-01-01T00:01:40Z",
+      "LastResultsHash": "",
+      "Next": {
+        "Members": [
+          {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": 1,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": -1,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          }
+        ],
+        "Proposer": {
+          "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+          "Key": 2,
+          "Power": 2,
+          "Priority": -1,
+          "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+        },
+        "Total": 5
+      },
+      "Params": {
+        "abci": {
+          "vote_extensions_enable_height": 0
+        },
+        "authority": {
+          "authority": ""
+        },
+        "block": {
+          "max_bytes": 55600190,
+          "max_gas": -1
+        },
+        "evidence": {
+          "max_age_duration": 172800000000000,
+          "max_age_num_blocks": 100000,
+          "max_bytes": 1048576
+        },
+        "validator": {
+          "pub_key_types": ["ed25519"]
+        },
+        "version": {
+          "app": 0
+        }
+      },
+      "ParamsChanged": 3,
+      "PartHash": "",
+      "PartTotal": 0,
+      "ValChanged": 3,
+      "Validators": {
+        "Members": [
+          {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": -2,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": 2,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          }
+        ],
+        "Proposer": {
+          "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+          "Key": 1,
+          "Power": 3,
+          "Priority": -2,
+          "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+        },
+        "Total": 5
+      },
+      "Version": {
+        "App": 0,
+        "Block": 11,
+        "Software": "0.39.0"
+      }
+    },
+    "validators": [
+      {
+        "height": 3,
+        "lastHeightChanged": 3,
+        "set": {
+          "Members": [
+            {
+              "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+              "Key": 1,
+              "Power": 3,
+              "Priority": -2,
+              "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+            },
+            {
+              "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+              "Key": 2,
+              "Power": 2,
+              "Priority": 2,
+              "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+            }
+          ],
+          "Proposer": {
+            "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+            "Key": 1,
+            "Power": 3,
+            "Priority": -2,
+            "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+          },
+          "Total": 5
+        }
+      },
+      {
+        "height": 4,
+        "lastHeightChanged": 4,
+        "set": {
+          "Members": [
+            {
+              "Address": "cb05c9fac26332f9abc5f4f50b47e39edab18bd5",
+              "Key": 1,
+              "Power": 3,
+              "Priority": 1,
+              "Public": "5866666666666666666666666666666666666666666666666666666666666666"
+            },
+            {
+              "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+              "Key": 2,
+              "Power": 2,
+              "Priority": -1,
+              "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+            }
+          ],
+          "Proposer": {
+            "Address": "695c607b1e0b4f5d354d473c1bba4e6e7b64f0e6",
+            "Key": 2,
+            "Power": 2,
+            "Priority": -1,
+            "Public": "58666666666666666666666666666666666666666666666666666666666666e6"
+          },
+          "Total": 5
+        }
+      }
+    ]
+  }
+}

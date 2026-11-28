@@ -1,0 +1,18 @@
+{"known_context": "f556fa94186b0ab604573e8d3a4c4d4fa835dc84", "draft178": "REFUSED", "product_pin": "2e6763e21bc236cfcda6011d164b32040f9e0c8d", "bundles": 5}
+----------------------------------------------------------------------
+Ran 624 tests in 51.394s
+
+OK
+{"discovered": 624, "run": 624, "failures": 0, "errors": 0, "skipped": 0}
+----------------------------------------------------------------------
+Ran 173 tests in 2.126s
+
+OK
+normal: 8 exact persistence outcomes verified
+{"discovered": 173, "run": 173, "failures": 0, "errors": 0, "skipped": 0}
+----------------------------------------------------------------------
+Ran 20 tests in 1.487s
+
+OK
+{"discovered": 20, "run": 20, "failures": 0, "errors": 0, "skipped": 0}
+{"total": 817, "rows": [{"suite": "formal/etna/tests", "returncode": 0, "discovered": 624, "run": 624, "failures": 0, "errors": 0, "skipped": 0}, {"suite": "formal/etna/conformance/tests", "returncode": 0, "discovered": 173, "run": 173, "failures": 0, "errors": 0, "skipped": 0}, {"suite": "formal/etna/sensitivity/tests", "returncode": 0, "discovered": 20, "run": 20, "failures": 0, "errors": 0, "skipped": 0}]}

@@ -1,0 +1,98 @@
+{
+  "schema": "etna-l2-free-view-source-1",
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "main": "3602629758beb653423a23608fd1960810efcfac",
+  "baseline": "03cdafc9f91e374e34bc654bacd6c197d317a918",
+  "kernel": "EtnaL2CommitteeRecovery.tla",
+  "kernelSha256": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+  "wrapper": "EtnaL2CommitteeFreeView.tla",
+  "wrapperSha256": "13caebfbdb4587a0884d742d0a463c19d1a02b3a9e0da2c5431ed82e4cde5c25",
+  "originalSourceProfile": "draft_rules/l2_committee_recovery_source.json",
+  "originalSourceProfileSha256": "279eda831f6a2678d088a7c1bd5cfd7ad44e6fa61491c44c0e206206f9d91a79",
+  "proof": "L2_FREE_OPERATIONAL_VIEW.md",
+  "proofSha256": "8510c7ef22b10306735c09b261c6656be2fa673c24406b60dca1b0b0cdf22d88",
+  "files": {
+    "draft_rules/l2_free_view_oracle.json": "6131d0981e32092005288f43cc6f4a7c685a3a052f1b4e2e68b172ebf3cdae31",
+    "draft_rules/l2_free_view_oracle_clarification.txt": "8d72535b396c51ba5989a3fd79b3c5d9b81f5776b6ae2443da3ceec2d3f185ee"
+  },
+  "instance": {
+    "profile": "Free",
+    "switchHeight": 10,
+    "heightBound": 14,
+    "bonds": 4,
+    "unitPower": true,
+    "maxGeneration": 1,
+    "originalNext": false,
+    "originalInputsAndGuards": true,
+    "timeoutSeconds": 45,
+    "heapMiB": 512,
+    "workers": 1,
+    "seed": 1,
+    "originalKernelNextUnmodified": true,
+    "fullModeUsesOriginalNext": true,
+    "partitionModeUsesExactInputCover": true
+  },
+  "projection": {
+    "positiveExitHeights": "zero versus nonzero observation only",
+    "snapshotAndStoredGeneration": "omitted current and checkpoint",
+    "votes": "retain exactly stake votes, omit only F/G voter identities",
+    "env": "complete",
+    "predicates": [
+      "TypeOK",
+      "PipelineSafe",
+      "SnapshotOrderSafe",
+      "QuorumSafe",
+      "RecoverySafe",
+      "LedgerSafe"
+    ],
+    "scope": "first safety failure on reachable six-good prefixes at this same finite instance",
+    "nativeSymmetry": "four stake roles; full-state canonicalization precedes VIEW"
+  },
+  "oracleProvenance": "independent immutable-kernel literals frozen before inspecting new wrapper; Authorize(TRUE) clarification bound separately",
+  "staticReview": "PASS_ACTUAL_TASK1_V2_SOURCE_AND_CONFIGS",
+  "runtimeAdmission": false,
+  "fullProtocolVerified": false,
+  "originalFourTimeoutRuns": "historical INCONCLUSIVE; never rewritten or called TLC PASS",
+  "newFullGraphStatus": "INCONCLUSIVE_V1_AND_ALL_12_V2_CLASSES",
+  "monolithicEvidence": "free_view/evidence/monolithic-v1.identity.json",
+  "monolithicEvidenceSha256": "04bf2e1c71c509110f910d1b3009bc5b9f63d1ea9053a1252b5fbdd8c068ccf4",
+  "exactCoverPlan": {
+    "lossCounts": [
+      0,
+      1,
+      2
+    ],
+    "generation0MPrograms": [
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        4,
+        2
+      ],
+      [
+        4,
+        3
+      ]
+    ],
+    "disabledCode": 4,
+    "classes": 12,
+    "perClassTimeoutSeconds": 45,
+    "maxAggregateSeconds": 540,
+    "allClassesRequired": true,
+    "status": "IMPLEMENTED_REVIEWED_NONEMPTY_BUT_ALL_12_SAFETY_CLASSES_INCONCLUSIVE"
+  },
+  "defaultAdmission": {
+    "count": 516,
+    "newNamedWitnesses": 13,
+    "newSafetyConfigs": 0,
+    "reason": "all twelve safety classes timed out; thirteen actual named witnesses independently verified"
+  },
+  "runtimeEvidence": "free_view/evidence/runtime-v2.identity.json",
+  "runtimeEvidenceSha256": "e738874780a51f5f2b52154875cca0fcec04d95fbd4059c8273c45257e8e7ed6"
+}

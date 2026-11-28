@@ -1,0 +1,8 @@
+---------------- MODULE EtnaAPRProbe13 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInit == Init /\ s.script="ShortFirst"
+ProbeSpec == ProbeInit /\ [][Next]_vars
+
+NoProbe == ~(cursor=Len(Script(s.script)) /\ s.script="ShortFirst")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

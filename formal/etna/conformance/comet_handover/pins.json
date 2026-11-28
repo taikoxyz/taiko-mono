@@ -1,0 +1,29 @@
+{
+  "expectedSubtests": [
+    "unchanged",
+    "unequal",
+    "add-remove",
+    "replacement",
+    "overlapping"
+  ],
+  "inputsSha256": {
+    "bridge.go.txt": "b086477e48c1592df1f9423a67a3c9705ce414999e83a29947570aface7a5ab3",
+    "derive_literals.py": "4b85ada31a77633a54a16ab9e117ad2d41a20eea50b7cbfb2380404d3402b5e8",
+    "go.mod": "1d730d8eeeb288f7a14dbfe4f3dad4940750bc0138b9fb30b3fbd8bc614f4710",
+    "go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "handover_test.go": "f24224ae638107c727e1d2e1be63b13d9a3b86e677a9b1d58dc595fc2f263051",
+    "literals.json": "d8b9e9a2059cf7ef2a2a3d5b5f1b1a1ba668f85c7d1512fe891c485971f20f09"
+  },
+  "schema": "etna-comet-handover-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  }
+}

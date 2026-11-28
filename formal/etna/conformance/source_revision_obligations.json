@@ -1,0 +1,366 @@
+{
+  "schema": "etna-source-revision-obligations-1",
+  "bundles": {
+    "f556fa94186b0ab604573e8d3a4c4d4fa835dc84": {
+      "disposition": "source-review-only",
+      "execution": "NOT_EVALUATED",
+      "supersedes": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
+      "evidence": null,
+      "obligations": [
+        {
+          "id": "Y01",
+          "ruleIds": [
+            "START-10.1-5a",
+            "START-10.1-5b",
+            "START-10.1-5c"
+          ],
+          "scope": "Generation-bound rules/stop writes and cancellation, including delayed authorized calls after recovery. The original same-domain finite projection remains conditional on its fixed transition system.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y02",
+          "ruleIds": [
+            "STAKE-4.1-13a",
+            "RECOV-8.1-1",
+            "RECOV-8.3-1",
+            "RECOV-8.4-3",
+            "START-10-21",
+            "RECOV-8-38",
+            "RECOV-8.1-7"
+          ],
+          "scope": "Permanent issued bondId exclusions in strictly increasing order, whole-landing authorization audit, voided records and fixed recovery genesis. Original empty-list repeated-recovery examples do not cover the current nonempty ABI or governance execution.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y03",
+          "ruleIds": [
+            "START-10.1-5a",
+            "PROOF-6.2-17",
+            "PROOF-6.2-43",
+            "LAND-6.1-6",
+            "LAND-6.1-10",
+            "RECOV-8-27"
+          ],
+          "scope": "Unvoided origin and non-regressing snapshot checks before verification, current signing-set/header/anchor checks and actual per-rule guest proofs. Earlier ordered-range and per-family finite results retain their original premises.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y04",
+          "ruleIds": [
+            "STAKE-4.1-13a",
+            "FORF-4.4-1",
+            "FORF-4.4-20"
+          ],
+          "scope": "Permanent bondId forfeiture calldata, flags/events, issued-id and withdrawal races, ascending exclusions and ordered self-report economics. Historical funded proxy accounting does not implement the new key space or ABI.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y05",
+          "ruleIds": [
+            "STAKE-4.1-36",
+            "COMM-4.3-2",
+            "COMM-4.3-5",
+            "START-10-12",
+            "COMM-4.3-3",
+            "COMM-4.3-4"
+          ],
+          "scope": "Snapshot count is zero for an empty registry or highest occupied slot plus one, with an occupied final entry, shrinking counts, unified immutable minStake and bondId exclusion resolution. The old API accepts positive-width trailing/all-empty entries and is not current snapshot admission evidence.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y06",
+          "ruleIds": [
+            "DATA-5.4-1",
+            "DATA-5.4-8",
+            "RECOV-8.2-2",
+            "SYNC-9-5c",
+            "DATA-5.4-2",
+            "DATA-5.4-3",
+            "DATA-5.4-4",
+            "DATA-5.4-6",
+            "DATA-5.4-5"
+          ],
+          "scope": "Authenticated full window, LoadBlockCommit and LoadSeenCommit, metadata and complete validator sets with stored proposer, durable aligned app/EL/Comet install and signer fencing. Historical seen-commit constructor observations remain separate and the prior full Y06 native producer integration remains inconclusive.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y07",
+          "ruleIds": [
+            "CONS-3.1-10",
+            "START-10-21",
+            "DATA-5.4-2",
+            "DATA-5.4-8",
+            "START-10-20",
+            "START-10-22",
+            "START-10-23",
+            "DATA-5.4-3",
+            "DATA-5.4-4",
+            "DATA-5.4-5",
+            "DATA-5.4-6",
+            "RECOV-8.4-7"
+          ],
+          "scope": "Zero block evidence budget in both genesis types, proposal and block-sync rejection of every nonempty list, fresh import evidence database and authenticated retained history for continued incoming gossip/light-client evidence. The old synthetic max_bytes=1048576 committed-marker fixture cannot represent valid current imported Etna history.",
+          "status": "WAITING"
+        },
+        {
+          "id": "STOCK_DEPLOYMENT",
+          "ruleIds": [
+            "CONS-3.1-1",
+            "CONS-3.1-8",
+            "RECOV-8.2-1",
+            "SYNC-9-5c",
+            "CONS-3.1-9"
+          ],
+          "scope": "Installed platform binary digest/build/config, recovery of the exact certified first block, complete historical proposer/validator state and isolated signer restart. Version strings and selected stock public API operations do not establish deployment behavior.",
+          "status": "WAITING"
+        },
+        {
+          "id": "SWITCH",
+          "ruleIds": [
+            "START-10-5b",
+            "START-10-5c",
+            "LAND-6.1-8a",
+            "START-10-20"
+          ],
+          "scope": "Permissionless proven Unzen-tip origin latch, finalized R0, closed checkpoint forwarding after start, deadline-bound two-chain replacement and acknowledgment, split-configuration failure and actual first landing. Old originWriter/start-before-proof assumptions do not apply.",
+          "status": "WAITING"
+        },
+        {
+          "id": "PUBLIC_HISTORY",
+          "ruleIds": [
+            "DATA-5.3-9a",
+            "DATA-5.4-8"
+          ],
+          "scope": "Independent public availability and import packages after blob expiry, authenticated header/commit ancestry and current retained evidence/committee/anchor windows. Existing symbolic trust premises and archived inconclusive results remain open.",
+          "status": "WAITING"
+        },
+        {
+          "id": "RESOURCES",
+          "ruleIds": [
+            "MODEL-1-2",
+            "LIMIT-12-17"
+          ],
+          "scope": "Current worst legal single-block and full-batch two-proof feasibility, 4096-slot sparse/full registry gas and witness measurements, resource/latency and complete operational rehearsals. Finite models, mock execution and source classification do not supply these measurements.",
+          "status": "WAITING"
+        }
+      ]
+    },
+    "3602629758beb653423a23608fd1960810efcfac": {
+      "disposition": "source-review-only",
+      "execution": "NOT_EVALUATED",
+      "supersedes": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
+      "evidence": null,
+      "obligations": [
+        {
+          "id": "Y01",
+          "ruleIds": [
+            "START-10.1-5a",
+            "START-10.1-5b",
+            "START-10.1-5c",
+            "RECOV-8.2-2"
+          ],
+          "scope": "Generation-bound schedule writes and cancellation, including delayed authorized calls after recovery; planned upgrades at an undecided height must serialize admission at a persisted precommit and confirm it on upgraded replay before fresh signing. Actual supervisor and signer integration remains unverified.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y02",
+          "ruleIds": [
+            "RECOV-8.1-1",
+            "RECOV-8.3-1",
+            "RECOV-8.4-3",
+            "RECOV-8-38",
+            "RECOV-8-39",
+            "STAKE-4.1-13a"
+          ],
+          "scope": "Permanent issued-bond exclusions, complete landing audit, canonical recovery nonce and origin, and feasible full candidate exclusions including lower-ranked replacements. Actual atomic DAO recovery remains unverified; the complete F/K gas bound is also required by RESOURCES.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y03",
+          "ruleIds": [
+            "PROOF-6.2-17",
+            "PROOF-6.2-18",
+            "PROOF-6.2-32",
+            "PROOF-6.2-33",
+            "PROOF-6.2-43",
+            "LAND-6.1-6",
+            "LAND-6.1-10",
+            "RECOV-8-27",
+            "BATCH-6.3-5",
+            "BATCH-6.3-7"
+          ],
+          "scope": "Actual per-rule guests must authenticate one-round precommit certificates for a full BlockID, correct vote type, own timestamps and recomputed chain domain; activate the selected snapshot even with empty validator updates, respect recovery-R ancestry bounds, and reject voided origins. Earlier finite projections and native operations retain their original premises.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y04",
+          "ruleIds": [
+            "FORF-4.4-1",
+            "FORF-4.4-20",
+            "STAKE-4.1-13a",
+            "STAKE-4.1-33",
+            "STAKE-4.1-34",
+            "RECOV-8-29",
+            "RECOV-8-32"
+          ],
+          "scope": "Issued-bond forfeiture, ordering and rounding, permanent recovered-address-to-bond lookup for slashDoubleSign, and withdrawal/rollback races. A bond already withdrawn against a reverted exit confirmation is not made slashable again; the resulting unbonded voting-power interval is an accepted limitation, not execution evidence.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y05",
+          "ruleIds": [
+            "COMM-4.3-2",
+            "COMM-4.3-3",
+            "COMM-4.3-4",
+            "COMM-4.3-5",
+            "COMM-4.3-10",
+            "COMM-4.3-13",
+            "START-10-8",
+            "START-10-12",
+            "START-10-14",
+            "ENC-A-39a",
+            "ENC-A-42"
+          ],
+          "scope": "Canonical positional snapshots and shared immutable minStake, complete ABI setHash and committee record, validator-update difference from the set signing the selection-specific S(t)+1 = H(t)-1, with S(t)=H(t)-2, not the fixed Etna start S+1, snapshot activation despite empty updates, and initialization strictly after genesisCutoff. Z04 covers only its frozen f556 projection and does not implement the new selected-set commitment. Acceptance includes a second rotation after membership has changed, computing additions/removals against that rotation's actual signing set.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y06",
+          "ruleIds": [
+            "DATA-5.4-1",
+            "DATA-5.4-2",
+            "DATA-5.4-3",
+            "DATA-5.4-4",
+            "DATA-5.4-5",
+            "DATA-5.4-6",
+            "DATA-5.4-8",
+            "RECOV-8.2-2",
+            "SYNC-9-5c",
+            "CONS-3.1-1"
+          ],
+          "scope": "Authenticated full-window native Comet/app/EL import with LoadSeenCommit, LoadBlockCommit, metadata, complete historical validator sets and stored proposers; stopped offline store tool, signer fencing, durable aligned staging and publication before official Comet startup. A completed historical producer run cannot discharge this separate source360 implementation obligation.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y07",
+          "ruleIds": [
+            "CONS-3.1-10",
+            "START-10-21",
+            "DATA-5.4-2",
+            "DATA-5.4-8",
+            "RECOV-8.4-7",
+            "LIMIT-12-22",
+            "DATA-5.4-3",
+            "DATA-5.4-5"
+          ],
+          "scope": "Actual consensus/block-sync/import rejection of nonempty block evidence, zero evidence bytes in both genesis types, 16-block/3-minute pool ages, and stopped pending-store clearing at every startup while retaining required history. Running-halt evidence memory/disk/gossip is unbounded; provisioning, alerts, peer attribution, whole-principal slashing and coordinated response require operational measurements.",
+          "status": "WAITING"
+        },
+        {
+          "id": "STOCK_DEPLOYMENT",
+          "ruleIds": [
+            "CONS-3.1-1",
+            "CONS-3.1-8",
+            "CONS-3.1-9",
+            "START-10-6",
+            "RECOV-8.2-2"
+          ],
+          "scope": "Official platform artifact/digest/build/config, permitted stopped offline import and certified-first-block repair, pre-handshake EL reconciliation independent of Info/callbacks, missing-input acquisition and contradictory-state refusal, WAL-prefix loss, listed peers, stopped evidence-store cleanup and authenticated fresh signer sessions. Selected stock API tests do not establish an installed deployment.",
+          "status": "WAITING"
+        },
+        {
+          "id": "SWITCH",
+          "ruleIds": [
+            "START-10-3",
+            "START-10-5",
+            "START-10-5a",
+            "START-10-5b",
+            "START-10-5c",
+            "START-10-5d",
+            "LAND-6.1-8a",
+            "PROOF-6.2-46a",
+            "SYNC-9-5a"
+          ],
+          "scope": "Two separate proposals: upgrade L2 with canonical EIP-4788 code and zero-own-root guards while Unzen remains unscheduled, then authorize L1 scheduling only after finalized proven implementation-slot readiness. L1 usesBeaconRoots=false and L2=true; no L2 fork-time getter. Preserve permissionless proven origin, finalized R0 and closed forwarding. Postponement is one atomic L1 batch with expected old schedule, unwritten start, new lead, strict inclusion deadline and complete verifier/image continuity; no replacement L2 message or acknowledgment. Z07 replacement remains historical f556 only.",
+          "status": "WAITING"
+        },
+        {
+          "id": "PUBLIC_HISTORY",
+          "ruleIds": [
+            "DATA-5.3-9a",
+            "DATA-5.4-8",
+            "LIMIT-12-2"
+          ],
+          "scope": "Independent public archive and ordinary-recovery drill after blob expiry, complete authenticated headers/commits/registry history and retained audit evidence, with the primary archive offline and an actual second operator producing and landing the new generation first batch. Symbolic trust premises and archived inconclusive searches remain open.",
+          "status": "WAITING"
+        },
+        {
+          "id": "RESOURCES",
+          "ruleIds": [
+            "MODEL-1-2",
+            "START-10-14",
+            "START-10-18",
+            "START-10-21",
+            "LIMIT-12-17"
+          ],
+          "scope": "Measure current worst legal single-block and full-batch two-proof/guest/EL/DA resources, complete DAO-to-Inbox-to-Registry recovery gas for every 0..F exclusions with zero/one FI entry before refunds under both L1 gas limits, and K<=F initialization. Measure sustained landing net rate, backlog reduction and evidence growth/alerts. Finite models, mocks and source recognition provide none of these measurements.",
+          "status": "WAITING"
+        },
+        {
+          "id": "CHECKPOINT_TRUST",
+          "ruleIds": [
+            "SYNC-9-4",
+            "SYNC-9-5",
+            "SYNC-9-5a",
+            "SYNC-9-6a",
+            "SYNC-9-7",
+            "RECOV-8-5",
+            "RECOV-8-14",
+            "RECOV-8-15"
+          ],
+          "scope": "Continuously follow the latest own-finalized checkpoint and generation without waiting for a proposal or reconnect. Pending targets close signing and public trust immediately and survive failed reads; compare available EL before slot285, revoke on mismatch, retry missing285 at its pinned finalized block, and restore only after the latest known target and current generation match. At a current-generation origin compare EL only; later checkpoints require both hashes. A prior matched height needs no new Comet comparison.",
+          "status": "WAITING"
+        },
+        {
+          "id": "SIGNER_SESSION",
+          "ruleIds": [
+            "START-10-6",
+            "SYNC-9-4",
+            "SYNC-9-10",
+            "SYNC-9-11",
+            "SYNC-9-12",
+            "SYNC-9-13",
+            "RECOV-8.2-2"
+          ],
+          "scope": "Authenticated unix-controlled-directory or pinned stock noise connections, every-connection session lifecycle, durable HRS/store binding and height floor across disconnect/reconnect. Before HRS mutation require trust for the full chain_id and next durable app height, including nil/retry/retained requests, non-one initial_height and s+1 after import. Exercise explicit errors within the signer deadline, supervisor restart after trust returns and replay-confirmed saved precommit before fresh signing.",
+          "status": "WAITING"
+        },
+        {
+          "id": "ENCODINGS",
+          "ruleIds": [
+            "CONS-3.2-8",
+            "CONS-3.2-9",
+            "ENC-A-5",
+            "ENC-A-10a",
+            "ENC-A-10b",
+            "ENC-A-23",
+            "ENC-A-23a",
+            "ENC-A-23b",
+            "ENC-A-23c",
+            "ENC-A-23d",
+            "ENC-A-39a",
+            "ENC-A-42",
+            "DATA-5.2-2",
+            "DATA-5.2-3",
+            "DATA-5.2-4",
+            "DATA-5.2-5",
+            "DATA-5.2-6",
+            "PROOF-6.2-17"
+          ],
+          "scope": "Shared fixed hex vectors against actual EL/guest decoders: static bytes32 tags, one nested executionBlock RLP encoding, transaction byte strings, 124000-byte execution blocks, one complete bounded zlib stream with alternate valid compression accepted, exact Unzen version0 blob packing and strict padding, ABI setHash/committee records, new-network (S=0) block 1 fixed at 0.025 gwei (25000000 wei), EIP-4396 with the four-second target for every other block including switching (S>0) S+1 using Unzen parent and grandparent, independent two-word ABI mixHash from parent.difficulty and height, and exact round/type/full-BlockID certificates. Documents and pure projections are not runtime conformance.",
+          "status": "WAITING"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,69 @@
+# Exact historical false positives from public Etna registration vectors.
+# These18 fields are12 compressed public keys and6 public entry-key digests,
+# independently matched to published blob e069e2930143cbaf126d46532a96179764ec0ab6.
+# Each exclusion binds the original commit, exact file, rule and line; no path
+# or value wildcard. New commits/fields remain subject to the existing CI check.
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:14
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:24
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:34
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:44
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:54
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:64
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:74
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:84
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:94
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:104
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:114
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:124
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:141
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:150
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:159
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:168
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:177
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:186
+
+# Exact J02 false positive: fixed event label "EvidenceB1Exact" in a literal
+# schedule, not a credential. Only this historical commit/file/rule/line.
+1d399f051efaefcd94aeaf04ac375e7eb654ea94:formal/etna/EtnaTrustSupersession.tla:generic-api-key:14
+
+# Exact Y04 false positive: SHA-256 of public LibEtnaKeys.sol source,
+# matched to the retained contract manifest and compiled source bytes.
+# Only this historical commit/file/rule/line; no broader exemption.
+ee18ad8e1ebe2248bf901884409a73a8e7bbe0a0:formal/etna/conformance/registry_funding/pins.json:generic-api-key:79
+
+# Exact Etna anchor/proof/recovery false positives from CI run 45180879942.
+# Each recorded match is the SHA-256 of a source file in an evidence inventory.
+# Verified against the historical blobs and retained input bytes.
+# Only these 32 historical commit/file/rule/line fingerprints.
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:254
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:255
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:256
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:257
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:258
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:276
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:449
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:471
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:474
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:532
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/producer-source-base.json:generic-api-key:959
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:253
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:254
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:255
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:256
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:257
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:275
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:448
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:470
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:473
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:531
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:958
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:1150
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/cohort-source-base.json:generic-api-key:1151
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6012
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6013
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6014
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6015
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6088
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6089
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6090
+3c5c1a4640b2963fc324b16bd5ab8d5c5215a7c5:formal/etna/anchor_proof/evidence.json:generic-api-key:6091

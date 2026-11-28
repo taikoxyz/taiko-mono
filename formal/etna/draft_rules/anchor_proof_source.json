@@ -1,0 +1,66 @@
+{
+  "schema": "etna-anchor-proof-source-1",
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "main": "3602629758beb653423a23608fd1960810efcfac",
+  "baseline": "f5ca696e1f2fb966be76971075b5194de423aaa7",
+  "sourceManifest": "draft_rules/quorum_source.json",
+  "sourceManifestSha256": "fa8433997416f4bdb8905cb360a62bbf4066bab030e1642d647c3f02a43502d4",
+  "specSha256": "cae2e783a06b81b36dd0d412d678c67f764b6d96143c676aec99df8008eee7e0",
+  "contract": "ANCHOR_PROOF_RECOVERY_CONTRACT.md",
+  "contractSha256": "d4aac5d01f4139eb9b3c214e254374ab034de76e10e60bc044829225ccd98bc8",
+  "independentInputs": {
+    "anchor_proof_oracle.json": "fee6c783b113f4aa3c1388745e2df66af7ec24b2f54ad4b46ef1cf1b65bd9cbe",
+    "anchor_proof_supplement.json": "5463194fdc2072dc30fe376774af4a4a0163ba6c3dc129e5a777e5a5c6e57a18",
+    "anchor_proof_oracle_report.md": "5f4ffbf7b41a2553720a54d70e7456c0094d3d50dd11519cf767e03fc4eac98c"
+  },
+  "existingKernelSha256": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+  "normalMicroScope": "complete restricted two-slot/three-offer Micro alphabet (nine ordered pairs) plus independent node observation/replay/trust interleavings",
+  "largerScope": "conditional finite external-input histories at declared premises and bounds",
+  "runtimeAdmission": false,
+  "fullProtocolVerified": false,
+  "modelStatus": "LOCAL_PUBLIC15_PRIVATE31_AND_CONTROL_READBACKS_RECORDED",
+  "oldFreeStatus": "OPEN_0_OF12_EXHAUSTED",
+  "oldRuntimeWaiting": 14,
+  "historicalInconclusive": 19,
+  "isolatedProofGenerationSensitivity": "OPEN_NOT_ESTABLISHED_BY_COMPOUND_STALE_JOBS",
+  "modelSha256": "411829ee1b8e277fa364ee338ae2e468f230c9ba2a17ffdd9e3491edd7e1fc52",
+  "selectedMicroDistinctStates": 607,
+  "conditionalMainDistinctStates": 144,
+  "publicOutcomes": {
+    "total": 15,
+    "PASS": 1,
+    "named": 14
+  },
+  "view": "ANCHOR_PROOF_RECOVERY_VIEW.md",
+  "viewSha256": "f069d1a40ec5614b3bce575e11cdcd300e1b4d277baef630514612477eabcb7c",
+  "model": "EtnaAnchorProofRecovery.tla",
+  "localEvidence": "anchor_proof/evidence.json",
+  "localEvidenceSha256": "9079cb042d25158d1183aaa7c9b6ce6e1e8a4adca48609ba0993ce684e2f5bda",
+  "ordinaryCohortTests": {
+    "360262975": 817,
+    "f556fa941": 817
+  },
+  "privateWitnesses": 31,
+  "controlOutcomes": 11,
+  "defaultBank": {
+    "previous": 516,
+    "total": 531,
+    "PASS": 134,
+    "named": 397
+  },
+  "formalTlaFiles": 55,
+  "reviewAndPublication": "CLOSING_RECEIPTS_EXTERNAL_TO_LOCAL_EVIDENCE",
+  "normalPressureDiagnostic": {
+    "path": "anchor_proof/diagnostics/apr-normal-pressure-safety.cfg",
+    "sha256": "274bba1d3e1518416135a0174d061d6b861875ee84813d24798624c4e1f666cb"
+  },
+  "mainIdentityInterpretation": {
+    "path": "anchor_proof/MAIN_IDENTITIES.md",
+    "bytes": 6543,
+    "sha256": "08b2a2bed9ff2358986983f2ed33d81600717fe37412808702baf91c66b77209",
+    "dualTraceReadback": "dual-main-identity",
+    "scope": "Per-script finite lifting for dependent Main identities",
+    "crossHistoryReplayIsolation": "OPEN",
+    "concreteCommitmentConstruction": "EXTERNAL"
+  }
+}

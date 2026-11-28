@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/tmp/source/run.py", line 10, in <module>
+    assert facts['script']=='ShortFirst' and facts['fullyComparedTargets']==[12,13,14]
+AssertionError

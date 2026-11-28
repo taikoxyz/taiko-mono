@@ -1,0 +1,189 @@
+package boundary
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/cometbft/cometbft/crypto/secp256k1eth"
+	pb "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmt "github.com/cometbft/cometbft/types"
+)
+
+const publicInputSHA = "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e"
+
+type publicPoint struct {
+	PublicKey string `json:"public_key"`
+	Signer    string `json:"signer"`
+}
+type publicSpectator struct {
+	Name      string `json:"name"`
+	PublicKey string `json:"public_key"`
+	Address   string `json:"ck_addr"`
+}
+type publicFields struct {
+	Type       string `json:"voteType"`
+	Height     string `json:"height"`
+	Round      string `json:"round"`
+	BlockHash  string `json:"blockHash"`
+	PartsTotal string `json:"partsTotal"`
+	PartsHash  string `json:"partsHash"`
+	Seconds    string `json:"timestampSeconds"`
+	SecondsU64 string `json:"timestampSecondsU64"`
+	Nanos      string `json:"timestampNanos"`
+	Generation string `json:"generation"`
+}
+type publicRow struct {
+	Name      string       `json:"name"`
+	ChainID   string       `json:"chain_id"`
+	SignBytes string       `json:"sign_bytes"`
+	Signature string       `json:"signature"`
+	Vote      publicFields `json:"vote"`
+}
+type publicFixture struct {
+	Schema     string            `json:"schema"`
+	Provenance json.RawMessage   `json:"provenance"`
+	Deployment json.RawMessage   `json:"deployment"`
+	Key        publicPoint       `json:"voteKey"`
+	Cases      []publicRow       `json:"voteCases"`
+	Pairs      json.RawMessage   `json:"votePairs"`
+	Domains    json.RawMessage   `json:"chainDomains"`
+	Spectators []publicSpectator `json:"spectators"`
+}
+type publicSetup struct {
+	rows       map[string]publicRow
+	signer     secp256k1eth.PubKey
+	spectators []publicSpectator
+	digest     string
+}
+type observation map[string]any
+
+func need(t *testing.T, ok bool, format string, args ...any) {
+	t.Helper()
+	if !ok {
+		t.Fatalf(format, args...)
+	}
+}
+func hx(raw []byte) string { return hex.EncodeToString(raw) }
+func unhex(t *testing.T, value string) []byte {
+	t.Helper()
+	raw, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
+	need(t, err == nil && "0x"+hx(raw) == value, "noncanonical public hex")
+	return raw
+}
+func number(t *testing.T, value string, bits int) int64 {
+	t.Helper()
+	n, err := strconv.ParseInt(value, 10, bits)
+	need(t, err == nil && strconv.FormatInt(n, 10) == value, "noncanonical public integer")
+	return n
+}
+func natural(t *testing.T, value string, bits int) uint64 {
+	t.Helper()
+	n, err := strconv.ParseUint(value, 10, bits)
+	need(t, err == nil && strconv.FormatUint(n, 10) == value, "noncanonical public unsigned integer")
+	return n
+}
+func loadPublic(t *testing.T) publicSetup {
+	t.Helper()
+	raw, err := os.ReadFile("public-votes.json")
+	need(t, err == nil, "read public fixture: %v", err)
+	// Hash the actual buffer before decoding. No independently supplied digest is trusted.
+	digest := fmt.Sprintf("%x", sha256.Sum256(raw))
+	need(t, digest == publicInputSHA, "public input buffer differs")
+	var data publicFixture
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	need(t, decoder.Decode(&data) == nil, "decode pinned public input")
+	var extra any
+	need(t, decoder.Decode(&extra) == io.EOF, "trailing public input")
+	need(t, data.Schema == "etna-public-votes-1" && len(data.Cases) == 23 && len(data.Spectators) == 3, "public input inventory")
+	pub, err := secp256k1eth.NewPubKeyFromBytes(unhex(t, data.Key.PublicKey))
+	need(t, err == nil && bytes.Equal(pub.Address(), unhex(t, data.Key.Signer)), "public key identity")
+	rows := make(map[string]publicRow)
+	for _, row := range data.Cases {
+		_, exists := rows[row.Name]
+		need(t, !exists, "duplicate public row")
+		rows[row.Name] = row
+	}
+	return publicSetup{rows: rows, signer: pub, spectators: data.Spectators, digest: digest}
+}
+func (s publicSetup) vote(t *testing.T, name string, index int32) *cmt.Vote {
+	t.Helper()
+	row, ok := s.rows[name]
+	need(t, ok, "missing public row")
+	f := row.Vote
+	seconds, nanos := number(t, f.Seconds, 64), number(t, f.Nanos, 32)
+	bits, err := strconv.ParseUint(f.SecondsU64, 10, 64)
+	need(t, err == nil && uint64(seconds) == bits, "public timestamp bit pattern")
+	stamp := time.Unix(seconds, nanos).UTC()
+	need(t, stamp.Unix() == seconds && int64(stamp.Nanosecond()) == nanos, "public timestamp normalization")
+	hash := unhex(t, f.BlockHash)
+	if bytes.Equal(hash, make([]byte, 32)) {
+		hash = nil
+	}
+	parts := unhex(t, f.PartsHash)
+	if bytes.Equal(parts, make([]byte, 32)) {
+		parts = nil
+	}
+	vote := &cmt.Vote{Type: pb.SignedMsgType(number(t, f.Type, 8)), Height: number(t, f.Height, 64),
+		Round: int32(number(t, f.Round, 32)), Timestamp: stamp, ValidatorAddress: s.signer.Address(),
+		ValidatorIndex: index, Signature: unhex(t, row.Signature),
+		BlockID: cmt.BlockID{Hash: hash, PartSetHeader: cmt.PartSetHeader{Total: uint32(natural(t, f.PartsTotal, 32)), Hash: parts}}}
+	need(t, vote.ValidateBasic() == nil && vote.Verify(row.ChainID, s.signer) == nil, "genuine public vote refused")
+	need(t, bytes.Equal(cmt.VoteSignBytes(row.ChainID, vote.ToProto()), unhex(t, row.SignBytes)), "actual canonical vote bytes")
+	return vote
+}
+func (s publicSetup) validators(t *testing.T, power int64) *cmt.ValidatorSet {
+	t.Helper()
+	pub, err := secp256k1eth.NewPubKeyFromBytes(unhex(t, s.spectators[0].PublicKey))
+	need(t, err == nil && bytes.Equal(pub.Address(), unhex(t, s.spectators[0].Address)), "spectator public key")
+	return cmt.NewValidatorSet([]*cmt.Validator{cmt.NewValidator(s.signer, power), cmt.NewValidator(pub, 1)})
+}
+func blockID(id cmt.BlockID) observation {
+	return observation{"hash": hx(id.Hash), "partsTotal": id.PartSetHeader.Total, "partsHash": hx(id.PartSetHeader.Hash)}
+}
+func voteView(v *cmt.Vote, chain string) any {
+	if v == nil {
+		return nil
+	}
+	return observation{"type": v.Type, "height": v.Height, "round": v.Round, "index": v.ValidatorIndex,
+		"address": hx(v.ValidatorAddress), "blockID": blockID(v.BlockID), "seconds": v.Timestamp.Unix(),
+		"nanos": v.Timestamp.Nanosecond(), "signature": hx(v.Signature), "signBytes": hx(cmt.VoteSignBytes(chain, v.ToProto()))}
+}
+func setView(t *testing.T, set *cmt.ValidatorSet) observation {
+	t.Helper()
+	members := make([]observation, 0, set.Size())
+	for i, v := range set.Validators {
+		members = append(members, observation{"index": i, "key": hx(v.PubKey.Bytes()), "address": hx(v.Address), "power": v.VotingPower, "priority": v.ProposerPriority})
+	}
+	proto, err := set.ToProto()
+	need(t, err == nil, "validator proto: %v", err)
+	raw, err := proto.Marshal()
+	need(t, err == nil, "validator bytes: %v", err)
+	return observation{"members": members, "total": set.TotalVotingPower(), "hash": hx(set.Hash()), "proto": hx(raw)}
+}
+func commitView(t *testing.T, commit *cmt.Commit, chain string) any {
+	t.Helper()
+	if commit == nil {
+		return nil
+	}
+	raw, err := commit.ToProto().Marshal()
+	need(t, err == nil, "commit bytes: %v", err)
+	votes := make([]any, len(commit.Signatures))
+	flags := make([]cmt.BlockIDFlag, len(commit.Signatures))
+	for i, sig := range commit.Signatures {
+		flags[i] = sig.BlockIDFlag
+		if sig.BlockIDFlag != cmt.BlockIDFlagAbsent {
+			votes[i] = voteView(commit.GetVote(int32(i)), chain)
+		}
+	}
+	return observation{"height": commit.Height, "round": commit.Round, "blockID": blockID(commit.BlockID), "hash": hx(commit.Hash()), "proto": hx(raw), "votes": votes, "flags": flags}
+}

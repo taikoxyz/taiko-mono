@@ -1,0 +1,83 @@
+{
+  "schema": "etna-independent-l2-committee-recovery-witness-v3",
+  "status": "source-derived-corrected-after-static-review-before-full-model-execution",
+  "core_main_frozen_before_authoring_oracle_sha256": "ab05734800dd4bc8faa47bdc1813f5c44dc0b46c8278e498254c04170c125880",
+  "supersedes_sha256": "ab05734800dd4bc8faa47bdc1813f5c44dc0b46c8278e498254c04170c125880",
+  "design_revision": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "spec_sha256": "cae2e783a06b81b36dd0d412d678c67f764b6d96143c676aec99df8008eee7e0",
+  "selected_model_contract": {"block_start_outcomes":["effects","revert_or_exception"],"staking_proxy_code":"present throughout; true no-code plus code repair remains unmodeled","l1_view":"every committed block adopts latest finalized modeled threshold, fallback and landing; no anchor lag explored","temporal_properties":"no fairness or leads-to checked; conditional finite-witness existence only"},
+  "height_coordinates": {"actual_start_S": 10, "actual_height": "10 + offset", "old_origin_offset": 0, "new_origin_offset": 3},
+  "parameters": {"Q_base_units": "250000000000000000000000000", "total_supply_q": 4, "min_stake_q": 1, "vp_unit_q": 1, "n_max": 4, "miss_limit": 2, "miss_slash_bps": 10000, "forfeit_bps": 10000, "initial_M_q": 3, "final_M_q": 2, "disabled_M": "uint256_max", "U_minimum_for_selected_path": 6, "rules": 0},
+  "identity": {"bond_ids": {"A": 0, "B": 1, "C": 2, "D": 3}, "initial_seats": {"A": 0, "B": 1, "C": 2, "D": 3}, "fallback_controllers": {"F0": "controller_0", "F1": "controller_1", "F2": "controller_2", "F3": "controller_3"}, "all_key_symbols_distinct_and_prevalidated": true},
+  "sets": {
+    "F": {"F0": 1, "F1": 1, "F2": 1, "F3": 1},
+    "C4": {"A": 1, "B": 1, "C": 1, "D": 1},
+    "C3": {"A": 1, "B": 1, "C": 1},
+    "C2": {"C": 1, "D": 1}
+  },
+  "bond_states": {
+    "all_four_active": {"balances_q": [1,1,1,1], "seats": [0,1,2,3], "exit_offsets": [null,null,null,null], "forfeited": [false,false,false,false], "withdrawn": [false,false,false,false], "misses_by_seat": [0,0,0,0], "sink_q": 0, "permanent_issued_keys": ["A","B","C","D"]},
+    "old_suffix_D_exited": {"balances_q": [1,1,1,1], "seats": [0,1,2,null], "exit_offsets": [null,null,null,4], "forfeited": [false,false,false,false], "withdrawn": [false,false,false,false], "misses_by_seat": [0,0,0,0], "sink_q": 0, "permanent_issued_keys": ["A","B","C","D"]},
+    "new_suffix_AB_forfeited": {"balances_q": [0,0,1,1], "seats": [null,null,2,3], "exit_offsets": [4,4,null,null], "forfeited": [true,true,false,false], "withdrawn": [false,false,false,false], "misses_by_seat": [0,0,0,0], "sink_q": 2, "permanent_issued_keys": ["A","B","C","D"]}
+  },
+  "initial_premises": {
+    "origin": "generation0 switching origin S=10; four pre-fork registered bonds are trusted live staking state, not a freely chosen candidate snapshot",
+    "initial_snapshot": {"height_offset": -10, "members": {}, "total_q": 0},
+    "stored_generation": 0,
+    "signers_offset_1": "F",
+    "signers_offset_2": "F",
+    "online_before_old_stall": ["A","B","C","D","F0","F1","F2","F3"],
+    "proof_service_pause": "after Land(g0,offset3), no suffix proof can be completed before recovery; raw audit/history remains available",
+    "governance": "valid complete recovery audit/authorization and signer admission; F0..F3 each distinct caught-up controller; later authorized forfeit calls each valid at execution"
+  },
+  "main_positive": [
+    {"event":"Commit", "g":0, "h":1, "current":"F", "next":"F", "parent_commit":null, "bitmap":0, "snapshot":{"h":1,"members":"C4","total_q":4}, "decision_h_plus_2":"C4", "updates":{"F0":0,"F1":0,"F2":0,"F3":0,"A":1,"B":1,"C":1,"D":1}, "post_ledger":"all_four_active", "stored_generation":0},
+    {"event":"Commit", "g":0, "h":2, "current":"F", "next":"C4", "parent_commit":{"g":0,"h":1,"all_commit":"F"}, "bitmap":0, "snapshot":{"h":2,"members":"C4","total_q":4}, "decision_h_plus_2":"C4", "updates":{}, "post_ledger":"all_four_active", "stored_generation":0},
+    {"event":"Commit", "g":0, "h":3, "current":"C4", "next":"C4", "parent_commit":{"g":0,"h":2,"all_commit":"F"}, "bitmap":0, "snapshot":{"h":3,"members":"C4","total_q":4}, "decision_h_plus_2":"C4", "updates":{}, "post_ledger":"all_four_active", "stored_generation":0},
+    {"event":"Land", "g":0, "p":0, "h":3, "previous_c":0, "new_c":3, "required_commits":[2,3], "saved_ledger":"all_four_active", "saved_snapshot":{"h":3,"members":"C4","total_q":4}, "saved_header_current":"C4", "saved_header_next":"C4", "saved_generation_store":0},
+    {"event":"Commit", "g":0, "h":4, "current":"C4", "next":"C4", "parent_commit":{"g":0,"h":3,"all_commit":"C4"}, "bitmap":0, "snapshot":{"h":4,"members":"C4","total_q":4}, "ordinary_calls":[{"kind":"requestExit","bond":"D","exit_h":4}], "decision_h_plus_2":"C4", "updates":{}, "post_ledger":"old_suffix_D_exited", "stored_generation":0},
+    {"event":"Commit", "g":0, "h":5, "current":"C4", "next":"C4", "parent_commit":{"g":0,"h":4,"all_commit":"C4"}, "bitmap":0, "snapshot":{"h":5,"members":"C3","total_q":3}, "decision_h_plus_2":"C3", "updates":{"D":0}, "post_ledger":"old_suffix_D_exited", "stored_generation":0},
+    {"event":"SetOnline", "offline":["A","B"], "online":["C","D","F0","F1","F2","F3"]},
+    {"event":"RefusedCurrentQuorum", "g":0, "attempt_h":6, "parent_commit":{"g":0,"h":5,"all_commit":"C4"}, "current":"C4", "available_keys":["C","D"], "available_power":2, "total_power":4, "strict_quorum":false, "head_stays":5, "snapshot_stays_h":5, "ledger_stays":"old_suffix_D_exited", "future_signers_7":"C3", "misses_stay":[0,0,0,0]},
+    {"event":"AtomicDisableAndRecover", "expected_g":0, "expected_c":3, "valid_authorization":true, "new_M":"uint256_max", "new_g":1, "new_origin":3, "checkpoint_stays":3, "restore_ledger":"all_four_active", "restore_snapshot":{"h":3,"members":"C4","total_q":4}, "stored_generation_stays":0, "origin_fallback":"F", "signers_4":"F", "signers_5":"F", "discard_old_pending_6":"C4", "discard_old_pending_7":"C3", "discard_old_suffix":[4,5], "new_anchors_at_or_after":"R"},
+    {"event":"Commit", "g":1, "h":4, "current":"F", "next":"F", "parent_commit":null, "comet_last_block_id":"empty", "bitmap":0, "anchor_M":"uint256_max", "snapshot":{"h":4,"members":"C4","total_q":4}, "ordinary_calls":[{"kind":"forfeit","bond":"A","pre_q":1,"penalty_q":1,"post_q":0,"exit_h":4,"forfeited":true},{"kind":"forfeit","bond":"B","pre_q":1,"penalty_q":1,"post_q":0,"exit_h":4,"forfeited":true}], "decision_h_plus_2":"F", "updates":{}, "post_ledger":"new_suffix_AB_forfeited", "stored_generation":1},
+    {"event":"Commit", "g":1, "h":5, "current":"F", "next":"F", "parent_commit":{"g":1,"h":4,"all_commit":"F"}, "bitmap":0, "anchor_M":"uint256_max", "snapshot":{"h":5,"members":"C2","total_q":2}, "decision_h_plus_2":"F", "updates":{}, "post_ledger":"new_suffix_AB_forfeited", "stored_generation":1},
+    {"event":"L1SetM", "new_M_q":2, "finalized_before_anchor_at":6},
+    {"event":"Commit", "g":1, "h":6, "current":"F", "next":"F", "parent_commit":{"g":1,"h":5,"all_commit":"F"}, "bitmap":0, "anchor_M_q":2, "snapshot":{"h":6,"members":"C2","total_q":2}, "decision_h_plus_2":"C2", "updates":{"F0":0,"F1":0,"F2":0,"F3":0,"C":1,"D":1}, "post_ledger":"new_suffix_AB_forfeited", "stored_generation":1},
+    {"event":"Commit", "g":1, "h":7, "current":"F", "next":"C2", "parent_commit":{"g":1,"h":6,"all_commit":"F"}, "bitmap":0, "anchor_M_q":2, "snapshot":{"h":7,"members":"C2","total_q":2}, "decision_h_plus_2":"C2", "updates":{}, "post_ledger":"new_suffix_AB_forfeited", "stored_generation":1},
+    {"event":"Commit", "g":1, "h":8, "current":"C2", "next":"C2", "parent_commit":{"g":1,"h":7,"all_commit":"F"}, "available_keys":["C","D"], "available_power":2, "total_power":2, "strict_quorum":true, "bitmap":0, "anchor_M_q":2, "snapshot":{"h":8,"members":"C2","total_q":2}, "decision_h_plus_2":"C2", "updates":{}, "post_ledger":"new_suffix_AB_forfeited", "stored_generation":1}
+  ],
+  "decisive_negative_or_delay_histories": {
+    "threshold_only_cannot_unstall": {"branch_at":"old g0 head5 after RefusedCurrentQuorum", "actions":[{"kind":"L1SetM","value":"uint256_max"},{"kind":"Retry","h":6}], "expected":{"head":5,"current_at_6":"C4","available_power":2,"total_power":4,"snapshot_h":5,"ledger":"old_suffix_D_exited","misses":[0,0,0,0]}, "reason":"without a block there is no H deciding H+2, and pending/fallback may not bypass current quorum"},
+    "recover_without_disable_stalls_even_after_forfeit": {"branch_at":"Recover(c3) with M remaining3Q", "g1_h4":{"current":"F","next":"F","snapshot_before_calls":"C4","ordinary_calls":["forfeit A full","forfeit B full"],"decision_h6":"C4","post_ledger":"new_suffix_AB_forfeited"}, "g1_h5":{"current":"F","next":"C4","snapshot":"C2","lower_M_to_2Q_before_anchor":true,"decision_h7":"C2","post_ledger":"new_suffix_AB_forfeited"}, "g1_h6_attempt":{"current":"C4","available_keys":["C","D"],"power":2,"total":4,"quorum":false,"future_h7":"C2","head_stays":5,"snapshot_h_stays":5}, "reason":"snapshot at first recovery block predates its forfeitures; two fallback blocks cannot activate the future C2 committee through the unavailable C4 height"},
+    "revert_stale_snapshot_delays_candidate_one_more_height": {"branch_at":"main g1 h6 with lower-M anchor", "call_outcome_options":["revert_or_exception"], "h6":{"current":"F","next":"F","snapshot_h_stays":5,"snapshot_members":"C2","snapshot_total_q":2,"decision_h8":"F","ledger_stays":"new_suffix_AB_forfeited","stored_generation_stays":1}, "h7":{"call":"success_effects","snapshot_h":7,"snapshot_members":"C2","decision_h9":"C2","header_current":"F","header_next":"F"}, "h8":{"header_current":"F","header_next":"C2"}, "h9":{"header_current":"C2","header_next":"C2"}, "reason":"even a valid otherwise identical stale candidate fails full-word snapshotHeight==H"},
+    "stale_expected_checkpoint_rejects_entire_batch": {"branch_at":"authorized recover expected g0,c3 before a separately valid Land advances c", "advance_checkpoint_to":4, "attempt":{"expected_g":0,"expected_c":3,"batch_set_M":"uint256_max"}, "expected":{"recover_rejected":true,"generation_stays":0,"c_stays":4,"batch_M_change_reverted":true,"staking_state_unchanged":true}, "scope_note":"valid proof/landing and recovery authorization are symbolic premises; this is not proof-generation or DAO transport execution"},
+    "fresh_snapshot_after_transactions_fault": {"branch_at":"main g1 h4 before forfeit A/B", "correct_snapshot":"C4", "incorrect_snapshot_if_after_calls":"C2", "correct_first_possible_tx_effect_on_candidate_signers":7, "caveat":"M=max masks signer difference at h6; assert raw snapshot ordering, not only signer output"}
+  },
+  "miss_penalty_positive_separate_branch": {
+    "branch_at":"g0 h3, before main exit/recovery path",
+    "M_q":3,
+    "offline_only":["A"],
+    "h3":{"current":"C4","committing_keys":["B","C","D"],"power":3,"total":4,"quorum":true},
+    "h4":{"parent_flags":{"A":"absent","B":"commit","C":"commit","D":"commit"},"bitmap":1,"A_misses":1,"snapshot":"C4","snapshot_total_q":4,"decision_h6":"C4","current_quorum_power":3,"current_total":4},
+    "h5":{"parent_flags":{"A":"absent","B":"commit","C":"commit","D":"commit"},"bitmap":1,"A_misses_after":0,"A_penalty_q":1,"A_balance_q":0,"A_seat":null,"A_exit":null,"sink_q":1,"snapshot_members":{"B":1,"C":1,"D":1},"snapshot_total_q":3,"decision_h7":{"B":1,"C":1,"D":1},"current_quorum_power":3,"current_total":4},
+    "h6":{"current":"C4","available_keys":["B","C","D"],"power":3,"total":4,"quorum":true},
+    "h7":{"current":{"B":1,"C":1,"D":1},"available_power":3,"total_power":3,"quorum":true},
+    "claim":"penalty occurs only in an admitted block and enters that block's own snapshot for H+2; seat release sets no exit; no impossible >=1/3 omission is used"
+  },
+  "exit_retains_nonzero_empty_seat_counter_positive": {
+    "branch_at":"g0 h3 with only A absent, M=3Q",
+    "h3":{"committing_keys":["B","C","D"],"power":3,"total":4},
+    "h4":{"parent_flags":{"A":"absent","B":"commit","C":"commit","D":"commit"},"bitmap":1,"A_misses_after_block_start":1,"snapshot_before_exit":"C4","ordinary_calls":["requestExit A"],"A_balance_q":1,"A_seat":null,"A_exit_h":4,"empty_seat0_miss_after_exit":1,"decision_h6":"C4"},
+    "h5":{"parent_flags":{"A":"absent","B":"commit","C":"commit","D":"commit"},"bitmap":0,"empty_seat0_miss_still":1,"A_penalty_q":0,"A_balance_q":1,"snapshot_members":{"B":1,"C":1,"D":1},"snapshot_total_q":3,"decision_h7":{"B":1,"C":1,"D":1},"current_quorum_power":3,"current_total":4},
+    "claim":"exit does not reset retained miss counters; the departed parent signer maps to no live seat, and block-start ignores the empty seat"
+  },
+  "future_stage_reference_only_proof_boundary_literal_oracles": [
+    {"g":0,"p":0,"h":3,"sets_by_height":{"1":"F","2":"F","3":"C4"},"required_commits":[2,3]},
+    {"g":1,"p":3,"h":8,"sets_by_height":{"4":"F","5":"F","6":"F","7":"F","8":"C2"},"required_commits":[7,8],"origin_first2":[4,5]},
+    {"g":1,"p":5,"h":8,"p_current":"F","p_plus_1_from_header_next":"F","p_plus_2_from_p_snapshot_and_max_anchor":"F","sets_by_height":{"6":"F","7":"F","8":"C2"},"required_commits":[7,8]},
+    {"g":1,"p":6,"h":8,"p_current":"F","p_plus_1_from_header_next":"F","p_plus_2_from_p_snapshot_and_lower_anchor":"C2","sets_by_height":{"7":"F","8":"C2"},"required_commits":[7,8]}
+  ],
+  "future_unmodeled_no_code_note": "Withdrawn v2 supplemental assertion: a true no-code call at the fixed staking proxy cannot coexist with successful same-proxy forfeits without modeled repair; code reappearance next block was not derived. Actual no-code/code-availability/repair is OPEN and receives no selected positive-history credit.",
+  "claims_not_established": ["No execution of these histories has occurred", "No stock Comet rounds/locks/message or cryptographic certificate proof", "No implementation/STF/guest/MPT/storage/128-record validation", "No temporal fairness/leads-to/liveness property checked; finite conditional-witness existence only", "No anchor-lag exploration; each committed block uses latest finalized modeled L1 values", "No true no-code/code-repair history coverage", "No genuine power-only reachable transition in this all-four-Q/full-deduction instance; surviving powers stay1", "No globally production-complete monetary quotient", "Final C2 is quorum-capable but concentrated: each distinct controller has1/2; concentration shortfall must be named"]
+}

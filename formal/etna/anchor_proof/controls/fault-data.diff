@@ -1,0 +1,15 @@
+--- a/EtnaAnchorProofRecovery.tla
++++ b/EtnaAnchorProofRecovery.tla
+@@ -309,11 +309,11 @@
+ PacketOK(j,hist) ==
+     LET bs == j.blocks
+         width == j.h-j.p
+         r == At(hist,j.ref)
+     IN /\ width \in 1..2 /\ Len(bs)=width /\ Len(j.cuts)=width-1
+-       /\ j.data = [i \in DOMAIN bs |-> bs[i].tag]
++       /\ TRUE
+        /\ j.cuts = [i \in 1..(width-1) |-> Cut(bs[i])]
+        /\ j.terminal=Cut(Last(bs)) /\ j.root=Last(bs).root
+        /\ j.statement=Stmt(j.g,j.p,j.h,j.start,j.terminal,j.root,r.id,j.ref,j.blobs,j.cuts)
+        /\ j.attest= << <<j.pair[1],j.statement>>,<<j.pair[2],j.statement>> >>
+        /\ \A role \in DOMAIN j.readAt :

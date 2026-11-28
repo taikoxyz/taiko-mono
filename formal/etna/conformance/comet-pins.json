@@ -1,0 +1,33 @@
+{
+  "expectedSubtests": [
+    "equal-times",
+    "parent-dominates",
+    "later-anchor",
+    "wrong-bft-time",
+    "wrong-initial-height",
+    "retained-last-block-id",
+    "nonempty-last-commit"
+  ],
+  "fault": {
+    "change": "Remove only the initial genesis-time equality check in a private source copy",
+    "path": "state/validation.go"
+  },
+  "receipt": {
+    "exporterSha256": "af3818949b198ae107d4adb67d9f7e8443932da4dc4c4ced739fc4ca181f47ce",
+    "file": "recovery_time_cases.json",
+    "schema": "etna-recovery-time-replay-1",
+    "sha256": "ac047ee026a0e97f8db54a514a52d6638a3660bcaeba6e2265e9a405bfd07735"
+  },
+  "schema": "etna-comet-conformance-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  }
+}

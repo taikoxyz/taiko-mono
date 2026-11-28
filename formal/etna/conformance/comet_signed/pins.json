@@ -1,0 +1,1518 @@
+{
+  "schema": "etna-comet-signed-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  },
+  "inputsSha256": {
+    "go.mod": "efbc3190ad9cd882d03f9559c5d0b334b97ff50eabef1d7ecca1f2121230d400",
+    "go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "signed_test.go": "5b2b82c21a6b878b802c397722d15e8979cca9bf3aa2159b0b45f0f52e4c0ae0"
+  },
+  "goToolSha256": {
+    "VERSION": "28ff77ac2178f2faca8a4f535e60b1738e397c9086b3ecfc18c9955abe75634a",
+    "bin/go": "de0ae3e082ce7599eae4fb69fa2ef1e43b8f31ffd3fce62cdf81930aa9005050",
+    "pkg/tool/linux_amd64/asm": "a67997d99985e3ef3ecd30f029685d67d778a0c8f78b852396ef7738426c04b5",
+    "pkg/tool/linux_amd64/compile": "40307e5f5c65a4b4220bbf35dbe014348780589ea2964003f0bf318fa14640e1",
+    "pkg/tool/linux_amd64/link": "e2248a29fbbf15dac1fe72c9d646776dbcd38c9813b78182fe01a4a47f3299c3",
+    "pkg/tool/linux_amd64/vet": "d8a579657a9222c8e69e19e3f9783d5694976b2a0bbf39cda12e90e49944ba52"
+  },
+  "registrationSha256": "e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf",
+  "specAuthority": {
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+  },
+  "specCorrespondenceSha256": "cc0d530e9c22c0d44ee23ac92d327d023ad473c6c7d3497e803aaa9a08c68e5f",
+  "wire": {
+    "precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "precommit_nil": {
+      "bytes": 72,
+      "validateBasic": "accept"
+    },
+    "precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "precommit_a_late": {
+      "bytes": 145,
+      "validateBasic": "accept"
+    },
+    "prevote_a_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "prevote_b_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "prevote_b_r2": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "precommit_b_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "gen1_precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen1_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen2_precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen2_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "other_inbox_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "partial_block_id": {
+      "bytes": 112,
+      "validateBasic": "incomplete-block-id"
+    },
+    "max_values": {
+      "bytes": 165,
+      "validateBasic": "accept"
+    },
+    "precommit_b_h1001": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "hash_only_block_id": {
+      "bytes": 110,
+      "validateBasic": "incomplete-block-id"
+    },
+    "zero_timestamp": {
+      "bytes": 139,
+      "validateBasic": "accept"
+    },
+    "negative_timestamp": {
+      "bytes": 152,
+      "validateBasic": "accept"
+    },
+    "min_timestamp": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    },
+    "max_timestamp_seconds": {
+      "bytes": 146,
+      "validateBasic": "accept"
+    },
+    "precommit_a_backdated": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    },
+    "precommit_b_backdated": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    }
+  },
+  "native": {
+    "commit-exact-two-thirds": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 2,
+      "needed": 2,
+      "commitFlags": [2, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 2
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-above": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "accept",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [2, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-below": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 2,
+      "needed": 3,
+      "commitFlags": [2, 1, 1, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 2
+        },
+        {
+          "address": "0x2174ca3ee9ace7dd8c946c97054c72f2b384c4c2",
+          "power": 1
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        },
+        {
+          "address": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false, false, false],
+        "nativePower": "Votes:2/5(0.400)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-nonzero-index": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 1,
+      "needed": 2,
+      "commitFlags": [1, 2],
+      "validators": [
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 2
+        },
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 1
+        }
+      ],
+      "index": 1,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [false, true],
+        "nativePower": "Votes:1/3(0.333)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 1,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 1,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-valid-nil": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 0,
+      "needed": 2,
+      "commitFlags": [3, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": true
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "7a5303780bf8b4c1aad527bd586daa15b709ce55f4fe67a0f16e5bd64e8f9dd4",
+        "signature": "0x3ac47efe653919d9a1909e8722e8b54acec806a2231ad139b7f6d2d3ef165ec2439a090b896140c53abb92ba526fe7558c7499d4fb47ccd8197fb20afdfcae9701"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "7a5303780bf8b4c1aad527bd586daa15b709ce55f4fe67a0f16e5bd64e8f9dd4",
+        "signature": "0x3ac47efe653919d9a1909e8722e8b54acec806a2231ad139b7f6d2d3ef165ec2439a090b896140c53abb92ba526fe7558c7499d4fb47ccd8197fb20afdfcae9701"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-invalid-nil": {
+      "added": false,
+      "addResult": "signature",
+      "commit": "signature",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [3, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "7a5303780bf8b4c1aad527bd586daa15b709ce55f4fe67a0f16e5bd64e8f9dd4",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "7a5303780bf8b4c1aad527bd586daa15b709ce55f4fe67a0f16e5bd64e8f9dd4",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "commit-wrong-slot": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "address",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [1, 2],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "voteInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "commitInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 1,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "verifyHeight": 1000,
+      "verifyTarget": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      }
+    },
+    "duplicate": {
+      "added": false,
+      "result": "accept",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "trackedSecondBlock": true,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300",
+      "firstInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "secondInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      }
+    },
+    "conflict-same-block-later": {
+      "added": false,
+      "result": "nondeterministic",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "trackedSecondBlock": true,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300",
+      "firstInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "secondInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "fa3a3685145e3149fbf09779407b56d025fbf18ff0cea3da1a37f3d057a5b85c",
+        "signature": "0x116c352a792c556e02cf78c678c852ddf423b295f6c4c428dff36a2efee1d7aa7b61dd62a944b51b25e0be4a736afb12aa4e248ad700540fda80f38a2631bcf301"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      }
+    },
+    "conflict-a-b": {
+      "added": false,
+      "result": "conflict",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+        "total": 2
+      },
+      "trackedSecondBlock": false,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300",
+      "firstInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "secondInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "ea22a11353d6527b0fd83d2982f9ac84fcf22d91d19354ab9999d201068437ef",
+        "signature": "0x326e2c9c0fd2059e0977d8debceec77f857d29440baa6719ab406b5dd09455c87282bebfcfaa07965d94179bd9713782872b06448e6d0e56fbe4fe7ccba594ec00"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      }
+    },
+    "conflict-a-nil": {
+      "added": false,
+      "result": "conflict",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0x",
+        "parts": "0x",
+        "total": 0
+      },
+      "trackedSecondBlock": false,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300",
+      "firstInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "secondInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "7a5303780bf8b4c1aad527bd586daa15b709ce55f4fe67a0f16e5bd64e8f9dd4",
+        "signature": "0x3ac47efe653919d9a1909e8722e8b54acec806a2231ad139b7f6d2d3ef165ec2439a090b896140c53abb92ba526fe7558c7499d4fb47ccd8197fb20afdfcae9701"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      }
+    },
+    "vote-wrong-generation": {
+      "added": false,
+      "voteSet": "signature",
+      "verify": "signature",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-lPNjL_XC1QbJXucXeZN7hTo8cZ-aemx12WQM7raJX6o",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bea775d9029d425ffe29265453f8fd4390dd091491abd7251652395281011774",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-lPNjL_XC1QbJXucXeZN7hTo8cZ-aemx12WQM7raJX6o",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": null,
+      "matchingStepInput": null
+    },
+    "vote-wrong-inbox": {
+      "added": false,
+      "voteSet": "signature",
+      "verify": "signature",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-_uP-rPrHNJ4wbmTGc5c4dlo8zlbG6RucU1hhNkFeltk",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "80b282cead24bb70e9baba7f5b308e0512001c8d766ac3e1381b4b4bdd8fe2b6",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-_uP-rPrHNJ4wbmTGc5c4dlo8zlbG6RucU1hhNkFeltk",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": null,
+      "matchingStepInput": null
+    },
+    "vote-address": {
+      "added": false,
+      "voteSet": "address",
+      "verify": "address",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": null,
+      "matchingStepInput": null
+    },
+    "vote-index-outside": {
+      "added": false,
+      "voteSet": "index",
+      "verify": "accept",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 2,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": null,
+      "matchingStepInput": null
+    },
+    "vote-index-mismatch": {
+      "added": false,
+      "voteSet": "address",
+      "verify": "accept",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2,
+        "index": 1,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "bf4eac395954d2bdcad4d2ec057454f03d8b22e20ec9e30c2962224d2489519c",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": null,
+      "matchingStepInput": null
+    },
+    "vote-height": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1001,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "c45efb6f2709778e5c8016557994b8b22c3aef1aa60b1074c79ae747c2fc6147",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1001,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStepInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1001,
+        "round": 0,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "c45efb6f2709778e5c8016557994b8b22c3aef1aa60b1074c79ae747c2fc6147",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      }
+    },
+    "vote-round": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 1,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "f023302b8673c72cfae4bd4ceecbefa669afa96b4aa91e4e626896270ea57e6e",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 1,
+        "type": 2
+      },
+      "matchingStepInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 1,
+        "type": 2,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "f023302b8673c72cfae4bd4ceecbefa669afa96b4aa91e4e626896270ea57e6e",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      }
+    },
+    "vote-type": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "input": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 1,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "5ba6c6942f0db4813b7ff9398a386ccf4239804df7b25bcbea0ee8cad54680a8",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      },
+      "voteSetStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 2
+      },
+      "matchingStep": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 1
+      },
+      "matchingStepInput": {
+        "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "height": 1000,
+        "round": 0,
+        "type": 1,
+        "index": 0,
+        "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+        "signBytesSha256": "5ba6c6942f0db4813b7ff9398a386ccf4239804df7b25bcbea0ee8cad54680a8",
+        "signature": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+      }
+    },
+    "pol-above": {
+      "afterRound1": {
+        "round": 1,
+        "block": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        }
+      },
+      "afterRound2": {
+        "round": 2,
+        "block": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        }
+      },
+      "round1Before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "round1After": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "round2": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        },
+        "anyQuorum": true
+      },
+      "round1Input": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 1,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "0c3c5f91f143b22019366632cc2df42cae6c11dbf5f0551f13187bcc69019ce4",
+          "signature": "0x65f69df40808d009a455eab3d76734f389ceceece850686d4f0cffb909a309133e77ef2c012def24f93f63101313f0bf97a845ff6730ea34cd52516470010a0a01"
+        },
+        "height": 1000,
+        "round": 1
+      },
+      "round2Input": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 2,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "9476c013a2906360697acf257e54910a18fb9e213804c90dbf9d40840ed755a1",
+          "signature": "0x65dd03c60bef33bd5589e5db394fd905f1056dd43602b9ae113425b48e1955832bccf1b8ef85cd4bc52f89a878e40806fd2056373ffaa103e224b4b8dc9a0b1c01"
+        },
+        "height": 1000,
+        "round": 2
+      }
+    },
+    "pol-exact": {
+      "afterRound1": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "afterRound2": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "round1Before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "round1After": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "round2": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "round1Input": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 1,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "0c3c5f91f143b22019366632cc2df42cae6c11dbf5f0551f13187bcc69019ce4",
+          "signature": "0x65f69df40808d009a455eab3d76734f389ceceece850686d4f0cffb909a309133e77ef2c012def24f93f63101313f0bf97a845ff6730ea34cd52516470010a0a01"
+        },
+        "height": 1000,
+        "round": 1
+      },
+      "round2Input": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 2,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "9476c013a2906360697acf257e54910a18fb9e213804c90dbf9d40840ed755a1",
+          "signature": "0x65dd03c60bef33bd5589e5db394fd905f1056dd43602b9ae113425b48e1955832bccf1b8ef85cd4bc52f89a878e40806fd2056373ffaa103e224b4b8dc9a0b1c01"
+        },
+        "height": 1000,
+        "round": 2
+      }
+    },
+    "pol-controls": {
+      "heightAdded": false,
+      "heightResult": "step",
+      "invalidTypeAdded": false,
+      "invalidTypeResult": "accept",
+      "reboundRoundAdded": false,
+      "reboundRoundResult": "signature",
+      "precommitAdded": true,
+      "precommitResult": "accept",
+      "pol": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "prevotes": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "precommits": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        },
+        "anyQuorum": true
+      },
+      "heightInput": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1001,
+          "round": 1,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "7e389b47f2aa61ff76894398ff2deeb74e1d04e9f961291cccfd481fcbe81a13",
+          "signature": "0x65f69df40808d009a455eab3d76734f389ceceece850686d4f0cffb909a309133e77ef2c012def24f93f63101313f0bf97a845ff6730ea34cd52516470010a0a01"
+        },
+        "height": 1000,
+        "round": 1
+      },
+      "invalidTypeInput": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 1,
+          "type": 0,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "ef37d15dfafdc242e1081caac1fa00fafe5a573b449a485b568099591b042970",
+          "signature": "0x65f69df40808d009a455eab3d76734f389ceceece850686d4f0cffb909a309133e77ef2c012def24f93f63101313f0bf97a845ff6730ea34cd52516470010a0a01"
+        },
+        "height": 1000,
+        "round": 1
+      },
+      "reboundRoundInput": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 1,
+          "type": 1,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "0353b56d19255bc1af7fac31df1c889be2d939c1e19e1c3a6041f1df05ab744e",
+          "signature": "0x65dd03c60bef33bd5589e5db394fd905f1056dd43602b9ae113425b48e1955832bccf1b8ef85cd4bc52f89a878e40806fd2056373ffaa103e224b4b8dc9a0b1c01"
+        },
+        "height": 1000,
+        "round": 1
+      },
+      "precommitInput": {
+        "vote": {
+          "chain": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+          "height": 1000,
+          "round": 1,
+          "type": 2,
+          "index": 0,
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "signBytesSha256": "c592ee184f6ed29f99543601611d2d97db208b5fcf4b536b8ce35f45b3c56514",
+          "signature": "0xeb7f0e5095e37e3780727c11c0d32f2539b450307d8c2de0f3a16d3bcc767d0f24e3b9c478bf95214a8d709bd0a23ff62b83da1163a8558344f34e46a075e36e00"
+        },
+        "height": 1000,
+        "round": 1
+      }
+    }
+  },
+  "expectedLeaves": [
+    "precommit_a",
+    "precommit_nil",
+    "precommit_b",
+    "precommit_a_late",
+    "prevote_a_r1",
+    "prevote_b_r1",
+    "prevote_b_r2",
+    "precommit_b_r1",
+    "gen1_precommit_a",
+    "gen1_precommit_b",
+    "gen2_precommit_a",
+    "gen2_precommit_b",
+    "other_inbox_precommit_b",
+    "partial_block_id",
+    "max_values",
+    "precommit_b_h1001",
+    "hash_only_block_id",
+    "zero_timestamp",
+    "negative_timestamp",
+    "min_timestamp",
+    "max_timestamp_seconds",
+    "precommit_a_backdated",
+    "precommit_b_backdated",
+    "commit-exact-two-thirds",
+    "commit-above",
+    "commit-below",
+    "commit-nonzero-index",
+    "commit-valid-nil",
+    "commit-invalid-nil",
+    "commit-wrong-slot",
+    "duplicate",
+    "conflict-same-block-later",
+    "conflict-a-b",
+    "conflict-a-nil",
+    "vote-wrong-generation",
+    "vote-wrong-inbox",
+    "vote-address",
+    "vote-index-outside",
+    "vote-index-mismatch",
+    "vote-height",
+    "vote-round",
+    "vote-type",
+    "pol-above",
+    "pol-exact",
+    "pol-controls"
+  ]
+}

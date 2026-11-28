@@ -1,0 +1,16 @@
+{
+  "inputsSha256": {
+    "COMET_APPHASH.md": "22deae90779fbe1dd066b39bc98b2d5c979fcb5b99705b0e5264a4f9c11e4193",
+    "comet_handover/apphash/apphash_test.go": "3cc491fb5091d64a35587e45b54b023d4bb3c9d5b2835a2bed3e42967b698b33",
+    "comet_handover/apphash/bridge.go.txt": "00334a27234a379ab27bc1e4fd7fa6d50babf7b5c98e7317059592f361072d69",
+    "comet_handover/apphash/go.mod": "331bf98a1dca28409e475a7cd59475cac8980941e84a5056629178688b4e302d",
+    "comet_handover/apphash/go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "comet_handover/apphash/programs.json": "f07652a9735be14eeac8b708d7e611bf1489cc5ce8bf9d224f73435c545975f9",
+    "comet_signed/public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "run_comet_apphash.py": "a74059bbc0be7182d9a671c16b52aa3e6fe641e156fe717d8e3163fbf7f9655d",
+    "run_comet_apphash_native.py": "fe309ae4cf90c10235f63b1a0580d4c9d528c389fdd39bbe5b70c9fd0b7dffac"
+  },
+  "schema": "etna-comet-apphash-pins-1",
+  "sourceCommit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+  "sourceManifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c"
+}

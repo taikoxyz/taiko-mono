@@ -1,0 +1,11 @@
+package state
+
+import (
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/types"
+)
+
+// EtnaConformanceUpdateState exposes only the actual private operation.
+func EtnaConformanceUpdateState(s State, id types.BlockID, header *types.Header, response *abci.ResponseFinalizeBlock, updates []*types.Validator) (State, error) {
+	return updateState(s, id, header, response, updates)
+}

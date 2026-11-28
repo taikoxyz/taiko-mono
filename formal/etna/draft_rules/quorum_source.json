@@ -1,0 +1,22 @@
+{
+  "schema": "etna-draft-source-v1",
+  "repository": "taikoxyz/taiko-mono",
+  "pull_request": 22425,
+  "status_at_review": "unmerged-draft",
+  "revision": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "base_revision": "3602629758beb653423a23608fd1960810efcfac",
+  "historical_boundary_revision": "69e26df443e9b5a0f05127d4179e4833fc95823c",
+  "historical_boundary_model_sha256": "6065102a60535af159ce7ee54cd3a1915a9980783ad4da67082fa7dfe27b5c82",
+  "evidence": "conditional-power-domain-projection",
+  "runtime_evidence": false,
+  "proof_evidence": false,
+  "production_unit_validation": false,
+  "full_protocol_exhaustive": false,
+  "documents": {
+    "packages/protocol/docs/etna/SPEC.md": "cae2e783a06b81b36dd0d412d678c67f764b6d96143c676aec99df8008eee7e0",
+    "packages/protocol/docs/etna/ACCEPTANCE.md": "2a1e4a085b78a1344bb1fff5616cdeb7438d8c9420bf68e741a60d3c3da81d0a",
+    "packages/protocol/docs/etna/SWITCH.md": "ff5366ed355758403bfd82d1550d551082b323a96ee8ee6a357ba879fe3bdd09",
+    "packages/protocol/docs/etna/ANCHORLESS.md": "37a6a5d1ff46da97d2b7d747d4013a1b25081df6ffbb574ccdd9db4d393fece6",
+    "packages/protocol/docs/etna/README.md": "5c5352971212fee7ae6d32838cd6bf327f739dce384bb8bbce8c9658089b9a8f"
+  }
+}

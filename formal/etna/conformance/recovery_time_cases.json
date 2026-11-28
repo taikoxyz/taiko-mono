@@ -1,0 +1,133 @@
+{
+  "boundaries": [
+    "Authenticated retained parent, fixed origin and finalized anchor are trusted inputs",
+    "Integer seconds; no subsecond BFT-time rounding exercised",
+    "Deterministic first-header construction, not STF history or consensus execution"
+  ],
+  "cases": [
+    {
+      "id": "equal-times",
+      "observation": {
+        "header": {
+          "anchor": {
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "bftTime": 3,
+          "elTimestamp": 3,
+          "generation": 1,
+          "height": 13,
+          "lastBlockIDEmpty": true,
+          "lastCommitEmpty": true,
+          "parentHeight": 12
+        },
+        "present": true,
+        "raw": {
+          "anchor": {
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "generation": 1,
+          "origin": {
+            "height": 12,
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "parent": {
+            "elTimestamp": 1,
+            "height": 12
+          }
+        }
+      }
+    },
+    {
+      "id": "later-anchor",
+      "observation": {
+        "header": {
+          "anchor": {
+            "l1Number": 104,
+            "l1Timestamp": 4
+          },
+          "bftTime": 3,
+          "elTimestamp": 4,
+          "generation": 1,
+          "height": 13,
+          "lastBlockIDEmpty": true,
+          "lastCommitEmpty": true,
+          "parentHeight": 12
+        },
+        "present": true,
+        "raw": {
+          "anchor": {
+            "l1Number": 104,
+            "l1Timestamp": 4
+          },
+          "generation": 1,
+          "origin": {
+            "height": 12,
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "parent": {
+            "elTimestamp": 1,
+            "height": 12
+          }
+        }
+      }
+    },
+    {
+      "id": "parent-dominates",
+      "observation": {
+        "header": {
+          "anchor": {
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "bftTime": 3,
+          "elTimestamp": 4,
+          "generation": 1,
+          "height": 13,
+          "lastBlockIDEmpty": true,
+          "lastCommitEmpty": true,
+          "parentHeight": 12
+        },
+        "present": true,
+        "raw": {
+          "anchor": {
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "generation": 1,
+          "origin": {
+            "height": 12,
+            "l1Number": 103,
+            "l1Timestamp": 3
+          },
+          "parent": {
+            "elTimestamp": 3,
+            "height": 12
+          }
+        }
+      }
+    }
+  ],
+  "content_sha256": "8a5f7070cdcf750de827e01afd7f958eab5fd54bb7ec7b21a38bdf8e4e75b48f",
+  "provenance": {
+    "export_config_sha256": "9b2190076985310815eb3b1a7e4e226c2861bc9e629d002fbb1b19c29b69ae5c",
+    "sources_sha256": {
+      "EtnaRecoveryTime.tla": "7a963ec9d4c5c5394763e59f4918dec9ce90afa387db0c1c2968b8a9376681b6",
+      "export_recovery.py": "52a12a70d8e4964d1420c5e19700a715f572bbf14e1bce1426b1cc0b475dac00",
+      "export_recovery_time.py": "af3818949b198ae107d4adb67d9f7e8443932da4dc4c4ced739fc4ca181f47ce",
+      "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d",
+      "recovery-time-normal.cfg": "c456e4e87dcc01a54af3e959a312bb83de3e6b099fbd9487bc2bda999066390a"
+    },
+    "spec": {
+      "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+      "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+      "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+    },
+    "tlc_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "wrapper_sha256": "a8d94d30e230230aa4127e569aefb87a37c5228be70a62a3f6c42df5babe5fe0"
+  },
+  "schema": "etna-recovery-time-replay-1"
+}

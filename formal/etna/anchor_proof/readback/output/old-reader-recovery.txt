@@ -1,0 +1,1 @@
+{"mode": "recovered", "returncode": 1, "stdout": "", "stderr": "independent readback refused: fresh authorization\n"}

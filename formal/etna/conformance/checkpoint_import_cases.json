@@ -1,0 +1,4918 @@
+{
+  "boundaries": [
+    "Symbolic commitments and selected window; valid STF/archive history is a premise",
+    "Actual model publication, not a concrete importer, verified commit or signature",
+    "Durable is the model marker, not a stock database power-loss guarantee"
+  ],
+  "cases": [
+    {
+      "id": "origin-base",
+      "import_height": 2,
+      "observation": {
+        "atPublication": {
+          "boundary": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          },
+          "connected": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "event": "Published",
+          "hrs": [1, 9, 2],
+          "phase": "Running",
+          "published": true,
+          "staged": ["app", "comet", "el", "evidence"],
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          },
+          "trusted": false
+        },
+        "classification": {
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 1],
+                  "chain": ["Chain", 0],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 2]
+                    }
+                  ],
+                  "height": 2,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 20,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2],
+                      "commits": ["WindowCommits", 2],
+                      "evidence": [],
+                      "validators": ["WindowValidators", 2]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 2],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 2,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 0,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 2],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [2, -1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2],
+              "computedState": ["State", 2],
+              "el": ["EL", 2],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 2]
+              },
+              "evidence": [],
+              "header": {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 2],
+              "window": {
+                "ancestors": [2],
+                "commits": ["WindowCommits", 2],
+                "evidence": [],
+                "validators": ["WindowValidators", 2]
+              }
+            }
+          },
+          "present": true,
+          "result": "Verified"
+        },
+        "init": {
+          "connected": false,
+          "durable": [],
+          "event": "Init",
+          "hrs": [1, 9, 2],
+          "phase": "Check",
+          "published": false,
+          "staged": [],
+          "trusted": false
+        },
+        "publication": {
+          "crash": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 1],
+                  "chain": ["Chain", 0],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 2]
+                    }
+                  ],
+                  "height": 2,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 20,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2],
+                      "commits": ["WindowCommits", 2],
+                      "evidence": [],
+                      "validators": ["WindowValidators", 2]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 2],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 2,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 0,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 2],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [2, -1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2],
+              "computedState": ["State", 2],
+              "el": ["EL", 2],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 2]
+              },
+              "evidence": [],
+              "header": {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 2],
+              "window": {
+                "ancestors": [2],
+                "commits": ["WindowCommits", 2],
+                "evidence": [],
+                "validators": ["WindowValidators", 2]
+              }
+            }
+          },
+          "present": true,
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          }
+        },
+        "raw": {
+          "l1": {
+            "comet": [
+              "Hash",
+              {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              }
+            ],
+            "el": ["EL", 2],
+            "fi": 1,
+            "finalized": true,
+            "generation": 1,
+            "height": 2,
+            "origin": 2,
+            "originTime": 100,
+            "recordGeneration": 0,
+            "registry": [
+              "Hash",
+              [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ]
+            ],
+            "state": ["State", 2],
+            "val": [
+              "Hash",
+              {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              }
+            ]
+          },
+          "peer": {
+            "ancestors": [2],
+            "computedState": ["State", 2],
+            "el": ["EL", 2],
+            "entries": [
+              [
+                [1, 2],
+                [3, 2]
+              ],
+              [
+                [2, 3],
+                [2, 4]
+              ]
+            ],
+            "envelope": {
+              "execution": ["EL", 2]
+            },
+            "evidence": [],
+            "header": {
+              "appHash": ["EL", 1],
+              "chain": ["Chain", 0],
+              "data": [
+                "Hash",
+                {
+                  "execution": ["EL", 2]
+                }
+              ],
+              "height": 2,
+              "next": [
+                "Validators",
+                [
+                  [1, 2],
+                  [3, 2]
+                ]
+              ],
+              "time": 20,
+              "window": [
+                "Hash",
+                {
+                  "ancestors": [2],
+                  "commits": ["WindowCommits", 2],
+                  "evidence": [],
+                  "validators": ["WindowValidators", 2]
+                }
+              ]
+            },
+            "preimage": {
+              "first": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              },
+              "second": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [2, -1],
+                "proposer": 2
+              }
+            },
+            "present": true,
+            "state": ["State", 2],
+            "window": {
+              "ancestors": [2],
+              "commits": ["WindowCommits", 2],
+              "evidence": [],
+              "validators": ["WindowValidators", 2]
+            }
+          }
+        },
+        "steps": [
+          {
+            "action": "Check",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Init",
+              "hrs": [1, 9, 2],
+              "phase": "Check",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 1
+          },
+          {
+            "action": "Stage/el",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 2
+          },
+          {
+            "action": "Flush/el",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 3
+          },
+          {
+            "action": "Stage/app",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 4
+          },
+          {
+            "action": "Flush/app",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 5
+          },
+          {
+            "action": "Stage/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 6
+          },
+          {
+            "action": "Flush/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 7
+          },
+          {
+            "action": "Stage/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 8
+          },
+          {
+            "action": "Flush/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 9
+          },
+          {
+            "action": "Publish",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Published",
+              "hrs": [1, 9, 2],
+              "phase": "Running",
+              "published": true,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 10
+          }
+        ],
+        "terminal": {
+          "actions": 10,
+          "pc": 10
+        }
+      },
+      "raw_case": 0,
+      "target_height": 2
+    },
+    {
+      "id": "origin-landed-alternate",
+      "import_height": 2,
+      "observation": {
+        "atPublication": {
+          "boundary": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          },
+          "connected": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "event": "Published",
+          "hrs": [1, 9, 2],
+          "phase": "Running",
+          "published": true,
+          "staged": ["app", "comet", "el", "evidence"],
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          },
+          "trusted": false
+        },
+        "classification": {
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 1],
+                  "chain": ["Chain", 0],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 2]
+                    }
+                  ],
+                  "height": 2,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 20,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2],
+                      "commits": ["WindowCommits", 2],
+                      "evidence": [],
+                      "validators": ["WindowValidators", 2]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 2],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 2,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 0,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 2],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 5],
+                    "priorities": [4, -4],
+                    "proposer": 2
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [-1, 1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2],
+              "computedState": ["State", 2],
+              "el": ["EL", 2],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 2]
+              },
+              "evidence": [],
+              "header": {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 2],
+              "window": {
+                "ancestors": [2],
+                "commits": ["WindowCommits", 2],
+                "evidence": [],
+                "validators": ["WindowValidators", 2]
+              }
+            }
+          },
+          "present": true,
+          "result": "Verified"
+        },
+        "init": {
+          "connected": false,
+          "durable": [],
+          "event": "Init",
+          "hrs": [1, 9, 2],
+          "phase": "Check",
+          "published": false,
+          "staged": [],
+          "trusted": false
+        },
+        "publication": {
+          "crash": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 1],
+                  "chain": ["Chain", 0],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 2]
+                    }
+                  ],
+                  "height": 2,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 20,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2],
+                      "commits": ["WindowCommits", 2],
+                      "evidence": [],
+                      "validators": ["WindowValidators", 2]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 2],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 2,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 0,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 2],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 5],
+                    "priorities": [4, -4],
+                    "proposer": 2
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [-1, 1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2],
+              "computedState": ["State", 2],
+              "el": ["EL", 2],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 2]
+              },
+              "evidence": [],
+              "header": {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 2],
+              "window": {
+                "ancestors": [2],
+                "commits": ["WindowCommits", 2],
+                "evidence": [],
+                "validators": ["WindowValidators", 2]
+              }
+            }
+          },
+          "present": true,
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 2],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 0,
+              "initialHeight": 3,
+              "pending": [
+                [1, 2],
+                [3, 2]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-2, 2],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [1, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 2],
+              "blockID": [],
+              "chain": ["Chain", 1],
+              "height": 0,
+              "initialHeight": 3,
+              "last": [],
+              "next": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [1, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 3,
+              "results": [],
+              "time": 100,
+              "valChanged": 3,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-2, 2],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2],
+              "fi": 1,
+              "hash": ["EL", 2],
+              "height": 2,
+              "state": ["State", 2]
+            },
+            "evidence": {
+              "commits": [],
+              "markers": [],
+              "validators": []
+            }
+          }
+        },
+        "raw": {
+          "l1": {
+            "comet": [
+              "Hash",
+              {
+                "appHash": ["EL", 1],
+                "chain": ["Chain", 0],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 2]
+                  }
+                ],
+                "height": 2,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 20,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2],
+                    "commits": ["WindowCommits", 2],
+                    "evidence": [],
+                    "validators": ["WindowValidators", 2]
+                  }
+                ]
+              }
+            ],
+            "el": ["EL", 2],
+            "fi": 1,
+            "finalized": true,
+            "generation": 1,
+            "height": 2,
+            "origin": 2,
+            "originTime": 100,
+            "recordGeneration": 0,
+            "registry": [
+              "Hash",
+              [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ]
+            ],
+            "state": ["State", 2],
+            "val": [
+              "Hash",
+              {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              }
+            ]
+          },
+          "peer": {
+            "ancestors": [2],
+            "computedState": ["State", 2],
+            "el": ["EL", 2],
+            "entries": [
+              [
+                [1, 2],
+                [3, 5]
+              ],
+              [
+                [2, 3],
+                [2, 4]
+              ]
+            ],
+            "envelope": {
+              "execution": ["EL", 2]
+            },
+            "evidence": [],
+            "header": {
+              "appHash": ["EL", 1],
+              "chain": ["Chain", 0],
+              "data": [
+                "Hash",
+                {
+                  "execution": ["EL", 2]
+                }
+              ],
+              "height": 2,
+              "next": [
+                "Validators",
+                [
+                  [1, 2],
+                  [3, 5]
+                ]
+              ],
+              "time": 20,
+              "window": [
+                "Hash",
+                {
+                  "ancestors": [2],
+                  "commits": ["WindowCommits", 2],
+                  "evidence": [],
+                  "validators": ["WindowValidators", 2]
+                }
+              ]
+            },
+            "preimage": {
+              "first": {
+                "keys": [1, 2],
+                "powers": [3, 5],
+                "priorities": [4, -4],
+                "proposer": 2
+              },
+              "second": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [-1, 1],
+                "proposer": 2
+              }
+            },
+            "present": true,
+            "state": ["State", 2],
+            "window": {
+              "ancestors": [2],
+              "commits": ["WindowCommits", 2],
+              "evidence": [],
+              "validators": ["WindowValidators", 2]
+            }
+          }
+        },
+        "steps": [
+          {
+            "action": "Check",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Init",
+              "hrs": [1, 9, 2],
+              "phase": "Check",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 1
+          },
+          {
+            "action": "Stage/el",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 2
+          },
+          {
+            "action": "Flush/el",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 3
+          },
+          {
+            "action": "Stage/app",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 4
+          },
+          {
+            "action": "Flush/app",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 5
+          },
+          {
+            "action": "Stage/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 6
+          },
+          {
+            "action": "Flush/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 7
+          },
+          {
+            "action": "Stage/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 8
+          },
+          {
+            "action": "Flush/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 9
+          },
+          {
+            "action": "Publish",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Published",
+              "hrs": [1, 9, 2],
+              "phase": "Running",
+              "published": true,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 10
+          }
+        ],
+        "terminal": {
+          "actions": 10,
+          "pc": 10
+        }
+      },
+      "raw_case": 11,
+      "target_height": 2
+    },
+    {
+      "id": "current-base",
+      "import_height": 4,
+      "observation": {
+        "atPublication": {
+          "boundary": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [2, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "connected": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "event": "Published",
+          "hrs": [1, 9, 2],
+          "phase": "Running",
+          "published": true,
+          "staged": ["app", "comet", "el", "evidence"],
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [2, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "trusted": false
+        },
+        "classification": {
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [2, -1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "result": "Verified"
+        },
+        "init": {
+          "connected": false,
+          "durable": [],
+          "event": "Init",
+          "hrs": [1, 9, 2],
+          "phase": "Check",
+          "published": false,
+          "staged": [],
+          "trusted": false
+        },
+        "publication": {
+          "crash": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [2, -1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [2, -1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "raw": {
+          "l1": {
+            "comet": [
+              "Hash",
+              {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              }
+            ],
+            "el": ["EL", 4],
+            "fi": 1,
+            "finalized": true,
+            "generation": 1,
+            "height": 4,
+            "origin": 2,
+            "originTime": 100,
+            "recordGeneration": 1,
+            "registry": [
+              "Hash",
+              [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ]
+            ],
+            "state": ["State", 4],
+            "val": [
+              "Hash",
+              {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [2, -1],
+                  "proposer": 2
+                }
+              }
+            ]
+          },
+          "peer": {
+            "ancestors": [2, 3, 4],
+            "computedState": ["State", 4],
+            "el": ["EL", 4],
+            "entries": [
+              [
+                [1, 2],
+                [3, 2]
+              ],
+              [
+                [2, 3],
+                [2, 4]
+              ]
+            ],
+            "envelope": {
+              "execution": ["EL", 4]
+            },
+            "evidence": [["Evidence", 3]],
+            "header": {
+              "appHash": ["EL", 3],
+              "chain": ["Chain", 1],
+              "data": [
+                "Hash",
+                {
+                  "execution": ["EL", 4]
+                }
+              ],
+              "height": 4,
+              "next": [
+                "Validators",
+                [
+                  [1, 2],
+                  [3, 2]
+                ]
+              ],
+              "time": 102,
+              "window": [
+                "Hash",
+                {
+                  "ancestors": [2, 3, 4],
+                  "commits": ["WindowCommits", 4],
+                  "evidence": [["Evidence", 3]],
+                  "validators": ["WindowValidators", 4]
+                }
+              ]
+            },
+            "preimage": {
+              "first": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              },
+              "second": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [2, -1],
+                "proposer": 2
+              }
+            },
+            "present": true,
+            "state": ["State", 4],
+            "window": {
+              "ancestors": [2, 3, 4],
+              "commits": ["WindowCommits", 4],
+              "evidence": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "steps": [
+          {
+            "action": "Check",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Init",
+              "hrs": [1, 9, 2],
+              "phase": "Check",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 1
+          },
+          {
+            "action": "Stage/el",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 2
+          },
+          {
+            "action": "Flush/el",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 3
+          },
+          {
+            "action": "Stage/app",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 4
+          },
+          {
+            "action": "Flush/app",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 5
+          },
+          {
+            "action": "Stage/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 6
+          },
+          {
+            "action": "Flush/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 7
+          },
+          {
+            "action": "Stage/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 8
+          },
+          {
+            "action": "Flush/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 9
+          },
+          {
+            "action": "Publish",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Published",
+              "hrs": [1, 9, 2],
+              "phase": "Running",
+              "published": true,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 10
+          }
+        ],
+        "terminal": {
+          "actions": 10,
+          "pc": 10
+        }
+      },
+      "raw_case": 0,
+      "target_height": 4
+    },
+    {
+      "id": "current-first-alternate",
+      "import_height": 4,
+      "observation": {
+        "atPublication": {
+          "boundary": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 5]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [-1, 1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 5],
+                "priorities": [4, -4],
+                "proposer": 2
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "connected": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "event": "Published",
+          "hrs": [1, 9, 2],
+          "phase": "Running",
+          "published": true,
+          "staged": ["app", "comet", "el", "evidence"],
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 5]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [-1, 1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 5],
+                "priorities": [4, -4],
+                "proposer": 2
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "trusted": false
+        },
+        "classification": {
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 5],
+                    "priorities": [4, -4],
+                    "proposer": 2
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [-1, 1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "result": "Verified"
+        },
+        "init": {
+          "connected": false,
+          "durable": [],
+          "event": "Init",
+          "hrs": [1, 9, 2],
+          "phase": "Check",
+          "published": false,
+          "staged": [],
+          "trusted": false
+        },
+        "publication": {
+          "crash": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ],
+                  [
+                    [2, 3],
+                    [2, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 5],
+                    "priorities": [4, -4],
+                    "proposer": 2
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [2, 4],
+                    "priorities": [-1, 1],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 5]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [2, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 5]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [-1, 1],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 5],
+                "priorities": [4, -4],
+                "proposer": 2
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "raw": {
+          "l1": {
+            "comet": [
+              "Hash",
+              {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 5]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              }
+            ],
+            "el": ["EL", 4],
+            "fi": 1,
+            "finalized": true,
+            "generation": 1,
+            "height": 4,
+            "origin": 2,
+            "originTime": 100,
+            "recordGeneration": 1,
+            "registry": [
+              "Hash",
+              [
+                [
+                  [1, 2],
+                  [3, 5]
+                ],
+                [
+                  [2, 3],
+                  [2, 4]
+                ]
+              ]
+            ],
+            "state": ["State", 4],
+            "val": [
+              "Hash",
+              {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 5],
+                  "priorities": [4, -4],
+                  "proposer": 2
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [2, 4],
+                  "priorities": [-1, 1],
+                  "proposer": 2
+                }
+              }
+            ]
+          },
+          "peer": {
+            "ancestors": [2, 3, 4],
+            "computedState": ["State", 4],
+            "el": ["EL", 4],
+            "entries": [
+              [
+                [1, 2],
+                [3, 5]
+              ],
+              [
+                [2, 3],
+                [2, 4]
+              ]
+            ],
+            "envelope": {
+              "execution": ["EL", 4]
+            },
+            "evidence": [["Evidence", 3]],
+            "header": {
+              "appHash": ["EL", 3],
+              "chain": ["Chain", 1],
+              "data": [
+                "Hash",
+                {
+                  "execution": ["EL", 4]
+                }
+              ],
+              "height": 4,
+              "next": [
+                "Validators",
+                [
+                  [1, 2],
+                  [3, 5]
+                ]
+              ],
+              "time": 102,
+              "window": [
+                "Hash",
+                {
+                  "ancestors": [2, 3, 4],
+                  "commits": ["WindowCommits", 4],
+                  "evidence": [["Evidence", 3]],
+                  "validators": ["WindowValidators", 4]
+                }
+              ]
+            },
+            "preimage": {
+              "first": {
+                "keys": [1, 2],
+                "powers": [3, 5],
+                "priorities": [4, -4],
+                "proposer": 2
+              },
+              "second": {
+                "keys": [2, 3],
+                "powers": [2, 4],
+                "priorities": [-1, 1],
+                "proposer": 2
+              }
+            },
+            "present": true,
+            "state": ["State", 4],
+            "window": {
+              "ancestors": [2, 3, 4],
+              "commits": ["WindowCommits", 4],
+              "evidence": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "steps": [
+          {
+            "action": "Check",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Init",
+              "hrs": [1, 9, 2],
+              "phase": "Check",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 1
+          },
+          {
+            "action": "Stage/el",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 2
+          },
+          {
+            "action": "Flush/el",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 3
+          },
+          {
+            "action": "Stage/app",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 4
+          },
+          {
+            "action": "Flush/app",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 5
+          },
+          {
+            "action": "Stage/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 6
+          },
+          {
+            "action": "Flush/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 7
+          },
+          {
+            "action": "Stage/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 8
+          },
+          {
+            "action": "Flush/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 9
+          },
+          {
+            "action": "Publish",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Published",
+              "hrs": [1, 9, 2],
+              "phase": "Running",
+              "published": true,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 10
+          }
+        ],
+        "terminal": {
+          "actions": 10,
+          "pc": 10
+        }
+      },
+      "raw_case": 11,
+      "target_height": 4
+    },
+    {
+      "id": "current-second-alternate",
+      "import_height": 4,
+      "observation": {
+        "atPublication": {
+          "boundary": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [3, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [3, 4],
+                "priorities": [2, -2],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "connected": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "event": "Published",
+          "hrs": [1, 9, 2],
+          "phase": "Running",
+          "published": true,
+          "staged": ["app", "comet", "el", "evidence"],
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [3, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [3, 4],
+                "priorities": [2, -2],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          },
+          "trusted": false
+        },
+        "classification": {
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [3, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [3, 4],
+                    "priorities": [2, -2],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [3, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "result": "Verified"
+        },
+        "init": {
+          "connected": false,
+          "durable": [],
+          "event": "Init",
+          "hrs": [1, 9, 2],
+          "phase": "Check",
+          "published": false,
+          "staged": [],
+          "trusted": false
+        },
+        "publication": {
+          "crash": false,
+          "durable": ["app", "comet", "el", "evidence"],
+          "input": {
+            "l1": {
+              "comet": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "el": ["EL", 4],
+              "fi": 1,
+              "finalized": true,
+              "generation": 1,
+              "height": 4,
+              "origin": 2,
+              "originTime": 100,
+              "recordGeneration": 1,
+              "registry": [
+                "Hash",
+                [
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ],
+                  [
+                    [2, 3],
+                    [3, 4]
+                  ]
+                ]
+              ],
+              "state": ["State", 4],
+              "val": [
+                "Hash",
+                {
+                  "first": {
+                    "keys": [1, 2],
+                    "powers": [3, 2],
+                    "priorities": [-1, 1],
+                    "proposer": 1
+                  },
+                  "second": {
+                    "keys": [2, 3],
+                    "powers": [3, 4],
+                    "priorities": [2, -2],
+                    "proposer": 2
+                  }
+                }
+              ]
+            },
+            "peer": {
+              "ancestors": [2, 3, 4],
+              "computedState": ["State", 4],
+              "el": ["EL", 4],
+              "entries": [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [3, 4]
+                ]
+              ],
+              "envelope": {
+                "execution": ["EL", 4]
+              },
+              "evidence": [["Evidence", 3]],
+              "header": {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              },
+              "preimage": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              },
+              "present": true,
+              "state": ["State", 4],
+              "window": {
+                "ancestors": [2, 3, 4],
+                "commits": ["WindowCommits", 4],
+                "evidence": [["Evidence", 3]],
+                "validators": ["WindowValidators", 4]
+              }
+            }
+          },
+          "present": true,
+          "stores": {
+            "app": {
+              "active": [
+                [1, 2],
+                [3, 2]
+              ],
+              "appHash": ["EL", 4],
+              "chain": ["Chain", 1],
+              "fi": 1,
+              "height": 4,
+              "initialHeight": 3,
+              "pending": [
+                [2, 3],
+                [3, 4]
+              ],
+              "recorded": {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              }
+            },
+            "comet": {
+              "appHash": ["EL", 4],
+              "blockID": [
+                "Hash",
+                {
+                  "appHash": ["EL", 3],
+                  "chain": ["Chain", 1],
+                  "data": [
+                    "Hash",
+                    {
+                      "execution": ["EL", 4]
+                    }
+                  ],
+                  "height": 4,
+                  "next": [
+                    "Validators",
+                    [
+                      [1, 2],
+                      [3, 2]
+                    ]
+                  ],
+                  "time": 102,
+                  "window": [
+                    "Hash",
+                    {
+                      "ancestors": [2, 3, 4],
+                      "commits": ["WindowCommits", 4],
+                      "evidence": [["Evidence", 3]],
+                      "validators": ["WindowValidators", 4]
+                    }
+                  ]
+                }
+              ],
+              "chain": ["Chain", 1],
+              "height": 4,
+              "initialHeight": 3,
+              "last": ["WindowValidators", 4],
+              "next": {
+                "keys": [2, 3],
+                "powers": [3, 4],
+                "priorities": [2, -2],
+                "proposer": 2
+              },
+              "paramsChanged": 5,
+              "results": ["FixedExecTxResult"],
+              "time": 102,
+              "valChanged": 6,
+              "validators": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              }
+            },
+            "el": {
+              "ancestors": [2, 3, 4],
+              "fi": 1,
+              "hash": ["EL", 4],
+              "height": 4,
+              "state": ["State", 4]
+            },
+            "evidence": {
+              "commits": ["WindowCommits", 4],
+              "markers": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "raw": {
+          "l1": {
+            "comet": [
+              "Hash",
+              {
+                "appHash": ["EL", 3],
+                "chain": ["Chain", 1],
+                "data": [
+                  "Hash",
+                  {
+                    "execution": ["EL", 4]
+                  }
+                ],
+                "height": 4,
+                "next": [
+                  "Validators",
+                  [
+                    [1, 2],
+                    [3, 2]
+                  ]
+                ],
+                "time": 102,
+                "window": [
+                  "Hash",
+                  {
+                    "ancestors": [2, 3, 4],
+                    "commits": ["WindowCommits", 4],
+                    "evidence": [["Evidence", 3]],
+                    "validators": ["WindowValidators", 4]
+                  }
+                ]
+              }
+            ],
+            "el": ["EL", 4],
+            "fi": 1,
+            "finalized": true,
+            "generation": 1,
+            "height": 4,
+            "origin": 2,
+            "originTime": 100,
+            "recordGeneration": 1,
+            "registry": [
+              "Hash",
+              [
+                [
+                  [1, 2],
+                  [3, 2]
+                ],
+                [
+                  [2, 3],
+                  [3, 4]
+                ]
+              ]
+            ],
+            "state": ["State", 4],
+            "val": [
+              "Hash",
+              {
+                "first": {
+                  "keys": [1, 2],
+                  "powers": [3, 2],
+                  "priorities": [-1, 1],
+                  "proposer": 1
+                },
+                "second": {
+                  "keys": [2, 3],
+                  "powers": [3, 4],
+                  "priorities": [2, -2],
+                  "proposer": 2
+                }
+              }
+            ]
+          },
+          "peer": {
+            "ancestors": [2, 3, 4],
+            "computedState": ["State", 4],
+            "el": ["EL", 4],
+            "entries": [
+              [
+                [1, 2],
+                [3, 2]
+              ],
+              [
+                [2, 3],
+                [3, 4]
+              ]
+            ],
+            "envelope": {
+              "execution": ["EL", 4]
+            },
+            "evidence": [["Evidence", 3]],
+            "header": {
+              "appHash": ["EL", 3],
+              "chain": ["Chain", 1],
+              "data": [
+                "Hash",
+                {
+                  "execution": ["EL", 4]
+                }
+              ],
+              "height": 4,
+              "next": [
+                "Validators",
+                [
+                  [1, 2],
+                  [3, 2]
+                ]
+              ],
+              "time": 102,
+              "window": [
+                "Hash",
+                {
+                  "ancestors": [2, 3, 4],
+                  "commits": ["WindowCommits", 4],
+                  "evidence": [["Evidence", 3]],
+                  "validators": ["WindowValidators", 4]
+                }
+              ]
+            },
+            "preimage": {
+              "first": {
+                "keys": [1, 2],
+                "powers": [3, 2],
+                "priorities": [-1, 1],
+                "proposer": 1
+              },
+              "second": {
+                "keys": [2, 3],
+                "powers": [3, 4],
+                "priorities": [2, -2],
+                "proposer": 2
+              }
+            },
+            "present": true,
+            "state": ["State", 4],
+            "window": {
+              "ancestors": [2, 3, 4],
+              "commits": ["WindowCommits", 4],
+              "evidence": [["Evidence", 3]],
+              "validators": ["WindowValidators", 4]
+            }
+          }
+        },
+        "steps": [
+          {
+            "action": "Check",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Init",
+              "hrs": [1, 9, 2],
+              "phase": "Check",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 1
+          },
+          {
+            "action": "Stage/el",
+            "after": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Classified",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": [],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 2
+          },
+          {
+            "action": "Flush/el",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": [],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 3
+          },
+          {
+            "action": "Stage/app",
+            "after": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 4
+          },
+          {
+            "action": "Flush/app",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 5
+          },
+          {
+            "action": "Stage/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 6
+          },
+          {
+            "action": "Flush/comet",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 7
+          },
+          {
+            "action": "Stage/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 8
+          },
+          {
+            "action": "Flush/evidence",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el"],
+              "event": "Staged",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 9
+          },
+          {
+            "action": "Publish",
+            "after": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Published",
+              "hrs": [1, 9, 2],
+              "phase": "Running",
+              "published": true,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "before": {
+              "connected": false,
+              "durable": ["app", "comet", "el", "evidence"],
+              "event": "Flushed",
+              "hrs": [1, 9, 2],
+              "phase": "Verified",
+              "published": false,
+              "staged": ["app", "comet", "el", "evidence"],
+              "trusted": false
+            },
+            "enabled": true,
+            "ordinal": 10
+          }
+        ],
+        "terminal": {
+          "actions": 10,
+          "pc": 10
+        }
+      },
+      "raw_case": 20,
+      "target_height": 4
+    }
+  ],
+  "content_sha256": "3c2a5d645f594b160779132bc6bfa2c8122df4668e49ea1f20dc8a1601c68305",
+  "provenance": {
+    "configs_sha256": {
+      "current-base": "dc7cec68718f07c6c48bd17a0e087dd6090f39fad28604f2c66678bfe8f6029a",
+      "current-first-alternate": "1b2abb7388e6291a1469248fc656a67fb0c1e1e755376630ba04b90e8b9096f5",
+      "current-second-alternate": "fc9d5718a547745655c8e918ca413fbbf6971568dcb6cef3a0ac50b249dbc9be",
+      "origin-base": "72b0cdb9ee0e48f06bea13d5e99fadbfe5a4645535c8d54226611007f838017a",
+      "origin-landed-alternate": "7a735cab7708e910abd8d7573812a4053e54ab7cda285e510ee97e018504f0ec"
+    },
+    "sources_sha256": {
+      "EtnaCheckpointImport.tla": "4091cee2e355b553db60986d99ff8e29b7d4fe4285fd457c6a320dc5c0111258",
+      "export_checkpoint_import.py": "2bee3e3fc5feb16c7c529777d97d0eb56c8219b94ef9e7fb710580aec22ec151",
+      "export_recovery.py": "52a12a70d8e4964d1420c5e19700a715f572bbf14e1bce1426b1cc0b475dac00",
+      "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+    },
+    "spec": {
+      "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+      "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+      "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+    },
+    "tlc_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "wrapper_sha256": "2029ce9fe7366f9ee40e283b67e21fd889ced3f8b0f96c09eb30cda296c33d48"
+  },
+  "schema": "etna-checkpoint-import-replay-1"
+}

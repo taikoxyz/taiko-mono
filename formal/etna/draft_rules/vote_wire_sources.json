@@ -1,0 +1,35 @@
+{
+  "schema": "etna-unsigned-vote-wire-sources-1",
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "upstream": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+  "evidence": "unsigned-library-serialization-only",
+  "runtimeAdmission": false,
+  "signatureEvidence": false,
+  "engineExecution": false,
+  "expectedVectors": 29,
+  "nativeByteMatches": 23,
+  "nativeMarshalPanics": 2,
+  "nativeTimestampSkips": 4,
+  "sourceFiles": 1659,
+  "goTools": 6,
+  "dependencyProfileOnly": true,
+  "files": {
+    "formal/etna/draft_rules/quorum_source.json": "fa8433997416f4bdb8905cb360a62bbf4066bab030e1642d647c3f02a43502d4",
+    "formal/etna/draft_rules/vote_wire_vectors.json": "8081a5acbdbcc0f98bad5f3b26155ba202379a20705764e7e1a735032c9ab58f",
+    "formal/etna/draft_rules/vote_wire_native_expectations.json": "b8f378ab566022f87ed5ad9ed79c12891fd05565161da47bbdb21ed4cc213c8f",
+    "formal/etna/conformance/manifests/comet.json": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "formal/etna/conformance/comet-pins.json": "053090c6ce3c4c6929e318cd8ff7a6002a8cb222e8481441b934ca21a86da49d",
+    "formal/etna/conformance/comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
+    "formal/etna/conformance/comet_signed/go.mod": "efbc3190ad9cd882d03f9559c5d0b334b97ff50eabef1d7ecca1f2121230d400",
+    "formal/etna/conformance/comet_signed/go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "formal/etna/draft_rules/vote_wire_gogoproto_manifest.json": "d3e9877bf5468dea1187949636385e48cec80bc1570d8646e40f0e0669a7028e"
+  },
+  "gogoproto": {
+    "module": "github.com/cosmos/gogoproto",
+    "version": "v1.7.2",
+    "h1": "h1:5G25McIraOC0mRFv9TVO139Uh3OklV2hczr13KKVHCA=",
+    "archiveSha256": "7ebb390e1e6af32db473fd7a6233512715676d3b4f9955194933f3ac6ffa1ae3",
+    "fileCount": 787,
+    "manifest": "formal/etna/draft_rules/vote_wire_gogoproto_manifest.json"
+  }
+}
