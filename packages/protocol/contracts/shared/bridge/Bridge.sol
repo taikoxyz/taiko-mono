@@ -43,8 +43,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// invocation gas limit. This value should be fine-tuned with production data.
     uint32 public constant GAS_RESERVE = 800_000;
 
-    /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
-    /// calldata cost.
+    /// @dev Estimated costs outside the measured processing interval, including proof calldata.
     /// This value should be fine-tuned with production data.
     uint32 public constant GAS_OVERHEAD = 120_000;
 
@@ -364,6 +363,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
         _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
 
+        // Include the status write in the relayer's execution-gas measurement. If a payout
+        // fails, the transaction reverts the status change along with the other effects.
+        _updateMessageStatus(msgHash, status_);
+
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
@@ -379,7 +382,8 @@ contract Bridge is EssentialResolverContract, IBridge {
                     // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     // Taking into account the encoded message calldata cost, and can count with 16
-                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
+                    // gas per byte (vs. checking each byte individually). The execution-gas
+                    // delta does not include state gas charged to a separate reservoir.
                     stats.gasUsedInFeeCalc = uint32(
                         GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
                             - gasleft()
@@ -399,7 +403,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);
 
-        _updateMessageStatus(msgHash, status_);
         emit MessageProcessed(msgHash, _message, stats);
     }
 
@@ -558,8 +561,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _shouldCheckForwardedGas True to check gasleft is sufficient for target function
-    /// invocation.
+    /// @param _shouldCheckForwardedGas True to require enough gas to forward the invocation budget.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
@@ -583,15 +585,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         address to = _message.to;
         uint256 value = _message.value;
         bytes memory data = _message.data;
-        uint256 gasLeft;
+        if (_shouldCheckForwardedGas) {
+            _checkInvocationGas(to, value, _gasLimit);
+        }
 
         assembly {
             success_ := call(_gasLimit, to, value, add(data, 0x20), mload(data), 0, 0)
-            gasLeft := gas()
-        }
-
-        if (_shouldCheckForwardedGas) {
-            _checkForwardedGas(gasLeft, _gasLimit);
         }
         _storeContext(bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER));
     }
@@ -742,61 +741,25 @@ contract Bridge is EssentialResolverContract, IBridge {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Suggested by OpenZeppelin and copied from
-    /// https://github.com/OpenZeppelin/openzeppelin-contracts/
-    /// blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/
-    /// metatx/ERC2771Forwarder.sol#L327C1-L370C6
-    ///
-    /// @dev Checks if the requested gas was correctly forwarded to the callee.
-    /// As a consequence of https://eips.ethereum.org/EIPS/eip-150[EIP-150]:
-    /// - At most `gasleft() - floor(gasleft() / 64)` is forwarded to the callee.
-    /// - At least `floor(gasleft() / 64)` is kept in the caller.
-    ///
-    /// It reverts consuming all the available gas if the forwarded gas is not the requested gas.
-    ///
-    /// IMPORTANT: The `gasLeft` parameter should be measured exactly at the end of the forwarded
-    /// call.
-    /// Any gas consumed in between will make room for bypassing this check.
-    function _checkForwardedGas(uint256 _gasLeft, uint256 _gasRequested) private pure {
-        // To avoid insufficient gas griefing attacks, as referenced in
-        // https://ronan.eth.limo/blog/ethereum-gas-dangers/
-        //
-        // A malicious relayer can attempt to shrink the gas forwarded so that the underlying call
-        // reverts out-of-gas
-        // but the forwarding itself still succeeds. In order to make sure that the subcall received
-        // sufficient gas,
-        // we will inspect gasleft() after the forwarding.
-        //
-        // Let X be the gas available before the subcall, such that the subcall gets at most X * 63
-        // / 64.
-        // We can't know X after CALL dynamic costs, but we want it to be such that X * 63 / 64 >=
-        // req.gas.
-        // Let Y be the gas used in the subcall. gasleft() measured immediately after the subcall
-        // will be gasleft() = X - Y.
-        // If the subcall ran out of gas, then Y = X * 63 / 64 and gasleft() = X - Y = X / 64.
-        // Under this assumption req.gas / 63 > gasleft() is true is true if and only if
-        // req.gas / 63 > X / 64, or equivalently req.gas > X * 63 / 64.
-        // This means that if the subcall runs out of gas we are able to detect that insufficient
-        // gas was passed.
-        //
-        // We will now also see that req.gas / 63 > gasleft() implies that req.gas >= X * 63 / 64.
-        // The contract guarantees Y <= req.gas, thus gasleft() = X - Y >= X - req.gas.
-        // -    req.gas / 63 > gasleft()
-        // -    req.gas / 63 >= X - req.gas
-        // -    req.gas >= X * 63 / 64
-        // In other words if req.gas < X * 63 / 64 then req.gas / 63 <= gasleft(), thus if the
-        // relayer behaves honestly
-        // the forwarding does not revert.
-        if (_gasLeft < _gasRequested / 63) {
-            // We explicitly trigger invalid opcode to consume all gas and bubble-up the effects,
-            // since
-            // neither revert or assert consume all gas since Solidity 0.8.20
-            // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
-            // / @solidity memory-safe-assembly
-            assembly {
-                invalid()
+    /// @dev Checks the EIP-150 forwarding cap before CALL. The input is already in memory
+    /// and CALL has no output buffer, so the instruction only needs account and value costs.
+    function _checkInvocationGas(address _to, uint256 _value, uint256 _requestedGas) private view {
+        // Allow two cold account accesses (target and possible EIP-7702 delegate),
+        // plus headroom for the check and entering CALL.
+        uint256 callOverhead = 7_000;
+        if (_value != 0) {
+            callOverhead += 9_000;
+            // Only a zero-balance account with no code can require creation. Reserve the
+            // full Amsterdam creation cost even if a state-gas reservoir can pay part of it.
+            if (_to.balance == 0 && _to.code.length == 0) {
+                callOverhead += 183_600;
             }
         }
+
+        uint256 available = gasleft();
+        if (available < callOverhead) revert B_INSUFFICIENT_INVOCATION_GAS();
+        available -= callOverhead;
+        if (available - available / 64 < _requestedGas) revert B_INSUFFICIENT_INVOCATION_GAS();
     }
 
     function _checkSameChain(uint64 _chainId) internal view {
@@ -812,6 +775,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     // ---------------------------------------------------------------
 
     error B_RECALL_DISABLED();
+    error B_INSUFFICIENT_INVOCATION_GAS();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
