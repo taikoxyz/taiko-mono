@@ -10,7 +10,7 @@ layout.
 
 The current specification baseline is the Etna spec of
 [#22425](https://github.com/taikoxyz/taiko-mono/pull/22425) at
-`fbc7a51624609f63da3391f1f24cd39085e0cb05`. Every spec link here points at that commit, not at this
+`5cd86f0e6623ecb9fbbe3f06df099408325d087f`. Every spec link here points at that commit, not at this
 package's `docs/etna`, which still holds the earlier baseline (main at
 `3602629758beb653423a23608fd1960810efcfac`). Against that baseline it moves staking to L2: the L1
 staking registry, committees and epochs, committee 0 and its genesis cutoff, the stored committee
@@ -27,7 +27,16 @@ once per 1,024 blocks (CONS-3.3-4) and its L1 history links in the guests' heade
 ([Deployment](#deployment)). In that spec a penalty no longer resets the miss count, so a run of
 misses is penalized at every multiple of `missLimit`, and the new staking immutable
 `missReleaseLimit` releases the seat of a bond whose run reaches it, whatever stake the bond holds
-([EtnaStaking](#etnastaking)).
+([EtnaStaking](#etnastaking)). The spec's changes from `fbc7a5162` to `5cd86f0e6` need no contract
+change. They state that a block-start call that fails, including the first call of a generation
+after a recovery, counts no miss and resets no count, so a seat that keeps its bond keeps its
+count until a call succeeds (RECOV-8-59): `onBlockStart` makes all its writes in one call, so a
+failed call keeps every count, and taking or releasing a seat zeroes the seat's count. They state
+that a penalty that leaves a bond its seat changes the candidate only if it lowers the bond's power
+floor(effStake / vpUnit) or takes the total below `minTotalStake`, which follows from the records
+and total the snapshot already writes. And they state that the block-start call to a staking
+address that holds no code removes an empty account there (EIP-161, CONS-3.2-13), which is the EL's
+behaviour.
 
 ## Contracts
 
@@ -554,6 +563,6 @@ The Inbox, the L1 SignalService, the L1 Bridge and the L2 `EtnaStaking` are upgr
 whose owner should be the DAO (on L2, its execution address) behind a timelock; an upgrade can
 bypass any rule here (spec 1).
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/SWITCH.md
-[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/fbc7a51624609f63da3391f1f24cd39085e0cb05/packages/protocol/docs/etna/ANCHORLESS.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/5cd86f0e6623ecb9fbbe3f06df099408325d087f/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/5cd86f0e6623ecb9fbbe3f06df099408325d087f/packages/protocol/docs/etna/SWITCH.md
+[anchorless]: https://github.com/taikoxyz/taiko-mono/blob/5cd86f0e6623ecb9fbbe3f06df099408325d087f/packages/protocol/docs/etna/ANCHORLESS.md

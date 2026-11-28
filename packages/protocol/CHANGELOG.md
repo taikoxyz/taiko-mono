@@ -16,9 +16,10 @@
   owner's `forfeit` take bond ids, and a top-up or an exit takes effect in its own call, with no
   separate activation or confirmation. The system caller's
   `onBlockStart(uint48 generation, uint128 missBitmap)` runs at the start of every Etna block: it
-  counts consecutive misses, penalizes a seat at `missLimit` by `missSlashBps` of its stake, paying
-  all penalties to `slashSink` in one transfer, and writes the candidate snapshot (128 seat
-  records, `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
+  counts consecutive misses, penalizes a seat at `missLimit` by `missSlashBps` of its stake
+  (superseded by the `missReleaseLimit` entry below, at fbc7a5162), paying all penalties to
+  `slashSink` in one transfer, and writes the candidate snapshot (128 seat records,
+  `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
   `taiko.etna.staking`. The proof of possession signs an EIP-712 domain named `EtnaStaking`, on the
   L2 chain and the staking proxy. `forfeit(bondId, incidentId, validUntil)`, `forfeited(bondId)` and
   `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by the bond id, and
@@ -50,8 +51,9 @@
   written: the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
   take `expectedGeneration` first and revert `GenerationMismatch` for any other generation.
 - Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors in `testdata/etna_vectors` are
-  schema 10. In `val_state_chains`, validator updates come at any height FinalizeBlock returns them,
-  and the largest set has 128 members. `extra_data` is 29 bytes,
+  schema 10 (schema 11 since the `missReleaseLimit` entry below, at fbc7a5162). In
+  `val_state_chains`, validator updates come at any height FinalizeBlock returns them, and the
+  largest set has 128 members. `extra_data` is 29 bytes,
   `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case carries its
   `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). Among the
   families, `config` pins the config hash, `fallback_keys` the fallback key set, `staking_layout`
@@ -91,6 +93,13 @@
   vectors move to schema 11: `deployment` and `on_block_start.deployment` gain
   `miss_release_limit`, a case may override it, prior calls may take penalties, and six cases
   cover repeated penalties and releases.
+- Etna (spec #22425 at 5cd86f0e6): no contract or vector change. Since fbc7a5162 the spec states
+  that a failed block-start call, including a generation's first after a recovery, counts no miss
+  and resets no count (RECOV-8-59), which `onBlockStart` already does; that a penalty leaving a
+  bond its seat changes the signing set only by lowering its power or the total; and that a call to
+  a staking address without code removes an empty account there (EIP-161, CONS-3.2-13), which is
+  EL behaviour. The Etna READMEs link the spec at `5cd86f0e6`, and `EtnaStakingOnBlockStart` adds
+  tests for vectors 8 59.e–59.i and 20.h and asserts 20.i's power before the penalty.
 - Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the
   new `EtnaSignalService` (`contracts/shared/signal`), which stores only the counterpart chain's
   state root per checkpoint height. `SignalService` keeps its `(syncer, remote, pauser)`
