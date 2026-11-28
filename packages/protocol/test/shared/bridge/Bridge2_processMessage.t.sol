@@ -9,6 +9,10 @@ import {
     MessageReceiver_RecordingGasBudget
 } from "test/shared/bridge/helpers/MessageReceiver_RecordingGasBudget.sol";
 
+interface IEvmVersionCheatcode {
+    function getEvmVersion() external pure returns (string memory);
+}
+
 contract Target is IMessageInvocable {
     uint256 public receivedEther;
     IBridge private bridge;
@@ -421,9 +425,11 @@ contract TestBridge2_processMessage is TestBridge2Base {
         // destOwner through the gas-capped Ether send.
         message.to = address(eBridge);
 
-        // Use a separate, bounded transaction so Amsterdam starts with an empty reservoir.
+        // Bound the isolated processing transaction and verify the gas charged to the wallet.
+        uint64 nonceBefore = vm.getNonce(Carol);
         vm.recordLogs();
         eBridge.processMessage{ gas: 500_000 }(message, FAKE_PROOF);
+        assertEq(vm.getNonce(Carol), nonceBefore + 1, "isolated processing transaction");
 
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
@@ -443,9 +449,11 @@ contract TestBridge2_processMessage is TestBridge2Base {
                 break;
             }
         }
-        // A cold fresh slot costs 22,100 on Osaka and 110,020 on Amsterdam when the
-        // receiver pays the state-gas charge. A reservoir would leave only 12,100 visible.
-        assertGe(storageGas, 22_100, "storage creation charged to the wallet's gas budget");
+        // Check the active runtime and allow for the instructions in the measured interval.
+        string memory runtime = IEvmVersionCheatcode(address(vm)).getEvmVersion();
+        uint256 slotCost = keccak256(bytes(runtime)) == keccak256("amsterdam") ? 110_020 : 22_100;
+        assertGe(storageGas, slotCost, "fresh slot charged to the wallet's gas budget");
+        assertLe(storageGas, slotCost + 300, "slot measurement opcode overhead");
     }
 
     /// @dev End-to-end claim of bridged Ether by storage-creating smart wallets with a relayer
