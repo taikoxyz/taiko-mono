@@ -404,7 +404,10 @@ func (p *Processor) sendProcessMessageCall(
 			"error", err,
 		)
 	} else {
-		gasLimit = relayer.ProcessMessageGasLimit(paddedGasLimit, gasUsed)
+		// Keep the limit that passed the profitability check if it already covers the estimate.
+		if !bool(p.profitableOnly) || gasUsed > paddedGasLimit {
+			gasLimit = relayer.ProcessMessageGasLimit(paddedGasLimit, gasUsed)
+		}
 
 		slog.Info("estimatedGasUsed",
 			"gasUsed", gasUsed,

@@ -339,6 +339,25 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 			wantGasLimit: 105_000,
 		},
 		{
+			name:         "buffer stays within the Osaka cap when the estimate fits",
+			fee:          100_000_000,
+			estimatedGas: 16_000_000,
+			wantGasLimit: 16_777_216,
+		},
+		{
+			name:         "estimate above the Osaka cap still gets headroom",
+			fee:          100_000_000,
+			estimatedGas: 17_000_000,
+			wantGasLimit: 18_700_000,
+		},
+		{
+			name:           "profitable only keeps the affordable padded limit when the estimate fits",
+			profitableOnly: true,
+			fee:            10_800_000,
+			estimatedGas:   100_000,
+			wantGasLimit:   105_000,
+		},
+		{
 			name:           "profitable at the raised limit",
 			profitableOnly: true,
 			fee:            1_000_000_000,
