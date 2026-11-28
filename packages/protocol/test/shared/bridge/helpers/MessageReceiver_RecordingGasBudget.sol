@@ -20,4 +20,9 @@ contract MessageReceiver_RecordingGasBudget {
     receive() external payable {
         recordedBudget = gasleft();
     }
+
+    /// @dev Records the budget of a zero-value invocation with calldata, which gets no stipend.
+    fallback() external {
+        recordedBudget = gasleft();
+    }
 }

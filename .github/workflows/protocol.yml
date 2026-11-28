@@ -152,6 +152,50 @@ jobs:
           done
           pnpm test:deploy:l1
 
+  # Amsterdam needs a newer Foundry and solc 0.8.39 in experimental mode, so the Bridge gas tests
+  # run here instead of on the pinned toolchain. Fold this into build-protocol once Ethereum
+  # activates Amsterdam and the protocol toolchain moves forward.
+  test-bridge-amsterdam:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # SECURITY: runs PR code and dependency install scripts with a read-only token and no secrets.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+        with:
+          version: v1.10.1
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      # forge exits 0 when a path matches no tests, so a renamed file would pass silently.
+      - name: Check Bridge gas test files exist
+        working-directory: ./packages/protocol
+        run: ls test/shared/bridge/Bridge2_invocationGas.t.sol test/shared/bridge/Bridge2_processMessagePayouts.t.sol
+
+      - name: Test Bridge gas accounting on Amsterdam
+        working-directory: ./packages/protocol
+        env:
+          FOUNDRY_PROFILE: shared
+          FOUNDRY_EVM_VERSION: amsterdam
+          FOUNDRY_HARDFORK: amsterdam
+          FOUNDRY_SOLC_VERSION: 0.8.39
+          FOUNDRY_EXPERIMENTAL: "true"
+          # Test deployments pay Amsterdam state gas for their bytecode.
+          FOUNDRY_GAS_LIMIT: "300000000"
+          FOUNDRY_BLOCK_GAS_LIMIT: "300000000"
+        run: forge test --match-path 'test/shared/bridge/Bridge2_{invocationGas,processMessagePayouts}.t.sol'
+
   commit-generated-artifacts:
     needs: build-protocol
     if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
