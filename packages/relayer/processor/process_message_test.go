@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -284,6 +288,271 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilitySkipsNilReceiptLog
 	assert.Equal(t, float64(1), after-before)
 }
 
+// candidateTxManager records the candidate it is asked to send.
+type candidateTxManager struct {
+	mock.TxManager
+	candidate *txmgr.TxCandidate
+}
+
+func (t *candidateTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
+	t.candidate = &candidate
+
+	return &types.Receipt{Status: types.ReceiptStatusSuccessful}, nil
+}
+
+// estimateGasEthClient returns a fixed eth_estimateGas result.
+type estimateGasEthClient struct {
+	*mock.EthClient
+	estimatedGas  uint64
+	blockGasLimit uint64
+	err           error
+	estimateCalls int
+}
+
+func (c *estimateGasEthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	c.estimateCalls++
+
+	return c.estimatedGas, c.err
+}
+
+func (c *estimateGasEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	block, err := c.EthClient.BlockByNumber(ctx, number)
+	if err != nil {
+		return block, err
+	}
+
+	header := block.Header()
+	header.GasLimit = c.blockGasLimit
+
+	if header.GasLimit == 0 {
+		header.GasLimit = 30_000_000
+	}
+
+	return types.NewBlockWithHeader(header), nil
+}
+
+func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
+	// newProcessMessageEvent has a 100_000 message gas limit and an EOA recipient,
+	// so the padded limit is 105_000. The cost per gas is 2 * baseFee + 100.
+	tests := []struct {
+		name           string
+		profitableOnly bool
+		fee            uint64
+		estimatedGas   uint64
+		blockGasLimit  uint64
+		estimateErr    error
+		wantGasLimit   uint64
+		wantErr        error
+	}{
+		{
+			name:         "estimate below the padded limit keeps the padded limit",
+			fee:          100_000_000,
+			estimatedGas: 90_000,
+			wantGasLimit: 105_000,
+		},
+		{
+			name:         "estimate above the padded limit is buffered",
+			fee:          100_000_000,
+			estimatedGas: 1_000_000,
+			wantGasLimit: 1_100_000,
+		},
+		{
+			name:        "transient estimate error is returned without sending",
+			fee:         100_000_000,
+			estimateErr: context.DeadlineExceeded,
+			wantErr:     context.DeadlineExceeded,
+		},
+		{
+			name:         "non profitable only still buffers an estimate that fits",
+			fee:          1,
+			estimatedGas: 100_000,
+			wantGasLimit: 110_000,
+		},
+		{
+			name:           "profitable only keeps padded limit when the estimate equals it",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   105_000,
+			wantGasLimit:   105_000,
+		},
+		{
+			name:          "buffer stays within the destination block gas limit",
+			fee:           100_000_000,
+			estimatedGas:  1_000_000,
+			blockGasLimit: 1_050_000,
+			wantGasLimit:  1_050_000,
+		},
+		{
+			name:          "an estimate above the sampled block limit can be retried",
+			fee:           100_000_000,
+			estimatedGas:  1_100_000,
+			blockGasLimit: 1_050_000,
+			wantErr:       errEstimateExceedsBlockGasLimit,
+		},
+		{
+			name:          "estimate equal to the block gas limit is sent at the limit",
+			fee:           100_000_000,
+			estimatedGas:  1_050_000,
+			blockGasLimit: 1_050_000,
+			wantGasLimit:  1_050_000,
+		},
+		{
+			// The padded limit is sent unchanged when it covers the estimate, so it is clamped too.
+			name:           "profitable only padded limit stays within the destination block gas limit",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   90_000,
+			blockGasLimit:  100_000,
+			wantGasLimit:   100_000,
+		},
+		{
+			name:          "padded limit also stays within the destination block gas limit",
+			fee:           100_000_000,
+			estimatedGas:  90_000,
+			blockGasLimit: 100_000,
+			wantGasLimit:  100_000,
+		},
+		{
+			name:         "buffer stays within the Osaka cap when the estimate fits",
+			fee:          100_000_000,
+			estimatedGas: 16_000_000,
+			wantGasLimit: 16_777_216,
+		},
+		{
+			name:         "estimate above the Osaka cap still gets headroom",
+			fee:          100_000_000,
+			estimatedGas: 17_000_000,
+			wantGasLimit: 18_700_000,
+		},
+		{
+			name:           "profitable only keeps the affordable padded limit when the estimate fits",
+			profitableOnly: true,
+			fee:            10_800_000,
+			estimatedGas:   100_000,
+			wantGasLimit:   105_000,
+		},
+		{
+			name:           "profitable at the raised limit",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   1_000_000,
+			wantGasLimit:   1_100_000,
+		},
+		{
+			// The fee covers the padded limit but not the buffered estimate.
+			name:           "unprofitable at the raised limit",
+			profitableOnly: true,
+			fee:            51_000_000,
+			estimatedGas:   1_000_000,
+			wantErr:        relayer.ErrUnprofitable,
+		},
+		{
+			name:           "failed estimate is an error when profitable only",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimateErr:    errEstimate,
+			wantErr:        errEstimate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestProcessor(tt.profitableOnly)
+			p.destEthClient = &estimateGasEthClient{
+				EthClient:     &mock.EthClient{},
+				estimatedGas:  tt.estimatedGas,
+				blockGasLimit: tt.blockGasLimit,
+				err:           tt.estimateErr,
+			}
+			txManager := &candidateTxManager{}
+			p.txmgr = txManager
+
+			_, err := p.sendProcessMessageCall(
+				context.Background(),
+				1,
+				newProcessMessageEvent(tt.fee),
+				[]byte{},
+			)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, txManager.candidate)
+
+				if errors.Is(tt.wantErr, context.DeadlineExceeded) || errors.Is(tt.wantErr, errEstimateExceedsBlockGasLimit) {
+					assert.True(t, isTransientProcessMessageError(err))
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, txManager.candidate)
+			assert.Equal(t, tt.wantGasLimit, txManager.candidate.GasLimit)
+		})
+	}
+}
+
+var errEstimate = errors.New("estimate failed")
+
+// An estimate the endpoint failed to answer is retried in both modes; one the node answered
+// with a revert is not.
+func Test_sendProcessMessageCall_estimateErrorRetryability(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           error
+		wantTransient bool
+	}{
+		{name: "rate limited", err: rpc.HTTPError{StatusCode: 429, Status: "429 Too Many Requests"}, wantTransient: true},
+		{name: "bad gateway", err: rpc.HTTPError{StatusCode: 502, Status: "502 Bad Gateway"}, wantTransient: true},
+		{name: "connection closed", err: io.EOF, wantTransient: true},
+		{name: "reverted", err: errors.New("execution reverted"), wantTransient: false},
+	}
+
+	for _, profitableOnly := range []bool{false, true} {
+		for _, tt := range tests {
+			t.Run(fmt.Sprintf("%s/profitableOnly=%v", tt.name, profitableOnly), func(t *testing.T) {
+				p := newTestProcessor(profitableOnly)
+				p.destEthClient = &estimateGasEthClient{EthClient: &mock.EthClient{}, err: tt.err}
+				txManager := &candidateTxManager{}
+				p.txmgr = txManager
+
+				_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(1_000_000_000), []byte{})
+
+				require.Error(t, err)
+				assert.Equal(t, tt.wantTransient, isTransientProcessMessageError(err))
+				assert.Nil(t, txManager.candidate)
+			})
+		}
+	}
+}
+
+// A message claimed while the proof was generated must be acked, not estimated: its
+// estimate reverts, and returning that error would dead-letter the message.
+func Test_sendProcessMessageCall_claimedMessageIsUnprocessableWithoutEstimating(t *testing.T) {
+	for _, profitableOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profitableOnly=%v", profitableOnly), func(t *testing.T) {
+			p := newTestProcessor(profitableOnly)
+			ethClient := &estimateGasEthClient{
+				EthClient: &mock.EthClient{},
+				err:       errors.New("execution reverted"),
+			}
+			p.destEthClient = ethClient
+			txManager := &candidateTxManager{}
+			p.txmgr = txManager
+
+			// The mock bridge reports every hash other than SuccessMsgHash or FailSignal as DONE.
+			event := newProcessMessageEvent(1_000_000_000)
+			event.MsgHash = [32]byte{0x3}
+
+			_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+
+			require.ErrorIs(t, err, errUnprocessable)
+			assert.Zero(t, ethClient.estimateCalls)
+			assert.Nil(t, txManager.candidate)
+		})
+	}
+}
+
 func Test_relayerFeeFromReceipt_timesOutHeaderLookup(t *testing.T) {
 	event := newProcessMessageEvent(100_000_000)
 	receipt := &types.Receipt{
@@ -316,7 +585,7 @@ func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
 		block:     processorBlockWithBaseFee(big.NewInt(123)),
 	}
 
-	got, err := p.getBaseFee(context.Background())
+	got, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	assert.NoError(t, err)
 	assert.Equal(t, big.NewInt(123), got)
@@ -327,7 +596,7 @@ func TestGetBaseFee_Layer2MissingBaseFeeFails(t *testing.T) {
 	p.taikoL2 = &taikol2.TaikoL2{}
 	p.destEthClient = &blockByNumberEthClient{EthClient: &mock.EthClient{}, block: processorBlockWithBaseFee(nil)}
 
-	got, err := p.getBaseFee(context.Background())
+	got, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	assert.Nil(t, got)
 	assert.ErrorIs(t, err, relayer.ErrMissingDestBaseFee)
@@ -596,7 +865,7 @@ func Test_getBaseFeeReturnsTheBlockError(t *testing.T) {
 	p := newTestProcessor(false)
 	p.destEthClient = &blockErrClient{}
 
-	baseFee, err := p.getBaseFee(context.Background())
+	baseFee, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	require.ErrorContains(t, err, "connection refused")
 	assert.Nil(t, baseFee)
@@ -768,11 +1037,7 @@ func Test_saveMessageStatusChangedEventStoresTheWholeLog(t *testing.T) {
 	assert.Equal(t, msgHash.Hex(), saved[0].MsgHash)
 }
 
-// Everything the bridge calls while processing runs before the bridge emits its own status:
-// the invoked contract, and destOwner when it is refunded. Either can emit a log with the
-// bridge event's signature and this message's hash, and a scan that matched on the signature
-// alone took the first such log - a spoofed DONE ahead of the bridge's RETRIABLE, which the
-// API would then have reported as a successful claim. Only the bridge's own log is the status.
+// Only the destination bridge's own status log determines the recorded outcome.
 func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t *testing.T) {
 	repo := mock.NewEventRepository()
 	p := newTestProcessor(false)
@@ -801,7 +1066,7 @@ func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t
 	receipt := &types.Receipt{
 		TxHash: claimTxHash,
 		Logs: []*types.Log{
-			// The refund reached destOwner, a contract, before the bridge recorded the outcome
+			// A contract emitted a matching event ahead of the bridge status log.
 			statusLog(destOwner, relayer.EventStatusDone, 3),
 			// A log from the bridge without the indexed hash is not this event either
 			{

@@ -1,6 +1,10 @@
 package relayer
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/params"
+)
 
 // PaddedMessageGasLimit returns the relayer gas limit after applying recipient padding.
 func PaddedMessageGasLimit(messageGasLimit uint64, isContractRecipient bool) uint64 {
@@ -10,6 +14,19 @@ func PaddedMessageGasLimit(messageGasLimit uint64, isContractRecipient bool) uin
 	}
 
 	return (messageGasLimit*multiplier + 99) / 100
+}
+
+// ProcessMessageGasLimit returns the larger of the padded limit and the buffered estimate.
+// The padded limit preserves invocation gas that eth_estimateGas may omit.
+func ProcessMessageGasLimit(paddedGasLimit, estimatedGas uint64) uint64 {
+	bufferedEstimate := (estimatedGas*110 + 99) / 100
+	// Only let the buffer cross the Osaka transaction cap if the unbuffered
+	// estimate already exceeds it, which is possible on Amsterdam.
+	if estimatedGas <= params.MaxTxGas {
+		bufferedEstimate = min(bufferedEstimate, params.MaxTxGas)
+	}
+
+	return max(paddedGasLimit, bufferedEstimate)
 }
 
 // EffectiveGasTipCap returns the gas tip cap the transaction manager will

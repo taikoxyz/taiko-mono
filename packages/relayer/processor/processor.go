@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -25,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -778,6 +782,7 @@ func isTransientProcessMessageError(err error) bool {
 		// A send that ran out of time is worth retrying. Its text matches none of the strings
 		// below, and without this the queue would drop the claim.
 		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, errEstimateExceedsBlockGasLimit) ||
 		// The claim lost a race for its nonce and has to be signed again, which is the one thing
 		// this error means. The transaction manager gives up on a nonce after
 		// SafeAbortNonceTooLowCount refusals and returns "aborted tx send due to critical error:
@@ -785,8 +790,24 @@ func isTransientProcessMessageError(err error) bool {
 		// dead-lettered, and the dead-letter queue has no consumer. A claim nobody had processed
 		// was parked there for good. The sentinel is %w-wrapped, so this matches it exactly.
 		errors.Is(err, core.ErrNonceTooLow) ||
+		isTransientRPCError(err) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||
 		strings.Contains(err.Error(), "failed to get tx into the mempool")
+}
+
+// isTransientRPCError reports whether an RPC call failed before the node answered it: the
+// connection broke, or the endpoint returned a rate limit or server error status. A JSON-RPC
+// error, such as a reverted estimate, is the node's answer and is not transient.
+func isTransientRPCError(err error) bool {
+	var httpErr rpc.HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.StatusCode == http.StatusTooManyRequests ||
+			httpErr.StatusCode >= http.StatusInternalServerError
+	}
+
+	var netErr net.Error
+
+	return errors.As(err, &netErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }

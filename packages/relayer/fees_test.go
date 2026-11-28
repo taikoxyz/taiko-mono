@@ -12,6 +12,17 @@ func TestPaddedMessageGasLimit(t *testing.T) {
 	assert.Equal(t, uint64(1446896), PaddedMessageGasLimit(1315360, true))
 }
 
+func TestProcessMessageGasLimit(t *testing.T) {
+	// An Osaka-era ETH claim estimate fits under the padded message gas limit.
+	assert.Equal(t, uint64(846990), ProcessMessageGasLimit(846990, 727499))
+	// An Amsterdam claim estimate above the padded limit gets 10% headroom, rounded up.
+	assert.Equal(t, uint64(990002), ProcessMessageGasLimit(846990, 900001))
+	// A low estimate never lowers the padded limit.
+	assert.Equal(t, uint64(846990), ProcessMessageGasLimit(846990, 1))
+	// An estimate exactly at the Osaka cap keeps the buffer within it.
+	assert.Equal(t, uint64(1<<24), ProcessMessageGasLimit(846990, 1<<24))
+}
+
 func TestEffectiveGasTipCap(t *testing.T) {
 	// A suggested tip below the minimum is raised to the minimum, matching how
 	// the tx manager floors the tip before sending. This is the case that caused

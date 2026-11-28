@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	errUnprocessable     = errors.New("message is unprocessable")
-	errAlreadyProcessing = errors.New("already processing txHash")
+	errUnprocessable                = errors.New("message is unprocessable")
+	errAlreadyProcessing            = errors.New("already processing txHash")
+	errEstimateExceedsBlockGasLimit = errors.New("processMessage estimate exceeds latest block gas limit")
 )
 
 const gasRefundPerCacheOperation uint64 = 20_000
@@ -330,7 +331,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("message not received")
 	}
 
-	baseFee, err := p.getBaseFee(ctx)
+	baseFee, blockGasLimit, err := p.getBaseFeeAndBlockGasLimit(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +359,8 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	gasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
+	paddedGasLimit := min(blockGasLimit, relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0))
+	gasLimit := paddedGasLimit
 
 	var estimatedMaxCost uint64
 
@@ -367,7 +369,7 @@ func (p *Processor) sendProcessMessageCall(
 			ctx,
 			id,
 			event.Message.Fee,
-			gasLimit,
+			paddedGasLimit,
 			baseFee.Uint64(),
 			gasTipCap.Uint64(),
 		)
@@ -378,42 +380,13 @@ func (p *Processor) sendProcessMessageCall(
 
 			return nil, relayer.ErrUnprofitable
 		}
-
-		// now simulate the transaction and let's confirm it is profitable
-		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
-		if err != nil {
-			return nil, err
-		}
-
-		msg := ethereum.CallMsg{
-			From: auth.From,
-			To:   &p.cfg.DestBridgeAddress,
-			Data: data,
-		}
-
-		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
-		if err != nil {
-			return nil, err
-		}
-
-		slog.Info("estimatedGasUsed",
-			"gasUsed", gasUsed,
-			"messageGasLimit", event.Message.GasLimit,
-			"paddedGasLimit", gasLimit,
-			"srcTxHash", event.Raw.TxHash.Hex(),
-		)
-
-		if gasUsed > gasLimit {
-			return nil, relayer.ErrUnprofitable
-		}
-
-		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
 	}
 
 	// we should check event status one more time, after we have waited for
 	// confirmations, and after we have generated proof. it's possible another relayer
 	// or the user themself has claimed this in the time it took
-	// for us to do this work, which would cause us to revert.
+	// for us to do this work. Check before estimating: the estimate of a claimed
+	// message reverts, and that error would dead-letter it instead of acking it.
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
@@ -428,6 +401,61 @@ func (p *Processor) sendProcessMessageCall(
 	) {
 		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
 		return nil, errUnprocessable
+	}
+
+	// Estimate the complete destination transaction since a fork can reprice the proof,
+	// state writes, or payouts independently of the message gas limit.
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
+	if err != nil {
+		return nil, err
+	}
+
+	gasUsed, err := p.destEthClient.EstimateGas(ctx, ethereum.CallMsg{
+		From: auth.From,
+		To:   &p.cfg.DestBridgeAddress,
+		Data: data,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// The RPC may have estimated against a newer block with a different gas limit.
+	if gasUsed > blockGasLimit {
+		return nil, errors.Wrapf(
+			errEstimateExceedsBlockGasLimit, "estimated %d, latest block limit %d", gasUsed, blockGasLimit,
+		)
+	}
+
+	// Keep the limit that passed the profitability check if it already covers the estimate.
+	if !bool(p.profitableOnly) || gasUsed > paddedGasLimit {
+		gasLimit = min(blockGasLimit, relayer.ProcessMessageGasLimit(paddedGasLimit, gasUsed))
+	}
+
+	slog.Info("estimatedGasUsed",
+		"gasUsed", gasUsed,
+		"messageGasLimit", event.Message.GasLimit,
+		"paddedGasLimit", paddedGasLimit,
+		"gasLimit", gasLimit,
+		"srcTxHash", event.Raw.TxHash.Hex(),
+	)
+
+	if bool(p.profitableOnly) {
+		// The check above used the padded limit. Re-check against the raised limit.
+		if gasLimit > paddedGasLimit {
+			profitable, err := p.isProfitable(
+				ctx,
+				id,
+				event.Message.Fee,
+				gasLimit,
+				baseFee.Uint64(),
+				gasTipCap.Uint64(),
+			)
+			if err != nil || !profitable {
+				return nil, relayer.ErrUnprofitable
+			}
+		}
+
+		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -635,11 +663,8 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	var statusLog *types.Log
 
 	for _, log := range receipt.Logs {
-		// Only the destination bridge's own transition for this message. Anything the bridge
-		// calls while processing - the invoked contract, or destOwner when it is refunded -
-		// runs before the bridge emits its status and can emit a log with the same signature
-		// and hash; matched on the signature alone, a spoofed DONE ahead of the bridge's
-		// RETRIABLE was stored as the outcome, and would now be reported as a claim
+		// Calls made during processing can emit the same signature and message hash.
+		// Require the destination bridge's address to identify its status transition.
 		if log == nil || log.Address != p.cfg.DestBridgeAddress || len(log.Topics) < 2 ||
 			log.Topics[0] != bridgeAbi.Events["MessageStatusChanged"].ID ||
 			log.Topics[1] != common.Hash(event.MsgHash) {
@@ -694,25 +719,22 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	return nil
 }
 
-// getBaseFee determines the baseFee on the dest chain
-func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
+// getBaseFeeAndBlockGasLimit uses the same destination block for fee pricing and the gas cap.
+func (p *Processor) getBaseFeeAndBlockGasLimit(ctx context.Context) (*big.Int, uint64, error) {
 	destBlock, err := p.destEthClient.BlockByNumber(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-
-	var baseFee *big.Int
 
 	if p.taikoL2 != nil {
 		if destBlock.BaseFee() != nil {
-			return destBlock.BaseFee(), nil
+			return destBlock.BaseFee(), destBlock.GasLimit(), nil
 		}
 
-		return nil, relayer.ErrMissingDestBaseFee
-	} else {
-		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
-		baseFee = eip1559.CalcBaseFee(cfg, destBlock.Header())
+		return nil, 0, relayer.ErrMissingDestBaseFee
 	}
 
-	return baseFee, nil
+	cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
+
+	return eip1559.CalcBaseFee(cfg, destBlock.Header()), destBlock.GasLimit(), nil
 }

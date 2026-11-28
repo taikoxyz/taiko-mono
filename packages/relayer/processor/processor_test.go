@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -443,6 +446,26 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			err:  errors.New("failed to get tx into the mempool"),
 			want: true,
 		},
+		{name: "rate limited", err: rpc.HTTPError{StatusCode: 429, Status: "429 Too Many Requests"}, want: true},
+		{name: "bad gateway", err: rpc.HTTPError{StatusCode: 502, Status: "502 Bad Gateway"}, want: true},
+		{name: "service unavailable", err: rpc.HTTPError{StatusCode: 503, Status: "503 Service Unavailable"}, want: true},
+		{
+			name: "rate limited, wrapped",
+			err:  fmt.Errorf("estimate: %w", rpc.HTTPError{StatusCode: 429, Status: "429 Too Many Requests"}),
+			want: true,
+		},
+		{
+			// A rejected request is sent the same way next time.
+			name: "unauthorized",
+			err:  rpc.HTTPError{StatusCode: 401, Status: "401 Unauthorized"},
+			want: false,
+		},
+		{
+			name: "connection closed mid-request",
+			err:  &url.Error{Op: "Post", URL: "http://rpc", Err: io.EOF},
+			want: true,
+		},
+		{name: "truncated response", err: io.ErrUnexpectedEOF, want: true},
 		{
 			// A revert will revert again. Retrying it burns gas on every attempt.
 			name: "execution reverted",
