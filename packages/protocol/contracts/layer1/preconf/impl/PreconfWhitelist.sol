@@ -112,13 +112,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @notice Sets the ejecter address.
     /// @param _ejecter The new ejecter address.
     /// @param _isEjecter Whether the address should be treated as an ejecter.
-    function setEjecter(
-        address _ejecter,
-        bool _isEjecter
-    )
-        external
-        onlyOwnerOrEjectorManager
-    {
+    function setEjecter(address _ejecter, bool _isEjecter) external onlyOwnerOrEjectorManager {
         ejecters[_ejecter] = _isEjecter;
         emit EjecterUpdated(_ejecter, _isEjecter);
     }
@@ -154,10 +148,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @param _proposer The proposer address of the operator to check.
     /// @param _epochTimestamp The timestamp of the epoch to check.
     /// @return _ True if the operator is active in the given epoch, false otherwise.
-    function isOperatorActive(
-        address _proposer,
-        uint32 _epochTimestamp
-    )
+    function isOperatorActive(address _proposer, uint32 _epochTimestamp)
         public
         view
         returns (bool)

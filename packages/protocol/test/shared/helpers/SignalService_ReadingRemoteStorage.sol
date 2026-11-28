@@ -58,14 +58,7 @@ contract SignalService_ReadingRemoteStorage is SignalService {
     /// @param _chainId The chain the signal was sent on.
     /// @param _app The address that sent the signal.
     /// @param _signal The signal.
-    function _checkSentOnRemote(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal
-    )
-        private
-        view
-    {
+    function _checkSentOnRemote(uint64 _chainId, address _app, bytes32 _signal) private view {
         require(
             ISignalService(_remoteSignalService)
                 .isSignalSent(getSignalSlot(_chainId, _app, _signal)),

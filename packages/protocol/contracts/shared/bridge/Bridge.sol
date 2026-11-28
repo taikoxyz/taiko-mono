@@ -286,8 +286,9 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from)
-            .onMessageRecalled{ value: _message.value }(_message, msgHash);
+            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+                _message, msgHash
+            );
 
             // Must reset the context after the message call
             _storeContext(
@@ -742,14 +743,7 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @dev Checks the EIP-150 forwarding cap before CALL. The input is already in memory
     /// and CALL has no output buffer, so the instruction only needs account and value costs.
-    function _checkInvocationGas(
-        address _to,
-        uint256 _value,
-        uint256 _requestedGas
-    )
-        private
-        view
-    {
+    function _checkInvocationGas(address _to, uint256 _value, uint256 _requestedGas) private view {
         // Reserve 1,000 gas for the instructions between GAS and CALL and 3,000 for a
         // potentially cold EIP-7702 delegate under EIP-8038.
         uint256 callOverhead = 1000 + 3000;

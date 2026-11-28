@@ -60,9 +60,9 @@ contract PrankDestBridge {
         // The problem (with foundry) is that this way it is not able to deploy
         // a contract most probably due to some deployment address nonce issue. (Seems a known
         // issue).
-        destERC20Vault.onMessageInvocation{
-            value: mockLibInvokeMsgValue
-        }(abi.encode(canonicalToken, from, to, amount, solverFee, solverCondition));
+        destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+            abi.encode(canonicalToken, from, to, amount, solverFee, solverCondition)
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -86,9 +86,7 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC20Vault.onMessageInvocation{
-            value: mockLibInvokeMsgValue
-        }(
+        destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
             abi.encode(
                 ERC20Vault.CanonicalERC20(0, address(0), 0, "", ""),
                 from,

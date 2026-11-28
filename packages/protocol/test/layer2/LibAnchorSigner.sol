@@ -109,7 +109,9 @@ library LibAnchorSigner {
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 
-            if iszero(staticcall(sub(gas(), 2000), 0x05, p, 0xe0, p, 0x20)) { revert(0, 0) }
+            if iszero(staticcall(sub(gas(), 2000), 0x05, p, 0xe0, p, 0x20)) {
+                revert(0, 0)
+            }
             o := mload(p)
         }
     }

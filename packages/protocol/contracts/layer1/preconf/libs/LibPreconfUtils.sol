@@ -71,7 +71,8 @@ library LibPreconfUtils {
         /// forge-lint: disable-end
 
         return (genesisTimestamp + timePassedUptoCurrentEpoch + _epochOffset
-                * LibPreconfConstants.SECONDS_IN_EPOCH).toUint48();
+                * LibPreconfConstants.SECONDS_IN_EPOCH)
+        .toUint48();
     }
 
     /// @notice Calculates the timestamp of the epoch containing the provided slot timestamp .

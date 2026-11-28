@@ -85,7 +85,9 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         vm.chainId(taikoChainId);
 
         // The state a pre-switch `failMessage` left behind; no entry point can write it now.
-        stdstore.target(address(taikoBridge)).sig("messageStatus(bytes32)").with_key(hash)
+        stdstore.target(address(taikoBridge))
+            .sig("messageStatus(bytes32)")
+            .with_key(hash)
             .checked_write(uint256(IBridge.Status.FAILED));
         assertTrue(taikoBridge.messageStatus(hash) == IBridge.Status.FAILED);
 
