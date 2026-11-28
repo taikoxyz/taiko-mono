@@ -16,7 +16,8 @@
 //!
 //! Once the block has executed and is the EL's head, its post-state and anchor decide the set
 //! that signs two heights later ([`App::decide_signers`]): the staking words are read at the
-//! block's own hash, and the fallback key list comes from the committed state or from those
+//! block's own hash, unless the anchor's minimum total stake of `2^256 − 1` already rules every
+//! candidate out, and the fallback key list comes from the committed state or from those
 //! `ProcessProposal` fetched for the height ([`App::prefetch_fallback_keys`]); only a block
 //! this node did not judge, or whose list it could not keep, takes it from its own L1 here,
 //! under the hash the anchor proves. The response returns the updates that turn the set
@@ -260,15 +261,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The candidate is the snapshot the block's block-start call stored, read from the
     /// block's post-state at its hash ([`App::decided_staking_words`]); it signs when it is
     /// usable under the minimum total stake the block's anchor proves
-    /// ([`committee::candidate_members`]). Otherwise the fallback key list whose hash that anchor
-    /// proves signs, each key at power 1: the one `next`, the state after the block, holds under
-    /// that hash, else one a proposal of this height fetched
+    /// ([`committee::candidate_members`]). A minimum of `2^256 − 1` rules out every candidate
+    /// whatever the post-state holds, so the snapshot is then not read at all: an EL that
+    /// cannot serve it does not hold up a decision it cannot change. Otherwise the fallback key
+    /// list whose hash that anchor proves signs, each key at power 1: the one `next`, the state
+    /// after the block, holds under that hash, else one a proposal of this height fetched
     /// ([`App::prefetched_fallback_keys`]), else the one the own L1 serves for it
     /// ([`App::decided_fallback_keys`]), which only a usable candidate spares. The words serve
     /// this decision alone: the empty records of a read that skipped them are never kept or
     /// shown as a seat table. The decided set is recorded with the candidate's stored total stake
-    /// and the minimum it was held to, a usable candidate by its snapshot height, the fallback
-    /// keys by their list's hash and the condition the candidate failed.
+    /// (none when the snapshot was not read) and the minimum it was held to, a usable candidate
+    /// by its snapshot height, the fallback keys by their list's hash and the condition the
+    /// candidate failed.
     async fn decide_signers(
         &self,
         next: &AppState,
@@ -278,26 +282,39 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let (hash, min_total_stake) = (facts.fallback_keys_hash, facts.min_total_stake);
         let held =
             next.fallback_keys.get(&hash).cloned().or_else(|| self.prefetched_fallback_keys(hash));
-        let words = self.decided_staking_words(next.parent.hash, height, min_total_stake).await?;
-        let cause = match committee::candidate_members(height, &words, min_total_stake) {
-            Ok(members) => {
-                let decided = SignerStatus::candidate(
-                    height,
-                    words.total_stake,
-                    min_total_stake,
-                    members.len(),
-                );
-                return Ok((SignerSet { source: SignerSource::Candidate, members }, decided, held));
+        // COMM-4.3-3a: under a minimum of 2^256 − 1 the decision depends on nothing in L2 state.
+        let unusable = if min_total_stake == U256::MAX {
+            None
+        } else {
+            let words =
+                self.decided_staking_words(next.parent.hash, height, min_total_stake).await?;
+            match committee::candidate_members(height, &words, min_total_stake) {
+                Ok(members) => {
+                    let decided = SignerStatus::candidate(
+                        height,
+                        words.total_stake,
+                        min_total_stake,
+                        members.len(),
+                    );
+                    let set = SignerSet { source: SignerSource::Candidate, members };
+                    return Ok((set, decided, held));
+                }
+                Err(cause) => Some((cause, words.total_stake)),
             }
-            Err(cause) => cause,
         };
         let keys = match held {
             Some(keys) => keys,
             None => self.decided_fallback_keys(height, &next.anchor).await,
         };
+        let decided = match unusable {
+            Some((cause, total_stake)) => {
+                SignerStatus::fallback(&keys, cause, total_stake, min_total_stake)
+            }
+            None => SignerStatus::min_total_stake_max(&keys),
+        };
         Ok((
             SignerSet { source: SignerSource::Fallback, members: keys.validator_set() },
-            SignerStatus::fallback(&keys, cause, words.total_stake, min_total_stake),
+            decided,
             Some(keys),
         ))
     }

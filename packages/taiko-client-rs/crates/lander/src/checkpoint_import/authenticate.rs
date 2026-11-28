@@ -938,9 +938,10 @@ fn next_signers(
 /// under `state_root`, the stateRoot of s's authenticated EL header
 /// ([`crate::l1::verify_staking_witness`]; a proven-absent staking account holds zero words). It
 /// signs when it is usable under the minimum total stake `anchor` proves; otherwise the
-/// package's fallback key list signs, each key at power 1. The list must hash to the anchor's
-/// `fallbackKeysHash` whichever source wins. A missing proof or list is missing material; a
-/// proof that does not verify under the root or a list with another hash is the publisher's
+/// package's fallback key list signs, each key at power 1, recorded without the snapshot's total
+/// stake under a minimum of `2^256 − 1`, as FinalizeBlock(s) records it. The list must hash to the
+/// anchor's `fallbackKeysHash` whichever source wins. A missing proof or list is missing material;
+/// a proof that does not verify under the root or a list with another hash is the publisher's
 /// fault: an invalid candidate.
 fn decide_after(
     package: &ImportPackage,
@@ -977,7 +978,12 @@ fn decide_after(
             (SignerSet { source: SignerSource::Candidate, members }, status, keys)
         }
         Err(cause) => {
-            let status = SignerStatus::fallback(&keys, cause, words.total_stake, min_total_stake);
+            // FinalizeBlock(s) reads no snapshot under this minimum, so it records no total.
+            let status = if min_total_stake == U256::MAX {
+                SignerStatus::min_total_stake_max(&keys)
+            } else {
+                SignerStatus::fallback(&keys, cause, words.total_stake, min_total_stake)
+            };
             let members = keys.validator_set();
             (SignerSet { source: SignerSource::Fallback, members }, status, keys)
         }

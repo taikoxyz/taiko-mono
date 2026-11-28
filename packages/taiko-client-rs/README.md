@@ -320,13 +320,15 @@ next two heights come from, as `next` and `after`: the source (`candidate` or `f
 reason the fallback keys sign (`generation_origin` for a generation's first two blocks,
 `min_total_stake_max`, `stale_snapshot`, `below_min_total_stake`, `invalid_set`, or `imported`
 for an s + 1 set whose cause a checkpoint import cannot know), the candidate's stored total stake
-and the `minTotalStake` the deciding anchor proves, the candidate's snapshot height or the
-fallback list's hash, and the set size. The Prometheus gauges `abci_signing_source{set}` (0
-candidate, 1 fallback) and `abci_fallback_reason{set,reason}` (1 for the current reason, all 0
-while the candidate signs) cover both sets; `abci_candidate_total_stake` and
-`abci_min_total_stake` (base units, 0 at a generation's origin) follow the `after` set. Alert on
-the fallback keys signing and on the candidate's total stake nearing `minTotalStake`: an exit in
-block X can hand X + 3 to the fallback keys.
+(none while `minTotalStake` is 2^256 − 1, which decides without reading it) and the
+`minTotalStake` the deciding anchor proves, the candidate's snapshot height or the fallback list's
+hash, and the set size. The Prometheus gauges `abci_signing_source{set}` (0 candidate, 1
+fallback) and `abci_fallback_reason{set,reason}` (1 for the current reason, all 0 while the
+candidate signs) cover both sets; `abci_candidate_total_stake` (base units, 0 at a generation's
+origin and while `minTotalStake` is 2^256 − 1) and `abci_min_total_stake` (base units, 0 at a
+generation's origin) follow the `after` set. Alert on the fallback keys signing and on the
+candidate's total stake nearing `minTotalStake`: an exit in block X can hand X + 3 to the
+fallback keys.
 
 ### `lander`
 
@@ -1146,13 +1148,14 @@ committing those values to the Inbox.
 
 - **Staking reads.** `FinalizeBlock(H)` reads the `EtnaStaking` candidate snapshot
   (`snapshotHeight` and `snapshotTotalStake`, then the 128 seat records when they can matter) from
-  H's post-state, after the forkchoice update that makes H the head, and the key-to-seat word of
-  each validator missing from a block's LastCommit from the parent's post-state. Each read is one
-  `eth_getStorageAt` batch on alethia-reth's `--l2.http` pinned to the exact block hash
-  (`{blockHash, requireCanonical: true}`), never a tag, so the EL must serve the state of its head
-  and the block below it. An EL error or an unknown block is a liveness pause
-  (`el_state_unavailable`); a malformed reply is a safety halt. A staking address that holds no
-  account reads as zero words, so the fallback keys sign.
+  H's post-state, after the forkchoice update that makes H the head, unless the `minTotalStake`
+  H's anchor proves is 2^256 − 1, which hands H + 2 to the fallback keys whatever that state
+  holds. It reads the key-to-seat word of each validator missing from a block's LastCommit from
+  the parent's post-state. Each read is one `eth_getStorageAt` batch on alethia-reth's
+  `--l2.http` pinned to the exact block hash (`{blockHash, requireCanonical: true}`), never a
+  tag, so the EL must serve the state of its head and the block below it. An EL error or an
+  unknown block is a liveness pause (`el_state_unavailable`); a malformed reply is a safety halt.
+  A staking address that holds no account reads as zero words, so the fallback keys sign.
 - Cold replay judges each decided block from its authenticated parent. Inclusion and ineligible-byte
   skips need no singleton build. A due eligible entry absent from position zero requires a
   historical singleton and therefore the parent's execution state. Landers need the same history

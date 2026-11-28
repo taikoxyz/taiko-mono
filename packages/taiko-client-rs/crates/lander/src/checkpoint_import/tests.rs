@@ -2100,7 +2100,7 @@ async fn total_below_m_falls_back() {
 
 /// L1 11, which anchors 7 to 22, proves a minimum of 1000 and L1 12, which anchors 23, one of
 /// 2^256 − 1: the candidate decided at 22 signs 24 and the fallback keys sign 25 whatever s's
-/// snapshot holds.
+/// snapshot holds, recorded without its total stake, as FinalizeBlock(s) records them.
 #[tokio::test]
 async fn m_max_falls_back() {
     let s = 23;
@@ -2118,15 +2118,7 @@ async fn m_max_falls_back() {
     assert_eq!(state.val_state, fx.val_states[&s]);
     assert_eq!(powers(&state.val_state.next), fx.origin_keys.validator_set().into_iter().collect());
     assert_eq!(state.signers.next, imported_candidate(s, 1000, 2));
-    assert_eq!(
-        state.signers.after,
-        SignerStatus::fallback(
-            &fx.origin_keys,
-            abci::committee::Unusable::MinTotalStakeMax,
-            U256::from(1000 + s),
-            U256::MAX
-        )
-    );
+    assert_eq!(state.signers.after, SignerStatus::min_total_stake_max(&fx.origin_keys));
 }
 
 /// A snapshot whose records repeat a key forms no valid set: the fallback keys sign s + 2.
@@ -2387,15 +2379,7 @@ async fn import_at_the_first_block_after_the_origin_reports_the_origin_keys_for_
     let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
     assert_eq!(state.val_state, fx.val_states[&7]);
     assert_eq!(state.signers.next, SignerStatus::origin(&keys));
-    assert_eq!(
-        state.signers.after,
-        SignerStatus::fallback(
-            &keys,
-            abci::committee::Unusable::MinTotalStakeMax,
-            U256::from(1007),
-            U256::MAX
-        )
-    );
+    assert_eq!(state.signers.after, SignerStatus::min_total_stake_max(&keys));
     assert_eq!(state.fallback_keys, BTreeMap::from([(keys.hash(), keys)]));
 }
 

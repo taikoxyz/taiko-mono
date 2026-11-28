@@ -777,7 +777,7 @@ fn members() -> [(crate::key::ConsensusKey, u64); 2] {
 
 /// A minimum total stake of 2^256 − 1 hands H + 2 to the fallback keys even when H's own call
 /// wrote a valid snapshot whose total stake is 2^256 − 1: the status names that reason beside
-/// the total and the minimum.
+/// the minimum, and no total stake, since that minimum decides without reading the snapshot.
 #[tokio::test]
 async fn status_reports_a_maximal_minimum_as_the_fallback_reason() {
     let fx = Fixture::genesis(2);
@@ -786,7 +786,11 @@ async fn status_reports_a_maximal_minimum_as_the_fallback_reason() {
         ..snapshot(h, 0, &members())
     })
     .await;
-    assert_eq!(after, falls_back(&fx, FallbackReason::MinTotalStakeMax, U256::MAX, U256::MAX));
+    let expected = SignerStatus {
+        total_stake: None,
+        ..falls_back(&fx, FallbackReason::MinTotalStakeMax, U256::MAX, U256::MAX)
+    };
+    assert_eq!(after, expected);
 }
 
 /// A snapshot H's own call did not write, the one H − 1 stored, hands H + 2 to the fallback keys:

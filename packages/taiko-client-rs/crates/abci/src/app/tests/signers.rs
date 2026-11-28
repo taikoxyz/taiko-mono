@@ -28,6 +28,7 @@ use super::{
 use crate::{
     app::trust::TrustPhase,
     committee::SignerSource,
+    engine::EngineError,
     envelope::EtnaEnvelope,
     fallback::FallbackKeys,
     key::ConsensusKey,
@@ -281,7 +282,7 @@ async fn failed_block_start_call_falls_back_without_a_halt() {
 
 /// With a minimum total stake of 2^256 − 1 no candidate signs, even one written by H's own call
 /// whose total stake is 2^256 − 1 and whose records are valid: the fallback keys sign H + 2, and
-/// the records are not read.
+/// no word of the snapshot is read.
 #[tokio::test]
 async fn m_max_with_a_usable_looking_candidate_falls_back() {
     let fx = Fixture::genesis(2);
@@ -294,7 +295,31 @@ async fn m_max_with_a_usable_looking_candidate_falls_back() {
     assert!(resp.validator_updates.is_empty(), "the origin keys sign H + 2 again");
     let state = app.state().unwrap();
     assert_eq!(sources(state), [SignerSource::Fallback; 2]);
-    assert_eq!(storage_reads(&app), [(state.parent.hash, header_slots())]);
+    assert_eq!(state.signers.after, SignerStatus::min_total_stake_max(&fx.fallback_keys));
+    assert!(storage_reads(&app).is_empty(), "{:?}", storage_reads(&app));
+}
+
+/// With a minimum total stake of 2^256 − 1 the decision depends on nothing in L2 state
+/// (COMM-4.3-3a), so an EL whose every storage read fails does not hold up `FinalizeBlock(H)`:
+/// it reads no staking word, and the fallback keys sign H + 2.
+#[tokio::test(start_paused = true)]
+async fn m_max_decides_while_the_el_cannot_serve_the_snapshot() {
+    const FAILURES: usize = 10_000;
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = node(&fx, dir.path(), U256::MAX).await;
+    let down = || EngineError::Transport("eth_getStorageAt answered JSON-RPC error -32000".into());
+    app.engine().state().storage_script.extend((0..FAILURES).map(|_| Err(down())));
+    let resp = tokio::time::timeout(Duration::from_secs(600), step(&mut app, None))
+        .await
+        .expect("FinalizeBlock does not wait for the snapshot");
+    assert!(resp.validator_updates.is_empty(), "the origin keys sign H + 2 again");
+    assert!(storage_reads(&app).is_empty(), "{:?}", storage_reads(&app));
+    assert_eq!(app.engine().state().storage_script.len(), FAILURES, "no read was answered");
+    let state = app.state().unwrap();
+    assert_eq!(sources(state), [SignerSource::Fallback; 2]);
+    assert_eq!(state.signers.after, SignerStatus::min_total_stake_max(&fx.fallback_keys));
+    assert_eq!(app.halt, None);
 }
 
 /// A candidate whose records are no valid set (a member at power 0, or a stray bit in a second
@@ -620,14 +645,17 @@ async fn missing_list_waits_on_the_cold_path_with_trust_pending() {
             "it waits"
         );
 
+        // The anchor's minimum of 2^256 − 1 decides without a staking read: only the list waits.
         let calls = engine.calls();
-        let fcu = calls.iter().position(|call| {
-            matches!(call, EngineCall::Forkchoice { head, safe, .. } if *head == hash && safe.is_zero())
-        });
-        let read = calls
-            .iter()
-            .position(|call| matches!(call, EngineCall::StorageAt { hash: at, .. } if *at == hash));
-        assert!(fcu.is_some() && fcu < read, "read after H is the head: {calls:?}");
+        assert!(
+            calls.iter().any(|call| matches!(call,
+                EngineCall::Forkchoice { head, safe, .. } if *head == hash && safe.is_zero())),
+            "H is the head: {calls:?}"
+        );
+        assert!(
+            !calls.iter().any(|call| matches!(call, EngineCall::StorageAt { .. })),
+            "no staking word is read: {calls:?}"
+        );
         let anchor_hash = env.anchor.as_ref().unwrap().l1_header.hash();
         let l1_calls = l1.calls();
         assert!(

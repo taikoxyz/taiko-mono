@@ -102,7 +102,8 @@ impl AbciMetrics {
     /// `abci_candidate_total_stake`: the stored total stake of the candidate snapshot in the
     /// post-state of the committed head, which decided the set signing the second height after
     /// it, in base units, whether or not the candidate signs; 0 at a generation's origin, where
-    /// no snapshot decides. A float gauge, since a uint256 total does not fit an integer one.
+    /// no snapshot decides, and while the minimum is `2^256 − 1`, which decides without reading
+    /// the snapshot. A float gauge, since a uint256 total does not fit an integer one.
     pub fn candidate_total_stake() -> &'static Gauge {
         &METRICS.candidate_total_stake
     }

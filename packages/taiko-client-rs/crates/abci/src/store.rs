@@ -159,7 +159,8 @@ pub struct SignerStatus {
     pub snapshot_height: Option<u64>,
     /// The stored `snapshotTotalStake` of the candidate snapshot in the deciding block's
     /// post-state, read whether or not the candidate signs; `None` at a generation's origin,
-    /// whose two sets no snapshot decides, and for the set that signs s + 1 after a checkpoint
+    /// whose two sets no snapshot decides, when the minimum total stake is `2^256 − 1`, which
+    /// decides without reading the snapshot, and for the set that signs s + 1 after a checkpoint
     /// import at s, which holds no post-state of s − 1.
     #[serde(deserialize_with = "Option::deserialize")]
     pub total_stake: Option<U256>,
@@ -204,6 +205,17 @@ impl SignerStatus {
             min_total_stake: Some(min_total_stake),
             fallback_keys_hash: None,
             size,
+        }
+    }
+
+    /// The fallback key list `keys`, signing because the minimum total stake is `2^256 − 1`,
+    /// which leaves no candidate usable whatever L2 state holds: the snapshot is not read, so no
+    /// total stake is recorded.
+    pub fn min_total_stake_max(keys: &FallbackKeys) -> Self {
+        Self {
+            fallback_reason: Some(FallbackReason::MinTotalStakeMax),
+            min_total_stake: Some(U256::MAX),
+            ..Self::origin(keys)
         }
     }
 
