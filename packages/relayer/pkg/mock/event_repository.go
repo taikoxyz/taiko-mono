@@ -64,10 +64,10 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		MsgHash:      opts.MsgHash,
 		EventType:    opts.EventType,
 
-		// The checkpoint fields have to be carried, not dropped. wait_header_synced gates every
-		// claim on the block numbers these hold, so a handler that wrote the wrong one would leave
-		// a test asserting only a row count perfectly green while every claim waited on a header
-		// that never syncs, or was released against one that had not.
+		// The checkpoint fields have to be carried, not dropped. Before the Etna fork,
+		// waitProofTarget gates every claim on the block numbers these hold, so a handler that
+		// wrote the wrong one would leave a test asserting only a row count perfectly green while
+		// every claim waited on a header that never syncs, or was released against one that had not.
 		SyncedChainID:   opts.SyncedChainID,
 		BlockID:         opts.BlockID,
 		EmittedBlockID:  opts.EmittedBlockID,
