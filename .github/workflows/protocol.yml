@@ -180,17 +180,15 @@ jobs:
           ref: ${{ github.head_ref }}
           persist-credentials: false
 
-      # Use the same Foundry release as build-protocol.
-      # A compromised dependency in build-protocol has a read-only token and cannot change this
-      # fresh checkout, and a same-repo author already controls this workflow file.
-      - name: Read Foundry version
-        id: foundry-version
-        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # Match the formatter used by pnpm fmt:sol.
+      - name: Read Forge formatter version
+        id: forge-fmt-version
+        run: echo "version=v$(cat packages/protocol/.foundry-fmt-version)" >> "$GITHUB_OUTPUT"
 
-      - name: Install Foundry
+      - name: Install Forge formatter
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
-          version: ${{ steps.foundry-version.outputs.version }}
+          version: ${{ steps.forge-fmt-version.outputs.version }}
           # SECURITY: no cache. Jobs in this PR share a cache scope, so build-protocol could plant
           # an entry, and restoring it can write anywhere, including .git/hooks and git config.
           cache: false
@@ -206,7 +204,6 @@ jobs:
         id: commit
         env:
           BUILD_SHA: ${{ needs.build-protocol.outputs.build_sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PATCH: ${{ runner.temp }}/patch/generated.patch
         run: |
           set -euo pipefail
@@ -263,18 +260,8 @@ jobs:
               fi
             done < "$RUNNER_TEMP/staged"
           fi
-          # Re-run formatting in this trusted checkout. Defer package-wide reformatting
-          # when the formatter version changes so the toolchain diff stays focused.
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --quiet "$BASE_SHA" HEAD -- packages/protocol/.tool-versions; then
-            (cd packages/protocol && forge fmt)
-          fi
-          # build-protocol generates layout files after formatting, so keep them exactly as the
-          # validated patch left them (forge fmt would strip their trailing whitespace).
-          layouts=':(glob)packages/protocol/**/*_Layout.sol'
-          if [ -n "$(git ls-files -- "$layouts")" ]; then
-            git checkout -- "$layouts"
-          fi
+          # Re-run formatting in this trusted checkout and preserve generated layouts.
+          (cd packages/protocol && FOUNDRY_FMT_IGNORE='["**/*_Layout.sol"]' forge fmt)
           git add -u -- packages/protocol
           if git diff --cached --quiet; then
             echo "No generated changes to push."

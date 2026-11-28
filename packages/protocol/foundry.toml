@@ -87,6 +87,7 @@ docs_style = "preserve"
 contract_new_lines = false
 sort_imports = true
 pow_no_space = false
+call_compact_args = true
 
 [lint]
 exclude_lints = [
