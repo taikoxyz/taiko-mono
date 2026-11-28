@@ -19,6 +19,10 @@ The Etna fork includes two designs, both in this directory:
 | [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it                                                                                                                                                                                                                                           |
 | [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design. It shows an earlier revision: its switch slides still show a multisig origin written before the final Unzen proof, and other slides have the landing grid, registry displacement and the landed validator-state hash, which SPEC.md no longer has |
 
+**Design discussion:** [L1 authority for proving inputs](PROVING_AUTHORITY.md)
+explores moving state-derived authority into L1-constructed public inputs. It
+does not amend the current specification or define an adopted ABI.
+
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
 [Derivation.md](../Derivation.md#pre-execution-block-header).
