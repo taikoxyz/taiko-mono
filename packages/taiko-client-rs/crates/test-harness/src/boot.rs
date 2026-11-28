@@ -1,0 +1,399 @@
+//! The devnet boot sequence (see [`Devnet::start`](crate::Devnet::start)).
+
+use std::{
+    fs,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
+use abci::{
+    ChainParams, ChainParamsExt, GenesisRecord, RpcL1Source, build_genesis, fallback::FallbackKeys,
+    l1::layout::inbox::ETNA_ACTIVE,
+};
+use alloy_eips::BlockNumberOrTag;
+use alloy_primitives::{B256, U256};
+use alloy_provider::{Provider, RootProvider};
+use anyhow::{Context, Result, ensure};
+use rpc::client::{
+    DEFAULT_HTTP_TIMEOUT, build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret,
+};
+use url::Url;
+
+use crate::{
+    DevnetSpec,
+    app::{AppConfig, AppNode, free_port},
+    cometbft::{CmtClient, HomeConfig, write_home},
+    docker::{DockerEnv, host_port},
+    keys::{ValidatorKey, node_keys, validator_keys},
+    l1::finalized_number,
+    lander::{Lander, LanderCtx},
+    planter::{InboxValues, Planter},
+    signer::{CometLaunch, SignerNode, signer_transport_keygen},
+    wait::wait_until,
+};
+
+/// Default anvil image (override with `ANVIL_IMAGE`), pinned like `tests/entrypoint.sh`'s.
+const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
+/// Image built from the pinned EL source by `tests/entrypoint.sh`; an explicit
+/// `ALETHIA_RETH_IMAGE` overrides it.
+pub(crate) const RETH_IMAGE: &str = "alethia-reth:etna-aa89a01aad2f127e342e39fd069352b2e4ebcf86";
+/// Default CometBFT image (override with `COMETBFT_IMAGE`).
+const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798";
+
+/// anvil's command line after the image: 1 s blocks, `finalized = latest − 2`.
+const ANVIL_CMD: &str = "--host 0.0.0.0 --block-time 1 --slots-in-an-epoch 1 --gas-limit 200000000";
+/// alethia-reth's command line after the image: devnet with Etna from genesis, no discovery.
+/// The lander, the export and the switch checks read `eth_getProof` at past L2 blocks, which reth
+/// serves only within `--rpc.eth-proof-window` (0 by default), so it is reth's maximum.
+pub(crate) const RETH_CMD: &str = "./alethia-reth node --chain /genesis.json --devnet-etna-timestamp 0 --http \
+    --http.addr 0.0.0.0 --http.api eth,net,debug --rpc.eth-proof-window 1209600 \
+    --authrpc.addr 0.0.0.0 --authrpc.jwtsecret /jwt.hex --disable-discovery";
+
+/// Deadline for a container's RPC to come up.
+pub(crate) const RPC_TIMEOUT: Duration = Duration::from_secs(90);
+/// Poll interval of the readiness waits.
+pub(crate) const POLL: Duration = Duration::from_millis(250);
+
+/// One alethia-reth container.
+#[derive(Clone, Debug)]
+pub(crate) struct RethNode {
+    /// Public JSON-RPC URL on the host.
+    pub http: Url,
+    /// Engine API URL on the host.
+    pub auth: Url,
+}
+
+/// Everything [`boot`] starts.
+pub(crate) struct Booted {
+    /// The fake lander.
+    pub lander: Lander,
+    /// The apps, by validator index.
+    pub apps: Vec<AppNode>,
+    /// Guarded signers, whose private files are outside every Comet mount.
+    pub signers: Vec<SignerNode>,
+    /// The CometBFT RPC clients, by validator index.
+    pub cmt: Vec<CmtClient>,
+    /// The alethia-reth nodes, by validator index.
+    pub reth: Vec<RethNode>,
+    /// anvil provider.
+    pub l1: RootProvider,
+    /// The validator keys.
+    pub keys: Vec<ValidatorKey>,
+    /// The chain parameters the apps run with.
+    pub params: ChainParams,
+    /// The planted genesis record.
+    pub genesis: GenesisRecord,
+    /// Writes L1 state.
+    pub planter: Planter,
+}
+
+/// Boots the devnet `id` into `docker`, keeping files under `tmp`:
+///
+/// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
+/// 2. the chain parameters for alethia-reth's chain id with a legal direct unsettled limit U;
+/// 3. the setter contract, then the initialized Inbox in an L1 block `L1_0`, whose fallback key
+///    list, the first `fallback_keys` keys, signs the first blocks at power 1;
+/// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
+/// 5. one app per validator, listening before CometBFT starts;
+/// 6. one CometBFT node per validator, waiting for their RPCs;
+/// 7. the fake lander (advancing checkpoints only).
+pub(crate) async fn boot(
+    id: &str,
+    spec: &DevnetSpec,
+    docker: &mut DockerEnv,
+    tmp: &Path,
+) -> Result<Booted> {
+    let n = spec.validators;
+    let jwt = jwt_path()?;
+
+    // 1. L1 and ELs.
+    let anvil = format!("abci-{id}-anvil");
+    let anvil_image = image("ANVIL_IMAGE", ANVIL_IMAGE);
+    let mut args = vec!["-p", "127.0.0.1::8545", "--entrypoint", "anvil", &anvil_image];
+    args.extend(ANVIL_CMD.split_whitespace());
+    docker.run(&anvil, &args).await?;
+    let l1_http = local_url(host_port(&anvil, 8545).await?)?;
+    let l1 = connect_http_with_timeout(l1_http.clone(), DEFAULT_HTTP_TIMEOUT);
+    wait_until("anvil RPC", RPC_TIMEOUT, POLL, || async { Ok(Some(l1.get_block_number().await?)) })
+        .await?;
+    let expected = crate::EtnaGenesis::build()?;
+    let genesis_path = tmp.join("genesis.json");
+    fs::write(&genesis_path, &expected.json)?;
+    let genesis_mount = format!("{}:/genesis.json:ro", genesis_path.display());
+    let reth_image = image("ALETHIA_RETH_IMAGE", RETH_IMAGE);
+    let jwt_mount = format!("{}:/jwt.hex:ro", jwt.display());
+    let reth_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-reth-{i}")).collect();
+    for name in &reth_names {
+        let mut args = vec![
+            "-p",
+            "127.0.0.1::8545",
+            "-p",
+            "127.0.0.1::8551",
+            "-v",
+            &jwt_mount,
+            "-v",
+            &genesis_mount,
+            &reth_image,
+        ];
+        args.extend(RETH_CMD.split_whitespace());
+        docker.run(name, &args).await?;
+    }
+
+    let mut reth = Vec::with_capacity(n);
+    for name in &reth_names {
+        let node = RethNode {
+            http: local_url(host_port(name, 8545).await?)?,
+            auth: local_url(host_port(name, 8551).await?)?,
+        };
+        let provider = connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT);
+        wait_until(&format!("{name} RPC"), RPC_TIMEOUT, POLL, || async {
+            Ok(Some(provider.get_chain_id().await?))
+        })
+        .await?;
+        expected.verify(&provider).await?;
+        reth.push(node);
+    }
+
+    // 2. The L2 genesis anchor and the chain parameters.
+    let l2 = connect_http_with_timeout(reth[0].http.clone(), DEFAULT_HTTP_TIMEOUT);
+    let chain_id = l2.get_chain_id().await?;
+    let (genesis_hash, genesis_state_root) = genesis_block(&l2).await?;
+    for node in &reth[1..] {
+        let (other, _) =
+            genesis_block(&connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT))
+                .await?;
+        ensure!(other == genesis_hash, "alethia-reth genesis hashes differ");
+    }
+    let params = ChainParams {
+        unsettled_limit: spec.unsettled_limit,
+        l1_chain_id: l1.raw_request("eth_chainId".into(), ()).await?,
+        ..ChainParams::builtin(chain_id)?
+    };
+    params.validate()?;
+    for node in &reth {
+        let l2 = connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT);
+        expected.verify_staking(&l2, &auth_provider(node.auth.clone())?, params.staking).await?;
+    }
+
+    // 3. L1 state: the initialized Inbox in block L1_0.
+    let keys = validator_keys(n);
+    let planter = Planter::new(l1.clone(), params.inbox);
+    planter.install().await?;
+    let mut origin_keys: Vec<_> = keys[..spec.fallback_keys].iter().map(|k| k.pubkey()).collect();
+    origin_keys.sort();
+    let fallback_keys = FallbackKeys::new(origin_keys)?;
+    let genesis =
+        plant_genesis(&planter, &params, spec, &fallback_keys, (genesis_hash, genesis_state_root))
+            .await?;
+    let l1_0 = genesis.l1_0;
+    tracing::info!(l1_0, %genesis_hash, fallback_keys = %fallback_keys.hash(), "genesis planted");
+
+    // 4. Genesis, once L1_0 is final.
+    wait_until("L1 finalized >= L1_0", RPC_TIMEOUT, POLL, || async {
+        Ok((finalized_number(&l1).await? >= l1_0).then_some(()))
+    })
+    .await?;
+    let genesis_doc = build_genesis(&RpcL1Source::new(l1.clone()), &params).await?;
+    let genesis_json = genesis_doc.to_json_pretty();
+
+    // 5. The apps, listening before CometBFT starts.
+    let mut apps = Vec::with_capacity(n);
+    for (i, node) in reth.iter().enumerate() {
+        let config = AppConfig {
+            index: i,
+            reth: node.clone(),
+            l1_http: l1_http.clone(),
+            params: ChainParams { fee_recipient: keys[i].pubkey().address(), ..params.clone() },
+            jwt: jwt.clone(),
+            store_dir: tmp.join(format!("app-{i}")),
+            port: free_port()?,
+        };
+        apps.push(AppNode::start(config).await?);
+    }
+
+    // 6. CometBFT.
+    let node_keys = node_keys(n);
+    let cmt_image = image("COMETBFT_IMAGE", COMETBFT_IMAGE);
+    let user = host_user().await?;
+    let cmt_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-cmt-{i}")).collect();
+    let mut signers = Vec::with_capacity(n);
+    let mut rpc_ports = Vec::with_capacity(n);
+    for i in 0..n {
+        let home = tmp.join(format!("cmt-{i}"));
+        // Fixed host ports survive container restarts. Comet listens in the container on the
+        // Noise transport pinning the signer's transport key; the host supervisor's signer
+        // dials the configured published address, pinning Comet's node key.
+        let rpc_port = free_port()?;
+        let signer_port = free_port()?;
+        let transport_key = tmp.join(format!("transport-{i}.json"));
+        let signer_peer = signer_transport_keygen(&transport_key)?;
+        let peers = (0..n)
+            .filter(|j| *j != i)
+            .map(|j| format!("{}@{}:26656", node_keys[j].node_id(), cmt_names[j]))
+            .collect::<Vec<_>>()
+            .join(",");
+        write_home(
+            &home,
+            &HomeConfig {
+                moniker: &cmt_names[i],
+                proxy_app: &format!("tcp://host.docker.internal:{}", apps[i].port()),
+                timeout_commit_ms: spec.timeout_commit_ms,
+                persistent_peers: &peers,
+                genesis_json: &genesis_json,
+                signer_addr: &format!("noise://{signer_peer}@127.0.0.1:{signer_port}"),
+                node: &node_keys[i],
+            },
+        )?;
+        let signer = SignerNode::ephemeral(
+            tmp.join(format!("signer-{i}")),
+            tmp.join(format!("app-{i}/checkpoint-trust.sock")),
+            genesis_doc.chain_id.clone(),
+            &keys[i],
+        )?
+        .supervised(
+            home.clone(),
+            CometLaunch::Docker { container: cmt_names[i].clone(), transport_key },
+        );
+        make_world_writable(&home)?;
+        let mount = format!("{}:/cometbft", home.display());
+        let rpc = format!("127.0.0.1:{rpc_port}:26657");
+        let pv = format!("127.0.0.1:{signer_port}:26659");
+        let listener = format!("noise://{signer_peer}@0.0.0.0:26659");
+        let args = [
+            "--add-host",
+            "host.docker.internal:host-gateway",
+            "--user",
+            &user,
+            "-p",
+            &rpc,
+            "-p",
+            &pv,
+            "-v",
+            &mount,
+            "--entrypoint",
+            "/usr/bin/cometbft",
+            &cmt_image,
+            "start",
+            "--home",
+            "/cometbft",
+            "--priv_validator_laddr",
+            &listener,
+        ];
+        docker.create_container(&cmt_names[i], &args).await?;
+        // The supervisor starts Comet, which owns the listener and waits for PubKey before its
+        // ABCI handshake.
+        signer.start()?;
+        signers.push(signer);
+        rpc_ports.push(rpc_port);
+    }
+    let mut cmt = Vec::with_capacity(n);
+    for (name, port) in cmt_names.iter().zip(rpc_ports) {
+        let client = CmtClient::new(local_url(port)?);
+        wait_until(&format!("{name} RPC"), RPC_TIMEOUT, POLL, || async {
+            Ok(Some(client.latest_height().await?))
+        })
+        .await?;
+        cmt.push(client);
+    }
+
+    // 7. The fake lander.
+    let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2, cmt: cmt[0].clone() });
+
+    Ok(Booted { lander, apps, signers, cmt, reth, l1, keys, params, genesis, planter })
+}
+
+/// The hash and state root of block 0 of the EL behind `l2`.
+async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
+    let block = l2
+        .get_block_by_number(BlockNumberOrTag::Number(0))
+        .await?
+        .context("alethia-reth has no block 0")?;
+    Ok((block.header.hash, block.header.state_root))
+}
+
+/// Plants the initialized Inbox into an L1 block `L1_0`: the genesis record over the L2 genesis
+/// `(hash, state root)`, `lastCheckpoint = (0, genesis hash)`, generation 0, the fallback key list
+/// `fallback_keys` in generation 0's origin record and planted through the setter (slot 278,
+/// `getFallbackKeys()` and its `FallbackKeysUpdated` log, whence the genesis takes it), a minimum
+/// total stake of 2^256 − 1 (no candidate is usable, so the fallback keys sign), and the spec's
+/// forced inclusion delay and maximum anchor age; the forced inclusion queue stays empty. Returns
+/// the genesis record.
+async fn plant_genesis(
+    planter: &Planter,
+    params: &ChainParams,
+    spec: &DevnetSpec,
+    fallback_keys: &FallbackKeys,
+    (genesis_hash, genesis_state_root): (B256, B256),
+) -> Result<GenesisRecord> {
+    let mut next = planter.next_block().await?;
+    let l1_0 = next.number();
+    let genesis = GenesisRecord {
+        config_hash: params.config_hash(),
+        genesis_height: 0,
+        l1_0,
+        genesis_hash,
+        genesis_state_root,
+        forced_inclusion_delay: spec.forced_inclusion_delay,
+        max_anchor_age: spec.max_anchor_age,
+    };
+    next.plant_inbox(&InboxValues {
+        status: Some(ETNA_ACTIVE),
+        recovery_generation: Some(0),
+        last_checkpoint: Some((0, genesis_hash)),
+        genesis: Some(genesis.clone()),
+        fallback_keys: Some(fallback_keys.clone()),
+        min_total_stake: Some(U256::MAX),
+        ..Default::default()
+    })
+    .await?;
+    let mined = next.commit().await?;
+    ensure!(mined == l1_0, "genesis landed in L1 block {mined}, expected {l1_0}");
+    Ok(genesis)
+}
+
+/// `http://127.0.0.1:<port>/`.
+pub(crate) fn local_url(port: u16) -> Result<Url> {
+    Ok(Url::parse(&format!("http://127.0.0.1:{port}/"))?)
+}
+
+/// The image named by env var `var`, or `default`.
+fn image(var: &str, default: &str) -> String {
+    std::env::var(var).unwrap_or_else(|_| default.to_string())
+}
+
+/// The package's test JWT secret (`tests/docker/jwt.hex`).
+pub(crate) fn jwt_path() -> Result<PathBuf> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/docker/jwt.hex");
+    path.canonicalize().with_context(|| format!("JWT secret {}", path.display()))
+}
+
+/// A provider for the JWT-authenticated Engine endpoint `auth`, signing with the test secret.
+pub(crate) fn auth_provider(auth: Url) -> Result<RootProvider> {
+    let secret = read_jwt_secret(&jwt_path()?).context("unreadable test JWT secret")?;
+    Ok(build_jwt_http_provider(auth, secret, DEFAULT_HTTP_TIMEOUT))
+}
+
+/// `<uid>:<gid>` of this process, so CometBFT writes its home as the host user.
+pub(crate) async fn host_user() -> Result<String> {
+    let id = |flag: &'static str| async move {
+        let out = tokio::process::Command::new("id").arg(flag).output().await?;
+        ensure!(out.status.success(), "id {flag} failed");
+        Ok::<_, anyhow::Error>(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    };
+    Ok(format!("{}:{}", id("-u").await?, id("-g").await?))
+}
+
+/// Makes every directory under `dir` (included) mode 0777 and every file 0666.
+pub(crate) fn make_world_writable(dir: &Path) -> Result<()> {
+    fs::set_permissions(dir, fs::Permissions::from_mode(0o777))?;
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            make_world_writable(&path)?;
+        } else {
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o666))?;
+        }
+    }
+    Ok(())
+}

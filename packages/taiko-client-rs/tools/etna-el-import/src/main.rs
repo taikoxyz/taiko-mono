@@ -1,0 +1,186 @@
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
+//! Internal offline EL operations over caller-authenticated roots; no service is started.
+
+use alloy_genesis::Genesis;
+use alloy_primitives::B256;
+use clap::{Args, Parser, Subcommand};
+use etna_el_import::{
+    DatasetReport, ElTrust, HeaderManifest, ImportError, install_dataset,
+    install_dataset_with_scratch, runtime_genesis_hash,
+};
+use std::{
+    fs::File,
+    io::{BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
+
+/// Capacity of the runtime chain JSON, independent of a publisher's claimed file length. The
+/// header manifest is not read whole: it streams one bounded line at a time.
+const JSON_LIMIT: u64 = 256 * 1024 * 1024;
+
+/// Command parser for the private helper process.
+#[derive(Parser)]
+#[command(version, about)]
+struct Cli {
+    /// Read the selected runtime chain identity or install a stopped source into a fresh datadir.
+    #[command(subcommand)]
+    operation: Operation,
+}
+
+/// A successful install still leaves chain trust and signing to the parent application.
+#[derive(Subcommand)]
+enum Operation {
+    /// Derive the original EL block-zero identity from the operator's runtime configuration.
+    ChainIdentity(ChainInputs),
+    /// Copy a stopped EL datadir, verify its state against the trusted root and build a pruned
+    /// normal-provider-compatible datadir, without adopting old histories.
+    Install(Inputs),
+}
+
+/// Separate trusted roots are mandatory and cannot default to publisher metadata.
+#[derive(Args)]
+struct Inputs {
+    /// Stopped EL datadir whose `db/{mdbx.dat,database.version}` are copied; never written.
+    #[arg(long)]
+    source: PathBuf,
+    /// Absent absolute directory that the install creates.
+    #[arg(long)]
+    datadir: PathBuf,
+    /// Existing directory outside the source for private offline work, cleaned on success or
+    /// failure; defaults to the new datadir.
+    #[arg(long)]
+    scratch_parent: Option<PathBuf>,
+    /// Operator's original EL runtime Genesis JSON, distinct from Comet genesis.
+    #[arg(long)]
+    chain: PathBuf,
+    /// Strict authenticated ascending header context issued by the Rust verifier, as JSON Lines:
+    /// the head, then one header per line.
+    #[arg(long)]
+    manifest: PathBuf,
+    /// L2 chain identity already checked by the caller's RPC/configuration binding.
+    #[arg(long)]
+    chain_id: u64,
+    /// Selected EL hash authenticated against own finalized L1.
+    #[arg(long)]
+    trusted_el_hash: B256,
+    /// Terminal header state root authenticated by the caller.
+    #[arg(long)]
+    trusted_state_root: B256,
+    /// Original EL block-zero hash from the independently selected runtime chain configuration.
+    /// This is not the Inbox's Etna start hash.
+    #[arg(long)]
+    trusted_genesis_hash: B256,
+}
+
+/// Read-only selection of the operator's runtime chain, independent of imported package metadata.
+#[derive(Args)]
+struct ChainInputs {
+    /// Operator's original EL runtime Genesis JSON.
+    #[arg(long)]
+    chain: PathBuf,
+    /// L2 chain identity already checked by the caller's RPC/configuration binding.
+    #[arg(long)]
+    chain_id: u64,
+}
+
+/// Identity of the original EL runtime chain without any database reads or writes.
+#[derive(serde::Serialize)]
+struct ChainIdentity {
+    /// Runtime chain identifier opened by the pinned helper.
+    chain_id: u64,
+    /// Hash of the pinned runtime's original block-zero header.
+    genesis_hash: B256,
+}
+
+/// Exactly one typed receipt for the selected helper operation.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+enum Receipt {
+    /// A selected runtime chain's read-only identity.
+    Chain(ChainIdentity),
+    /// The verified stores of a completed installation.
+    Dataset(Box<DatasetReport>),
+}
+
+/// Read bounded JSON without echoing input contents into diagnostics.
+fn load<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, ImportError> {
+    let file = File::open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || metadata.len() > JSON_LIMIT {
+        return Err(ImportError::Invalid("unsupported or oversized local JSON input"));
+    }
+    let mut bytes = Vec::new();
+    file.take(JSON_LIMIT + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > JSON_LIMIT {
+        return Err(ImportError::Invalid("local JSON input exceeded its capacity"));
+    }
+    serde_json::from_slice(&bytes).map_err(|_| ImportError::Invalid("invalid local JSON input"))
+}
+
+/// Open the header manifest, a local regular file, to stream it one bounded line at a time.
+fn read_manifest(path: &Path) -> Result<HeaderManifest, ImportError> {
+    let file = File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(ImportError::Invalid("header manifest is not a regular file"));
+    }
+    HeaderManifest::read(BufReader::new(file))
+}
+
+/// Read the selected runtime chain identity or install stores against independently supplied roots.
+fn execute(operation: Operation) -> Result<Receipt, ImportError> {
+    let inputs = match operation {
+        Operation::ChainIdentity(inputs) => {
+            let genesis: Genesis = load(&inputs.chain)?;
+            if genesis.config.chain_id != inputs.chain_id {
+                return Err(ImportError::Invalid("runtime genesis uses another chain id"));
+            }
+            return Ok(Receipt::Chain(ChainIdentity {
+                chain_id: inputs.chain_id,
+                genesis_hash: runtime_genesis_hash(&genesis),
+            }));
+        }
+        Operation::Install(inputs) => inputs,
+    };
+    let genesis: Genesis = load(&inputs.chain)?;
+    let manifest = read_manifest(&inputs.manifest)?;
+    let trust = ElTrust {
+        chain_id: inputs.chain_id,
+        genesis_hash: inputs.trusted_genesis_hash,
+        terminal_hash: inputs.trusted_el_hash,
+        state_root: inputs.trusted_state_root,
+    };
+    let (source, datadir) = (&inputs.source, &inputs.datadir);
+    match inputs.scratch_parent.as_deref() {
+        Some(parent) => {
+            install_dataset_with_scratch(source, datadir, &genesis, &manifest, &trust, parent)
+        }
+        None => install_dataset(source, datadir, &genesis, &manifest, &trust),
+    }
+    .map(|report| Receipt::Dataset(Box::new(report)))
+}
+
+/// Emit exactly one receipt on success; every failure keeps parent publication closed.
+fn main() -> ExitCode {
+    let outcome = execute(Cli::parse().operation).and_then(|receipt| {
+        let mut output = std::io::stdout().lock();
+        serde_json::to_writer(&mut output, &receipt)?;
+        output.write_all(b"\n")?;
+        Ok(())
+    });
+    match outcome {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            match error {
+                ImportError::Incomplete(_) | ImportError::Io(_) | ImportError::Database(_) => {
+                    ExitCode::from(3)
+                }
+                ImportError::Json(e) if e.is_io() => ExitCode::from(3),
+                ImportError::Invalid(_) | ImportError::StateRoot { .. } | ImportError::Json(_) => {
+                    ExitCode::FAILURE
+                }
+            }
+        }
+    }
+}

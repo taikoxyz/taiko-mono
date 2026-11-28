@@ -1,0 +1,820 @@
+//! Turns verified Inbox witnesses into facts. No I/O.
+//!
+//! [`verify_anchor_witness`] checks a per-block anchor witness's proofs against its own L1
+//! header and decodes the Inbox facts; [`verify_genesis_inbox`] does the same for the genesis
+//! witness and also decodes the genesis record. Neither checks that the L1 header is
+//! canonical and final: that needs the node's own L1 and lives in `l1::source`.
+
+use alloy_primitives::{Address, B256, U256};
+
+use crate::{
+    envelope::AnchorWitness,
+    l1::{
+        header::RawL1Header,
+        layout::{inbox, word_u8, word_u48},
+        mpt::{MptError, VerifiedStorage, verify_account_witness},
+    },
+    types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts},
+};
+use etna_core::types::OriginRecord;
+
+/// Why an anchor or genesis witness was rejected.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum WitnessError {
+    /// The witness proves an account other than the configured Inbox.
+    #[error("witness proves {got}, expected the inbox at {expected}")]
+    WrongContract {
+        /// The configured Inbox address (chain constant).
+        expected: Address,
+        /// The address the witness proves.
+        got: Address,
+    },
+    /// The account or storage proofs do not verify, or prove the wrong slot set.
+    #[error(transparent)]
+    Mpt(#[from] MptError),
+    /// Genesis only: the Inbox's initialization status is not `ETNA_ACTIVE`.
+    #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
+    NotInitialized(u8),
+    /// Genesis only: a packed genesis slot sets bits above its fields.
+    #[error("inbox slot {slot} sets reserved bits")]
+    ReservedBits {
+        /// The plain Inbox slot number ([`inbox::slot`]).
+        slot: u64,
+    },
+    /// The authenticated generation-zero origin differs from the genesis record, exceeds its
+    /// widths or names no fallback key list (a zero fourth word).
+    #[error("invalid generation-zero origin")]
+    InvalidOrigin,
+    /// Genesis only: the Solidity start record's `startBlockHash` (the start hash) is zero.
+    #[error("genesis record has a zero genesis block hash")]
+    ZeroGenesisHash,
+    /// The Inbox names an existing L2 block rather than genesis block 0.
+    #[error("genesis height {0} is unsupported; Etna must start at L2 block 0")]
+    NonzeroGenesisHeight(u64),
+    /// Genesis requires a positive delay and maximum anchor age of at least 1152 seconds.
+    #[error(
+        "forced inclusion delay {delay} s must be positive and maximum anchor age {max_anchor_age} s at least 1152"
+    )]
+    InvalidForcedInclusionConfig {
+        /// The proven `forcedInclusionDelay` (slot 282, `uint48`, bits 0–47).
+        delay: u64,
+        /// The proven `maxAnchorAge` (slot 282, `uint48`, bits 48–95).
+        max_anchor_age: u64,
+    },
+}
+
+/// Authenticates the fixed Inbox anchor slots under the anchor's L1 header and decodes its facts.
+///
+/// Checks the configured Inbox account and exact slot order. Header number, hash, timestamp
+/// and state root come from the embedded raw header; canonicality/finality is checked separately.
+/// The fallback keys hash and the minimum total stake are whole words, taken verbatim.
+pub fn verify_anchor_witness(
+    w: &AnchorWitness,
+    inbox: Address,
+) -> Result<AnchorState, WitnessError> {
+    check_contract(&w.inbox, inbox)?;
+    let header = &w.l1_header;
+    let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
+    let head_tail = inbox_word(&storage, inbox::FORCED_INCLUSION_HEAD_TAIL);
+    let rules_schedule = inbox_word(&storage, inbox::RULES_SCHEDULE);
+    if rules_schedule >> inbox::RulesSchedule::RESERVED_BIT != U256::ZERO {
+        return Err(WitnessError::ReservedBits { slot: inbox::RULES_SCHEDULE });
+    }
+    let facts = InboxFacts {
+        rules_schedule,
+        recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
+        last_checkpoint_height: word_u48(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
+        last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
+        forced_inclusion_head: word_u48(head_tail, 0),
+        forced_inclusion_tail: word_u48(head_tail, 48),
+        fallback_keys_hash: inbox_word(&storage, inbox::FALLBACK_KEYS_HASH).into(),
+        min_total_stake: inbox_word(&storage, inbox::MIN_TOTAL_STAKE),
+    };
+    Ok(anchor_state(header, facts))
+}
+
+/// The anchor at L1 header `header` with the Inbox facts `inbox` proven against its `stateRoot`:
+/// its number, hash (`keccak256` of the raw header), state root and timestamp come from `header`.
+pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorState {
+    AnchorState {
+        number: header.number(),
+        hash: header.hash(),
+        state_root: header.state_root(),
+        timestamp: header.timestamp(),
+        inbox,
+    }
+}
+
+/// Verifies the genesis Inbox witness against `state_root` (the `L1_0` header's) and returns the
+/// genesis record, the Inbox facts of the genesis anchor `L1_0` and generation 0's origin record.
+///
+/// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots()`. The
+/// returned facts take the last checkpoint from the genesis record (the Etna start block's
+/// number S and hash) and an empty forced inclusion queue (head = tail = 0: Etna starts with an
+/// empty queue, slot 281 is not part of the genesis witness).
+///
+/// The genesis witness proves neither slot 278 nor slot 279, which change after initialization,
+/// so the genesis anchor's fallback keys hash is the origin record's fourth word, the
+/// `fallbackKeysHash` slot 278 held at the start write, and its minimum total stake is
+/// 2^256 − 1, so no candidate is usable at it: exactly the rule for the generation's first two
+/// blocks, which the origin keys sign. No rule reads either value at the genesis anchor: the
+/// generation's first block carries its own anchor witness, which proves both slots at its
+/// anchor, `L1_0` or later, and the first set decided from an anchor is the third block's.
+///
+/// Rejects, in this order: `status != ETNA_ACTIVE`, a set reserved bit above the fields of the
+/// status, generation, activation record (bits from 96 up) or forced inclusion configuration
+/// slot, a generation-zero origin other than `(S, L1_0)` with three `uint48` words and a nonzero
+/// `fallbackKeysHash`, a zero genesis hash, and a forced inclusion configuration without a
+/// positive delay and a maximum anchor age of at least 1152 seconds.
+pub fn verify_genesis_inbox(
+    state_root: B256,
+    w: &AccountWitness,
+    inbox: Address,
+) -> Result<(GenesisRecord, InboxFacts, OriginRecord), WitnessError> {
+    check_contract(w, inbox)?;
+    let storage = verify_account_witness(state_root, w, &inbox::genesis_slots())?;
+
+    let status = word_u8(inbox_word(&storage, inbox::STATUS), 0);
+    if status != inbox::ETNA_ACTIVE {
+        return Err(WitnessError::NotInitialized(status));
+    }
+    for (slot, bits) in [
+        (inbox::STATUS, 8),
+        (inbox::RECOVERY_GENERATION, 48),
+        (inbox::GENESIS_PACKED, 96),
+        (inbox::FORCED_INCLUSION_CONFIG, 96),
+    ] {
+        if inbox_word(&storage, slot) >> bits != U256::ZERO {
+            return Err(WitnessError::ReservedBits { slot });
+        }
+    }
+    let packed = inbox_word(&storage, inbox::GENESIS_PACKED);
+    let forced_config = inbox_word(&storage, inbox::FORCED_INCLUSION_CONFIG);
+    let genesis = GenesisRecord {
+        config_hash: inbox_word(&storage, inbox::CONFIG_HASH).into(),
+        genesis_height: word_u48(packed, 0),
+        l1_0: word_u48(packed, 48),
+        genesis_hash: inbox_word(&storage, inbox::START_BLOCK_HASH).into(),
+        genesis_state_root: inbox_word(&storage, inbox::START_STATE_ROOT).into(),
+        forced_inclusion_delay: word_u48(forced_config, 0),
+        max_anchor_age: word_u48(forced_config, 48),
+    };
+    // Generation zero's origin is the start the one start write recorded, with the fallback
+    // key list hash slot 278 held then.
+    let origin =
+        inbox::decode_origin_record(inbox::origin_slots(0).map(|slot| word(&storage, slot)))
+            .filter(|origin| {
+                origin.start_height == genesis.genesis_height &&
+                    origin.l1_number == genesis.l1_0 &&
+                    !origin.fallback_keys_hash.is_zero()
+            })
+            .ok_or(WitnessError::InvalidOrigin)?;
+    if genesis.genesis_hash.is_zero() {
+        return Err(WitnessError::ZeroGenesisHash);
+    }
+    let (delay, max_anchor_age) = (genesis.forced_inclusion_delay, genesis.max_anchor_age);
+    if delay == 0 || max_anchor_age < 1152 {
+        return Err(WitnessError::InvalidForcedInclusionConfig { delay, max_anchor_age });
+    }
+
+    let facts = InboxFacts {
+        // Initialization writes the zero schedule. Every first-generation block must carry
+        // its own anchor witness, which authenticates the then-current schedule.
+        rules_schedule: U256::ZERO,
+        recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
+        last_checkpoint_height: genesis.genesis_height,
+        last_checkpoint_hash: genesis.genesis_hash,
+        forced_inclusion_head: 0,
+        forced_inclusion_tail: 0,
+        fallback_keys_hash: origin.fallback_keys_hash,
+        min_total_stake: U256::MAX,
+    };
+    Ok((genesis, facts, origin))
+}
+
+/// Rejects a witness that proves an account other than the configured Inbox.
+pub(crate) fn check_contract(w: &AccountWitness, inbox: Address) -> Result<(), WitnessError> {
+    if w.address != inbox {
+        return Err(WitnessError::WrongContract { expected: inbox, got: w.address });
+    }
+    Ok(())
+}
+
+/// The proven word at `slot`.
+///
+/// Panics if `slot` was not verified; callers only read slots of the set they passed to
+/// [`verify_account_witness`], which succeeds only when the witness proves exactly that set.
+fn word(storage: &VerifiedStorage, slot: B256) -> U256 {
+    storage.get(slot).expect("slot belongs to the verified slot set")
+}
+
+/// The proven word at the plain Inbox slot `n` ([`inbox::slot`]); panics like [`word`].
+fn inbox_word(storage: &VerifiedStorage, n: u64) -> U256 {
+    word(storage, inbox::slot(n))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{
+        AccountSpec, InboxStorage, TestState, anchor_witness, anchor_witness_in, edit_l1_header,
+        filler_accounts, genesis_inbox_witness, l1_header, sample_genesis_record, vectors,
+    };
+    use alloy_primitives::{address, keccak256};
+
+    const INBOX: Address = address!("00000000000000000000000000000000e7a10001");
+    const OTHER: Address = address!("00000000000000000000000000000000e7a10002");
+
+    /// A live Inbox with every anchor field distinct and using its full width.
+    fn live_storage() -> InboxStorage {
+        InboxStorage {
+            status: inbox::ETNA_ACTIVE,
+            recovery_generation: ((1u64 << 48) - 1) - 1,
+            last_checkpoint_height: 0x4567_89ab_cdef,
+            last_checkpoint_hash: B256::repeat_byte(0xc4),
+            last_checkpoint_comet_hash: B256::ZERO,
+            forced_inclusion_head: 0x0000_8765_4321_0fed,
+            forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
+            forced_inclusion_queue: vec![],
+            genesis: Some(sample_genesis_record()),
+            origin_fallback_keys_hash: B256::repeat_byte(0xe0),
+            fallback_keys_hash: B256::repeat_byte(0xe1),
+            min_total_stake: U256::from(0xe2),
+        }
+    }
+
+    /// The fallback key list hash generation 0's origin record holds in the genesis Inboxes.
+    fn origin_hash() -> B256 {
+        B256::repeat_byte(0xc0)
+    }
+
+    /// The L1 state of an Inbox holding [`live_storage`] with `words` written over it, each
+    /// `(plain slot, word)`, plus the filler accounts.
+    fn live_state_with(words: &[(u64, U256)]) -> TestState {
+        let mut account = crate::test_utils::inbox_account(INBOX, &live_storage());
+        account.4.extend(words.iter().map(|&(n, word)| (inbox::slot(n), word)));
+        let mut accounts = filler_accounts();
+        accounts.push(account);
+        TestState::new(accounts)
+    }
+
+    /// The anchor witness at L1 block 9 over [`live_state_with`]`(words)`.
+    fn live_witness_with(words: &[(u64, U256)]) -> AnchorWitness {
+        anchor_witness_in(&live_state_with(words), INBOX, l1_header(9, 99))
+    }
+
+    /// The anchor witness proves exactly the shared layout vectors' anchor slots, in their
+    /// order: the generation, the last checkpoint's height and hash, the fallback keys hash, the
+    /// minimum total stake, the forced inclusion queue's head and tail, and the rules schedule. A
+    /// witness proving them in any other order is refused, though every proof in it is valid.
+    #[test]
+    fn anchor_slots_are_in_the_fixed_order() {
+        let fixed: Vec<B256> =
+            vectors::u64s_at("/layout/inbox/anchor_slots").into_iter().map(inbox::slot).collect();
+        assert_eq!(inbox::anchor_slots(), fixed);
+        assert_eq!(
+            (inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE),
+            (278, 279),
+            "the anchor-side names of slots 278 and 279"
+        );
+
+        let state = live_state_with(&[]);
+        let witness = anchor_witness_in(&state, INBOX, l1_header(9, 99));
+        verify_anchor_witness(&witness, INBOX).unwrap();
+        // Checkpoint hash before height; minimum total stake before fallback keys hash.
+        for (a, b) in [(1, 2), (3, 4)] {
+            let mut order = fixed.clone();
+            order.swap(a, b);
+            let reordered = AnchorWitness {
+                l1_header: witness.l1_header.clone(),
+                inbox: state.witness(INBOX, &order),
+            };
+            assert_eq!(
+                verify_anchor_witness(&reordered, INBOX),
+                Err(WitnessError::Mpt(MptError::SlotSet { expected: fixed.clone(), got: order }))
+            );
+        }
+    }
+
+    /// Slot 278 is a whole `bytes32`: every bit of it reaches the facts, none is masked.
+    #[test]
+    fn fallback_keys_hash_is_a_full_word() {
+        for hash in [
+            B256::repeat_byte(0xff),
+            B256::from(U256::from(1) << 255),
+            B256::from(U256::from(1)),
+            B256::ZERO,
+        ] {
+            let witness = live_witness_with(&[(inbox::FALLBACK_KEYS_HASH, hash.into())]);
+            let facts = verify_anchor_witness(&witness, INBOX).unwrap().inbox;
+            assert_eq!(facts.fallback_keys_hash, hash);
+        }
+    }
+
+    /// Inbox words packed per the shared layout vectors (`testdata/etna_vectors`: the vector
+    /// slots, offsets and widths, which the contracts check against a deployed Inbox) decode
+    /// through both witness verifiers to the packed values, every field using its full width.
+    #[test]
+    fn witnesses_decode_the_shared_inbox_packing() {
+        let slot =
+            |name: &str| inbox::slot(vectors::u64_at(&format!("/layout/inbox/slots/{name}")));
+        let packed = |name: &str, fields: &[(&str, u64)]| {
+            let fields: Vec<(&str, U256)> =
+                fields.iter().map(|(field, value)| (*field, U256::from(*value))).collect();
+            (slot(name), vectors::pack(&format!("/layout/inbox/packing/{name}"), &fields))
+        };
+        let word = |name: &str, byte: u8| (slot(name), U256::from_be_bytes([byte; 32]));
+        let max48 = (1u64 << 48) - 1;
+        let mut words = vec![
+            (
+                slot("initialization_status"),
+                U256::from(vectors::u64_at("/layout/inbox/initialized_status")),
+            ),
+            (slot("recovery_generation"), U256::from((1u64 << 48) - 2)),
+            (slot("last_checkpoint_height"), U256::from(0x4567_89ab_cdefu64)),
+            word("last_checkpoint_hash", 0xc4),
+            packed("forced_inclusion_head_tail", &[("head", max48 - 1), ("tail", max48)]),
+            packed(
+                "rules_schedule",
+                &[
+                    ("active_rules", 7),
+                    ("next_rules", 8),
+                    ("rules_time", max48),
+                    ("stop_time", max48),
+                ],
+            ),
+            packed(
+                "genesis_packed",
+                &[("genesis_height", 0), ("l1_block", ((1u64 << 48) - 1) - 2)],
+            ),
+            word("genesis_block_hash", 0xa1),
+            word("genesis_state_root", 0xa2),
+            word("config_hash", 0xa3),
+            (slot("min_total_stake"), U256::from((1u64 << 48) - 5)),
+            word("fallback_keys_hash", 0xa4),
+            packed(
+                "forced_inclusion_config",
+                &[
+                    ("forced_inclusion_delay", ((1u64 << 48) - 1) - 5),
+                    ("max_anchor_age", ((1u64 << 48) - 1)),
+                ],
+            ),
+        ];
+        words.extend(inbox::origin_slots(0).into_iter().zip([
+            U256::ZERO,
+            U256::from(max48 - 2),
+            U256::from(1),
+            U256::from_be_bytes([0xa5; 32]),
+        ]));
+        let mut accounts = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+        let state = TestState::new(accounts);
+
+        let genesis_witness = state.witness(INBOX, &inbox::genesis_slots());
+        let (genesis, _, origin) =
+            verify_genesis_inbox(state.state_root(), &genesis_witness, INBOX).unwrap();
+        assert_eq!(
+            genesis,
+            GenesisRecord {
+                config_hash: B256::repeat_byte(0xa3),
+                genesis_height: 0,
+                l1_0: ((1u64 << 48) - 1) - 2,
+                genesis_hash: B256::repeat_byte(0xa1),
+                genesis_state_root: B256::repeat_byte(0xa2),
+                forced_inclusion_delay: ((1u64 << 48) - 1) - 5,
+                max_anchor_age: ((1u64 << 48) - 1),
+            }
+        );
+        assert_eq!(origin.fallback_keys_hash, B256::repeat_byte(0xa5));
+
+        let anchor = anchor_witness_in(&state, INBOX, l1_header(4_242, 1_760_000_123));
+        assert_eq!(
+            verify_anchor_witness(&anchor, INBOX).unwrap().inbox,
+            InboxFacts {
+                rules_schedule: U256::from(7) |
+                    (U256::from(8) << 48) |
+                    (U256::from(max48) << 96) |
+                    (U256::from(max48) << 144),
+                recovery_generation: ((1u64 << 48) - 1) - 1,
+                last_checkpoint_height: 0x4567_89ab_cdef,
+                last_checkpoint_hash: B256::repeat_byte(0xc4),
+                forced_inclusion_head: max48 - 1,
+                forced_inclusion_tail: max48,
+                fallback_keys_hash: B256::repeat_byte(0xa4),
+                min_total_stake: U256::from((1u64 << 48) - 5),
+            }
+        );
+    }
+
+    #[test]
+    fn anchor_decodes_every_field() {
+        let min_total_stake = U256::from_be_bytes([0x9e; 32]);
+        let state = live_state_with(&[
+            (inbox::FALLBACK_KEYS_HASH, U256::from_be_bytes([0xfa; 32])),
+            (inbox::MIN_TOTAL_STAKE, min_total_stake),
+        ]);
+        let w = anchor_witness_in(&state, INBOX, l1_header(4_242, 1_760_000_123));
+        let anchor = verify_anchor_witness(&w, INBOX).unwrap();
+
+        assert_eq!(anchor.number, 4_242);
+        assert_eq!(anchor.timestamp, 1_760_000_123);
+        assert_eq!(anchor.state_root, state.state_root());
+        assert_eq!(
+            anchor.inbox,
+            InboxFacts {
+                rules_schedule: alloy_primitives::U256::ZERO,
+                recovery_generation: ((1u64 << 48) - 1) - 1,
+                last_checkpoint_height: 0x4567_89ab_cdef,
+                last_checkpoint_hash: B256::repeat_byte(0xc4),
+                forced_inclusion_head: 0x0000_8765_4321_0fed,
+                forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
+                fallback_keys_hash: B256::repeat_byte(0xfa),
+                min_total_stake,
+            }
+        );
+    }
+
+    #[test]
+    fn anchor_witness_decodes_forced_inclusion_head_and_tail() {
+        let storage =
+            InboxStorage { forced_inclusion_head: 3, forced_inclusion_tail: 9, ..live_storage() };
+        let (w, _) = anchor_witness(INBOX, &storage, l1_header(9, 99));
+        let head_tail = w
+            .inbox
+            .storage
+            .iter()
+            .find(|proof| proof.slot == inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL))
+            .expect("slot 281 is proven")
+            .value;
+        assert_eq!(head_tail, U256::from(3u64) | (U256::from(9u64) << 48));
+
+        let facts = verify_anchor_witness(&w, INBOX).unwrap().inbox;
+        assert_eq!((facts.forced_inclusion_head, facts.forced_inclusion_tail), (3, 9));
+    }
+
+    #[test]
+    fn anchor_hash_is_the_l1_header_hash() {
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        let anchor = verify_anchor_witness(&w, INBOX).unwrap();
+        assert_eq!(anchor.hash, w.l1_header.hash());
+        assert_eq!(anchor.hash, keccak256(w.l1_header.raw()));
+    }
+
+    #[test]
+    fn anchor_proves_only_the_fixed_slots() {
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        assert_eq!(
+            w.inbox.storage.iter().map(|proof| proof.slot).collect::<Vec<_>>(),
+            inbox::anchor_slots()
+        );
+        verify_anchor_witness(&w, INBOX).unwrap();
+    }
+
+    #[test]
+    fn anchor_ignores_bits_above_packed_fields() {
+        // Other variables Solidity packs into the same slots must not leak into the facts.
+        let dirty = |n: u64, low: U256, width: usize| {
+            (inbox::slot(n), ((U256::MAX >> width) << width) | low)
+        };
+        let mut accounts: Vec<AccountSpec> = filler_accounts();
+        accounts.push((
+            INBOX,
+            1,
+            U256::ZERO,
+            keccak256(b"code"),
+            vec![
+                dirty(inbox::STATUS, U256::from(3u64), 8),
+                dirty(inbox::RECOVERY_GENERATION, U256::from(5u64), 64),
+                dirty(inbox::LAST_CHECKPOINT_HEIGHT, U256::from(77u64), 64),
+                dirty(
+                    inbox::FORCED_INCLUSION_HEAD_TAIL,
+                    U256::from(4u64) | (U256::from(6u64) << 48),
+                    96,
+                ),
+            ],
+        ));
+        let state = TestState::new(accounts);
+        let w = anchor_witness_in(&state, INBOX, l1_header(1, 1));
+        let facts = verify_anchor_witness(&w, INBOX).unwrap().inbox;
+        assert_eq!(facts.recovery_generation, 5);
+        assert_eq!(facts.last_checkpoint_height, 77);
+        assert_eq!(facts.last_checkpoint_hash, B256::ZERO);
+        assert_eq!((facts.forced_inclusion_head, facts.forced_inclusion_tail), (4, 6));
+    }
+
+    /// STOR-B-15a, STOR-B-24: slot 293 packs four uint48 fields, so `stopTime` ends at bit 191
+    /// and every bit from 192 up is reserved, where the retired `stopGrid` was.
+    #[test]
+    fn anchor_rejects_reserved_rules_schedule_bits_above_stop_time() {
+        for (word, accepted) in [
+            (U256::from((1u64 << 48) - 1) << 144, true),
+            (U256::from(1) << 192, false),
+            (U256::from(6) << 192, false),
+            (U256::from(1) << 255, false),
+        ] {
+            let w = live_witness_with(&[(inbox::RULES_SCHEDULE, word)]);
+            match verify_anchor_witness(&w, INBOX) {
+                Ok(anchor) => {
+                    assert!(accepted, "{word:#x} sets a reserved bit");
+                    assert_eq!(anchor.inbox.rules_schedule, word);
+                }
+                Err(error) => {
+                    assert!(!accepted, "{word:#x}: {error}");
+                    assert_eq!(error, WitnessError::ReservedBits { slot: inbox::RULES_SCHEDULE });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn anchor_rejects_another_contract() {
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        let err = verify_anchor_witness(&w, OTHER).unwrap_err();
+        assert_eq!(err, WitnessError::WrongContract { expected: OTHER, got: INBOX });
+    }
+
+    #[test]
+    fn anchor_rejects_a_tampered_header_state_root() {
+        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        w.l1_header = edit_l1_header(&w.l1_header, |h| h.state_root = B256::repeat_byte(0x01));
+        let err = verify_anchor_witness(&w, INBOX).unwrap_err();
+        assert!(matches!(err, WitnessError::Mpt(MptError::Account(_))), "{err:?}");
+    }
+
+    #[test]
+    fn anchor_rejects_a_tampered_storage_value() {
+        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        w.inbox.storage[2].value += U256::from(1u64);
+        let err = verify_anchor_witness(&w, INBOX).unwrap_err();
+        assert!(matches!(err, WitnessError::Mpt(MptError::Storage { .. })), "{err:?}");
+    }
+
+    /// The genesis witness decodes the record, the genesis anchor's facts and generation 0's
+    /// origin record. It proves neither slot 278 nor 279: the facts name the origin's list, and
+    /// their minimum total stake makes no candidate usable, whatever the two slots hold.
+    #[test]
+    fn genesis_decodes_the_record_and_facts() {
+        let genesis = GenesisRecord {
+            config_hash: B256::repeat_byte(0xb1),
+            genesis_height: 0,
+            l1_0: 0x0304_0506_0708,
+            genesis_hash: B256::repeat_byte(0xa1),
+            genesis_state_root: B256::repeat_byte(0xa2),
+            forced_inclusion_delay: 1_209_599,
+            max_anchor_age: ((1u64 << 48) - 1),
+        };
+        let storage = InboxStorage {
+            recovery_generation: 6,
+            // The genesis witness does not prove slots 270/271/281; the facts must ignore them.
+            last_checkpoint_height: 1,
+            last_checkpoint_hash: B256::repeat_byte(0x01),
+            forced_inclusion_head: 2,
+            forced_inclusion_tail: 5,
+            // Nor slots 278 and 279, which have changed since the start write.
+            fallback_keys_hash: B256::repeat_byte(0x77),
+            min_total_stake: U256::from(5),
+            ..InboxStorage::genesis(genesis.clone(), origin_hash())
+        };
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        let (decoded, facts, origin) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+
+        assert_eq!(decoded, genesis);
+        assert_eq!(
+            (decoded.forced_inclusion_delay, decoded.max_anchor_age),
+            (1_209_599, ((1u64 << 48) - 1))
+        );
+        assert_eq!(
+            facts,
+            InboxFacts {
+                rules_schedule: alloy_primitives::U256::ZERO,
+                recovery_generation: 6,
+                last_checkpoint_height: genesis.genesis_height,
+                last_checkpoint_hash: genesis.genesis_hash,
+                forced_inclusion_head: 0,
+                forced_inclusion_tail: 0,
+                fallback_keys_hash: origin_hash(),
+                min_total_stake: U256::MAX,
+            }
+        );
+        assert_eq!(
+            origin,
+            OriginRecord {
+                start_height: 0,
+                l1_number: genesis.l1_0,
+                l1_timestamp: 1_760_000_000 + 12 * genesis.l1_0,
+                fallback_keys_hash: origin_hash(),
+            }
+        );
+    }
+
+    /// Slot 272 packs only the start height (bits 0–47) and `L1_0` (bits 48–95): every bit from
+    /// 96 up is reserved and must be zero.
+    #[test]
+    fn slot_272_bits_from_96_are_reserved() {
+        for bit in [96, 143, 144, 255] {
+            let mut words = InboxStorage::genesis(sample_genesis_record(), origin_hash()).slots();
+            let activation = inbox::slot(inbox::GENESIS_PACKED);
+            let (_, word) = words.iter_mut().find(|(slot, _)| *slot == activation).unwrap();
+            *word |= U256::from(1) << bit;
+            let mut accounts = filler_accounts();
+            accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+            let state = TestState::new(accounts);
+
+            let w = state.witness(INBOX, &inbox::genesis_slots());
+            assert_eq!(
+                verify_genesis_inbox(state.state_root(), &w, INBOX),
+                Err(WitnessError::ReservedBits { slot: inbox::GENESIS_PACKED }),
+                "bit {bit}"
+            );
+        }
+        // Bit 95 is the top bit of `L1_0`, not reserved.
+        let l1_0 = (1u64 << 48) - 1;
+        let genesis = GenesisRecord { l1_0, ..sample_genesis_record() };
+        let mut words = InboxStorage::genesis(genesis, origin_hash()).slots();
+        words.push((inbox::origin_slots(0)[2], U256::from(99)));
+        let mut accounts = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+        let state = TestState::new(accounts);
+        let w = state.witness(INBOX, &inbox::genesis_slots());
+        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(decoded.l1_0, l1_0);
+    }
+
+    /// Bits above the status and the recovery generation are reserved and must be zero.
+    #[test]
+    fn genesis_rejects_bits_above_the_status_and_the_generation() {
+        for (slot, bit) in [(inbox::STATUS, 8), (inbox::RECOVERY_GENERATION, 48)] {
+            let mut words = InboxStorage::genesis(sample_genesis_record(), origin_hash()).slots();
+            let key = inbox::slot(slot);
+            let (_, word) = words.iter_mut().find(|(s, _)| *s == key).unwrap();
+            *word |= U256::from(1) << bit;
+            let mut accounts = filler_accounts();
+            accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+            let state = TestState::new(accounts);
+            let w = state.witness(INBOX, &inbox::genesis_slots());
+            assert_eq!(
+                verify_genesis_inbox(state.state_root(), &w, INBOX),
+                Err(WitnessError::ReservedBits { slot })
+            );
+        }
+    }
+
+    /// Generation zero's origin record holds the start S of the one start write. A nonzero S (a
+    /// switching network) is accepted when they agree; an origin-zero start other than S is
+    /// refused, as is a later "corrected" start.
+    #[test]
+    fn genesis_rejects_an_origin_zero_start_other_than_s() {
+        let mut genesis = sample_genesis_record();
+        genesis.genesis_height = 1;
+        let storage = InboxStorage::genesis(genesis, origin_hash());
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        let (verified, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(verified.genesis_height, 1);
+        for start in [0u64, 2] {
+            let mut words = storage.slots();
+            words.iter_mut().find(|(s, _)| *s == inbox::origin_slots(0)[0]).unwrap().1 =
+                U256::from(start);
+            let mut accounts = filler_accounts();
+            accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+            let state = TestState::new(accounts);
+            let w = state.witness(INBOX, &inbox::genesis_slots());
+            assert_eq!(
+                verify_genesis_inbox(state.state_root(), &w, INBOX),
+                Err(WitnessError::InvalidOrigin),
+                "origin-zero start {start}"
+            );
+        }
+    }
+
+    #[test]
+    fn genesis_rejects_another_contract() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), origin_hash());
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        let err = verify_genesis_inbox(state.state_root(), &w, OTHER).unwrap_err();
+        assert_eq!(err, WitnessError::WrongContract { expected: OTHER, got: INBOX });
+    }
+
+    #[test]
+    fn genesis_rejects_a_wrong_state_root() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), origin_hash());
+        let (w, _) = genesis_inbox_witness(INBOX, &storage);
+        let err = verify_genesis_inbox(B256::repeat_byte(0x01), &w, INBOX).unwrap_err();
+        assert!(matches!(err, WitnessError::Mpt(MptError::Account(_))), "{err:?}");
+    }
+
+    #[test]
+    fn genesis_rejects_an_anchor_slot_set() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), origin_hash());
+        let (w, state) = anchor_witness(INBOX, &storage, l1_header(9, 99));
+        let err = verify_genesis_inbox(state.state_root(), &w.inbox, INBOX).unwrap_err();
+        assert!(matches!(err, WitnessError::Mpt(MptError::SlotSet { .. })), "{err:?}");
+    }
+
+    #[test]
+    fn genesis_rejects_an_inactive_inbox() {
+        for state_value in [0u8, 1, 2, 4, u8::MAX] {
+            let storage = InboxStorage {
+                status: state_value,
+                ..InboxStorage::genesis(sample_genesis_record(), origin_hash())
+            };
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert_eq!(err, WitnessError::NotInitialized(state_value));
+        }
+    }
+
+    #[test]
+    fn genesis_rejects_a_zero_genesis_hash() {
+        let genesis = GenesisRecord { genesis_hash: B256::ZERO, ..sample_genesis_record() };
+        let storage = InboxStorage::genesis(genesis, origin_hash());
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+        assert_eq!(err, WitnessError::ZeroGenesisHash);
+    }
+
+    /// Generation zero's origin record must name a fallback key list: a zero fourth word, a
+    /// missing list, is refused, as is a first word wider than `uint48`.
+    #[test]
+    fn genesis_rejects_an_origin_without_a_fallback_keys_hash() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), B256::ZERO);
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::InvalidOrigin)
+        );
+        let mut words = InboxStorage::genesis(sample_genesis_record(), origin_hash()).slots();
+        words.push((inbox::origin_slots(0)[0], U256::from(1) << 48));
+        let mut accounts = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+        let state = TestState::new(accounts);
+        let w = state.witness(INBOX, &inbox::genesis_slots());
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::InvalidOrigin)
+        );
+    }
+
+    /// The delay must be positive and the maximum anchor age at least 1152 seconds.
+    #[test]
+    fn genesis_rejects_invalid_forced_inclusion_config() {
+        for (delay, max_anchor_age) in [(0, 7_200), (1, 1151), (3_600, 0)] {
+            let genesis = GenesisRecord {
+                forced_inclusion_delay: delay,
+                max_anchor_age,
+                ..sample_genesis_record()
+            };
+            let storage = InboxStorage::genesis(genesis.clone(), origin_hash());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert_eq!(err, WitnessError::InvalidForcedInclusionConfig { delay, max_anchor_age });
+        }
+
+        // The extremes of the accepted ranges.
+        for (delay, max_anchor_age) in [(1, 1152), (((1u64 << 48) - 1), ((1u64 << 48) - 1))] {
+            let genesis = GenesisRecord {
+                forced_inclusion_delay: delay,
+                max_anchor_age,
+                ..sample_genesis_record()
+            };
+            let storage = InboxStorage::genesis(genesis.clone(), origin_hash());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+            assert_eq!(decoded, genesis);
+        }
+    }
+
+    /// Bits above `maxAnchorAge` in slot 282 are reserved and must be zero.
+    #[test]
+    fn genesis_rejects_bits_above_the_max_anchor_age() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), origin_hash());
+        let config_slot = inbox::slot(inbox::FORCED_INCLUSION_CONFIG);
+        let slots = storage
+            .slots()
+            .into_iter()
+            .map(|(slot, word)| {
+                (slot, if slot == config_slot { word | ((U256::MAX >> 128) << 128) } else { word })
+            })
+            .collect();
+        let mut accounts: Vec<AccountSpec> = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
+        let state = TestState::new(accounts);
+        let w = state.witness(INBOX, &inbox::genesis_slots());
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::ReservedBits { slot: inbox::FORCED_INCLUSION_CONFIG })
+        );
+    }
+
+    #[test]
+    fn genesis_rejects_an_uninitialized_record() {
+        // Genesis slots empty but initialized status set: the missing origin record, which names
+        // no fallback key list, trips first.
+        let storage = InboxStorage {
+            genesis: None,
+            ..InboxStorage::genesis(sample_genesis_record(), origin_hash())
+        };
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+        assert_eq!(err, WitnessError::InvalidOrigin);
+    }
+}

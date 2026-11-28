@@ -9,19 +9,16 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
 use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::B256;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
-};
+use alloy_rpc_types_engine::{ExecutionPayloadV3, ForkchoiceState, PayloadStatusEnum};
 use anyhow::anyhow;
 use rpc::{
-    client::{Client, connect_http_with_timeout},
+    client::{Client, DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout},
     error::RpcClientError,
 };
 use tokio::time::{MissedTickBehavior, interval};
@@ -65,8 +62,10 @@ impl BeaconSyncer {
         rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Self {
-        let checkpoint =
-            config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
+        let checkpoint = config
+            .l2_checkpoint_url
+            .as_ref()
+            .map(|url| connect_http_with_timeout(url.clone(), DEFAULT_HTTP_TIMEOUT));
 
         Self { retry_interval: config.retry_interval, rpc, checkpoint, checkpoint_resume_head }
     }
@@ -123,33 +122,16 @@ impl BeaconSyncer {
     async fn submit_target_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
         let block_number = block.header.number;
         let block_hash = block.hash();
-        let tx_root = block.header.transactions_root;
-        let header_difficulty = block.header.difficulty;
-        let withdrawals_root = block.header.withdrawals_root;
+        let header_difficulty = u64::try_from(block.header.difficulty)
+            .map_err(|_| DriverError::Other(anyhow!("checkpoint difficulty exceeds u64")))?;
+        let parent_beacon_block_root = block.header.parent_beacon_block_root.unwrap_or(B256::ZERO);
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
-
         let consensus_block: Block<TxEnvelope> = block.into();
-        let payload_field =
-            ExecutionPayloadFieldV2::from_block_unchecked(block_hash, &consensus_block);
-
-        let (execution_payload, withdrawals) = match payload_field {
-            ExecutionPayloadFieldV2::V1(v1) => (v1, None),
-            ExecutionPayloadFieldV2::V2(v2) => (v2.payload_inner, Some(v2.withdrawals)),
-        };
-
-        let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
-        let sidecar = TaikoExecutionDataSidecar {
-            tx_hash: tx_root,
-            withdrawals_hash: withdrawals_root,
-            // Checkpoint import bypasses the local getPayload/newPayload round trip, so preserve
-            // the sealed block's header difficulty explicitly in the Taiko sidecar.
-            header_difficulty: Some(header_difficulty),
-            taiko_block: Some(true),
-            block_access_list: None,
-            slot_number: None,
-        };
-
-        let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
+        let payload_input = ExecutionPayloadV3::from_block_unchecked(block_hash, &consensus_block);
+        let payload_status = self
+            .rpc
+            .engine_new_payload_v4(&payload_input, header_difficulty, parent_beacon_block_root)
+            .await?;
         match payload_status.status {
             PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
             PayloadStatusEnum::Syncing => {
@@ -171,7 +153,7 @@ impl BeaconSyncer {
             finalized_block_hash: block_hash,
         };
 
-        let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
+        let forkchoice = self.rpc.engine_forkchoice_updated_v3(forkchoice_state, None).await?;
         resolve_checkpoint_forkchoice_status(&forkchoice.payload_status.status, block_number)?;
 
         info!(

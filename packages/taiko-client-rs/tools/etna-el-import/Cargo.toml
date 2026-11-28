@@ -1,0 +1,58 @@
+[package]
+name = "etna-el-import"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT"
+description = "Offline verification and canonical header installation for Etna app imports"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", rev = "aa89a01aad2f127e342e39fd069352b2e4ebcf86", default-features = false, features = ["net"] }
+alloy-consensus = { version = "2.4.2", features = ["serde"] }
+alloy-genesis = "2.4.2"
+alloy-primitives = { version = "1.6.1", features = ["serde"] }
+alloy-rlp = "0.3.16"
+clap = { version = "4", features = ["derive"] }
+libc = "0.2"
+reth-chainspec = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-codecs = "0.8.1"
+reth-db = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-db-api = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-ethereum-primitives = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-nippy-jar = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-node-types = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-primitives-traits = "0.8.1"
+reth-provider = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-prune-types = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-stages-types = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-static-file-types = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-tasks = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-trie = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+reth-trie-db = { git = "https://github.com/ethereum-optimism/reth", tag = "op-v2.7.0-1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+
+[dev-dependencies]
+alloy-eips = "2.4.2"
+alloy-trie = { version = "0.9.5", features = ["ethereum"] }
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+# Every header is hashed several times on its way into the stores; unoptimized Keccak dominates
+# a debug run over a manifest at the 262,145-header limit.
+alloy-primitives.opt-level = 3
+keccak.opt-level = 3
+sha3.opt-level = 3
+
+[profile.release]
+overflow-checks = true

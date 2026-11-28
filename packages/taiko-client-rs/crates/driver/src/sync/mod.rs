@@ -1,6 +1,6 @@
 //! Synchronization primitives for the driver.
 
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use alloy_contract::Error as ContractError;
 
@@ -64,6 +64,7 @@ use tracing::{info, instrument};
 
 use crate::{
     config::DriverConfig,
+    driver::UnzenOrigin,
     error::DriverError,
     sync::{
         beacon::BeaconSyncer, checkpoint_resume_head::CheckpointResumeHead, event::EventSyncer,
@@ -76,6 +77,8 @@ pub mod confirmed_sync;
 pub mod engine;
 pub mod error;
 pub mod event;
+/// Finalized closure proof used before handing execution writes to Etna.
+pub(crate) mod handoff;
 
 pub use confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot};
 pub use error::SyncError;
@@ -124,6 +127,17 @@ impl SyncPipeline {
     /// Access the event syncer instance.
     pub fn event_syncer(&self) -> Arc<EventSyncer> {
         self.event.clone()
+    }
+
+    /// Finish checkpoint catch-up and serial Unzen derivation, then return the closed origin.
+    /// No event task is spawned: returning awaits the sole proposal writer to finish.
+    pub async fn run_until_etna(
+        self,
+        fork_timestamp: u64,
+        receipt_path: &Path,
+    ) -> Result<UnzenOrigin, DriverError> {
+        self.beacon.run().await?;
+        self.event.run_until_etna(fork_timestamp, receipt_path).await.map_err(Into::into)
     }
 
     /// Start both syncers in order.

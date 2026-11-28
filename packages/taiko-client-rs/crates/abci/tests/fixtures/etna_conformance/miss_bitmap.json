@@ -1,0 +1,249 @@
+{
+  "schema": "etna-client-conformance-1",
+  "family": "miss_bitmap",
+  "generator": "transcribed by hand from packages/protocol/docs/etna/rules/vectors/3.4.md and 3.2.md",
+  "provenance": {"specCommit": "797a708e57badb02dc4e974dcaf9167232aa2969"},
+  "vectorCount": 30,
+  "vectors": [
+    {
+      "id": "miss_bitmap.every-signer-committed-gives-zero",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.a",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.absent-signer-in-seat-3-sets-bit-3",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.b",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "absent", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"B": "0x301"}}, "missBitmap": "0x8"},
+      "expect": {"missBitmap": "0x8", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.nil-vote-in-seat-3-sets-bit-3",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.c",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "nil", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"B": "0x301"}}, "missBitmap": "0x8"},
+      "expect": {"missBitmap": "0x8", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.missing-seats-0-and-3-give-9",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.d",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "nil", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x1", "C": "0x301"}}, "missBitmap": "0x9"},
+      "expect": {"missBitmap": "0x9", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.missing-fallback-key-without-a-bond-sets-nothing",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.e",
+      "input": {"parentSigners": {"F1": 1, "F2": 1, "F3": 1, "F4": 1}, "lastCommit": {"F1": "commit", "F2": "commit", "F3": "commit", "F4": "absent"}, "parentPostState": {"keyToSeat": {}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.missing-fallback-key-of-the-bond-in-seat-7-sets-bit-7",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.f",
+      "input": {"parentSigners": {"F1": 1, "F2": 1, "F3": 1, "F4": 1}, "lastCommit": {"F1": "commit", "F2": "commit", "F3": "absent", "F4": "commit"}, "parentPostState": {"keyToSeat": {"F3": "0x701"}}, "missBitmap": "0x80"},
+      "expect": {"missBitmap": "0x80", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.seat-9-taken-outside-the-parent-signers-is-not-considered",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.g",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"X": "0x901"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.seat-4-vacated-in-the-parent-sets-nothing",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.h",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"Y": "0x401"}, "records": {"4": "A"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.exiting-signer-still-in-the-parent-snapshot-has-no-seat",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.i",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}, "records": {"4": "A"}}, "missBitmap": "0x10"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.seat-taken-in-the-block-itself-is-not-the-parent-seat",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.j",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "blockPostState": {"keyToSeat": {"A": "0x401"}}, "missBitmap": "0x10"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.holds-seat-2-is-malformed",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.k",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x302"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.seat-128-is-malformed",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.l",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x8001"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.bit-16-set-is-malformed",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.m",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x10301"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.seat-5-without-holds-seat-is-no-seat",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.n",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x500"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.bit-16-word-read-as-its-low-16-bits",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.o",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x10301"}}, "missBitmap": "0x8"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.two-signers-share-seat-6-one-missing",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.p",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x601", "B": "0x601"}}, "missBitmap": "0x40"},
+      "expect": {"missBitmap": "0x40", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.two-signers-share-seat-6-both-missing",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.q",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "nil", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x601", "B": "0x601"}}, "missBitmap": "0x40"},
+      "expect": {"missBitmap": "0x40", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.seat-100-above-a-64-seat-limit-sets-bit-100",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.r",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x6401"}}, "missBitmap": "0x10000000000000000000000000"},
+      "expect": {"missBitmap": "0x10000000000000000000000000", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.first-block-of-the-generation-gives-zero",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.s",
+      "input": {"firstBlock": true, "parentSigners": {}, "signers": {"F1": 1, "F2": 1, "F3": 1, "F4": 1}, "lastCommit": {}, "parentPostState": {"keyToSeat": {}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.bit-2-set-for-no-missing-seat",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.t",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x301"}}, "missBitmap": "0xc"},
+      "expect": {"missBitmap": "0x8", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.bit-3-clear-for-a-missing-seat-3",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.u",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "absent", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"B": "0x301"}}, "missBitmap": "0x0"},
+      "expect": {"missBitmap": "0x8", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.bitmap-follows-the-block-lastcommit",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.v",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "commit", "C": "commit", "D": "nil"}, "parentPostState": {"keyToSeat": {"A": "0x101", "D": "0x201"}}, "missBitmap": "0x6"},
+      "expect": {"missBitmap": "0x6", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.precommit-after-the-lastcommit-does-not-clear-its-seat",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.w",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "absent", "B": "nil", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"A": "0x201", "B": "0x601"}}, "missBitmap": "0x40"},
+      "expect": {"missBitmap": "0x44", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.seat-5-of-a-key-only-in-the-block-signers-sets-nothing",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.4.md 7a.x",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "signers": {"A": 10, "B": 20, "C": 30, "X": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"X": "0x501"}}, "missBitmap": "0x20"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.extra-data-is-29-bytes-with-the-derived-bitmap",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.a",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "absent", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"B": "0x301"}}, "extraData": "0x6400000000000000000000006f00000000000000000000000000000008"},
+      "expect": {"missBitmap": "0x8", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.extra-data-first-byte-99",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.b",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "extraData": "0x6300000000000000000000006f00000000000000000000000000000000"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.extra-data-of-13-bytes-has-no-bitmap",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.c",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "extraData": "0x6400000000000000000000006f"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.extra-data-with-an-8-byte-generation",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.d",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "extraData": "0x64000000000000000000000000006f00000000000000000000000000000000"},
+      "expect": {"missBitmap": "0x0", "valid": false}
+    },
+    {
+      "id": "miss_bitmap.extra-data-first-byte-100",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.e",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "commit", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {}}, "extraData": "0x6400000000000000000000006f00000000000000000000000000000000"},
+      "expect": {"missBitmap": "0x0", "valid": true}
+    },
+    {
+      "id": "miss_bitmap.extra-data-is-29-bytes-with-another-bitmap",
+      "family": "miss_bitmap",
+      "source": "transcribed",
+      "row": "3.2.md 5.f",
+      "input": {"parentSigners": {"A": 10, "B": 20, "C": 30, "D": 40}, "lastCommit": {"A": "commit", "B": "absent", "C": "commit", "D": "commit"}, "parentPostState": {"keyToSeat": {"B": "0x301"}}, "extraData": "0x6400000000000000000000006f00000000000000000000000000000010"},
+      "expect": {"missBitmap": "0x8", "valid": false}
+    }
+  ]
+}

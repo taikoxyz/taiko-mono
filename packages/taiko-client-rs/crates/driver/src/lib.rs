@@ -30,7 +30,7 @@ pub mod sync;
 pub(crate) mod test_support;
 
 pub use config::DriverConfig;
-pub use driver::Driver;
+pub use driver::{Driver, UnzenOrigin};
 pub use error::DriverError;
 pub use production::{PreconfPayload, PreconfSubmissionOutcome};
 pub use sync::{ConfirmedSyncSnapshot, SyncPipeline, SyncStage, event::EventSyncer};

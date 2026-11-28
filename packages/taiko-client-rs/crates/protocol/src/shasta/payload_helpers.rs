@@ -13,11 +13,9 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
-use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 
-/// Engine API `engine_getPayloadV2` discriminator.
-///
-/// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
+/// Taiko keeps the V2 payload-ID discriminator for pre-Etna block builds.
 const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 alloy::sol! {
@@ -56,11 +54,6 @@ pub fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     Bytes::from(buf.freeze())
 }
 
-/// Convert a `PayloadId` into an array of bytes.
-fn payload_id_to_bytes(payload_id: PayloadId) -> [u8; 8] {
-    payload_id.0.0
-}
-
 /// Per-block fields for assembling [`TaikoPayloadAttributes`] for a Shasta block.
 ///
 /// [`build_payload_attributes`] owns the invariants shared by every construction site:
@@ -79,7 +72,7 @@ pub struct PayloadAttributesInput {
     pub gas_limit: u64,
     /// Encoded transaction list, or `None` to let the engine build from its mempool.
     pub tx_list: Option<Bytes>,
-    /// Encoded extra data carrying the basefee sharing percentage and proposal id.
+    /// Header `extraData`: the 7-byte pre-Etna or 29-byte Etna layout.
     pub extra_data: Bytes,
     /// Base fee per gas for the block.
     pub base_fee_per_gas: U256,
@@ -148,6 +141,7 @@ pub fn build_payload_attributes(input: PayloadAttributesInput) -> TaikoPayloadAt
             signature,
         },
         anchor_transaction,
+        max_block_bytes: None,
     }
 }
 
@@ -156,8 +150,10 @@ pub fn build_payload_attributes_with_id(
     input: PayloadAttributesInput,
     parent_hash: &B256,
 ) -> TaikoPayloadAttributes {
+    let mut input = input;
+    input.parent_beacon_block_root = Some(input.parent_beacon_block_root.unwrap_or(B256::ZERO));
     let mut payload = build_payload_attributes(input);
     let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
-    payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
+    payload.l1_origin.build_payload_args_id = payload_id.0.0;
     payload
 }

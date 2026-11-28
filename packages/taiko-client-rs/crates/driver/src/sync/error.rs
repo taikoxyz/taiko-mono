@@ -10,6 +10,14 @@ use crate::derivation::DerivationError;
 /// Errors emitted by sync components.
 #[derive(Debug, Error)]
 pub enum SyncError {
+    /// Completion evidence could not be durably read or persisted before handing execution to Etna.
+    #[error("Unzen completion receipt failed: {0}")]
+    EtnaReceipt(String),
+
+    /// Authenticated closing state or canonical metadata contradicts Unzen handoff invariants.
+    #[error("invalid Unzen-to-Etna handoff: {0}")]
+    InvalidEtnaHandoff(&'static str),
+
     /// Beacon sync: failed to query the checkpoint node.
     #[error("failed to query checkpoint node")]
     CheckpointQuery(#[source] RpcClientError),

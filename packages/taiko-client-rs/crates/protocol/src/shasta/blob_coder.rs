@@ -138,8 +138,7 @@ fn process_chunk(chunk: &[u8], builder: &mut PartialSidecar, required_fe_count: 
 }
 
 impl BlobCoder {
-    /// Decode all blobs using the Kona-compatible scheme, returning the raw payload bytes per
-    /// blob if the encoding is valid.
+    /// Decode every blob into its raw Kona-compatible payload, rejecting malformed encodings.
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
         Self.decode_all(blobs)
     }
@@ -307,8 +306,7 @@ fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
 mod tests {
     use super::{BLOB_MAX_DATA_SIZE, BlobCoder, decode_blob};
     // `SidecarBuilder` is imported from `alloy_eips` (its home crate) rather than through the
-    // `alloy` facade so the test module also compiles without the `alloy/consensus` feature,
-    // which the crate's no-default-features build does not enable.
+    // `alloy` facade, whose `consensus` feature this crate does not enable.
     use alloy_eips::eip4844::{
         Blob,
         builder::{SidecarBuilder, SidecarCoder},

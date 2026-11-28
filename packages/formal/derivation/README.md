@@ -1,9 +1,10 @@
 # Unzen derivation verification
 
 This package proves safety properties of an executable Lean model of Taiko's Unzen block
-derivation, as the Go driver (`packages/taiko-client`) and the Rust driver
-(`packages/taiko-client-rs`) implement it today. It pins the specification at revision
-`31d283af894cd4ed618079aaa79230d143b63b2f` in [`spec-coverage.json`](spec-coverage.json).
+derivation. It pins the specification at revision `31d283af894cd4ed618079aaa79230d143b63b2f`
+in [`spec-coverage.json`](spec-coverage.json). The model follows the Go driver
+(`packages/taiko-client`) and the Rust driver as it was at main `5a987fe921743af9fdfe33de7aba6671b18c8a69`;
+`packages/taiko-client-rs` no longer contains that Rust driver.
 The four-second Etna base-fee target in that revision falls under the existing Etna and base-fee exclusions.
 The theorems concern this model; they do not establish equivalence of production clients.
 
@@ -138,30 +139,30 @@ fail CI until the model, claims, exclusions and pins are reviewed together.
 The formal gate additionally generates 214 model-based vectors from input-only cases: the
 151 independent boundary inputs plus 63 source/state combinations. The executable Lean model
 computes the expected extraction results, derived blocks, header plans and next parents. CI
-shares one generated artifact with both production client adapters, after their independent
-corpus checks. The independent fixtures remain unchanged and still check the model. See the
+shares one generated artifact with the production Go adapter after its independent corpus
+checks. The independent fixtures remain unchanged and still check the model. See the
 [corpus README](../../../testdata/derivation_vectors/README.md#lean-generated-expected-outputs)
 for generation and native comparison commands. This is additional differential testing, not a
 proof of client/model equivalence; the existing model claims and trust boundary are unchanged.
 
 The shared corpus in [`testdata/derivation_vectors`](../../../testdata/derivation_vectors) contains
-136 unchanged manifest-decoding vectors and 151 shared Unzen boundary cases. All three adapters
-check the boundary inputs against independently authored expected extraction results, derived
+136 unchanged manifest-decoding vectors and 151 shared Unzen boundary cases. The Lean runner
+and the Go adapter check the boundary inputs against independently authored expected extraction results, derived
 blocks, header plans and next parents. The
 [named coverage matrix](../../../testdata/derivation_vectors/boundary_coverage.json) covers the
 reviewed extraction, metadata, inheritance, multi-source and header boundaries, including ±1
 cases and chain-specific fork selection. Each adapter rejects deliberate expected-output
 mutations, including candidate reordering. Coverage is not exhaustive over arbitrary inputs.
 
-Go calls production fetch/decode, metadata and shared header helpers; Rust uses production
-decoding, manifest preparation, payload/anchor construction and parent advancement. Their tests
-substitute external RPC/signing or execution boundaries; Anchor state is still trusted as the
-running maximum. See the [corpus README](../../../testdata/derivation_vectors/README.md) for the
+Go calls production fetch/decode, metadata and shared header helpers. Its tests substitute
+external RPC/signing or execution boundaries; Anchor state is still trusted as the running
+maximum. No Rust implementation is compared: the Rust adapter was removed together with the Rust
+driver it tested. See the [corpus README](../../../testdata/derivation_vectors/README.md) for the
 exact comparison boundary and native test commands. The local formal gate runs Lean and fixture
-checks; CI additionally runs both client adapters on drafts. Neither establishes whole-client
+checks; CI additionally runs the Go adapter on drafts. Neither establishes whole-client
 equivalence or transaction execution.
 
-Twelve additional client-only fork-selection vectors pair Mainnet/Hoodi proposals immediately
+Twelve additional Go-only fork-selection vectors pair Mainnet/Hoodi proposals immediately
 before, at and after Unzen. They reject 193 blocks before activation and accept them at/after
 activation, preventing an always-768 selector from passing. These extraction-cap checks do not
 extend the Lean model to pre-Unzen derivation.
@@ -244,10 +245,8 @@ lake exe vectors --boundaries ../../../testdata/derivation_vectors/boundary_case
 Python mutations exercise malformed manifests, proof escapes, imports/reachability and spec drift.
 Lean mutations exercise weakened/missing headlines, extra axioms, erased claim dependencies,
 trivial/changed premise shapes, and live/transitive/dead/unused premise reads. CI runs on drafts
-and watches the pinned specification, the package, both clients, dependency inputs, the Anchor
+and watches the pinned specification, the package, the Go client, dependency inputs, the Anchor
 contract, shared corpora and workflow.
 
 The HTML gate verifies exact Lean excerpts, complete public-property entries and theorem line
-links. English explanations still require review. Rust conformance CI uses
-`bash script/test_derivation_vectors.sh` from `packages/taiko-client-rs`; its required-test list
-must match before Cargo runs, so a renamed or missing filtered test cannot silently pass.
+links. English explanations still require review.

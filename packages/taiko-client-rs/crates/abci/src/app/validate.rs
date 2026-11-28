@@ -1,0 +1,630 @@
+//! Deterministic block validation shared by `ProcessProposal`, `FinalizeBlock` and the lander:
+//! every check of a proposal except the node-local ones, marked ¹ here (anchor finality in the
+//! node's own L1 view, checkpoint ancestry in the local EL, EL execution), which affect liveness
+//! only.
+//!
+//! [`validate_block`] judges a decoded envelope against a [`ChainContext`] alone: no L1, no EL,
+//! in its steps (a)–(j). The app fills the context from its committed [`AppState`]
+//! ([`AppState::chain_context`]); the lander fills it from the chain it authenticates from L1
+//! and certified CometBFT blocks. [`check_candidate`] holds the witness steps (b)–(h):
+//! [`check_candidate_anchor`] and the rules schedule. `PrepareProposal` runs the same steps on
+//! its own anchor before it asks the EL to build.
+//! All consensus handlers enforce the raw execution block RLP limit of 124000 bytes.
+//! The authenticated forced decision is completed by the shared asynchronous singleton checker
+//! before any handler advances the queue cursor. Ordinary execution remains independent.
+
+use std::fmt;
+
+use alloy_consensus::Header;
+use alloy_primitives::B256;
+use protocol::shasta::constants::min_base_fee_for_chain;
+
+use crate::{
+    config::ChainParams,
+    engine::EngineError,
+    envelope::{AnchorWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
+    forced::{self, ForcedContext, ForcedDecision, ForcedError},
+    l1::{L1Error, WitnessError, verify_anchor_witness},
+    rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
+    store::AppState,
+    types::{AnchorState, GenesisRecord, ParentInfo},
+    valstate::ValEntry,
+};
+
+/// The committed chain a block is validated on top of: the facts both the app (from its
+/// [`AppState`]) and the lander (from L1 and certified CometBFT blocks) authenticate.
+#[derive(Clone, Copy)]
+pub struct ChainContext<'a> {
+    /// The genesis record: `L1_0`, `maxAnchorAge` and the forced inclusion delay `D`.
+    pub genesis: &'a GenesisRecord,
+    /// The chain's recovery generation.
+    pub generation: u64,
+    /// Fixed authenticated generation origin; absent for generation zero.
+    pub recovery: Option<&'a crate::recovery::RecoveryOrigin>,
+    /// The committed parent block; the block must be at `parent.number + 1`.
+    pub parent: &'a ParentInfo,
+    /// The parent's anchor and the Inbox facts proven at it.
+    pub anchor: &'a AnchorState,
+    /// The forced inclusion cursor after the parent: the queue entries the chain has consumed.
+    pub forced_cursor: u64,
+    /// The set that signs this block, in CometBFT order.
+    pub signers: &'a [ValEntry],
+    /// The set that signs the parent, in CometBFT order: the validators the block's LastCommit
+    /// lists. Empty at a generation's first block, which has no LastCommit.
+    pub parent_signers: &'a [ValEntry],
+}
+
+impl ChainContext<'_> {
+    /// Global boundary preceding this generation's first consensus block.
+    pub fn origin_height(&self) -> u64 {
+        self.recovery.map_or(self.genesis.genesis_height, |origin| origin.height)
+    }
+
+    /// Earliest L1 anchor allowed in this generation.
+    pub fn anchor_floor(&self) -> u64 {
+        self.recovery.map_or(self.genesis.l1_0, |origin| origin.l1_number)
+    }
+}
+
+impl AppState {
+    /// The committed chain the next block extends, for [`validate_block`]: its signers are the
+    /// validator-state replica's current set, the set that signs `last_height + 1`, and its
+    /// parent signers [`AppState::parent_signers`], the set that signed `last_height`.
+    pub fn chain_context(&self) -> ChainContext<'_> {
+        ChainContext {
+            genesis: &self.genesis,
+            generation: self.generation,
+            recovery: self.recovery.as_ref(),
+            parent: &self.parent,
+            anchor: &self.anchor,
+            forced_cursor: self.forced_cursor,
+            signers: &self.val_state.current.entries,
+            parent_signers: &self.parent_signers,
+        }
+    }
+}
+
+/// A block that passed [`validate_block`], with everything `FinalizeBlock` needs to commit it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Validated {
+    /// Hash of canonical envelope bytes, binding every witness and transaction.
+    pub envelope_hash: B256,
+    /// Original proposer authenticated by the candidate CometBFT block header.
+    pub proposer: tendermint::account::Id,
+    /// Committed cursor against which this completed decision was evaluated.
+    pub parent_cursor: u64,
+    /// The execution block the envelope carries.
+    pub block: ExecutionBlock,
+    /// The block's anchor: proven by its witness, or the parent's when it carries none.
+    pub anchor: AnchorState,
+    /// Pure authenticated decision, awaiting the shared singleton check if required.
+    pub decision: ForcedDecision,
+    /// Consensus-derived attributes reused by the asynchronous forced checker.
+    pub expected: ExpectedHeader,
+    /// Completed consumed index, populated only after the shared check succeeds.
+    pub forced: Option<u64>,
+    /// Whether the EL already executed the block and answered `VALID`.
+    pub executed: bool,
+}
+
+/// Which optional witness of an envelope a [`Rejection`] concerns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WitnessKind {
+    /// The L1 anchor witness.
+    Anchor,
+}
+
+impl fmt::Display for WitnessKind {
+    /// `anchor`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Anchor => "anchor",
+        })
+    }
+}
+
+/// Why a proposal is rejected (`ProcessProposal`) or not built (`PrepareProposal`).
+///
+/// Every variant but [`Rejection::AnchorOffChain`] (a `FinalizeBlock` safety halt) and
+/// [`Rejection::LastCommit`] (a safety halt in every handler) is a liveness matter for the node
+/// that observes it: the block is refused, the chain keeps rounding.
+/// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
+/// node-local ones (anchor finality, L1, engine, EL sync and state, fallback key lists,
+/// timeouts) and the handler-level ones ([`Rejection::Envelope`],
+/// [`Rejection::PlaceholderProposal`], [`Rejection::ChainSuperseded`],
+/// [`Rejection::PayloadInvalid`], [`Rejection::Oversize`], [`Rejection::BuiltHeader`],
+/// [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`], [`Rejection::LastCommit`]) come
+/// from the handlers.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum Rejection {
+    /// The block's transactions are not exactly one well-formed envelope.
+    #[error("malformed envelope: {0}")]
+    Envelope(#[from] EnvelopeError),
+    /// `ProcessProposal`: the block is a placeholder proposal (RECOV-8-10): it carries no
+    /// transaction at all, which is how a proposer in a liveness pause, or one whose envelope
+    /// does not fit, proposes nothing.
+    #[error("placeholder proposal: the proposer built no block")]
+    PlaceholderProposal,
+    /// A header field or a consensus predicate fails ([`RuleViolation`]).
+    #[error(transparent)]
+    Rule(#[from] RuleViolation),
+    /// The anchor witness does not verify.
+    #[error("anchor witness rejected: {0}")]
+    Witness(#[from] WitnessError),
+    /// An Inbox proof fetched from the own L1 failed authentication, unlike a peer witness.
+    #[error("own L1 anchor proof rejected: {0}")]
+    OwnWitness(#[source] WitnessError),
+    /// The Inbox records a later recovery generation than the chain's: the chain is superseded.
+    #[error("inbox recoveryGeneration {inbox} supersedes the chain generation {chain}")]
+    Superseded {
+        /// The running chain's generation.
+        chain: u64,
+        /// The Inbox's `recoveryGeneration` proven at the anchor.
+        inbox: u64,
+    },
+    /// An earlier proposal proved a later recovery generation, so every proposal is refused.
+    #[error("the chain is superseded by a later recovery generation")]
+    ChainSuperseded,
+    /// A witness the height requires is absent.
+    #[error("the block lacks its required {0} witness")]
+    MissingWitness(WitnessKind),
+    /// A witness the height must not carry is present.
+    #[error("the block carries an unexpected {0} witness")]
+    UnexpectedWitness(WitnessKind),
+    /// The certified proposer is outside the set that signs the block.
+    #[error("unknown certified proposer {0}")]
+    ProposerUnknown(tendermint::account::Id),
+    /// ¹ The anchor L1 header is not final and canonical in the own L1 view.
+    #[error("anchor L1 block {number} is not final and canonical in the own L1 view")]
+    AnchorNotFinal {
+        /// The anchor's L1 block number.
+        number: u64,
+    },
+    /// `FinalizeBlock` of a block this node never judged: the anchor L1 header cannot be on the
+    /// own L1 chain (a forged history, or an own L1 on another network). Unlike the ¹ variants,
+    /// a safety halt.
+    #[error("anchor L1 block {number} ({hash}) is not on the own L1 chain: {detail}")]
+    AnchorOffChain {
+        /// The anchor's L1 block number.
+        number: u64,
+        /// The anchor header's hash.
+        hash: B256,
+        /// Why: the own L1's block at that number, or the impossible number or timestamp.
+        detail: String,
+    },
+    /// ¹ An own-L1 read failed.
+    #[error(transparent)]
+    L1(#[from] L1Error),
+    /// ¹ An Engine API call failed.
+    #[error(transparent)]
+    Engine(#[from] EngineError),
+    /// The EL executed the block and answered `INVALID` with this reason.
+    #[error("execution engine rejected the block: {0}")]
+    PayloadInvalid(String),
+    /// ¹ The EL cannot execute the block yet (`SYNCING`/`ACCEPTED`).
+    #[error("execution engine is syncing")]
+    PayloadSyncing,
+    /// ¹ The local EL serves no canonical block at a committed height the anchor's
+    /// `lastCheckpoint` names, so checkpoint ancestry cannot be checked yet.
+    #[error("execution engine has no canonical block at committed height {0}")]
+    LocalBlockMissing(u64),
+    /// ¹ An external call exceeded its deadline.
+    #[error("{0} timed out")]
+    Timeout(&'static str),
+    /// ¹ The fallback key list whose hash the block's anchor proves, which this node does not
+    /// hold, cannot be obtained from the own L1 yet: no read gave a list with that hash, or a
+    /// read failed. A liveness pause, never a verdict on the block: the node waits and retries.
+    #[error("fallback key list {0} cannot be obtained from the own L1 yet")]
+    FallbackKeysUnavailable(B256),
+    /// ¹ The own EL cannot serve, or not within the engine deadline, the state a proposal check
+    /// reads at a committed block: the key-to-seat words in the committed parent's post-state.
+    /// A liveness pause: the node waits and retries. A malformed reply stays
+    /// [`Rejection::Engine`], which needs repair.
+    #[error("execution state unavailable: {0}")]
+    ElState(String),
+    /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.
+    #[error("envelope of {len} bytes exceeds max_tx_bytes {max}")]
+    Oversize {
+        /// The encoded envelope length, in bytes.
+        len: usize,
+        /// The request's `max_tx_bytes`.
+        max: i64,
+    },
+    /// `PrepareProposal`: the EL built a header that breaks the derived fields.
+    #[error("built block breaks the derived header: {0}")]
+    BuiltHeader(RuleViolation),
+    /// The block breaks the forced inclusion rule ([`forced::check`]).
+    #[error("forced inclusion rule violated: {0}")]
+    Forced(#[from] ForcedError),
+    /// A canonical skip failed the shared singleton check.
+    #[error("forced inclusion check failed: {0}")]
+    ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
+    /// The raw execution block exceeds the block size bound (CONS-3.4-13).
+    #[error("execution block needs {bytes} RLP bytes, above the {max}-byte block size bound")]
+    BlockSizeBound {
+        /// Canonical execution block RLP length, in bytes.
+        bytes: usize,
+        /// The block size bound, in bytes.
+        max: usize,
+    },
+    /// The block's LastCommit disagrees with the replica's set that signs the parent: CometBFT
+    /// and this node hold different validator sets, which needs repair.
+    #[error("the LastCommit contradicts the validator-state replica: {0}")]
+    LastCommit(#[from] super::last_commit::LastCommitError),
+}
+
+impl Rejection {
+    /// Whether an own-node integrity failure or unavailable execution state requires repair.
+    pub(crate) fn requires_dependency_repair(&self) -> bool {
+        match self {
+            Self::OwnWitness(_) | Self::LastCommit(_) => true,
+            Self::L1(error) => error.is_integrity_failure(),
+            Self::Engine(error) |
+            Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
+                error.is_integrity_failure() ||
+                    matches!(error, EngineError::ErrorReply { code: -38100, .. })
+            }
+            _ => false,
+        }
+    }
+
+    /// Transient dependencies keep ProcessProposal pending; a canonical unsupported header
+    /// rejects so Comet can rotate rounds. FinalizeBlock independently waits for parser support.
+    /// An unavailable fallback key list and unavailable EL state are transient: the node waits
+    /// for its own L1 or EL, and never rejects a block for them.
+    pub(crate) fn retryable_dependency(&self) -> bool {
+        match self {
+            Self::Engine(error) => error.is_retryable(),
+            Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
+                error.is_retryable_build()
+            }
+            Self::L1(error) => {
+                !error.is_integrity_failure() &&
+                    !matches!(error, L1Error::UnsupportedHeaderFormat { .. })
+            }
+            Self::Timeout(_) |
+            Self::PayloadSyncing |
+            Self::LocalBlockMissing(_) |
+            Self::FallbackKeysUnavailable(_) |
+            Self::ElState(_) => true,
+            _ => false,
+        }
+    }
+
+    /// A stable snake_case label of the reason, for `/status` and the rejection metric. Rule
+    /// violations use [`RuleViolation::label`].
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Envelope(_) => "envelope",
+            Self::PlaceholderProposal => "placeholder_proposal",
+            Self::Rule(rule) => rule.label(),
+            Self::Witness(_) => "anchor_witness",
+            Self::OwnWitness(_) => "own_l1_witness",
+            Self::Superseded { .. } | Self::ChainSuperseded => "superseded",
+            Self::MissingWitness(WitnessKind::Anchor) => "missing_anchor_witness",
+            Self::UnexpectedWitness(WitnessKind::Anchor) => "unexpected_anchor_witness",
+            Self::ProposerUnknown(_) => "proposer_unknown",
+            Self::AnchorNotFinal { .. } => "anchor_not_final",
+            Self::AnchorOffChain { .. } => "anchor_off_chain",
+            Self::L1(_) => "l1_error",
+            Self::Engine(_) => "engine_error",
+            Self::PayloadInvalid(_) => "payload_invalid",
+            Self::PayloadSyncing => "payload_syncing",
+            Self::LocalBlockMissing(_) => "local_block_missing",
+            Self::Timeout(_) => "timeout",
+            Self::FallbackKeysUnavailable(_) => "fallback_keys_unavailable",
+            Self::ElState(_) => "el_state_unavailable",
+            Self::Oversize { .. } => "envelope_too_large",
+            Self::BuiltHeader(_) => "built_header_mismatch",
+            Self::Forced(_) => "forced_inclusion",
+            Self::ForcedBuild(_) => "forced_skip_invalid",
+            Self::BlockSizeBound { .. } => "block_size_bound",
+            Self::LastCommit(_) => "last_commit",
+        }
+    }
+
+    /// Whether the refusal reports a local build fault or an anchored checkpoint conflicting
+    /// with the local chain (an alert) at ERROR; expected liveness waits and malformed proposals
+    /// log at WARN.
+    pub fn logs_at_error(&self) -> bool {
+        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_)) ||
+            self.is_checkpoint_conflict()
+    }
+
+    /// Whether the anchor's proven `lastCheckpoint` contradicts the local chain
+    /// ([`RuleViolation::is_checkpoint_conflict`]).
+    pub fn is_checkpoint_conflict(&self) -> bool {
+        matches!(self, Self::Rule(rule) if rule.is_checkpoint_conflict())
+    }
+}
+
+/// The anchor witness of a block candidate and what its `extraData` claims; the input of
+/// [`check_candidate`].
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Candidate<'a> {
+    /// The anchor witness, if the candidate carries one.
+    pub(crate) anchor: Option<&'a AnchorWitness>,
+    /// The generation in the candidate's `extraData`.
+    pub(crate) extra_generation: u64,
+    /// The anchor L1 block number in the candidate's `extraData`.
+    pub(crate) extra_anchor: u64,
+}
+
+/// Validates `env` as the block at `height` on top of `chain` (every check but the ¹ ones);
+/// `bft_secs` is the block's BFT time in whole seconds and `miss_bitmap` the `missBitmap` its
+/// LastCommit gives, which the caller computes from that LastCommit and the key-to-seat words of
+/// the parent's post-state.
+///
+/// In order: the raw block size ([`check_execution_size`]); (a) `height == chain.parent.number +
+/// 1`, the header's number and parent hash;
+/// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
+/// `extraData`; the `extraData` `missBitmap` equals `miss_bitmap`
+/// ([`RuleViolation::MissBitmap`]); (i) the certified proposer is in the set that signs the block
+/// ([`ChainContext::signers`]) and the derived header ([`rules::expected_header`]), whose
+/// timestamp must keep
+/// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
+/// every field the header must carry ([`rules::check_header`]); (j) the forced inclusion rule
+/// ([`forced::check`]) on the committed cursor, the block's anchor (its own witness's or the
+/// parent's), the genesis delay and the envelope's forced witness. Reports the first failure.
+pub fn validate_block(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    env: &EtnaEnvelope,
+    height: u64,
+    bft_secs: u64,
+    proposer: tendermint::account::Id,
+    miss_bitmap: u128,
+) -> Result<Validated, Rejection> {
+    check_execution_size(&env.block)?;
+    let header = &env.block.header;
+    if chain.parent.number.checked_add(1) != Some(height) {
+        return Err(RuleViolation::HeightMismatch { height, parent: chain.parent.number }.into());
+    }
+    check_link(header, height, chain.parent.hash)?;
+
+    let extra = rules::decode_extra_data(&header.extra_data)?;
+    let anchor = check_candidate(
+        chain,
+        params,
+        height,
+        bft_secs,
+        &Candidate {
+            anchor: env.anchor.as_ref(),
+            extra_generation: extra.generation,
+            extra_anchor: extra.anchor,
+        },
+    )?;
+    if extra.miss_bitmap != miss_bitmap {
+        return Err(
+            RuleViolation::MissBitmap { expected: miss_bitmap, got: extra.miss_bitmap }.into()
+        );
+    }
+
+    let mut expected =
+        expected_header(chain, params, height, &anchor, bft_secs, proposer, miss_bitmap)?;
+    expected.beneficiary = header.beneficiary;
+    rules::check_anchor_freshness(
+        expected.timestamp,
+        anchor.timestamp,
+        chain.genesis.max_anchor_age,
+    )?;
+    rules::check_header(header, &expected)?;
+    let decision = forced::check(
+        ForcedContext {
+            cursor: chain.forced_cursor,
+            anchor: &anchor,
+            delay: chain.genesis.forced_inclusion_delay,
+            inbox: params.inbox,
+            l2_chain_id: params.l2_chain_id,
+            block_gas_limit: params.block_gas_limit,
+        },
+        env.forced.as_ref(),
+        env.block.transactions.first().map(|tx| tx.as_ref()),
+    )?;
+    Ok(Validated {
+        envelope_hash: alloy_primitives::keccak256(env.encode()),
+        proposer,
+        parent_cursor: chain.forced_cursor,
+        block: env.block.clone(),
+        anchor,
+        decision,
+        expected,
+        forced: None,
+        executed: false,
+    })
+}
+
+/// The derived header fields of the block at `height` on top of `chain` with `anchor`, BFT
+/// time `bft_secs` and `missBitmap` `miss_bitmap` ([`rules::expected_header`]), with the chain's
+/// minimum base fee and the local fee recipient, after authenticating the certified proposer in
+/// the set that signs the block ([`ChainContext::signers`]).
+pub(crate) fn expected_header(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    height: u64,
+    anchor: &AnchorState,
+    bft_secs: u64,
+    proposer: tendermint::account::Id,
+    miss_bitmap: u128,
+) -> Result<ExpectedHeader, Rejection> {
+    if !rules::is_validator(chain.signers, proposer) {
+        return Err(Rejection::ProposerUnknown(proposer));
+    }
+    rules::expected_header(&HeaderInputs {
+        height,
+        parent: chain.parent,
+        anchor,
+        bft_time_secs: bft_secs,
+        generation: chain.generation,
+        miss_bitmap,
+        params,
+        min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
+        beneficiary: params.fee_recipient,
+    })
+    .map_err(Into::into)
+}
+
+/// Steps (b)–(h) of [`validate_block`] on a candidate's anchor witness and `extraData` claims:
+/// [`check_candidate_anchor`], then the rules schedule at the block's timestamp. Returns the
+/// candidate's anchor (proven, or inherited from the parent).
+fn check_candidate(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    height: u64,
+    bft_secs: u64,
+    c: &Candidate<'_>,
+) -> Result<AnchorState, Rejection> {
+    let anchor = check_candidate_anchor(chain, params, height, c)?;
+    rules::check_rules_schedule(
+        anchor.inbox.rules_schedule,
+        chain.parent,
+        rules::block_timestamp(chain.parent.timestamp, bft_secs, anchor.timestamp),
+    )?;
+    Ok(anchor)
+}
+
+/// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
+/// generation and the authenticated unsettled-block limit. Anchor witnesses are forced on anchor
+/// moves and the generation's first height.
+pub(crate) fn check_candidate_anchor(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    height: u64,
+    c: &Candidate<'_>,
+) -> Result<AnchorState, Rejection> {
+    let anchor = candidate_anchor(chain, params, height, c)?;
+    rules::check_anchor_progress(chain.anchor.number, anchor.number, chain.anchor_floor())?;
+
+    let inbox_generation = anchor.inbox.recovery_generation;
+    if rules::check_generation(chain.generation, c.extra_generation, inbox_generation)? ==
+        GenerationCheck::Superseded
+    {
+        return Err(Rejection::Superseded { chain: chain.generation, inbox: inbox_generation });
+    }
+    rules::check_back_pressure(
+        height,
+        anchor.inbox.last_checkpoint_height,
+        params.unsettled_limit,
+    )?;
+    Ok(anchor)
+}
+
+/// Step (a): the header's number is `height` and its parent hash is the committed `parent`.
+fn check_link(header: &Header, height: u64, parent: B256) -> Result<(), RuleViolation> {
+    if header.number != height {
+        return Err(RuleViolation::header_field("number", &height, &header.number));
+    }
+    if header.parent_hash != parent {
+        return Err(RuleViolation::header_field("parent_hash", &parent, &header.parent_hash));
+    }
+    Ok(())
+}
+
+/// Step (b): the candidate's anchor, proven by its witness or inherited from the parent.
+fn candidate_anchor(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    height: u64,
+    c: &Candidate<'_>,
+) -> Result<AnchorState, Rejection> {
+    let forced = chain.origin_height().checked_add(1) == Some(height);
+    match c.anchor {
+        None if forced || c.extra_anchor != chain.anchor.number => {
+            Err(Rejection::MissingWitness(WitnessKind::Anchor))
+        }
+        None => Ok(chain.anchor.clone()),
+        Some(w) if !forced && w.l1_header.number() == chain.anchor.number => {
+            Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
+        }
+        Some(w) => Ok(verify_anchor_witness(w, params.inbox)?),
+    }
+}
+
+/// Rejects raw execution blocks above the block size bound (CONS-3.4-13), before validation or
+/// execution.
+pub fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
+    use alloy_rlp::Encodable;
+    let bytes = block.length();
+    if bytes > 124_000 {
+        return Err(Rejection::BlockSizeBound { bytes, max: 124_000 });
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod v1_size_tests {
+    use super::*;
+    use alloy_primitives::Bytes;
+    use alloy_rlp::Encodable;
+    #[test]
+    fn v1_raw_block_limit_rejects_compressible_overflow() {
+        let mut block = crate::ExecutionBlock {
+            header: Default::default(),
+            transactions: vec![Bytes::from(vec![0; 123400])],
+        };
+        while block.length() < 124000 {
+            block.transactions[0] = Bytes::from(vec![0; block.transactions[0].len() + 1]);
+        }
+        assert_eq!(block.length(), 124000);
+        assert!(check_execution_size(&block).is_ok());
+        block.transactions[0] = Bytes::from(vec![0; block.transactions[0].len() + 1]);
+        assert_eq!(block.length(), 124001);
+        assert!(check_execution_size(&block).is_err());
+    }
+
+    /// The length of an RLP string or list header for a payload of `len` bytes.
+    fn rlp_header_len(len: usize) -> usize {
+        if len < 56 { 1 } else { 1 + (usize::BITS - len.leading_zeros()).div_ceil(8) as usize }
+    }
+
+    /// A signed legacy transaction carrying `input` calldata bytes, as its EIP-2718 bytes.
+    fn legacy(input: usize) -> Bytes {
+        use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+        use alloy_eips::eip2718::Encodable2718;
+        use alloy_primitives::{Address, Signature, TxKind, U256};
+        let tx = TxLegacy {
+            chain_id: Some(167_001),
+            nonce: 7,
+            gas_price: 1_000_000_000,
+            gas_limit: 3_000_000,
+            to: TxKind::Call(Address::repeat_byte(0x33)),
+            value: U256::from(1),
+            input: Bytes::from(vec![0xab; input]),
+        }
+        .into_signed(Signature::new(U256::from(1), U256::from(1), false));
+        TxEnvelope::Legacy(tx).encoded_2718().into()
+    }
+
+    /// A legacy transaction's EIP-2718 bytes are its bare RLP list, yet the block measure
+    /// counts it like any other transaction, as an RLP byte string: its bytes plus a string
+    /// header. The EL's byte limit uses the same measure.
+    #[test]
+    fn legacy_transactions_count_as_rlp_byte_strings() {
+        for input in [0, 40, 1_000, 60_000] {
+            let tx = legacy(input);
+            assert!(tx[0] >= 0xc0, "a legacy transaction is an RLP list");
+            let block = crate::ExecutionBlock {
+                header: Default::default(),
+                transactions: vec![tx.clone(), tx.clone()],
+            };
+            let item = rlp_header_len(tx.len()) + tx.len();
+            let list = rlp_header_len(2 * item) + 2 * item;
+            let payload = alloy_rlp::encode(&block.header).len() + list;
+            assert_eq!(block.length(), rlp_header_len(payload) + payload, "input {input}");
+        }
+
+        // At the bound, the string headers decide: the same block is in, one byte more is out.
+        let mut input = 123_000;
+        let block = |input| crate::ExecutionBlock {
+            header: Default::default(),
+            transactions: vec![legacy(input)],
+        };
+        while block(input).length() < 124_000 {
+            input += 1;
+        }
+        assert_eq!(block(input).length(), 124_000);
+        assert!(check_execution_size(&block(input)).is_ok());
+        assert_eq!(block(input + 1).length(), 124_001);
+        assert!(check_execution_size(&block(input + 1)).is_err());
+    }
+}
