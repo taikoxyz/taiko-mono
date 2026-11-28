@@ -6,7 +6,6 @@ import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
 contract TestBridge2Base is CommonTest {
     bytes internal constant FAKE_PROOF = "";
-    uint256 internal constant _STORAGE_WALLET_WORK_GAS = 20_000;
 
     // Contracts on Ethereum
     SignalService internal eSignalService;

@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "./TestBridge2Base.sol";
 import {
-    MessageReceiver_CreatingFreshStorageSlot
-} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlot.sol";
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract TestRecallableSender is IRecallableSender, IERC165 {
     IBridge private bridge;
@@ -62,13 +62,15 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         eBridge.recallMessage(m, FAKE_PROOF);
     }
 
-    /// @dev The capped recall refund pays a smart-wallet srcOwner that initializes a receive counter.
+    /// @dev A recalled message must be able to return its value to a smart-wallet srcOwner that
+    /// creates fresh storage slots when receiving Ether (5+1 slots, ~133k gas here, clearing the
+    /// 122,920 a one-slot wallet needs after Glamsterdam), far above the previous 35k send cap.
     function test_bridge2_recallMessage_storage_creating_wallet_srcOwner()
         public
         transactBy(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlot wallet =
-            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
 
         uint256 totalBalance = getBalanceForAccounts() + address(wallet).balance;
 

@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "../helpers/CountingQuotaManager.sol";
 import "./TestBridge2Base.sol";
 import {
-    MessageReceiver_CreatingFreshStorageSlot
-} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlot.sol";
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract QuotaTarget is IMessageInvocable {
     bool public toFail;
@@ -239,8 +239,8 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
         public
         dealEther(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlot wallet =
-            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
 
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;

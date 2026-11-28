@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Bridge, IBridge, LibAddress, TestBridge2Base } from "./TestBridge2Base.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 contract BridgePayoutReceiver {
@@ -38,7 +39,103 @@ contract BridgePayoutReceiver {
     error ETH_REJECTED();
 }
 
+/// @dev Records the caller's gas at the quota call, which the bridge makes just before it writes
+/// the message status.
+contract GasRecordingQuotaManager {
+    function consumeQuota(address, uint256) external {
+        assembly {
+            tstore(0, gas())
+        }
+    }
+
+    function recordedGas() external view returns (uint256 gas_) {
+        assembly {
+            gas_ := tload(0)
+        }
+    }
+}
+
+/// @dev A relayer that processes a message with an exact gas operand and reports, from the same
+/// transaction, a warm fresh-slot write cost and the gas recorded at the quota call.
+contract FeeMeasuringRelayer {
+    uint256 private _slot;
+
+    function measure(
+        Bridge _bridge,
+        GasRecordingQuotaManager _quotaManager,
+        IBridge.Message calldata _message,
+        uint256 _gas
+    )
+        external
+        returns (uint256 slotWriteGas_, uint256 quotaCallGas_)
+    {
+        // Warm the bridge and its paused flag so their access costs stay out of the result.
+        _bridge.paused();
+
+        uint256 value = _slot;
+        uint256 gasBefore = gasleft();
+        _slot = value + 1;
+        slotWriteGas_ = gasBefore - gasleft();
+
+        _bridge.processMessage{ gas: _gas }(_message, "");
+        quotaCallGas_ = _quotaManager.recordedGas();
+    }
+
+    receive() external payable { }
+}
+
 contract TestBridge2_processMessagePayouts is TestBridge2Base {
+    /// @dev The relayer fee measures gas up to a reading taken after the status write. The gas
+    /// between the quota call and that reading must therefore be about one fresh-slot write.
+    /// The bridge runs without a proxy so the gas operand is its exact starting gas.
+    /// forge-config: default.isolate = true
+    function test_processMessage_feeMeasurementIncludesStatusWrite() public {
+        GasRecordingQuotaManager quotaManager = new GasRecordingQuotaManager();
+        Bridge bridge = new Bridge(
+            address(resolver), address(eSignalService), address(quotaManager), address(0), true
+        );
+        vm.deal(address(bridge), 10 ether);
+        FeeMeasuringRelayer relayer = new FeeMeasuringRelayer();
+
+        // The bridge is the target, so the invocation is skipped. A gas limit of one makes the
+        // relayer earn the whole fee.
+        IBridge.Message memory message = _l2ToL1Message(Alice, 0);
+        message.to = address(bridge);
+        message.fee = 1 ether;
+        message.gasLimit = 1;
+
+        uint256 processGas = 1_000_000;
+        vm.recordLogs();
+        (uint256 slotWriteGas, uint256 quotaCallGas) =
+            relayer.measure{ gas: 2_000_000 }(bridge, quotaManager, message, processGas);
+
+        Bridge.ProcessingStats memory stats = _processingStats(address(bridge));
+        assertTrue(stats.processedByRelayer);
+        assertEq(address(relayer).balance, message.fee);
+
+        // Remove the fixed allowances to get the gas measured since processMessage started.
+        uint256 calldataCost = bridge.getMessageMinGasLimit(0) - bridge.GAS_RESERVE();
+        uint256 measured = stats.gasUsedInFeeCalc - bridge.GAS_OVERHEAD() - calldataCost;
+        // The quota manager sees 63/64 of the bridge's gas at the call.
+        int256 afterQuotaCall = int256(quotaCallGas * 64 / 63 + measured) - int256(processGas);
+        assertApproxEqAbs(afterQuotaCall, int256(slotWriteGas), 5000);
+    }
+
+    function _processingStats(address _bridge)
+        private
+        returns (Bridge.ProcessingStats memory stats_)
+    {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter == _bridge && logs[i].topics[0] == Bridge.MessageProcessed.selector)
+            {
+                (, stats_) = abi.decode(logs[i].data, (IBridge.Message, Bridge.ProcessingStats));
+                return stats_;
+            }
+        }
+        revert("MessageProcessed not found");
+    }
+
     function test_processMessage_payoutsObserveDoneStatus() public {
         _assertPayoutSequence(true, IBridge.Status.DONE);
     }

@@ -43,7 +43,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// invocation gas limit. This value should be fine-tuned with production data.
     uint32 public constant GAS_RESERVE = 800_000;
 
-    /// @dev Estimated costs outside the measured processing interval, including proof calldata.
+    /// @dev The gas overhead for both receiving and invoking a message, as well as the proof
+    /// calldata cost.
     /// This value should be fine-tuned with production data.
     uint32 public constant GAS_OVERHEAD = 120_000;
 
@@ -286,9 +287,8 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
-                _message, msgHash
-            );
+            IRecallableSender(_message.from)
+            .onMessageRecalled{ value: _message.value }(_message, msgHash);
 
             // Must reset the context after the message call
             _storeContext(
@@ -384,8 +384,7 @@ contract Bridge is EssentialResolverContract, IBridge {
                     // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     // Taking into account the encoded message calldata cost, and can count with 16
-                    // gas per byte (vs. checking each byte individually). The execution-gas
-                    // delta does not include state gas charged to a separate reservoir.
+                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
                     stats.gasUsedInFeeCalc = uint32(
                         GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
                             - gasleft()
@@ -745,7 +744,14 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @dev Checks the EIP-150 forwarding cap before CALL. The input is already in memory
     /// and CALL has no output buffer, so the instruction only needs account and value costs.
-    function _checkInvocationGas(address _to, uint256 _value, uint256 _requestedGas) private view {
+    function _checkInvocationGas(
+        address _to,
+        uint256 _value,
+        uint256 _requestedGas
+    )
+        private
+        view
+    {
         // Reserve 1,000 gas for instructions between GAS and CALL. Recheck the allowance
         // after compiler changes. Reserve 3,000 for a cold EIP-7702 delegate under EIP-8038.
         uint256 callOverhead = 1000 + 3000;

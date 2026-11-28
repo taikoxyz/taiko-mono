@@ -93,8 +93,9 @@ interface IBridge {
     /// @notice Processes a bridge message on the destination chain. This
     /// function is callable by any address, including the `message.destOwner`.
     /// @dev The process begins by hashing the message and checking the message
-    /// status in the bridge. If the status is "NEW", the message is invoked. The
-    /// status is updated accordingly, and processing fees are refunded as needed.
+    /// status in the bridge  If the status is "NEW", the message is invoked. The
+    /// status is updated accordingly, and processing fees are refunded as
+    /// needed.
     /// Relayers must supply enough transaction gas to forward the full invocation
     /// budget. Use eth_estimateGas on the destination chain with the message and proof.
     /// @param _message The message to be processed.
