@@ -562,7 +562,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _shouldCheckForwardedGas True to require enough gas to forward the invocation budget.
+    /// @param _shouldCheckForwardedGas True to check gasleft is sufficient for target function
+    /// invocation.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
@@ -744,14 +745,10 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @dev Checks the EIP-150 forwarding cap before CALL. The input is already in memory
     /// and CALL has no output buffer, so the instruction only needs account and value costs.
-    function _checkInvocationGas(
-        address _to,
-        uint256 _value,
-        uint256 _requestedGas
-    )
-        private
-        view
-    {
+    /// @param _to The CALL target.
+    /// @param _value The Ether value sent with the CALL.
+    /// @param _gas The gas the CALL must be able to forward.
+    function _checkInvocationGas(address _to, uint256 _value, uint256 _gas) private view {
         // Reserve 1,000 gas for instructions between GAS and CALL. Recheck the allowance
         // after compiler changes. Reserve 3,000 for a cold EIP-7702 delegate under EIP-8038.
         uint256 callOverhead = 1000 + 3000;
@@ -774,7 +771,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (available < callOverhead) revert B_INSUFFICIENT_INVOCATION_GAS();
         available -= callOverhead;
         // EIP-150 keeps floor(available / 64) in the caller before any value stipend.
-        if (available - available / 64 < _requestedGas) revert B_INSUFFICIENT_INVOCATION_GAS();
+        if (available - available / 64 < _gas) revert B_INSUFFICIENT_INVOCATION_GAS();
     }
 
     function _checkSameChain(uint64 _chainId) internal view {

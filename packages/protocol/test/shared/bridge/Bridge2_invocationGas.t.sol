@@ -52,6 +52,8 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         assertGe(recordedBudget, expectedBudget - 100);
     }
 
+    /// @dev Runs in one transaction, so the read below leaves the recipient warm for the call.
+    /// forge-config: default.isolate = false
     function test_processMessage_forwardsGasWithoutValueToWarmRecipient() public {
         MessageReceiver_RecordingGasBudget recipient = new MessageReceiver_RecordingGasBudget();
         // Read the initial value before processing to explicitly warm the recipient account.
@@ -105,6 +107,24 @@ contract TestBridge2_invocationGas is TestBridge2Base {
     }
 
     /// forge-config: default.isolate = true
+    function test_processMessage_invocationGasBoundary_coldDelegatedRecipientWithoutValue() public {
+        MessageReceiver_RecordingGasBudget implementation = new MessageReceiver_RecordingGasBudget();
+        address recipient = makeAddr("delegated zero-value boundary recipient");
+        vm.etch(recipient, abi.encodePacked(hex"ef0100", address(implementation)));
+        // Initialize the recorded slot so the recipient returns most of its budget.
+        vm.store(recipient, bytes32(0), bytes32(uint256(1)));
+
+        IBridge.Message memory message = _l2ToL1Message(Alice, 0);
+        message.to = recipient;
+        message.data = hex"01"; // Nonempty data reaches the recorder's fallback.
+        message.gasLimit = eBridge.getMessageMinGasLimit(message.data.length) + _INVOCATION_GAS;
+
+        // Nothing warms the recipient before a zero-value CALL, so it pays for a cold recipient
+        // and a cold delegate. This is the tightest zero-value case.
+        _assertInvocationGasBoundary(message, true, _INVOCATION_GAS);
+    }
+
+    /// forge-config: default.isolate = true
     function test_processMessage_invocationGasBoundary_valueToNewAccount() public {
         address recipient = makeAddr("new boundary recipient");
         assertEq(recipient.codehash, bytes32(0));
@@ -132,6 +152,38 @@ contract TestBridge2_invocationGas is TestBridge2Base {
 
         // A value-bearing call adds the 2,300 stipend on top of the gas operand.
         _assertInvocationGasBoundary(message, true, uint256(_INVOCATION_GAS) + 2300);
+    }
+
+    function test_processMessage_RevertWhen_gasBelowCallOverhead() public {
+        address recipient = makeAddr("new recipient below overhead");
+        assertEq(recipient.codehash, bytes32(0));
+
+        IBridge.Message memory message = _l2ToL1Message(Alice, 2 ether);
+        message.to = recipient;
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + _INVOCATION_GAS;
+
+        // The new-account reserve alone exceeds the gas left at the check, which must still
+        // report the forwarding error.
+        ProcessMessageProbe probe = new ProcessMessageProbe();
+        (bool ok, bytes memory result) = _probe(probe, message, 200_000, false);
+        assertFalse(ok);
+        assertEq(result, abi.encodeWithSelector(Bridge.B_INSUFFICIENT_INVOCATION_GAS.selector));
+    }
+
+    function test_processMessage_ownerForwardsRemainingGasWithoutCheck() public {
+        MessageReceiver_RecordingGasBudget recipient = new MessageReceiver_RecordingGasBudget();
+
+        IBridge.Message memory message = _l2ToL1Message(Alice, 0);
+        message.to = address(recipient);
+        message.data = hex"01"; // Nonempty data reaches the recorder's fallback.
+
+        // The owner requests all the gas left, more than EIP-150 lets a CALL forward, so the
+        // forwarding check could never pass here.
+        vm.prank(Alice);
+        (IBridge.Status status,) = eBridge.processMessage(message, FAKE_PROOF);
+
+        assertTrue(status == IBridge.Status.DONE);
+        assertGt(recipient.recordedBudget(), 1);
     }
 
     /// @dev Finds the smallest processMessage gas that succeeds, then checks that one gas less
