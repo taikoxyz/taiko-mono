@@ -1,6 +1,6 @@
 # Etna client conformance record
 
-This record maps the client work to the Etna specification at `fbc7a5162` (#22425 with #22428's
+This record maps the client work to the Etna specification at `5cd86f0e6` (#22425 with #22428's
 root-only SignalService and origin multisig; the L2 staking alignment on top of #22422, #22419
 and #22412). Paths below are relative to
 `packages/taiko-client-rs`. It covers generation-zero networks, including nonzero Unzen starts,

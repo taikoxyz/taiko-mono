@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "miss_bitmap",
   "generator": "transcribed by hand from packages/protocol/docs/etna/rules/vectors/3.4.md and 3.2.md",
-  "provenance": {"specCommit": "fbc7a51624609f63da3391f1f24cd39085e0cb05"},
+  "provenance": {"specCommit": "5cd86f0e6623ecb9fbbe3f06df099408325d087f"},
   "vectorCount": 30,
   "vectors": [
     {

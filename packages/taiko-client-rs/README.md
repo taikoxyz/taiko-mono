@@ -75,7 +75,7 @@ asks the app's private control socket before every signature (see
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It implements the Etna
-specification at `fbc7a5162` (#22425 with #22428) and is aligned with the protocol revision
+specification at `5cd86f0e6` (#22425 with #22428) and is aligned with the protocol revision
 `9b8d5b4c2ff4c4dcf23f3c217626070cd261d4a5` (#22286; `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh`, the Inbox and the other pinned contract artifacts)
 and alethia-reth commit `aa89a01aad2f127e342e39fd069352b2e4ebcf86` (#248). Start the EL and verify its block 0 before the Inbox
@@ -1218,7 +1218,7 @@ The [client conformance vectors](crates/abci/tests/fixtures/etna_conformance/REA
 the 29-byte `extraData` (`forced_step`, `block_rules`, `block_size`), which retain one
 documented height-bound divergence and establish no conformance to the latest Etna
 specification, and two client-owned families transcribed from the specification at
-`fbc7a5162`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
+`5cd86f0e6`: `miss_bitmap` (30 vectors) and `candidate` (25), which run the client's
 `missBitmap` derivation and signing-set decision. Staking contract vectors belong to the
 contract harness.
 
