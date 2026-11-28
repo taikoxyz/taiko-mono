@@ -46,7 +46,9 @@ state root as the deployment proof at `L1_0`.
 The DAO's recovery proposal decides who signs the new generation. It follows one of two
 sequences:
 
-- **At least 1/3 of the committee's voting power is offline.** In one proposal, the DAO calls
+- **At least 1/3 of the committee's voting power is offline, or one party holds 1/3 or more of
+  it.** The committee is healthy only if the bonds seated in c's L2 state have more than 2/3 of
+  their power online and no party at or above 1/3 (RECOV-8.1-7). In one proposal, the DAO calls
   `setMinTotalStake` with `2^256 - 1` and then `recover`. Every anchor of the new generation is
   at or after R, so no candidate is usable and the fallback key set signs from c+1 on. While it
   signs, the DAO forfeits the offline bonds through L1 → L2 governance messages, which releases
@@ -56,7 +58,7 @@ sequences:
   usable. The new generation's first block, c+1, has no LastCommit, so its `missBitmap` is 0.
   When that block's block-start call runs the staking contract's code and succeeds, every
   occupied seat's miss count is zero after it (RECOV-8-59): an offline member then keeps its
-  seat and its voting power until it has missed `missReleaseLimit` further blocks in a row,
+  seat until it has missed `missReleaseLimit` further blocks in a row,
   unless a penalty leaves it below `minStake` or the DAO forfeits it first. If that call fails,
   or the staking contract's address holds no code, it counts no miss and resets no count, and
   neither does any later block-start call until one runs that code and succeeds: a seat that
