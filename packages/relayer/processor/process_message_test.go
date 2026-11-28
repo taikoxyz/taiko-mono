@@ -300,12 +300,29 @@ func (t *candidateTxManager) Send(ctx context.Context, candidate txmgr.TxCandida
 // estimateGasEthClient returns a fixed eth_estimateGas result.
 type estimateGasEthClient struct {
 	*mock.EthClient
-	estimatedGas uint64
-	err          error
+	estimatedGas  uint64
+	blockGasLimit uint64
+	err           error
 }
 
 func (c *estimateGasEthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	return c.estimatedGas, c.err
+}
+
+func (c *estimateGasEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	block, err := c.EthClient.BlockByNumber(ctx, number)
+	if err != nil {
+		return block, err
+	}
+
+	header := block.Header()
+	header.GasLimit = c.blockGasLimit
+
+	if header.GasLimit == 0 {
+		header.GasLimit = 30_000_000
+	}
+
+	return types.NewBlockWithHeader(header), nil
 }
 
 func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
@@ -316,6 +333,7 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 		profitableOnly bool
 		fee            uint64
 		estimatedGas   uint64
+		blockGasLimit  uint64
 		estimateErr    error
 		wantGasLimit   uint64
 		wantErr        error
@@ -333,10 +351,44 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 			wantGasLimit: 1_100_000,
 		},
 		{
-			name:         "failed estimate falls back to the padded limit",
-			fee:          100_000_000,
-			estimateErr:  errEstimate,
-			wantGasLimit: 105_000,
+			name:        "transient estimate error is returned without sending",
+			fee:         100_000_000,
+			estimateErr: context.DeadlineExceeded,
+			wantErr:     context.DeadlineExceeded,
+		},
+		{
+			name:         "non profitable only still buffers an estimate that fits",
+			fee:          1,
+			estimatedGas: 100_000,
+			wantGasLimit: 110_000,
+		},
+		{
+			name:           "profitable only keeps padded limit when the estimate equals it",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   105_000,
+			wantGasLimit:   105_000,
+		},
+		{
+			name:          "buffer stays within the destination block gas limit",
+			fee:           100_000_000,
+			estimatedGas:  1_000_000,
+			blockGasLimit: 1_050_000,
+			wantGasLimit:  1_050_000,
+		},
+		{
+			name:          "an estimate above the sampled block limit can be retried",
+			fee:           100_000_000,
+			estimatedGas:  1_100_000,
+			blockGasLimit: 1_050_000,
+			wantErr:       errEstimateExceedsBlockGasLimit,
+		},
+		{
+			name:          "padded limit also stays within the destination block gas limit",
+			fee:           100_000_000,
+			estimatedGas:  90_000,
+			blockGasLimit: 100_000,
+			wantGasLimit:  100_000,
 		},
 		{
 			name:         "buffer stays within the Osaka cap when the estimate fits",
@@ -385,9 +437,10 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newTestProcessor(tt.profitableOnly)
 			p.destEthClient = &estimateGasEthClient{
-				EthClient:    &mock.EthClient{},
-				estimatedGas: tt.estimatedGas,
-				err:          tt.estimateErr,
+				EthClient:     &mock.EthClient{},
+				estimatedGas:  tt.estimatedGas,
+				blockGasLimit: tt.blockGasLimit,
+				err:           tt.estimateErr,
 			}
 			txManager := &candidateTxManager{}
 			p.txmgr = txManager
@@ -402,6 +455,10 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Nil(t, txManager.candidate)
+
+				if errors.Is(tt.wantErr, context.DeadlineExceeded) || errors.Is(tt.wantErr, errEstimateExceedsBlockGasLimit) {
+					assert.True(t, isTransientProcessMessageError(err))
+				}
 
 				return
 			}
@@ -447,7 +504,7 @@ func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
 		block:     processorBlockWithBaseFee(big.NewInt(123)),
 	}
 
-	got, err := p.getBaseFee(context.Background())
+	got, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	assert.NoError(t, err)
 	assert.Equal(t, big.NewInt(123), got)
@@ -458,7 +515,7 @@ func TestGetBaseFee_Layer2MissingBaseFeeFails(t *testing.T) {
 	p.taikoL2 = &taikol2.TaikoL2{}
 	p.destEthClient = &blockByNumberEthClient{EthClient: &mock.EthClient{}, block: processorBlockWithBaseFee(nil)}
 
-	got, err := p.getBaseFee(context.Background())
+	got, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	assert.Nil(t, got)
 	assert.ErrorIs(t, err, relayer.ErrMissingDestBaseFee)
@@ -727,7 +784,7 @@ func Test_getBaseFeeReturnsTheBlockError(t *testing.T) {
 	p := newTestProcessor(false)
 	p.destEthClient = &blockErrClient{}
 
-	baseFee, err := p.getBaseFee(context.Background())
+	baseFee, _, err := p.getBaseFeeAndBlockGasLimit(context.Background())
 
 	require.ErrorContains(t, err, "connection refused")
 	assert.Nil(t, baseFee)
@@ -899,11 +956,7 @@ func Test_saveMessageStatusChangedEventStoresTheWholeLog(t *testing.T) {
 	assert.Equal(t, msgHash.Hex(), saved[0].MsgHash)
 }
 
-// Everything the bridge calls while processing runs before the bridge emits its own status:
-// the invoked contract, and destOwner when it is refunded. Either can emit a log with the
-// bridge event's signature and this message's hash, and a scan that matched on the signature
-// alone took the first such log - a spoofed DONE ahead of the bridge's RETRIABLE, which the
-// API would then have reported as a successful claim. Only the bridge's own log is the status.
+// Only the destination bridge's own status log determines the recorded outcome.
 func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t *testing.T) {
 	repo := mock.NewEventRepository()
 	p := newTestProcessor(false)
@@ -932,7 +985,7 @@ func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t
 	receipt := &types.Receipt{
 		TxHash: claimTxHash,
 		Logs: []*types.Log{
-			// The refund reached destOwner, a contract, before the bridge recorded the outcome
+			// A contract emitted a matching event ahead of the bridge status log.
 			statusLog(destOwner, relayer.EventStatusDone, 3),
 			// A log from the bridge without the indexed hash is not this event either
 			{

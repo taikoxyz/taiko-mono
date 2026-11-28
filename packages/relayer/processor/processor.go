@@ -778,6 +778,7 @@ func isTransientProcessMessageError(err error) bool {
 		// A send that ran out of time is worth retrying. Its text matches none of the strings
 		// below, and without this the queue would drop the claim.
 		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, errEstimateExceedsBlockGasLimit) ||
 		// The claim lost a race for its nonce and has to be signed again, which is the one thing
 		// this error means. The transaction manager gives up on a nonce after
 		// SafeAbortNonceTooLowCount refusals and returns "aborted tx send due to critical error:
