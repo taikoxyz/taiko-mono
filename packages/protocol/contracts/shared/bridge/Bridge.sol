@@ -743,12 +743,19 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @dev Checks the EIP-150 forwarding cap before CALL. The input is already in memory
     /// and CALL has no output buffer, so the instruction only needs account and value costs.
-    function _checkInvocationGas(address _to, uint256 _value, uint256 _requestedGas) private view {
+    function _checkInvocationGas(
+        address _to,
+        uint256 _value,
+        uint256 _requestedGas
+    )
+        private
+        view
+    {
         // Allow two cold account accesses (target and possible EIP-7702 delegate),
         // plus headroom for the check and entering CALL.
-        uint256 callOverhead = 7_000;
+        uint256 callOverhead = 7000;
         if (_value != 0) {
-            callOverhead += 9_000;
+            callOverhead += 9000;
             // Only a zero-balance account with no code can require creation. Reserve the
             // full Amsterdam creation cost even if a state-gas reservoir can pay part of it.
             if (_to.balance == 0 && _to.code.length == 0) {
