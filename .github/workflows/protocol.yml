@@ -81,7 +81,13 @@ jobs:
       - name: Clean up and fmt
         if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm clean && pnpm fmt:sol
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          export FOUNDRY_FMT_BASE
+          FOUNDRY_FMT_BASE=$(git merge-base HEAD "$BASE_SHA")
+          pnpm clean && pnpm fmt:sol
 
       - name: Test Shared contracts
         working-directory: ./packages/protocol
@@ -178,17 +184,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.head_ref }}
+          fetch-depth: 0
           persist-credentials: false
 
-      # Match the formatter used by pnpm fmt:sol.
-      - name: Read Forge formatter version
-        id: forge-fmt-version
-        run: echo "version=v$(cat packages/protocol/.foundry-fmt-version)" >> "$GITHUB_OUTPUT"
+      - name: Read Foundry version
+        id: foundry-version
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
-      - name: Install Forge formatter
+      - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
-          version: ${{ steps.forge-fmt-version.outputs.version }}
+          version: ${{ steps.foundry-version.outputs.version }}
           # SECURITY: no cache. Jobs in this PR share a cache scope, so build-protocol could plant
           # an entry, and restoring it can write anywhere, including .git/hooks and git config.
           cache: false
@@ -204,6 +210,7 @@ jobs:
         id: commit
         env:
           BUILD_SHA: ${{ needs.build-protocol.outputs.build_sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PATCH: ${{ runner.temp }}/patch/generated.patch
         run: |
           set -euo pipefail
@@ -260,8 +267,19 @@ jobs:
               fi
             done < "$RUNNER_TEMP/staged"
           fi
-          # Re-run formatting in this trusted checkout and preserve generated layouts.
-          (cd packages/protocol && FOUNDRY_FMT_IGNORE='["**/*_Layout.sol"]' forge fmt)
+          # Re-run formatting on PR-changed sources from this checkout.
+          merge_base=$(git merge-base HEAD "$BASE_SHA")
+          (
+            cd packages/protocol
+            git diff --name-only -z --relative --no-renames --diff-filter=AMT "$merge_base" HEAD \
+              -- '*.sol' ':!*_Layout.sol' |
+              while IFS= read -r -d '' path; do
+                if [[ -f "$path" && ! -L "$path" ]]; then
+                  printf '%s\0' "$path"
+                fi
+              done |
+              xargs -0 bash -c 'if (( $# )); then forge fmt -- "$@"; fi' _
+          )
           git add -u -- packages/protocol
           if git diff --cached --quiet; then
             echo "No generated changes to push."
