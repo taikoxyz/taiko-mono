@@ -53,9 +53,19 @@ sequences:
   their seats, and then lowers `minTotalStake` again: once a usable candidate's total stake
   reaches it, the candidate signs again, the whole set changing at once. With any lower value,
   the candidate that c's L2 state gives, offline members included, signs c+3 whenever it is
-  usable. The new generation starts every seat's miss count at zero, so an offline member keeps
-  its seat and its voting power until it has missed `missReleaseLimit` further blocks in a row,
-  unless a penalty leaves it below `minStake` or the DAO forfeits it first.
+  usable. The new generation's first block, c+1, has no LastCommit, so its `missBitmap` is 0.
+  When that block's block-start call runs the staking contract's code and succeeds, every
+  occupied seat's miss count is zero after it (RECOV-8-59): an offline member then keeps its
+  seat and its voting power until it has missed `missReleaseLimit` further blocks in a row,
+  unless a penalty leaves it below `minStake` or the DAO forfeits it first. If that call fails,
+  or the staking contract's address holds no code, it counts no miss and resets no count, and
+  neither does any later block-start call until one runs that code and succeeds: a seat that
+  keeps its bond keeps the count that c's L2 state holds, while a seat that a bond takes in a
+  transaction before then starts from zero. The first call that does run that code and succeed
+  resets an occupied seat's count only if the seat's bit is 0. The fallback key set signs every
+  block up to that call's block, so the bit can be set only for the seat of a bond whose key is
+  also a fallback key; if that bond has held the seat since c, its count continues from the one
+  c's state holds, so it can be penalized or released after fewer further misses.
 - **At least 1/3 of the fallback key set is offline while it signs.** The DAO first replaces
   the keys with `setFallbackKeys` and then calls `recover`. The new origin record holds the new
   keys' hash, so the new keys sign c+1 and c+2 and every later block that the fallback key set
