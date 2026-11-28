@@ -1,0 +1,260 @@
+{
+  "schema_version": 4,
+  "scope": "conditional decoded specification property only",
+  "source": {
+    "path": "packages/protocol/docs/etna/SPEC.md",
+    "revision": "2026-11-27",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "2b67385023c81b7d5a4bc8077d44fff89dce66f7ff7300d72386c952257d2024"
+  },
+  "acceptance_source": {
+    "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
+    "revision": "2026-11-27",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "f84c503b1100d47302a7dca0b8f8467faf579b48c130137007629db20b2400b6"
+  },
+  "anchorless_source": {
+    "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+    "revision": "2026-11-27",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "c42f599218ec061eaced7eeaf897819eccf92aab5535bec19dda73ba25bebc90"
+  },
+  "switch_source": {
+    "path": "packages/protocol/docs/etna/SWITCH.md",
+    "revision": "2026-11-27",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "6535bc026682818f16d32e8688712664ff7d2f9614aaa8396a7c6317803240e2"
+  },
+  "index_source": {
+    "path": "packages/protocol/docs/etna/rules/INDEX.md",
+    "revision": "2026-11-27",
+    "commit": "8d1f1af718ca3bc32f7ba821585988a44734c00b",
+    "sha256": "6396d3d48ed2ef7a99c07bb379258ca58dfb6f6d03d7eca08275b658912f8170"
+  },
+  "boundaries": {
+    "decoded_bitmap": "Parent validator addresses, LastCommit flags and live-seat words are decoded inputs. Header and storage authentication, stock CometBFT integration and execution refinement are external.",
+    "weighted_quorum": "Both quorums use one supplied list of members and their voting powers. Commit validation, signer attribution, committee authentication and stake backing are external."
+  },
+  "design_pending": [],
+  "claims": [
+    {
+      "id": "ETNA-22425-MISS-BITMAP",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A successful decoded non-initial bitmap sets a bit exactly when a parent validator with a non-COMMIT flag maps to that live seat. Every bit at seat 128 or higher is clear.",
+      "assumptions": [
+        "decoded_bitmap"
+      ],
+      "evidence": {
+        "CURRENT_EN-55689b4d3597ab32": [
+          "Etna.Design.PerBlockCommittee.missBitmap_bit_iff",
+          "Etna.Design.PerBlockCommittee.missBitmap_high_bits_clear"
+        ]
+      }
+    },
+    {
+      "id": "ETNA-22425-QUORUM-INTERSECTION",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Two strict two-thirds quorums over one supplied weighted member list share more than one third of its total voting power.",
+      "assumptions": [
+        "weighted_quorum"
+      ],
+      "evidence": {
+        "CURRENT_EN-0ba9f1db9d9ab96f": [
+          "Etna.Design.L2StakingProtocol.strict_quorums_overlap"
+        ]
+      }
+    }
+  ],
+  "evidence": {
+    "BACKP-6.4-1": {
+      "reason": "A decoded height accepted by the bound check has at most U blocks above the supplied checkpoint. Anchor and checkpoint authentication remain external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.bound_caps_unsettled"
+      ]
+    },
+    "BACKP-6.4-2": {
+      "reason": "The target constant satisfies the decoded range for U. Encoding and config-hash binding remain external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.target_unsettled_valid"
+      ]
+    },
+    "BACKP-6.4-4": {
+      "reason": "The modeled target U = 151200 passes the range check. Deployment selection and time estimates remain external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.target_unsettled_valid"
+      ]
+    },
+    "COMM-4.3-1": {
+      "reason": "Both initial heights use the origin commitment. Each later signing set comes from the decoded decision input two heights before.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.signingSet_first_two",
+        "Etna.Design.PerBlockCommittee.signingSet_at_hplus2"
+      ]
+    },
+    "COMM-4.3-13": {
+      "reason": "An accepted decoded validator advance increments the height and promotes the prior next set unchanged. Stock CometBFT integration remains external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.advance_preserves_next_height"
+      ]
+    },
+    "COMM-4.3-18": {
+      "reason": "An accepted decoded threshold update requires the configured owner as caller.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.threshold_requires_owner"
+      ]
+    },
+    "COMM-4.3-3": {
+      "reason": "Successful decoded staking transactions preserve the already-written candidate snapshot and generation.",
+      "theorems": [
+        "Etna.Design.L2Staking.transaction_preserves_snapshot"
+      ]
+    },
+    "COMM-4.3-3a": {
+      "reason": "An accepted candidate matches the full height word, meets the stake threshold and has a valid snapshot. The sentinel selects fallback independently of snapshot fields.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.usableCandidate_requirements",
+        "Etna.Design.PerBlockCommittee.decision_forceFallback"
+      ]
+    },
+    "COMM-4.3-8": {
+      "reason": "Accepted decoded members satisfy the valid-set predicate and come from exactly 128 snapshot records.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.candidateMembers_valid"
+      ]
+    },
+    "COMM-4.3-8b": {
+      "reason": "An accepted decoded fallback opening authenticates the ordered keys against the supplied hash and assigns every key unit power.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.fallback_unitPower"
+      ]
+    },
+    "COMM-4.3-9": {
+      "reason": "The signing accessor and the decoded guest boundary both derive the first two sets from the fixed origin fallback commitment.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.signingSet_first_two",
+        "Etna.Design.PerBlockGuest.boundary_origin"
+      ]
+    },
+    "CONS-3.2-13": {
+      "reason": "A decoded staking transition that does not apply changes preserves its input state. The protocol regressions distinguish reverted calls and no-code calls from local execution faults. EL call ordering, execution and gas remain external.",
+      "theorems": [
+        "Etna.Design.L2Staking.failed_block_start_preserves_state"
+      ]
+    },
+    "CONS-3.4-7a": {
+      "reason": "Decoded first-block flags are empty and the bitmap is zero. Later bits mark precisely the mapped misses, with every bit at or above seat 128 clear.",
+      "theorems": [
+        "Etna.Design.PerBlockCommittee.missBitmap_first",
+        "Etna.Design.PerBlockCommittee.missBitmap_bit_iff",
+        "Etna.Design.PerBlockCommittee.missBitmap_high_bits_clear"
+      ]
+    },
+    "FORF-4.4-13": {
+      "reason": "A successful decoded transaction, including forfeiture, preserves the already-written staking snapshot.",
+      "theorems": [
+        "Etna.Design.L2Staking.transaction_preserves_snapshot"
+      ]
+    },
+    "FORF-4.4-7": {
+      "reason": "Decoded forfeiture arithmetic rounds the product up and stays within principal for a rate at most 10000 basis points.",
+      "theorems": [
+        "Etna.Design.L2Staking.rounded_penalty_ceiling",
+        "Etna.Design.L2Staking.rounded_penalty_bounded"
+      ]
+    },
+    "PROOF-6.2-12a": {
+      "reason": "The decoded boundary derives p + 1 from the fixed fallback opening at the origin and the next height. After that it checks the supplied members against the opened header’s next validator hash.",
+      "theorems": [
+        "Etna.Design.PerBlockGuest.boundary_after_origin",
+        "Etna.Design.PerBlockGuest.boundary_origin",
+        "Etna.Design.PerBlockGuest.openValidators_checked"
+      ]
+    },
+    "PROOF-6.2-12b": {
+      "reason": "The decoded boundary derives p + 2 from the fixed fallback opening at the origin, or from the committee decision given the parent input opened at the checkpoint EL hash.",
+      "theorems": [
+        "Etna.Design.PerBlockGuest.boundary_after_origin",
+        "Etna.Design.PerBlockGuest.boundary_origin"
+      ]
+    },
+    "PROOF-6.2-12c": {
+      "reason": "The decoded boundary has no parent set at the origin. At a later checkpoint it checks the supplied parent members against the validator hash of the opened header.",
+      "theorems": [
+        "Etna.Design.PerBlockGuest.boundary_after_origin",
+        "Etna.Design.PerBlockGuest.boundary_origin",
+        "Etna.Design.PerBlockGuest.openValidators_checked"
+      ]
+    },
+    "PROOF-6.2-16": {
+      "reason": "The decoded gate compares key-power membership independently of order and requires a qualifying commit at the terminal height or a set change. Proof execution remains external.",
+      "theorems": [
+        "Etna.Design.PerBlockGuest.requiredCommit_qualifies",
+        "Etna.Design.PerBlockGuest.sameSigningSet_iff"
+      ]
+    },
+    "PROOF-6.2-17": {
+      "reason": "A required decoded commit needs distinct members backed by matching precommits and more than two-thirds of the supplied power. Two strict quorums on the same set share more than one third of that power. Signature verification and committee authentication are supplied interfaces.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.strict_quorums_overlap",
+        "Etna.Design.PerBlockGuest.requiredCommit_qualifies",
+        "Etna.Design.PerBlockGuest.sameSigningSet_iff",
+        "Etna.Design.PerBlockGuest.signingMembers_exact",
+        "Etna.Design.PerBlockGuest.validCommit_quorum"
+      ]
+    },
+    "PROOF-6.2-47": {
+      "reason": "The decoded boundary opens the parent snapshot and the two fallback settings of its anchor at the checkpoint EL hash, for p + 2 only. L1 root authentication and inherited-anchor ancestry checks remain external.",
+      "theorems": [
+        "Etna.Design.PerBlockGuest.boundary_after_origin"
+      ]
+    },
+    "RECOV-8.4-13": {
+      "reason": "The decoded anchor guard requires the anchor block number to be at or above the fixed origin. L1 finality and root authentication remain external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.accepted_anchor_at_or_after_origin"
+      ]
+    },
+    "RECOV-8.4-3": {
+      "reason": "A successful decoded origin write records the Inbox fallback hash at that write.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.recorded_origin_uses_fallback_hash"
+      ]
+    },
+    "RECOV-8.4-4": {
+      "reason": "A successful decoded origin write preserves the lookup for every other generation.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.recorded_origin_keeps_earlier"
+      ]
+    },
+    "STAKE-4.1-28a": {
+      "reason": "The accepted delay is at least U + 2 + the evidence window. Checkpoint progress and transaction inclusion remain external.",
+      "theorems": [
+        "Etna.Design.L2StakingProtocol.delay_covers_unsettled_and_evidence"
+      ]
+    },
+    "STAKE-4.2-6": {
+      "reason": "Decoded miss penalties round up and stay within principal. Accepted deployment parameters order the positive penalty interval and release limit and bound the penalty rate. Regressions exercise when the penalty is applied.",
+      "theorems": [
+        "Etna.Design.L2Staking.rounded_penalty_ceiling",
+        "Etna.Design.L2Staking.rounded_penalty_bounded",
+        "Etna.Design.L2Staking.valid_miss_parameters"
+      ]
+    },
+    "STAKE-4.2-7": {
+      "reason": "A successful block start writes the current height and 128 records. Successful decoded transactions leave that snapshot unchanged.",
+      "theorems": [
+        "Etna.Design.L2Staking.successful_block_start_snapshot",
+        "Etna.Design.L2Staking.transaction_preserves_snapshot"
+      ]
+    },
+    "START-10-13": {
+      "reason": "The decoded deployment validates the miss limits, rate and withdrawal delay.",
+      "theorems": [
+        "Etna.Design.L2Staking.valid_miss_parameters",
+        "Etna.Design.L2StakingProtocol.delay_covers_unsettled_and_evidence"
+      ]
+    }
+  }
+}

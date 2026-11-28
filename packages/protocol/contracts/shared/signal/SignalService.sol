@@ -69,7 +69,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps checkpoint version => block number => checkpoint data.
-    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
+    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) internal
         _checkpoints;
 
     uint256[46] private __gap;
@@ -174,11 +174,7 @@ contract SignalService is EssentialContract, ISignalService {
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
-        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
-
-        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
-            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
-        });
+        _storeCheckpoint(_checkpoint);
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -200,12 +196,23 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
+    /// @dev Stores an authorized checkpoint with a nonzero state root.
+    /// @param _checkpoint The checkpoint supplied by the syncer.
+    function _storeCheckpoint(Checkpoint calldata _checkpoint) internal virtual {
+        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+
+        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
+            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
+        });
+    }
+
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
     function _getCheckpoint(uint48 _blockNumber)
-        private
+        internal
         view
+        virtual
         returns (Checkpoint memory checkpoint_)
     {
         CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
@@ -215,6 +222,14 @@ contract SignalService is EssentialContract, ISignalService {
         checkpoint_ = Checkpoint({
             blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
         });
+    }
+
+    /// @dev Resolves the root used by both the proof commitment check and trie verification.
+    /// @param _blockId The checkpoint identifier in the hop proof.
+    /// @return stateRoot_ The authenticated remote state root.
+    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
+        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
+        return _getCheckpoint(uint48(_blockId)).stateRoot;
     }
 
     function _sendSignal(
@@ -277,22 +292,13 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_EMPTY_PROOF();
         }
 
-        if (proof.blockId > type(uint48).max) {
-            revert SS_INVALID_BLOCK_ID();
-        }
-
-        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
-        if (checkpoint.stateRoot != proof.rootHash) {
+        bytes32 stateRoot = _getStateRoot(proof.blockId);
+        if (stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
 
         LibTrieProof.verifyMerkleProof(
-            checkpoint.stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
         );
     }
 

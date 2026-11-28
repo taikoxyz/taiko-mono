@@ -16,7 +16,7 @@ LIBRARIES = {
     'DerivationWitnesses': {'DerivationWitnesses', 'DerivationProofs', 'DerivationStatements', 'DerivationModel'},
     'DerivationVectors': {'DerivationVectors', 'DerivationModel'},
 }
-REVISION = '31d283af894cd4ed618079aaa79230d143b63b2f'
+REVISION = '2a1ccdb7721aab063379cbba04f3de5e39e39d4f'
 SPEC_PATHS = ['packages/protocol/docs/Derivation.md']
 CLAIMS = {'DerivationSafety': 'derivation_safety', 'HeaderSafety': 'header_safety',
           'ForcedInclusionSafety': 'forced_inclusion_safety', 'Claims': 'claims'}

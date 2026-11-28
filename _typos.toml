@@ -16,6 +16,12 @@ extend-ignore-identifiers-re = [
   "consts",
   # EVM opcode-family notation and the pluralized RETURN opcode.
   '\b(?:DUPn|SWAPn|RETURNs)\b',
+  # Lean theorem keyword fragment in formal/etna
+  "thm",
+]
+# formal/etna clause identifiers are hex digests
+extend-ignore-re = [
+  "LIVE_EN-[0-9a-f]{16}",
 ]
 
 [files]

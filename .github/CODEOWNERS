@@ -7,7 +7,9 @@
 /packages/protocol/contracts/**/*Verifier*.sol @dantaik @davidtaikocha @smtmfft
 /packages/protocol/contracts/layer1/preconf/** @dantaik @davidtaikocha @smtmfft
 
-# Formal specification
+# Formal models and the conformance vectors they generate
+/formal/**                      @dantaik @davidtaikocha @smtmfft
+/testdata/etna_current_conformance/** @dantaik @davidtaikocha @smtmfft
 /packages/formal/derivation/**           @dantaik @davidtaikocha @smtmfft
 /packages/formal/zk-gas/**               @dantaik @davidtaikocha @smtmfft
 /testdata/zk_gas_vectors/**     @dantaik @davidtaikocha @smtmfft

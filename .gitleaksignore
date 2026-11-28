@@ -1,0 +1,3 @@
+# Confirmed documentation-only false positive in this historical commit.
+# The scanner matched literal prose about signing formats, not a credential.
+41fc197e257785fed96c1d93978fefaf522c7930:testdata/etna_conformance/README.md:generic-api-key:229
