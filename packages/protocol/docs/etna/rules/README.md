@@ -14,7 +14,7 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 
 - **FAMILY** groups statements by subject so they can be cited across sections:
   `MODEL` positioning and security model · `COMP` components · `CONS` consensus and blocks ·
-  `STAKE` registry and epochs · `COMM` committee derivation · `FORF` DAO forfeiture ·
+  `STAKE` staking contract and missed signatures · `COMM` committee derivation · `FORF` DAO forfeiture ·
   `DATA` data formats and DA · `LAND` landing · `PROOF` proofs · `BATCH` batches · `BACKP` back-pressure ·
   `FI` forced inclusion · `RECOV` halts and recovery · `SYNC` sync and weak subjectivity ·
   `START` startup and deployment · `PARAM` parameters · `LIMIT` limitations ·
@@ -50,7 +50,7 @@ Why a type column and not an RFC-2119 keyword convention: repeating MUST/MUST NO
 ## How far an ID extends
 
 - **Inline marker** `**[ID]**`: the ID covers the text from the marker to the next marker or the end of the line it sits on, whichever comes first. In `SPEC.md` every bullet, numbered item, paragraph and table row is one line, so a marker at the start of a bullet covers the whole bullet unless a later marker on the same line starts another ID.
-- **`// [ID]` line** in a definition block: the ID covers the statement that follows it, from the next line to the next blank line or the next `// [ID]` line. A definition that continues over several lines, such as `committeeConfigHash` or `statement`, is covered as a whole.
+- **`// [ID]` line** in a definition block: the ID covers the statement that follows it, from the next line to the next blank line or the next `// [ID]` line. A definition that continues over several lines, such as `chainDomain` or `statement`, is covered as a whole.
 - A sentence is **un-numbered** only if no ID covers it under these two rules. The _Normativity boundary_ tables in `review/` list only such sentences.
 
 ## Normative content inside definition blocks

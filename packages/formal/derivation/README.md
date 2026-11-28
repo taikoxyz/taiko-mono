@@ -3,8 +3,8 @@
 This package proves safety properties of an executable Lean model of Taiko's Unzen block
 derivation, as the Go driver (`packages/taiko-client`) and the Rust driver
 (`packages/taiko-client-rs`) implement it today. It pins the specification at revision
-`31d283af894cd4ed618079aaa79230d143b63b2f` in [`spec-coverage.json`](spec-coverage.json).
-The four-second Etna base-fee target in that revision falls under the existing Etna and base-fee exclusions.
+`2a1ccdb7721aab063379cbba04f3de5e39e39d4f` in [`spec-coverage.json`](spec-coverage.json).
+The four-second Etna base-fee target, the 29-byte Etna `extraData` with its `missBitmap` and the zk gas paragraph, reworded without changing the Unzen rule, in that revision fall under the existing Etna, base-fee and zk gas exclusions.
 The theorems concern this model; they do not establish equivalence of production clients.
 
 ## Scope

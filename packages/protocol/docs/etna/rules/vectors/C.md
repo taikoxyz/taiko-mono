@@ -6,11 +6,11 @@ Each entry therefore records what would count as evidence for the assumption and
 
 ## COST-C-1
 
-| Case | Measurement                                                                                                             | Reading                                                                                 |
-| ---- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 1.a  | funded budget lines and reconciled spend for validators, proving, landing, historical data and on-call, over one epoch  | supports if every named category is funded and reconciled; falsifies if any is unfunded |
-| 1.b  | a period with low or zero transaction load, FI backlog consumption, repeated DA, discarded competitive work and retries | falsifies if the measured cost of these conditions is not covered by the budget         |
-| 1.c  | on-call rota and its payment records                                                                                    | falsifies if on-call service is unpaid or unfunded                                      |
+| Case | Measurement                                                                                                                     | Reading                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1.a  | funded budget lines and reconciled spend for validators, proving, landing, historical data and on-call, over one funding period | supports if every named category is funded and reconciled; falsifies if any is unfunded |
+| 1.b  | a period with low or zero transaction load, FI backlog consumption, repeated DA, discarded competitive work and retries         | falsifies if the measured cost of these conditions is not covered by the budget         |
+| 1.c  | on-call rota and its payment records                                                                                            | falsifies if on-call service is unpaid or unfunded                                      |
 
 ## COST-C-2
 
