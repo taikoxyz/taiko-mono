@@ -79,7 +79,13 @@ abstract contract DeployCapability is Script {
         console2.log("\t addr : ", addr);
     }
 
-    function copyRegister(address registerTo, address readFrom, string memory name) internal {
+    function copyRegister(
+        address registerTo,
+        address readFrom,
+        string memory name
+    )
+        internal
+    {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 

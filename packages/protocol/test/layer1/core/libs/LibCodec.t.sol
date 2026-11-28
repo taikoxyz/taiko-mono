@@ -304,7 +304,11 @@ contract LibCodecTest is Test {
         }
     }
 
-    function _addr(bytes32 seed, string memory label, uint256 index)
+    function _addr(
+        bytes32 seed,
+        string memory label,
+        uint256 index
+    )
         private
         pure
         returns (address)

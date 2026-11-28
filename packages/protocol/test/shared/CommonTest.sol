@@ -123,7 +123,11 @@ abstract contract CommonTest is Test, Script {
         }
     }
 
-    function deploy(bytes32 name, address impl, bytes memory data)
+    function deploy(
+        bytes32 name,
+        address impl,
+        bytes memory data
+    )
         internal
         returns (address proxy)
     {
@@ -260,7 +264,10 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deployQuotaManager(address bridge, address erc20Vault)
+    function deployQuotaManager(
+        address bridge,
+        address erc20Vault
+    )
         internal
         returns (QuotaManager)
     {

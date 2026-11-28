@@ -180,7 +180,7 @@ jobs:
           ref: ${{ github.head_ref }}
           persist-credentials: false
 
-      # The PR's own pin, as in build-protocol, so a Foundry bump PR gets its own reformatting.
+      # Use the same Foundry release as build-protocol.
       # A compromised dependency in build-protocol has a read-only token and cannot change this
       # fresh checkout, and a same-repo author already controls this workflow file.
       - name: Read Foundry version
@@ -206,6 +206,7 @@ jobs:
         id: commit
         env:
           BUILD_SHA: ${{ needs.build-protocol.outputs.build_sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PATCH: ${{ runner.temp }}/patch/generated.patch
         run: |
           set -euo pipefail
@@ -262,9 +263,12 @@ jobs:
               fi
             done < "$RUNNER_TEMP/staged"
           fi
-          # Formatting is redone here rather than taken from build-protocol, so a compromised
-          # dependency there cannot get source changes committed as "formatting".
-          (cd packages/protocol && forge fmt)
+          # Re-run formatting in this trusted checkout. Defer package-wide reformatting
+          # when the formatter version changes so the toolchain diff stays focused.
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          if git diff --quiet "$BASE_SHA" "$BUILD_SHA" -- packages/protocol/.tool-versions; then
+            (cd packages/protocol && forge fmt)
+          fi
           # build-protocol generates layout files after formatting, so keep them exactly as the
           # validated patch left them (forge fmt would strip their trailing whitespace).
           layouts=':(glob)packages/protocol/**/*_Layout.sol'

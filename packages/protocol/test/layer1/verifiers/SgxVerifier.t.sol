@@ -770,8 +770,7 @@ abstract contract SgxVerifierTestBase is Test {
     /// next one would overflow that field and be unreachable from a proof, so it is rejected.
     function test_addInstances_RevertWhen_InstanceIdOverflows() external {
         // Fast-forward the id counter to the largest uint32-representable id.
-        stdstore.target(address(verifier))
-            .sig("nextInstanceId()")
+        stdstore.target(address(verifier)).sig("nextInstanceId()")
             .checked_write(uint256(type(uint32).max));
 
         // id == type(uint32).max still fits the uint32 proof field and is accepted.

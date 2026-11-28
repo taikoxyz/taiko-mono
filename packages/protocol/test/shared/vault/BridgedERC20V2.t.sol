@@ -120,7 +120,10 @@ contract TestBridgedERC20V2 is CommonTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(address erc20Vault, bytes32 name)
+    function deployBridgedToken(
+        address erc20Vault,
+        bytes32 name
+    )
         internal
         returns (BridgedERC20V2)
     {
