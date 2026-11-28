@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "./TestBridge2Base.sol";
 import {
-    MessageReceiver_CreatingFreshStorageSlots
-} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
+    MessageReceiver_CreatingFreshStorageSlot
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlot.sol";
 import {
     MessageReceiver_RecordingGasBudget
 } from "test/shared/bridge/helpers/MessageReceiver_RecordingGasBudget.sol";
@@ -345,12 +345,13 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
 
-        message.gasLimit = 1_000_000;
         message.fee = 0;
         message.value = 2 ether;
         message.destOwner = Alice;
         message.to = address(target);
         message.data = abi.encodeCall(Target.anotherFunc, (""));
+        // The first allowed invocation persists the context and received amount in fresh slots.
+        message.gasLimit = eBridge.getMessageMinGasLimit(message.data.length) + 400_000;
 
         uint256 aliceBalance = Alice.balance;
         eBridge.processMessage(message, FAKE_PROOF);
@@ -398,16 +399,13 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertEq(totalBalance2, totalBalance);
     }
 
-    /// @dev The refund send to destOwner must budget for a smart wallet that creates fresh
-    /// storage slots in its receive path. Writing 5+1 fresh slots needs a 131,235 gas operand,
-    /// which clears the 122,920 a wallet that saturated the legacy 35k budget while writing one
-    /// slot will need after Glamsterdam — 4+1 slots, needing only 108,992, does not.
+    /// @dev The capped refund funds a wallet that creates a fresh storage slot on first receipt.
     function test_bridge2_processMessage__refund_to_storage_creating_wallet()
         public
         transactBy(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlot wallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
 
         uint256 bridgeBalance = address(eBridge).balance;
 
@@ -433,19 +431,15 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
     /// @dev End-to-end claim of bridged Ether by storage-creating smart wallets with a relayer
     /// fee: the invocation pays the value to `to`, and the unused fee is refunded to destOwner
-    /// through the gas-capped Ether send. destOwner is deliberately a *different* contract from
-    /// `to` so the capped send carries a first receive, which needs a 131,235 gas operand.
-    /// Pointing both at one wallet would make the refund a warm-counter second receive needing
-    /// only 111,536 — below the 122,920 a legacy one-slot wallet needs after Glamsterdam, so it
-    /// would not demonstrate the budget this cap exists to provide.
+    /// through the gas-capped Ether send. Separate wallets make both paths create a fresh slot.
     function test_bridge2_processMessage__storage_creating_wallet_claims_with_fee()
         public
         transactBy(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlots invocationWallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
-        MessageReceiver_CreatingFreshStorageSlots refundWallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlot invocationWallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
+        MessageReceiver_CreatingFreshStorageSlot refundWallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
 
         uint256 carolBalance = Carol.balance;
         uint256 bridgeBalance = address(eBridge).balance;
@@ -482,15 +476,14 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
     }
 
-    /// @dev The cap still bounds how much gas a recipient can consume: a receive path above the
-    /// budget (6+1 fresh slots, ~156k gas) keeps failing the refund. 6 rather than 7 slots
-    /// brackets the 135k cap as tightly as the schedule allows — 5+1 is the largest that fits.
+    /// @dev The recipient needs the whole forwarding budget in execution work after updating
+    /// storage. It runs out of gas under either schedule and the failed refund rolls back.
     function test_bridge2_processMessage_RevertWhen_refund_receiver_exceeds_gas_cap()
         public
         transactBy(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(6);
+        MessageReceiver_CreatingFreshStorageSlot wallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_EXPECTED_SEND_BUDGET);
 
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
@@ -507,6 +500,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
         assertEq(address(wallet).balance, 0);
+        assertEq(wallet.receiveCount(), 0);
     }
 
     /// @dev Pins the budget the capped Ether send actually forwards. The behavioural tests
@@ -545,8 +539,8 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// payout is skipped entirely and the value plus the whole fee arrive in a single capped
     /// send. Every other test of that send runs the relayer path, where a fee cut is deducted.
     function test_bridge2_processMessage__self_claim_by_storage_creating_wallet() public {
-        MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlot wallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
 
         uint256 bridgeBalance = address(eBridge).balance;
 
@@ -571,19 +565,14 @@ contract TestBridge2_processMessage is TestBridge2Base {
     }
 
     /// @dev The self-claim path's other half: with an invocable `to`, processMessage forwards
-    /// raw `gasleft()` to the invocation, a budget large enough for a storage-creating receive.
-    /// The refund then goes to a second wallet, so the capped send still carries a first receive.
-    /// `gasLimit` is deliberately one above the minimum, so `_invocationGasLimit` would yield 1:
-    /// collapsing the ternary to its relayer branch hands the invocation 1 gas plus the 2,300
-    /// stipend, which cannot complete a 5+1 receive under the current schedule or under
-    /// Glamsterdam pricing. Only the `gasleft()` arm can satisfy this wallet, so that mutation
-    /// turns this test red and keeps doing so across the fork — a margin sized against today's
-    /// prices would not, because the reservoir would absorb the receive's state charges.
+    /// raw `gasleft()` to the invocation. The relayer path would forward just one gas plus the
+    /// stipend from this message budget, too little for the wallet under either schedule.
+    /// The separate refund wallet also creates a fresh slot on its first receive.
     function test_bridge2_processMessage__self_claim_with_invocation() public {
-        MessageReceiver_CreatingFreshStorageSlots invocationWallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
-        MessageReceiver_CreatingFreshStorageSlots refundWallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlot invocationWallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
+        MessageReceiver_CreatingFreshStorageSlot refundWallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
 
         uint256 bridgeBalance = address(eBridge).balance;
 
@@ -617,8 +606,8 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// gas operand to zero leaves the whole suite green. Keeping `destOwner` an EOA makes the
     /// relayer payout the only leg that needs the budget, so this test pins it specifically.
     function test_bridge2_processMessage__fee_payout_to_storage_creating_relayer() public {
-        MessageReceiver_CreatingFreshStorageSlots relayerWallet =
-            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlot relayerWallet =
+            new MessageReceiver_CreatingFreshStorageSlot(_STORAGE_WALLET_WORK_GAS);
 
         uint256 aliceBalance = Alice.balance;
         uint256 bridgeBalance = address(eBridge).balance;
@@ -656,11 +645,12 @@ contract TestBridge2_processMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
-        message.gasLimit = 1_000_000;
         message.value = 1 ether;
         message.destOwner = Alice;
         message.to = address(target);
         message.data = abi.encodeCall(Target.onMessageInvocation, (""));
+        // Give the recipient enough gas to store the context under either schedule.
+        message.gasLimit = eBridge.getMessageMinGasLimit(message.data.length) + 400_000;
 
         eBridge.processMessage(message, FAKE_PROOF);
         bytes32 hash1 = eBridge.hashMessage(message);

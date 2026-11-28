@@ -3,6 +3,10 @@
 # This script is only used by `pnpm test:deploy:l1`.
 set -e
 
+# Forge deploys a large script harness during simulation. Amsterdam charges state gas
+# for its embedded deployment bytecode.
+SCRIPT_BLOCK_GAS_LIMIT=500000000
+
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 export L2_CHAIN_ID=167001
 export TAIKO_TOKEN=0x0000000000000000000000000000000000000000
@@ -39,7 +43,7 @@ forge script ./script/layer1/core/DeployTaikoToken.s.sol:DeployTaikoToken \
     --ffi \
     -vvvv \
     --private-key $PRIVATE_KEY \
-    --block-gas-limit 200000000
+    --block-gas-limit "$SCRIPT_BLOCK_GAS_LIMIT"
 
 FOUNDRY_PROFILE="layer1" \
 forge script ./script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
@@ -48,4 +52,4 @@ forge script ./script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --ffi \
     -vvvv \
     --private-key $PRIVATE_KEY \
-    --block-gas-limit 200000000
+    --block-gas-limit "$SCRIPT_BLOCK_GAS_LIMIT"

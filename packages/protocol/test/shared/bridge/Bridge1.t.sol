@@ -143,7 +143,8 @@ contract TestBridge1 is CommonTest {
             to: address(eMessageReceiver),
             value: 1000,
             fee: 1000,
-            gasLimit: 1_000_000,
+            // The recipient forwards Ether to Carol, which creates an account on first payment.
+            gasLimit: 1_100_000,
             data: abi.encodeCall(
                 MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol)
             )

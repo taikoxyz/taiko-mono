@@ -7,9 +7,8 @@ optimizer_runs = 200
 ffi = true
 memory_limit = 4_294_967_296
 solc_version = "0.8.30"
-# L1 (Ethereum) EVM version. Ethereum mainnet is on Osaka.
-# Taiko L2 is also on Osaka, but the two chains can fork independently again, so the L2 profiles
-# (layer2, shared, genesis) below set `evm_version` explicitly instead of inheriting this value.
+# Default EVM target for Ethereum and Taiko while both mainnets use Osaka.
+# The layer1 profile targets Amsterdam for the Ethereum upgrade.
 evm_version = "osaka"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
@@ -88,7 +87,6 @@ docs_style = "preserve"
 contract_new_lines = false
 sort_imports = true
 pow_no_space = false
-call_compact_args = true
 
 [lint]
 exclude_lints = [
@@ -106,6 +104,14 @@ exclude_lints = [
 ]
 
 [profile.layer1]
+# solc needs experimental mode to target Amsterdam.
+evm_version = "amsterdam"
+hardfork = "amsterdam"
+solc_version = "0.8.39"
+experimental = true
+# Foundry deploys large test harnesses that pay Amsterdam state gas for embedded bytecode.
+gas_limit = 300_000_000
+block_gas_limit = 300_000_000
 src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"

@@ -87,6 +87,17 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:shared && pnpm layout:shared
 
+      - name: Test Shared contracts on Amsterdam
+        working-directory: ./packages/protocol
+        env:
+          FOUNDRY_PROFILE: layer1
+          FOUNDRY_SRC: contracts/shared
+          FOUNDRY_TEST: test/shared
+          FOUNDRY_SCRIPT: script/shared
+          FOUNDRY_OUT: out/shared-amsterdam
+          FOUNDRY_CACHE_PATH: cache/shared-amsterdam
+        run: forge test --match-path 'test/shared/**/*.t.sol'
+
       - name: Test L2 contracts
         working-directory: ./packages/protocol
         run: pnpm test:l2 && pnpm layout:l2
@@ -146,7 +157,7 @@ jobs:
         working-directory: ./packages/protocol
         timeout-minutes: 4
         run: |
-          anvil &
+          anvil --hardfork amsterdam --gas-limit 80000000 &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done
