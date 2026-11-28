@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -388,6 +390,22 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 			wantErr:       errEstimateExceedsBlockGasLimit,
 		},
 		{
+			name:          "estimate equal to the block gas limit is sent at the limit",
+			fee:           100_000_000,
+			estimatedGas:  1_050_000,
+			blockGasLimit: 1_050_000,
+			wantGasLimit:  1_050_000,
+		},
+		{
+			// The padded limit is sent unchanged when it covers the estimate, so it is clamped too.
+			name:           "profitable only padded limit stays within the destination block gas limit",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   90_000,
+			blockGasLimit:  100_000,
+			wantGasLimit:   100_000,
+		},
+		{
 			name:          "padded limit also stays within the destination block gas limit",
 			fee:           100_000_000,
 			estimatedGas:  90_000,
@@ -475,6 +493,38 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 }
 
 var errEstimate = errors.New("estimate failed")
+
+// An estimate the endpoint failed to answer is retried in both modes; one the node answered
+// with a revert is not.
+func Test_sendProcessMessageCall_estimateErrorRetryability(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           error
+		wantTransient bool
+	}{
+		{name: "rate limited", err: rpc.HTTPError{StatusCode: 429, Status: "429 Too Many Requests"}, wantTransient: true},
+		{name: "bad gateway", err: rpc.HTTPError{StatusCode: 502, Status: "502 Bad Gateway"}, wantTransient: true},
+		{name: "connection closed", err: io.EOF, wantTransient: true},
+		{name: "reverted", err: errors.New("execution reverted"), wantTransient: false},
+	}
+
+	for _, profitableOnly := range []bool{false, true} {
+		for _, tt := range tests {
+			t.Run(fmt.Sprintf("%s/profitableOnly=%v", tt.name, profitableOnly), func(t *testing.T) {
+				p := newTestProcessor(profitableOnly)
+				p.destEthClient = &estimateGasEthClient{EthClient: &mock.EthClient{}, err: tt.err}
+				txManager := &candidateTxManager{}
+				p.txmgr = txManager
+
+				_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(1_000_000_000), []byte{})
+
+				require.Error(t, err)
+				assert.Equal(t, tt.wantTransient, isTransientProcessMessageError(err))
+				assert.Nil(t, txManager.candidate)
+			})
+		}
+	}
+}
 
 // A message claimed while the proof was generated must be acked, not estimated: its
 // estimate reverts, and returning that error would dead-letter the message.
