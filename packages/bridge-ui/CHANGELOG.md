@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.19.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.19.1...bridge-ui-v2.19.2) (2026-11-28)
+
+
+### Chores
+
+* **bridge-ui:** bump @sveltejs/kit to 2.70.4 ([#22350](https://github.com/taikoxyz/taiko-mono/issues/22350)) ([cc7e417](https://github.com/taikoxyz/taiko-mono/commit/cc7e41705d21d289efc7e90ae2b63fbb8aa0132a))
+* **bridge-ui:** update Vercel adapter ([#22354](https://github.com/taikoxyz/taiko-mono/issues/22354)) ([cf6424c](https://github.com/taikoxyz/taiko-mono/commit/cf6424cbccd3217841afbe7ac22af08d1b79883c))
+* **deps-dev:** upgrade bridge tooling to Vite 6.4.6 ([#22370](https://github.com/taikoxyz/taiko-mono/issues/22370)) ([cf1b36d](https://github.com/taikoxyz/taiko-mono/commit/cf1b36d3075b9130609bbdc8cda3905cc0852089))
+* **deps-dev:** upgrade bridge-ui Vitest and coverage to v4 ([#22385](https://github.com/taikoxyz/taiko-mono/issues/22385)) ([5c281b2](https://github.com/taikoxyz/taiko-mono/commit/5c281b21c0bcc2c645a8caf43e78775fc396d22d))
+* **deps:** bump the npm-security group across 1 directory with 17 updates ([#22416](https://github.com/taikoxyz/taiko-mono/issues/22416)) ([5baef03](https://github.com/taikoxyz/taiko-mono/commit/5baef037f32fef5722cbf0301748cf493bdb0460))
+* **deps:** bump the npm-security group across 1 directory with 18 updates ([#22421](https://github.com/taikoxyz/taiko-mono/issues/22421)) ([0217d33](https://github.com/taikoxyz/taiko-mono/commit/0217d3379c9b20ec729c91b88744d95df0751f13))
+* **deps:** bump the npm-security group across 1 directory with 3 updates ([#22429](https://github.com/taikoxyz/taiko-mono/issues/22429)) ([e866a40](https://github.com/taikoxyz/taiko-mono/commit/e866a40c8b755653667ca2cad64cf4b880be0a61))
+* **repo:** upgrade pnpm to 12.21.0 ([#22413](https://github.com/taikoxyz/taiko-mono/issues/22413)) ([479bc3d](https://github.com/taikoxyz/taiko-mono/commit/479bc3db6b5341b72b6e7b9233be5b53d64a574a))
+
 ## [2.19.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.19.0...bridge-ui-v2.19.1) (2026-10-08)
 
 
