@@ -12,6 +12,20 @@ func PaddedMessageGasLimit(messageGasLimit uint64, isContractRecipient bool) uin
 	return (messageGasLimit*multiplier + 99) / 100
 }
 
+// ProcessMessageGasLimit returns the gas limit for a processMessage transaction: the padded
+// message gas limit, raised to the destination chain's gas estimate plus 10% when that is
+// higher. Forks that reprice state, such as Amsterdam (EIP-8037), can make processing cost
+// more than the message gas limit budgets for. The padded limit stays the floor because a
+// minimal estimate can starve the message invocation without reverting the transaction.
+func ProcessMessageGasLimit(paddedGasLimit, estimatedGas uint64) uint64 {
+	bufferedEstimate := (estimatedGas*110 + 99) / 100
+	if bufferedEstimate > paddedGasLimit {
+		return bufferedEstimate
+	}
+
+	return paddedGasLimit
+}
+
 // EffectiveGasTipCap returns the gas tip cap the transaction manager will
 // actually use when sending a transaction: the suggested tip, floored at the
 // configured minimum tip cap. The profitability estimate must use this same

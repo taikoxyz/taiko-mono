@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -283,6 +284,117 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilitySkipsNilReceiptLog
 	after := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
 	assert.Equal(t, float64(1), after-before)
 }
+
+// candidateTxManager records the candidate it is asked to send.
+type candidateTxManager struct {
+	mock.TxManager
+	candidate *txmgr.TxCandidate
+}
+
+func (t *candidateTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
+	t.candidate = &candidate
+
+	return &types.Receipt{Status: types.ReceiptStatusSuccessful}, nil
+}
+
+// estimateGasEthClient returns a fixed eth_estimateGas result.
+type estimateGasEthClient struct {
+	*mock.EthClient
+	estimatedGas uint64
+	err          error
+}
+
+func (c *estimateGasEthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	return c.estimatedGas, c.err
+}
+
+func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
+	// newProcessMessageEvent has a 100_000 message gas limit and an EOA recipient,
+	// so the padded limit is 105_000. The cost per gas is 2 * baseFee + 100.
+	tests := []struct {
+		name           string
+		profitableOnly bool
+		fee            uint64
+		estimatedGas   uint64
+		estimateErr    error
+		wantGasLimit   uint64
+		wantErr        error
+	}{
+		{
+			name:         "estimate below the padded limit keeps the padded limit",
+			fee:          100_000_000,
+			estimatedGas: 90_000,
+			wantGasLimit: 105_000,
+		},
+		{
+			name:         "estimate above the padded limit is buffered",
+			fee:          100_000_000,
+			estimatedGas: 1_000_000,
+			wantGasLimit: 1_100_000,
+		},
+		{
+			name:         "failed estimate falls back to the padded limit",
+			fee:          100_000_000,
+			estimateErr:  errEstimate,
+			wantGasLimit: 105_000,
+		},
+		{
+			name:           "profitable at the raised limit",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimatedGas:   1_000_000,
+			wantGasLimit:   1_100_000,
+		},
+		{
+			// The fee covers the padded limit but not the buffered estimate.
+			name:           "unprofitable at the raised limit",
+			profitableOnly: true,
+			fee:            51_000_000,
+			estimatedGas:   1_000_000,
+			wantErr:        relayer.ErrUnprofitable,
+		},
+		{
+			name:           "failed estimate is an error when profitable only",
+			profitableOnly: true,
+			fee:            1_000_000_000,
+			estimateErr:    errEstimate,
+			wantErr:        errEstimate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestProcessor(tt.profitableOnly)
+			p.destEthClient = &estimateGasEthClient{
+				EthClient:    &mock.EthClient{},
+				estimatedGas: tt.estimatedGas,
+				err:          tt.estimateErr,
+			}
+			txManager := &candidateTxManager{}
+			p.txmgr = txManager
+
+			_, err := p.sendProcessMessageCall(
+				context.Background(),
+				1,
+				newProcessMessageEvent(tt.fee),
+				[]byte{},
+			)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, txManager.candidate)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, txManager.candidate)
+			assert.Equal(t, tt.wantGasLimit, txManager.candidate.GasLimit)
+		})
+	}
+}
+
+var errEstimate = errors.New("estimate failed")
 
 func Test_relayerFeeFromReceipt_timesOutHeaderLookup(t *testing.T) {
 	event := newProcessMessageEvent(100_000_000)

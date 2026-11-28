@@ -358,7 +358,8 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	gasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
+	paddedGasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
+	gasLimit := paddedGasLimit
 
 	var estimatedMaxCost uint64
 
@@ -367,7 +368,7 @@ func (p *Processor) sendProcessMessageCall(
 			ctx,
 			id,
 			event.Message.Fee,
-			gasLimit,
+			paddedGasLimit,
 			baseFee.Uint64(),
 			gasTipCap.Uint64(),
 		)
@@ -378,33 +379,56 @@ func (p *Processor) sendProcessMessageCall(
 
 			return nil, relayer.ErrUnprofitable
 		}
+	}
 
-		// now simulate the transaction and let's confirm it is profitable
-		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
-		if err != nil {
+	// Simulate the transaction. Its gas can exceed the padded message gas limit on forks that
+	// reprice state, so the transaction is sent with the larger of the two.
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
+	if err != nil {
+		return nil, err
+	}
+
+	gasUsed, err := p.destEthClient.EstimateGas(ctx, ethereum.CallMsg{
+		From: auth.From,
+		To:   &p.cfg.DestBridgeAddress,
+		Data: data,
+	})
+	if err != nil {
+		if bool(p.profitableOnly) {
 			return nil, err
 		}
 
-		msg := ethereum.CallMsg{
-			From: auth.From,
-			To:   &p.cfg.DestBridgeAddress,
-			Data: data,
-		}
-
-		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
-		if err != nil {
-			return nil, err
-		}
+		slog.Warn("Failed to estimate processMessage gas, using the padded message gas limit",
+			"paddedGasLimit", paddedGasLimit,
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"error", err,
+		)
+	} else {
+		gasLimit = relayer.ProcessMessageGasLimit(paddedGasLimit, gasUsed)
 
 		slog.Info("estimatedGasUsed",
 			"gasUsed", gasUsed,
 			"messageGasLimit", event.Message.GasLimit,
-			"paddedGasLimit", gasLimit,
+			"paddedGasLimit", paddedGasLimit,
+			"gasLimit", gasLimit,
 			"srcTxHash", event.Raw.TxHash.Hex(),
 		)
+	}
 
-		if gasUsed > gasLimit {
-			return nil, relayer.ErrUnprofitable
+	if bool(p.profitableOnly) {
+		// The check above used the padded limit. Re-check against the raised limit.
+		if gasLimit > paddedGasLimit {
+			profitable, err := p.isProfitable(
+				ctx,
+				id,
+				event.Message.Fee,
+				gasLimit,
+				baseFee.Uint64(),
+				gasTipCap.Uint64(),
+			)
+			if err != nil || !profitable {
+				return nil, relayer.ErrUnprofitable
+			}
 		}
 
 		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
