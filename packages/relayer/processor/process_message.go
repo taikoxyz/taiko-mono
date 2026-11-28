@@ -382,6 +382,27 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
+	// we should check event status one more time, after we have waited for
+	// confirmations, and after we have generated proof. it's possible another relayer
+	// or the user themself has claimed this in the time it took
+	// for us to do this work. Check before estimating: the estimate of a claimed
+	// message reverts, and that error would dead-letter it instead of acking it.
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		event.Message.SrcOwner,
+		p.relayerAddr,
+		uint64(event.Message.GasLimit),
+	) {
+		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
+		return nil, errUnprocessable
+	}
+
 	// Estimate the complete destination transaction since a fork can reprice the proof,
 	// state writes, or payouts independently of the message gas limit.
 	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
@@ -435,26 +456,6 @@ func (p *Processor) sendProcessMessageCall(
 		}
 
 		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
-	}
-
-	// we should check event status one more time, after we have waited for
-	// confirmations, and after we have generated proof. it's possible another relayer
-	// or the user themself has claimed this in the time it took
-	// for us to do this work, which would cause us to revert.
-	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
-	}
-
-	if !canProcessMessage(
-		ctx,
-		eventStatus,
-		event.Message.SrcOwner,
-		p.relayerAddr,
-		uint64(event.Message.GasLimit),
-	) {
-		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
-		return nil, errUnprocessable
 	}
 
 	candidate := txmgr.TxCandidate{

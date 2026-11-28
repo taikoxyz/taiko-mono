@@ -19,6 +19,8 @@ func TestProcessMessageGasLimit(t *testing.T) {
 	assert.Equal(t, uint64(990002), ProcessMessageGasLimit(846990, 900001))
 	// A low estimate never lowers the padded limit.
 	assert.Equal(t, uint64(846990), ProcessMessageGasLimit(846990, 1))
+	// An estimate exactly at the Osaka cap keeps the buffer within it.
+	assert.Equal(t, uint64(1<<24), ProcessMessageGasLimit(846990, 1<<24))
 }
 
 func TestEffectiveGasTipCap(t *testing.T) {

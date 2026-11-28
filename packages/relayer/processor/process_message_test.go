@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -303,9 +304,12 @@ type estimateGasEthClient struct {
 	estimatedGas  uint64
 	blockGasLimit uint64
 	err           error
+	estimateCalls int
 }
 
 func (c *estimateGasEthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	c.estimateCalls++
+
 	return c.estimatedGas, c.err
 }
 
@@ -471,6 +475,33 @@ func Test_sendProcessMessageCall_gasLimit(t *testing.T) {
 }
 
 var errEstimate = errors.New("estimate failed")
+
+// A message claimed while the proof was generated must be acked, not estimated: its
+// estimate reverts, and returning that error would dead-letter the message.
+func Test_sendProcessMessageCall_claimedMessageIsUnprocessableWithoutEstimating(t *testing.T) {
+	for _, profitableOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profitableOnly=%v", profitableOnly), func(t *testing.T) {
+			p := newTestProcessor(profitableOnly)
+			ethClient := &estimateGasEthClient{
+				EthClient: &mock.EthClient{},
+				err:       errors.New("execution reverted"),
+			}
+			p.destEthClient = ethClient
+			txManager := &candidateTxManager{}
+			p.txmgr = txManager
+
+			// The mock bridge reports every hash other than SuccessMsgHash or FailSignal as DONE.
+			event := newProcessMessageEvent(1_000_000_000)
+			event.MsgHash = [32]byte{0x3}
+
+			_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+
+			require.ErrorIs(t, err, errUnprocessable)
+			assert.Zero(t, ethClient.estimateCalls)
+			assert.Nil(t, txManager.candidate)
+		})
+	}
+}
 
 func Test_relayerFeeFromReceipt_timesOutHeaderLookup(t *testing.T) {
 	event := newProcessMessageEvent(100_000_000)
