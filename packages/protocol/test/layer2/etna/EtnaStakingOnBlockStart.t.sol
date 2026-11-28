@@ -166,7 +166,9 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
 
     /// @dev missLimit 10 and missSlashBps 1000: a penalty is ceil(effStake / 10), taken when the
     /// count reaches 10, which the penalty leaves at 10, and all penalties of a call reach
-    /// slashSink in one transfer.
+    /// slashSink in one transfer. The penalty lowers A's power from p = 10m / vpUnit in the
+    /// previous call's record to q = 9m / vpUnit, and the same call writes the record with q
+    /// (vector 8 20.i).
     function test_onBlockStart_PenalizesAtMissLimitWithCeil() external {
         IEtnaStaking.Config memory cfg = _config();
         cfg.missLimit = 10;
@@ -181,6 +183,7 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         assertEq(staking.bondAt(a).effStake, 10 * _M, "count 9 loses nothing");
         assertEq(staking.bondAt(b).effStake, 10 * _M + 1, "count 9 loses nothing either");
         assertEq(token.balanceOf(SLASH_SINK), 0, "nothing paid below the limit");
+        _assertRecord(0, _K1, 10 * _M / VP_UNIT, "record 0 at power p before the penalty");
 
         vm.recordLogs();
         _blockStart(0, 0x3);
@@ -214,7 +217,7 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         assertEq(token.balanceOf(SYSTEM_CALLER), 0, "no bounty to the caller");
 
         assertEq(_word(1), 20 * _M, "this call's snapshot holds the reduced stakes");
-        _assertRecord(0, _K1, 9 * _M / VP_UNIT, "record 0");
+        _assertRecord(0, _K1, 9 * _M / VP_UNIT, "record 0 at power q");
         _assertRecord(1, _K2, 9 * _M / VP_UNIT, "record 1");
         _assertRecord(2, _K3, 2 * _M / VP_UNIT, "record 2");
     }
@@ -302,6 +305,30 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
         _blockStart(1, 1);
         assertEq(staking.bondAt(a).effStake, effStake - effStake / 10, "and again at count 2");
         assertEq(staking.missCount(0), 2, "count 2");
+    }
+
+    /// @dev Vector 8 20.h: with vpUnit = minStake, the penalty in block H's call takes A from
+    /// 1.9m to 1.71m, at or above minStake and at power floor(1.71) = 1 as before, so H's call
+    /// writes every record exactly as H - 1's call did; only the total and the height change.
+    function test_onBlockStart_PenaltyThatKeepsThePowerKeepsTheRecords() external {
+        IEtnaStaking.Config memory cfg = _config();
+        cfg.missLimit = 1;
+        cfg.vpUnit = _M;
+        staking = _deploy(cfg);
+        uint256 a = _register(_K1, Bob, 19 * _M / 10);
+        _register(_K2, Carol, _M);
+        _blockStart(1, 0);
+        bytes32[] memory recordsBefore = _words(3, 2 * N_MAX);
+        _assertRecord(0, _K1, 1, "record 0 at power 1 in H - 1");
+
+        _blockStart(1, 1);
+        uint256 effStake = 19 * _M / 10 - _penaltyOf(19 * _M / 10);
+        assertEq(staking.bondAt(a).effStake, effStake, "penalized in H's call");
+        assertGe(effStake, _M, "at or above minStake");
+        _assertSeatOfBond(a, true, 0, "A keeps its seat");
+        assertEq(_words(3, 2 * N_MAX), recordsBefore, "H's records are H - 1's");
+        assertEq(_word(1), effStake + _M, "the total takes the penalty");
+        assertEq(_word(0), block.number, "the height is H");
     }
 
     /// @dev missLimit 10 and missReleaseLimit 30: a seated bond well above minStake that misses
@@ -756,8 +783,63 @@ contract EtnaStakingOnBlockStartTest is EtnaStakingTestBase {
     }
 
     // ---------------------------------------------------------------
+    // Miss counts after a recovery whose first call fails (RECOV-8-59)
+    // ---------------------------------------------------------------
+
+    /// @dev Vectors 8 59.e and 59.g: seat 1's count 3 survives the new generation's failed first
+    /// call, and the first call that succeeds, with the seat's bit set, takes it to 4.
+    function test_onBlockStart_SetBitAfterAFailedCallContinuesTheCount() external {
+        uint256 b = _failFirstCallOfNewGenerationAtCountThree();
+        _blockStart(2, 1 << 1);
+        assertEq(staking.missCount(1), 4, "the count continues from 3");
+        _assertSeatOfBond(b, true, 1, "B keeps seat 1");
+        assertEq(staking.lastGeneration(), 2, "the new generation");
+    }
+
+    /// @dev Vectors 8 59.e and 59.f: after the failed first call, the first call that succeeds
+    /// with the occupied seat's bit 0 resets its count.
+    function test_onBlockStart_ClearBitAfterAFailedCallResetsTheCount() external {
+        _failFirstCallOfNewGenerationAtCountThree();
+        _blockStart(2, 0);
+        assertEq(staking.missCount(1), 0, "a clear bit resets the count");
+    }
+
+    /// @dev Vectors 8 59.e and 59.i: after the failed first call and before any call succeeds,
+    /// seat 1's bond B requests an exit and bond D's registration takes seat 1, the lowest empty
+    /// seat. D starts at count 0 (STAKE-4.1-13b), so the next call's set bit counts D's own first
+    /// miss, not a fourth.
+    function test_onBlockStart_SeatRetakenAfterAFailedCallStartsAtZero() external {
+        uint256 b = _failFirstCallOfNewGenerationAtCountThree();
+        _requestExit(b);
+        uint256 d = _register(_K9, Emma, _M);
+        _assertSeatOfBond(d, true, 1, "D takes seat 1");
+        assertEq(staking.missCount(1), 0, "D starts at count 0");
+
+        _blockStart(2, 1 << 1);
+        assertEq(staking.missCount(1), 1, "D's own first miss");
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /// @dev Vector 8 59.e: seats bonds in seats 0 to 2 and raises seat 1's count to 3 in
+    /// generation 1, standing for c's L2 state. The new generation's first block has no
+    /// LastCommit, so its call carries generation 2 and bitmap 0; the call runs out of gas and
+    /// changes nothing (CONS-3.2-13), so seat 1's count is still 3, not the 0 that 59.h rejects.
+    /// @return bondId_ The id of the bond in seat 1.
+    function _failFirstCallOfNewGenerationAtCountThree() private returns (uint256 bondId_) {
+        _register(_K1, Bob, _M);
+        bondId_ = _register(_K2, Carol, _M);
+        _register(_K3, David, _M);
+        _blockStarts(3, 1 << 1);
+        assertEq(staking.missCount(1), 3, "count 3 in c's state");
+
+        bytes memory revertData = _assertBlockStartFailsWithoutChange(2, 0, 30_000);
+        assertEq(revertData.length, 0, "out of gas");
+        assertEq(staking.missCount(1), 3, "the failed call keeps count 3");
+        assertEq(staking.lastGeneration(), 1, "the failed call stores no generation");
+    }
 
     /// @dev Seats K1 (stake `_STAKE0`) in seat 0, K9 (`_STAKE2`) in seat 2 and K3 (`_STAKE5`) in
     /// seat 5; the bonds that took seats 1, 3 and 4 exit.
