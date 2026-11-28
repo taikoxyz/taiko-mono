@@ -24,3 +24,6 @@ testdata/derivation_vectors/fork_selection_cases.json
 
 # Byte-for-byte output of the Lean meter generator, checked by the formal gate.
 testdata/zk_gas_vectors/meter-vectors.json
+
+# Byte-pinned Etna conformance vectors; their SHA-256 values are in the conformance README.
+packages/protocol/test/layer1/etna/conformance/vectors/*.json

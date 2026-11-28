@@ -1,0 +1,284 @@
+# Switching an Unzen chain to Etna
+
+These scripts prepare the switch of a live Unzen chain to Etna as described in [SWITCH.md][switch]
+and in the switching steps of section 10 of the [Etna specification][spec], both at the Etna spec
+baseline `797a708e57badb02dc4e974dcaf9167232aa2969`. They never upgrade a proxy and never send a DAO
+action:
+
+| Script                                                                                     | Does                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DeployEtnaSwitch.s.sol`                                                                   | Deploys the Etna bootstrap proxy, the three switch implementations and the `EtnaSwitchGuard`.                                                                       |
+| `DeployEtnaVerifiers.s.sol`                                                                | Deploys the EtnaInbox's own SGX, RISC0 and SP1 sub-verifiers and their `ZkRequiredVerifier`.                                                                        |
+| [`DeployEtnaStaking.s.sol`](../../layer2/etna/DeployEtnaStaking.s.sol)                     | Deploys `EtnaStaking` on L2 in one CREATE2 transaction: the implementation and the proxy, initialized with its owner.                                               |
+| `BuildEtnaSwitchProposals.s.sol`                                                           | Checks every input against L1 and logs the L1 DAO actions of each proposal and their `abi.encode`. It broadcasts nothing.                                           |
+| [`BuildEtnaReadinessL2Message.s.sol`](../../layer2/etna/BuildEtnaReadinessL2Message.s.sol) | Checks every input against L2, including the `EtnaStaking` deployment, and logs the readiness proposal's one L2 message (`LibEtnaReadinessL2Message.buildActions`). |
+
+The switch takes two DAO proposals: **readiness** prepares L2 while Unzen stays open, and
+**scheduling** installs the schedule on L1. A **postponement** batch moves an installed schedule
+before the start is written. `MainnetDAOController.execute` runs each action list in order and
+reverts on the first failed call, so each list is atomic. The controller checks only call success,
+so every check in a list is a call to `EtnaSwitchGuard` that reverts with a named error.
+
+The L2 `SignalService` implementation, the root-only `EtnaSignalService` that L1 also runs, is
+deployed with [`DeployShastaL2Contracts`](../../layer2/DeployShastaL2Contracts.s.sol), and
+`EtnaStaking` with
+[`DeployEtnaStaking`](../../layer2/etna/DeployEtnaStaking.s.sol) (step 2 below); the `Anchor` is
+not upgraded. EIP-2935 and EIP-4788 must already run on L2. The EL builds in the `EtnaStaking`
+proxy address, and clients and guests build in both `EtnaStaking` addresses and the L2
+`SignalService` implementation address. A node trusts the start only after checking, under
+SYNC-9-5a, the L2 `SignalService` proxy's EIP-1967 implementation slot at S and that its own fork
+time equals the EtnaInbox's `etnaForkTime()`; it checks the `EtnaStaking` proxy's slot at S the
+same way.
+
+## Inputs and deployment order
+
+Use the same L1 RPC and `L1_CHAIN_ID` for every L1 step. `PRIVATE_KEY` selects the deployer;
+`CONTRACT_OWNER` is required and names the DAO controller, which must own the live Unzen Inbox and
+L1 SignalService, the new proxies and every image-trusting verifier the actions touch, with no
+pending ownership transfer. `UNZEN_INBOX` is the live Unzen proxy and `SIGNAL_SERVICE` its L1
+SignalService proxy (`VERSION` 1). The scripts read the live `getConfig()` and accept its
+`signalService` in two states: `SIGNAL_SERVICE` before the scheduling proposal executes and
+`INBOX_PROXY` after it, as when a postponement is prepared. `INBOX_PROXY` must differ from both.
+
+1. `DeployEtnaSwitch.deployInboxProxy()`: the Etna bootstrap proxy. Export `INBOX_PROXY`.
+2. On L2, with the `layer2` profile and the release build, `DeployEtnaStaking.run()`: one
+   transaction to the CREATE2 factory deploys the `EtnaStaking` implementation and its proxy and
+   initializes the proxy with its owner, at the addresses `predict` gives in advance, so no one
+   else can initialize it. It reads `L2_CHAIN_ID`, `CONTRACT_OWNER` set to the DAO's execution
+   address on L2 (the `DelegateController`, not the L1 controller), the optional
+   `DEPLOYMENT_SALT`, `ETNA_UNSETTLED_LIMIT`, `EVIDENCE_WINDOW_BLOCKS` and the `EtnaStaking`
+   configuration that `LibEtnaStakingEnv` reads, whose `INBOX_PROXY` and `L1_CHAIN_ID` are step
+   1's. `ETNA_WITHDRAWAL_DELAY` must be at least U + 2 + `EVIDENCE_WINDOW_BLOCKS`, with U the
+   `ETNA_UNSETTLED_LIMIT` that step 6 fixes in the EtnaInbox; set it explicitly and use the same
+   value in every step that reads it. The evidence window must cover getting a double-sign report
+   included through forced inclusion and detecting a bad landing and executing its rollback
+   (SPEC.md section 11). Export the proxy as `ETNA_STAKING` and the implementation as
+   `ETNA_STAKING_IMPL`, the addresses the EL, clients and guests build in; any change to the
+   bytecode moves both. No stake is needed at S: stakers bridge TAIKO to L2 and can register
+   before the fork.
+3. `DeployEtnaVerifiers.run()`. Export `ETNA_PROOF_VERIFIER`. Its sub-verifiers are separate from
+   Unzen's: an SP1 proof binds the sub-verifier's address, so sharing one would let Etna image trust
+   widen what the Unzen Inbox accepts.
+4. Set `ETNA_FORK_TIME`, `PROPOSE_MARGIN` and `FI_MARGIN` (seconds) and call
+   `deployUnzenInboxImplementation()`. Export `UNZEN_INBOX_IMPLEMENTATION`. Its configuration is the
+   live one with `signalService` set to `INBOX_PROXY`, so `prove` saves its checkpoints through the
+   EtnaInbox. The script requires its `proposeCutoff()` to equal `ETNA_FORK_TIME - PROPOSE_MARGIN`
+   and its `FI_CUTOFF()` to equal `ETNA_FORK_TIME - FI_MARGIN`.
+5. Set `REMOTE_SIGNAL_SERVICE` to the L2 SignalService proxy (the chain's canonical predeploy) and
+   call `deploySignalServiceImplementation()`: the `EtnaSignalService` with `INBOX_PROXY` as its
+   only syncer, `usesBeaconRoots` false, `VERSION` 1 and the live proxy's pauser. Export
+   `SIGNAL_SERVICE_IMPLEMENTATION`.
+6. Set the remaining Inbox configuration and forced-inclusion variables documented in
+   `DeployEtnaDevnet`, with `ETNA_STAKING` from step 2 and `ORIGIN_MULTISIG`, the designated
+   multisig that alone may call `setOrigin`, and call `deployInbox()`. Export
+   `ETNA_INBOX_IMPLEMENTATION`. The script checks that the cutoff implementation matches the live
+   configuration and the schedule, that `ETNA_STAKING` and `ORIGIN_MULTISIG` are nonzero, and that
+   the Etna verifier is
+   this build's `ZkRequiredVerifier` over sub-verifiers that Unzen does not use. The fallback key
+   set and `minTotalStake` that the scheduling proposal's `init` takes are chosen before it is
+   drafted.
+7. `deploySwitchGuard()`. Export `SWITCH_GUARD`.
+
+Once the EtnaInbox is initialized, steps 4 and 6 deploy a postponement's implementations and
+require an `ETNA_FORK_TIME` later than the installed one. No step runs after the start write.
+
+## Trust changes
+
+The proposal builders read optional comma-separated `bytes32` lists named
+`<UNZEN|ETNA>_<SGX_GETH|SGX_RETH|RISC0|SP1>_<TRUST|UNTRUST>`. Each id becomes one action on the
+sub-verifier that the Unzen or EtnaInbox composite verifier names for that slot: `setMrEnclave` for
+the SGX slots, `setImageIdTrusted` for RISC0 and `setProgramTrusted` for SP1, each with `true` for
+`TRUST` and `false` for `UNTRUST`. Per slot the trusted ids come first. A list for a slot the
+composite lacks, a zero id, or an id that is both trusted and untrusted is refused. SGX instance
+registration, MRSIGNER trust and SecureSgxVerifier attribute policies are not covered; configure
+them separately, early enough that SGX instances are valid before the first proof that needs them.
+
+## Proposal 1: readiness
+
+`BuildEtnaSwitchProposals.readinessActions()` returns only the proposal's L1 actions: the `UNZEN_*`
+trust changes that register the Unzen SGX, RISC0 and SP1 images that take the inherited checkpoint
+from the parent block's anchor transaction, before either SignalService stores only roots. Before
+proposing, check both chains for third-party contracts that consume the hash `getCheckpoint`
+returns, which reads as zero after the upgrades. It refuses once the scheduling proposal has
+executed. The proposal's one L2 message to the `DelegateController` is
+not in that list: `BuildEtnaReadinessL2Message`, run against L2 with the `layer2` profile, logs its
+actions, and the proposal returns them from `BuildProposal.buildL2Actions`, which appends the L1
+`Bridge.sendMessage` action that carries them. The actions are `[checkBeforeUpgrade(proxy,
+preEtnaImpl), SignalService.upgradeTo(etnaImpl), checkAfterUpgrade(proxy, etnaImpl, codehash)]` on
+the L2 `EtnaSignalServiceUpgradeGuard`. The builder reads `UPGRADE_GUARD`, `L2_SIGNAL_SERVICE`,
+`PRE_ETNA_SIGNAL_SERVICE_IMPL`, `ETNA_SIGNAL_SERVICE_IMPL`, `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`.
+It requires the guard to hold exactly this build's code, the proxy to use
+`PRE_ETNA_SIGNAL_SERVICE_IMPL`, the `Anchor`'s checkpoint store to be the proxy, and
+`ETNA_SIGNAL_SERVICE_IMPL` to hold exactly this build's `EtnaSignalService` constructed with
+`ANCHOR_PROXY` as syncer, `L1_SIGNAL_SERVICE` as remote, the live proxy's pauser and
+`usesBeaconRoots` true; the postcondition pins that code hash. The message carries no deadline and
+no fork time, and no later proposal repeats it.
+
+The builder also checks the `EtnaStaking` deployment of step 2, which adds no action. It reads
+`ETNA_STAKING`, `ETNA_STAKING_IMPL`, `ETNA_STAKING_OWNER` (the DAO's execution address on L2),
+`ETNA_UNSETTLED_LIMIT` and `EVIDENCE_WINDOW_BLOCKS`, all required, and the `EtnaStaking`
+configuration of step 2. It requires `ETNA_STAKING` to hold the stock `ERC1967Proxy` code with
+`ETNA_STAKING_IMPL` in its EIP-1967 slot, its owner to be `ETNA_STAKING_OWNER` with no pending
+owner, `ETNA_STAKING_IMPL` to hold exactly this build's `EtnaStaking` constructed with that
+configuration (so its `inbox` is `INBOX_PROXY`), and its `withdrawalDelay` to be at least
+U + 2 + `EVIDENCE_WINDOW_BLOCKS`. Run it from the build that deployed `EtnaStaking`.
+
+Before authorizing proposal 2, take the L2 header of a proven Unzen checkpoint authenticated on
+finalized L1 and verify, under its stateRoot, with the account and storage proofs of
+`eth_getProof`:
+
+- both EIP-1967 implementation slots against the addresses the clients and guests build in: the L2
+  `SignalService` proxy's holds `ETNA_SIGNAL_SERVICE_IMPL` and `ETNA_STAKING`'s holds
+  `ETNA_STAKING_IMPL`;
+- the code hashes of `ETNA_STAKING` and `ETNA_STAKING_IMPL`: the stock `ERC1967Proxy` and this
+  build's `EtnaStaking` with the expected immutables, the code the readiness builder accepted;
+- the owner of `ETNA_STAKING` (slot 51) is the DAO's execution address on L2 and its pending owner
+  (slot 101) is zero.
+
+On the same finalized L1, check that `ETNA_INBOX_IMPLEMENTATION`, which proposal 2 installs,
+reports `etnaStaking()` equal to `ETNA_STAKING` and an `unsettledLimit()` U for which
+`ETNA_STAKING_IMPL`'s `withdrawalDelay` is at least U + 2 + the evidence window: `init` writes
+both into the config hash. Record the L1 block, the checkpoint and these proofs, both slot proofs
+included, with the proposal. A queued message, a receipt or an unfinalized checkpoint does not
+release this gate.
+
+## Proposal 2: scheduling
+
+`BuildEtnaSwitchProposals.schedulingActions()` additionally reads `SWITCH_GUARD`,
+`PROPOSAL_LEAD`, `UNZEN_INBOX_IMPLEMENTATION`, `SIGNAL_SERVICE_IMPLEMENTATION`,
+`ETNA_INBOX_IMPLEMENTATION`, the `init` variables of `DeployEtnaDevnet` and the trust lists. It
+requires the Unzen Inbox to still save into `SIGNAL_SERVICE`, the EtnaInbox to be on its bootstrap,
+`PROPOSAL_LEAD > FI_MARGIN` and the lead to be still available, the guard to have this build's code,
+and each Inbox implementation to report exactly the expected configuration. The L1 SignalService
+implementation's syncer and remote have no getters, so the builder rebuilds this build's
+`EtnaSignalService` runtime code with `INBOX_PROXY` as syncer, the L2 SignalService of `L2_CHAIN_ID`
+as remote, the live proxy's pauser and `usesBeaconRoots` false, sets its UUPS `__self` immutable
+from the artifact's `immutableReferences`, and requires it to equal the deployed code byte for byte
+(`script/shared/LibRebuiltCode.sol`); action 3 pins that code hash on chain. The actions are:
+
+| #    | Target           | Call                                                                                                    |
+| ---- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| 0    | guard            | `checkDeadline(ETNA_FORK_TIME, PROPOSAL_LEAD, FI_MARGIN)`                                               |
+| 1    | Unzen Inbox      | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                                 |
+| 2    | L1 SignalService | `upgradeTo(SIGNAL_SERVICE_IMPLEMENTATION)`                                                              |
+| 3    | guard            | `checkL1SignalService(SIGNAL_SERVICE, SIGNAL_SERVICE_IMPLEMENTATION, codehash)`                         |
+| 4    | EtnaInbox        | `upgradeToAndCall(ETNA_INBOX_IMPLEMENTATION, init(...))`, as `ownerUpgradeCall` returns                 |
+| 5…   | sub-verifiers    | the `UNZEN_*` pins for this schedule, then the `ETNA_*` image trust                                     |
+| last | guard            | `checkSchedule(UNZEN_INBOX, INBOX_PROXY, (ETNA_FORK_TIME, PROPOSE_MARGIN, FI_MARGIN), ORIGIN_MULTISIG)` |
+
+Executed later than `ETNA_FORK_TIME - PROPOSAL_LEAD`, the first action reverts and nothing is
+installed; executing exactly at the lead is on time. It also reverts unless
+`PROPOSAL_LEAD > FI_MARGIN`, so the batch can never execute at or after
+`ETNA_FORK_TIME - FI_MARGIN`, the forced-inclusion cutoff its Unzen Inbox upgrade installs (vector
+5d.f). Actions 1, 2 and 4 run in one transaction, so
+no Unzen `prove` lands between them. `init` does not write the start.
+
+## Postponement
+
+`BuildEtnaSwitchProposals.postponementActions()` reads the new `ETNA_FORK_TIME`, `PROPOSE_MARGIN`
+and `FI_MARGIN`, the new `PROPOSAL_LEAD`, `POSTPONEMENT_DEADLINE` (B), `SWITCH_GUARD`, the new
+`UNZEN_INBOX_IMPLEMENTATION` and `ETNA_INBOX_IMPLEMENTATION` and the trust lists. It reads the
+installed schedule from L1 and requires the scheduling proposal to have executed, the start to be
+unwritten, a later fork time whose lead is still available, `now < B` and B no later than the
+earlier installed cutoff, and implementations that keep every live configuration field except the
+schedule. Choose `B = min(C, oldForkTime - rolloutBudget)` as SWITCH.md section 7 describes. The
+actions are:
+
+| #    | Target        | Call                                                                                                             |
+| ---- | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0    | guard         | `checkPostponement(UNZEN_INBOX, INBOX_PROXY, oldSchedule, newSchedule, newProposalLead, B, unzenImpl, etnaImpl)` |
+| 1    | Unzen Inbox   | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                                          |
+| 2    | EtnaInbox     | `upgradeTo(ETNA_INBOX_IMPLEMENTATION)`                                                                           |
+| 3…   | sub-verifiers | the `UNZEN_*` then `ETNA_*` trust changes the new schedule needs                                                 |
+| last | guard         | `checkSchedule(UNZEN_INBOX, INBOX_PROXY, newSchedule, originMultisig)`                                           |
+
+There is no L2 action: no L2 contract holds the fork time. The batch reverts, leaving the old
+schedule in force, after the start write, when the live schedule is not the one it names, when
+either proxy no longer uses the implementation the builder read (so it cannot roll back a later
+upgrade), at or after B, or without the new lead. Keep the Unzen verifier able to prove every Unzen
+block through the new tip, including blocks at and after the old fork time.
+
+## EtnaSwitchGuard
+
+A stateless contract (`contracts/layer1/etna/switch/EtnaSwitchGuard.sol`); every time and schedule
+it checks is a parameter fixed in the batch. `Schedule` is `(uint48 etnaForkTime, uint48
+proposeMargin, uint48 fiMargin)`.
+
+- `checkDeadline(uint48 etnaForkTime, uint48 proposalLead, uint48 fiMargin)`:
+  `ProposalLeadNotAboveFiMargin` unless `proposalLead > fiMargin`; `ProposalLeadMissed` if
+  `block.timestamp + proposalLead > etnaForkTime`.
+- `checkL1SignalService(address signalService, address expectedImpl, bytes32 expectedCodeHash)`:
+  `UnexpectedImplementation` unless the proxy's `impl()` is `expectedImpl`; `UnexpectedCodeHash`
+  unless `expectedImpl.codehash` is `expectedCodeHash`; `BeaconRootsUsed` if the
+  `EtnaSignalService`'s `usesBeaconRoots()` is true. An implementation without that getter, such
+  as the Unzen `SignalService`, reverts.
+- `checkSchedule(address unzenInbox, address etnaInbox, Schedule schedule, address originMultisig)`:
+  `UnzenInboxMismatch`, `EtnaForkTimeMismatch`, `UnzenForkTimeMismatch`, `ProposeCutoffMismatch` or
+  `ForcedInclusionCutoffMismatch` unless the EtnaInbox names the Unzen Inbox and both hold the
+  schedule's fork time with the Unzen `proposeCutoff()` and `FI_CUTOFF()` its margins before it;
+  `CheckpointPathMismatch` unless the Unzen Inbox's `getConfig().signalService` is the EtnaInbox;
+  `OriginMultisigMismatch` unless the EtnaInbox's `originMultisig()` is `originMultisig`. The
+  postponement batch keeps the installed multisig and pins it the same way.
+- `checkPostponement(unzenInbox, etnaInbox, old, new, newProposalLead, deadline, unzenImpl, etnaImpl)`,
+  `newProposalLead` and `deadline` `uint48`: `StartAlreadyWritten` once `etnaStart()` has a hash,
+  the `checkSchedule` errors for `old`, `UnexpectedImplementation` unless both proxies' `impl()`
+  are still `unzenImpl` and `etnaImpl`, `PostponementDeadlinePassed` unless
+  `block.timestamp < deadline`, `DeadlineAfterCutoff` if the deadline is after the earlier of
+  `old`'s cutoffs, then `ForkTimeNotLater`, `ProposalLeadNotAboveFiMargin` and
+  `ProposalLeadMissed` for the new schedule.
+
+## Cutoffs and retained state
+
+`InboxWithEtnaCutoffs` keeps Unzen's storage and configuration except that `signalService` names the
+EtnaInbox. `propose` reverts from `proposeCutoff() = ETNA_FORK_TIME - PROPOSE_MARGIN` on and
+`saveForcedInclusion` from `FI_CUTOFF = ETNA_FORK_TIME - FI_MARGIN` on; `prove` and the bond
+functions are unchanged. Its constructor requires `PROPOSE_MARGIN >= 12`,
+`FI_MARGIN > PROPOSE_MARGIN + forcedInclusionDelay` and `FI_MARGIN < ETNA_FORK_TIME`. Choose the
+buffer and, for L1 slots shorter than 12 s, the margin as SWITCH.md section 3 describes.
+
+The L1 SignalService upgrade adds no storage and keeps `VERSION` 1, so the state roots of the
+checkpoints the Unzen Inbox saved stay readable; `getCheckpoint` returns their hash as zero. It
+accepts checkpoints only from the EtnaInbox and stores only their state roots. The EtnaInbox's
+`saveCheckpoint` forwards the Unzen Inbox's checkpoints at any height until the start is written
+and at none afterwards.
+
+## The start
+
+The scripts do not record the start. Once L1 reaches the fork time and Unzen's final proof has
+saved its checkpoint, the designated multisig, `ORIGIN_MULTISIG`, verifies that S is the height of
+Unzen's finalized tip and calls `EtnaInbox.setOrigin(S)`; any other caller is refused. It requires
+the Unzen `proposeCutoff()` to be nonzero and reached, every accepted Unzen proposal to be finalized
+with a nonzero `lastFinalizedBlockHash`, and a SignalService checkpoint at S with a nonzero state
+root, and writes that hash and that state root into the start (START-10-5a, LAND-6.1-8a). Nothing
+on L1 ties the hash to S: a wrong checkpointed height passes the one-time write, after which nodes
+and guests reject the start and Etna halts, so the multisig must check S before signing. Nodes
+start only from a finalized start-write block and check S's header, timestamp and L2
+`SignalService` implementation themselves (SYNC-9-5a).
+
+## Dedicated verifier inputs
+
+`DeployEtnaVerifiers.run()` reads `PRIVATE_KEY`, the required nonzero `CONTRACT_OWNER`,
+`L1_CHAIN_ID`, `L2_CHAIN_ID`, `DCAP_ATTESTATION`, `SGX_REGISTRAR` (zero allows permissionless SGX
+registration), `SGX_INSTANCE_VALIDITY_DELAY` (positive and at most the 90-day instance lifetime),
+`R0_GROTH16_VERIFIER` and `SP1_PLONK_VERIFIER`, and checks dependency code and chain identities. It
+creates a SecureSgxVerifier for SGX_RETH, RISC0 and SP1 instances and a `ZkRequiredVerifier` with
+SGX_GETH disabled, all with empty trust. Register SGX instances at least `instanceValidityDelay`
+ahead of the first landing that needs them, and not so early that they expire before it.
+
+## Tests
+
+```bash
+FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/Etna{SwitchGuard,UnzenCutoffs}.t.sol'
+FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/etna/DeployEtnaDevnet.t.sol
+FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/etna/{EtnaSignalServiceUpgradeGuard,DeployEtnaStaking}.t.sol'
+```
+
+The second runs `DeployEtnaSwitchScenarios`, which deploys with these scripts and executes the
+readiness, scheduling and postponement lists through a `MainnetDAOController` that owns the
+proxies, including late, stale and post-start batches and SignalService implementations or guards
+of another identity. The third relays the L2 message through the real Bridge, checks the L2
+builder's identity checks, including those of an `EtnaStaking` deployment, and runs
+`DeployEtnaStaking` through the CREATE2 factory.
+
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/797a708e57badb02dc4e974dcaf9167232aa2969/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/797a708e57badb02dc4e974dcaf9167232aa2969/packages/protocol/docs/etna/SWITCH.md

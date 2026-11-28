@@ -13,6 +13,9 @@ solc_version = "0.8.30"
 evm_version = "osaka"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
+# Invariant campaigns stay quick for local iteration; CI sets FOUNDRY_INVARIANT_RUNS=256 for the
+# full campaign. Suites keep their depth and revert policy inline.
+invariant = { runs = 64 }
 # Exclude genesis tests - they require special setup via genesis.test.sh
 no_match_path = "test/genesis/*"
 
@@ -63,6 +66,8 @@ fs_permissions = [
     { access = "read", path = "./test" },
     { access = "read", path = "./script/" },
     { access = "read", path = "./genesis" },
+    # The Etna vectors shared with taiko-client-rs (testdata/etna_vectors/README.md).
+    { access = "read", path = "../../testdata/etna_vectors" },
 ]
 
 # 2394: Transient storage warning
@@ -157,3 +162,7 @@ out = "out/genesis"
 cache_path = "cache/genesis"
 # Must match profile.layer2 — this profile builds the same L2 contracts into the genesis alloc.
 evm_version = "osaka"
+# Profiles inherit the default `no_match_path`, which excludes test/genesis/*: genesis.test.sh's
+# `--match-path test/genesis/GenerateGenesis.g.sol` would then match nothing and pass. Override it
+# with a path no test uses.
+no_match_path = "test/genesis/__none__/*"

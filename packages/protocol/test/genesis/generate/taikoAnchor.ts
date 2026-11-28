@@ -1,4 +1,4 @@
-import { Config, Result } from "./interface";
+import { Config, EtnaConfig, Result } from "./interface";
 const path = require("path");
 const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
@@ -15,7 +15,25 @@ export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, l1ChainId, chainId, seedAccounts } = config;
+    const { contractOwner, l1ChainId, usesBeaconRoots, chainId, seedAccounts } =
+        config;
+
+    // An Etna network's L2 SignalService is the `EtnaSignalService`, which stores only state roots,
+    // and its `usesBeaconRoots` immutable must be set: false keeps checkpoints as its only root
+    // source, and a new Etna network needs true (Etna SPEC START-10-5). The immutable is a bool,
+    // patched as a 32-byte word 0 or 1, so anything but a boolean is refused. Any other network
+    // keeps the `SignalService`, which has no such flag.
+    if (config.etna !== undefined) {
+        if (typeof usesBeaconRoots !== "boolean") {
+            throw new Error(
+                "genesis config: usesBeaconRoots must be a boolean",
+            );
+        }
+    } else if (usesBeaconRoots !== undefined) {
+        throw new Error(
+            "genesis config: usesBeaconRoots is only for an Etna configuration",
+        );
+    }
 
     const alloc: any = {};
 
@@ -42,10 +60,12 @@ export async function deployTaikoAnchor(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
+        usesBeaconRoots,
         chainId,
         config.contractAddresses,
         config.param1559,
         config.remoteSignalService,
+        config.etna,
     );
 
     const storageLayouts: any = {};
@@ -117,10 +137,12 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
+    usesBeaconRoots: boolean | undefined,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
     remoteSignalService: string,
+    etna: EtnaConfig | undefined,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -138,7 +160,12 @@ async function generateContractConfigs(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
         SignalServiceImpl: require(
-            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
+            path.join(
+                ARTIFACTS_PATH,
+                etna
+                    ? "./EtnaSignalService.sol/EtnaSignalService.json"
+                    : "./SignalService.sol/SignalService.json",
+            ),
         ),
         SharedResolverImpl: require(
             path.join(
@@ -223,6 +250,10 @@ async function generateContractConfigs(
         "SignalService",
         ["_authorizedSyncer", "_remoteSignalService"],
     );
+    // EtnaSignalService declares `usesBeaconRoots`; SignalService has no such immutable.
+    const etnaSignalServiceReferencesMap: any = etna
+        ? getImmutableReference("EtnaSignalService", ["usesBeaconRoots"])
+        : undefined;
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         const bytecode = (artifact as any).bytecode;
@@ -389,16 +420,39 @@ async function generateContractConfigs(
             address: addressMap.ERC20Vault,
             deployedBytecode:
                 contractArtifacts.ERC20Vault.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 2, // _TRUE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-            },
+            variables: Object.assign(
+                {
+                    // EssentialContract
+                    __reentry: 1, // _FALSE
+                    __paused: 2, // _TRUE
+                    // EssentialContract => UUPSUpgradeable => Initializable
+                    _initialized: 1,
+                    _initializing: false,
+                    // EssentialContract => Ownable2StepUpgradeable
+                    _owner: contractOwner,
+                },
+                // ERC20Vault: on a new Etna network, TAIKO from L1 bridges to the bridged TAIKO
+                // predeploy, the staking token, instead of to a new BridgedERC20.
+                etna
+                    ? {
+                          bridgedToCanonical: {
+                              [hardCodedAddresses.BridgedTaikoToken]: {
+                                  chainId: l1ChainId,
+                                  addr: etna.l1TaikoToken,
+                                  decimals: 18,
+                                  symbol: "TAIKO",
+                                  name: "Taiko Token",
+                              },
+                          },
+                          canonicalToBridged: {
+                              [l1ChainId]: {
+                                  [etna.l1TaikoToken]:
+                                      hardCodedAddresses.BridgedTaikoToken,
+                              },
+                          },
+                      }
+                    : {},
+            ),
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
             },
@@ -587,6 +641,18 @@ async function generateContractConfigs(
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
+                    ...(etna
+                        ? [
+                              {
+                                  id: etnaSignalServiceReferencesMap
+                                      .usesBeaconRoots.id,
+                                  value: ethers.utils.hexZeroPad(
+                                      usesBeaconRoots ? "0x01" : "0x00",
+                                      32,
+                                  ),
+                              },
+                          ]
+                        : []),
                 ]),
                 addressMap,
             ),
@@ -617,6 +683,13 @@ async function generateContractConfigs(
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
+                        ),
+                    },
                     {
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
@@ -754,7 +827,7 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
     return result;
 }
 
-function getImmutableReference(
+export function getImmutableReference(
     contractName: string,
     immutableValueNames: Array<string>,
     artifactsPath = ARTIFACTS_PATH,
@@ -839,7 +912,7 @@ function getImmutableReference(
     return references;
 }
 
-function replaceImmutableValues(artifact: any, maps: Array<any>): any {
+export function replaceImmutableValues(artifact: any, maps: Array<any>): any {
     for (let i = 0; i < maps.length; i++) {
         artifact = replaceImmutableValue(artifact, maps[i].id, maps[i].value);
     }

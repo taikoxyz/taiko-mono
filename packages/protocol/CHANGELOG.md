@@ -1,5 +1,162 @@
 # Changelog
 
+## Unreleased
+
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the Etna contracts are added. On L1, `EtnaInbox`
+  (`IEtnaInbox`), its first implementation `EtnaInboxBootstrap` and `LibEtnaForcedInclusion`; on L2,
+  `EtnaStaking` (`IEtnaStaking`), `EtnaStakingDeployer` and `LibCometVote`
+  (`contracts/layer2/etna/libs`); and `LibEtnaKeys` (`contracts/shared/etna`), which both use.
+  Staking is on L2: `EtnaStaking` holds the bonds and writes the candidate snapshot, and the Inbox
+  holds the DAO fallback key set and `minTotalStake`. Inbox slot 284 is reserved and never read or
+  written.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): `EtnaStaking` holds bonds of bridged TAIKO in at most
+  128 seats: a bond takes the lowest empty seat while it is unwithdrawn, has no exit and holds at
+  least `minStake`. `register`, `topUp`, `requestExit`, `withdraw`, `slashDoubleSign` (selector
+  `0xd61617a4`; the chain domain binds the immutable L1 chain id and `block.chainid`) and the
+  owner's `forfeit` take bond ids, and a top-up or an exit takes effect in its own call, with no
+  separate activation or confirmation. The system caller's
+  `onBlockStart(uint48 generation, uint128 missBitmap)` runs at the start of every Etna block: it
+  counts consecutive misses, penalizes a seat at `missLimit` by `missSlashBps` of its stake
+  (superseded by the `missReleaseLimit` entry below, at fbc7a5162), paying all penalties to
+  `slashSink` in one transfer, and writes the candidate snapshot (128 seat records,
+  `snapshotTotalStake`, `snapshotHeight`) under the ERC-7201 namespace
+  `taiko.etna.staking`. The proof of possession signs an EIP-712 domain named `EtnaStaking`, on the
+  L2 chain and the staking proxy. `forfeit(bondId, incidentId, validUntil)`, `forfeited(bondId)` and
+  `Forfeited(bondId, incidentId, balanceBefore, penalty)` are keyed by the bond id, and
+  `slashDoubleSign` checks both signers through the lifetime key lookup `bondForKey` without
+  decompressing the stored key. The constructor checks every immutable and refuses a `slashSink`
+  equal to `token` (`SlashSinkIsToken`), since a bridged token may refuse transfers to its own
+  address, which would make every slash, forfeiture and penalty revert.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the Inbox holds the DAO fallback key set and
+  `minTotalStake`. Slot 278 is `fallbackKeysHash` and slot 279 `minTotalStake`, and the list itself
+  is the dynamic array at slot 275. `setFallbackKeys(FallbackKey[])` (1 to 128 keys, strictly
+  ascending by `ckPrefix ‖ ckX`, `InvalidFallbackKeys`), `setMinTotalStake(uint256)`,
+  `getFallbackKeys()`, `fallbackKeysHash()`, `minTotalStake()`,
+  `FallbackKeysUpdated(bytes32 indexed, FallbackKey[])` and `MinTotalStakeUpdated(uint256)` manage
+  them. `InitParams` carries the initial `fallbackKeys` and `minTotalStake`, and `init` emits both
+  events, in the setters' order.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): `configHash()` (slot 269) is keccak256 of the four
+  words `bytes32("ETNA_CONFIG_V1")`, the L2 chain id, the `EtnaStaking` proxy and U.
+  `IEtnaInbox.Config` holds `etnaStaking` and `unsettledLimit` (U in [1, 262,144],
+  `InvalidUnsettledLimit`), both immutables with views, and `EtnaInitialized(configHash,
+  etnaStaking, unsettledLimit)` reports them.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the landing statement has 19 words (608 bytes) and
+  `LandInput` seven fields (`land` selector `0x5185fd7a`), and `maxBatchBlocks` may reach 12,952.
+  `Landed(parentHeight, checkpointHeight, lastHeight, cutHash, version)` reports a landing, and
+  `Recovered(newGeneration, checkpointHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash,
+  fiToClear)` a recovery, with the new origin's fallback key hash.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the owner's `recover(expectedGeneration, expectedC,
+  expectedRecoveryNonce, validUntil, fiToClear, rules)` starts a new generation, and a slot 290
+  origin (`IEtnaInbox.Origin`) has four words, the fourth the slot 278 value when the record is
+  written: the fallback keys that sign the generation's first two blocks. `scheduleRules` and `scheduleStop`
+  take `expectedGeneration` first and revert `GenerationMismatch` for any other generation.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the shared vectors in `testdata/etna_vectors` are
+  schema 10 (schema 11 since the `missReleaseLimit` entry below, at fbc7a5162). In
+  `val_state_chains`, validator updates come at any height FinalizeBlock returns them, and the
+  largest set has 128 members. `extra_data` is 29 bytes,
+  `0x64 ‖ uint48 generation ‖ uint48 anchor number ‖ uint128 missBitmap`, and each case carries its
+  `miss_bitmap` and the 68-byte `on_block_start_calldata` (selector `0xea987592`). Among the
+  families, `config` pins the config hash, `fallback_keys` the fallback key set, `staking_layout`
+  the staking storage, `on_block_start` the block-start call, and `miss_bitmap` and `candidate` the
+  nodes' and guests' missBitmap and candidate rules.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): a new network's genesis predeploys `EtnaStaking` at
+  `getConstantAddress(chainId, 10003)` and its token, `BridgedTaikoToken`, at
+  `getConstantAddress(chainId, 7)` (each implementation under the prefix "0"), configured by the
+  genesis config's `etna` block, and maps the token to L1 TAIKO in the ERC20Vault. A premint of
+  unbacked L2 TAIKO needs `etna.devnet` true, which the generator refuses on chains 167000, 167009
+  and 167013. `build_etna_genesis.py` requires `--l1-inbox` and `--l1-taiko-token` and checks both
+  predeploys; `genesis_config_etna.js` is the example devnet configuration.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): `DeployEtnaStaking` deploys `EtnaStaking` on a
+  switching network's L2 in one CREATE2 factory transaction, through `EtnaStakingDeployer`, at the
+  addresses `predict` gives. `BuildEtnaReadinessL2Message` also requires `ETNA_STAKING`,
+  `ETNA_STAKING_IMPL`, `ETNA_STAKING_OWNER`, `ETNA_UNSETTLED_LIMIT` and `EVIDENCE_WINDOW_BLOCKS` and
+  checks the deployment's proxy and implementation code, owner and withdrawal bound.
+  `DeployEtnaDevnet` and `DeployEtnaSwitch` read `ETNA_STAKING`, and `init` reads
+  `ETNA_FALLBACK_KEYS` and `ETNA_MIN_TOTAL_STAKE`.
+- Etna (BREAKING, spec #22425 at 178d7a7a6): the reference and default `minStake` is 7,812,500
+  TAIKO, so that 128 seats cover TAIKO's 10^27 supply.
+- Etna (BREAKING, spec #22425 at 556c7f1ca): `DeployEtnaStaking` defaults `missLimit` to 21,600 L2
+  blocks, about one day at 4 s blocks, and `missSlashBps` to 100, the specification's references.
+  The example devnet configuration and the shared vectors keep 3,600 and 1,000.
+  `withdrawalDelay` counts L2 blocks and must be at least U + 2 + the evidence window, which
+  `DeployEtnaStaking`, the readiness builder and the genesis tooling check.
+- Etna (BREAKING, spec #22425 at fbc7a5162): `IEtnaStaking.Config` gains `missReleaseLimit` right
+  after `missSlashBps`, an immutable with the view `missReleaseLimit()` (`0x4d6a07ee`), and the
+  constructor requires 1 ≤ `missLimit` ≤ `missReleaseLimit` ≤ 65,535, so the constructor ABI and
+  the implementation's bytecode change. `onBlockStart` no longer resets a seat's miss count at a
+  penalty: it penalizes at every positive multiple of `missLimit`, then releases the seat of each
+  bond that a penalty left below `minStake` or whose count reached `missReleaseLimit`, setting no
+  exit, deducting nothing more and emitting nothing; such a bond takes a seat again with a top-up
+  of any amount. `DeployEtnaStaking` reads `ETNA_MISS_RELEASE_LIMIT` (default 64,800, the
+  reference), and the genesis config's `etna` block needs `missReleaseLimit` (10,800 in the
+  example devnet configuration), which the genesis generator and builder check and pin. The shared
+  vectors move to schema 11: `deployment` and `on_block_start.deployment` gain
+  `miss_release_limit`, a case may override it, prior calls may take penalties, and six cases
+  cover repeated penalties and releases.
+- Etna (spec #22425 at 797a708e5): no contract or vector change. Since fbc7a5162 the spec states
+  that a failed block-start call, including a generation's first after a recovery, counts no miss
+  and resets no count (RECOV-8-59), which `onBlockStart` already does; that a penalty leaving a
+  bond its seat changes the signing set only by lowering its power or the total; and that a call to
+  a staking address without code removes an empty account there (EIP-161, CONS-3.2-13), which is
+  EL behaviour. The Etna READMEs link the spec at `797a708e5`, and `EtnaStakingOnBlockStart` adds
+  tests for vectors 8 59.e–59.i and 20.h and asserts 20.i's power before the penalty.
+- Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the
+  new `EtnaSignalService` (`contracts/shared/signal`), which stores only the counterpart chain's
+  state root per checkpoint height. `SignalService` keeps its `(syncer, remote, pauser)`
+  constructor and gains the virtual hooks `_storeCheckpoint`, `_getCheckpoint` and `_getStateRoot`
+  (`_checkpoints` becomes internal); the Shasta prove gas rises by 17 per case.
+  `EtnaSignalService` takes a fourth constructor argument, `bool usesBeaconRoots`: false on L1,
+  true on L2. It writes only the stateRoot word of the `VERSION` 1 record, leaving the old hash
+  word in place, accepts a zero hash, and `getCheckpoint` returns a zero `blockHash`, also for
+  records written before the upgrade, while `CheckpointSaved` still emits the caller's hash; the
+  new `getStateRoot(uint64)` returns the root a proof is checked against. With `usesBeaconRoots`
+  true, `saveCheckpoint` accepts a checkpoint only in a block whose own EIP-4788 root reads as zero:
+  every block before Etna and none from Etna on, and a failed read rejects
+  (`SS_CHECKPOINTS_CLOSED`). Proof roots resolve from a checkpoint first and, on L2, otherwise from
+  EIP-4788 (`blockId` an Etna block's full L2 timestamp), so checkpoints saved before the fork stay
+  provable after it; missing roots revert `SS_CHECKPOINT_NOT_FOUND`. No contract holds the Etna fork
+  time. Every Etna deployment uses `EtnaSignalService`: the L1 SignalService behind the EtnaInbox
+  (`DeployEtnaDevnet`, `DeployEtnaSwitch`, checked by `EtnaSwitchGuard.checkL1SignalService`), the
+  L2 upgrade (`DeployShastaL2Contracts`, `EtnaSignalServiceUpgradeGuard`,
+  `LibEtnaReadinessL2Message`) and a new network's genesis, where the generator's `etna` block
+  selects it and requires `usesBeaconRoots` and `build_etna_genesis.py` requires its runtime; the
+  default genesis and the Shasta scripts keep `SignalService`. The `Anchor` is unchanged, and the
+  switching L1 SignalService accepts checkpoints only from the Etna Inbox, which forwards the Unzen
+  Inbox's until the start write.
+- Etna (BREAKING): the switch tooling checks code identity. `BuildEtnaSwitchProposals` and
+  `BuildEtnaReadinessL2Message` rebuild the L1 and L2 `EtnaSignalService` implementations' runtime
+  code from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from
+  the artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
+  byte, and require both guards to hold exactly this build's code; the L2 builder runs against L2
+  and reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
+  and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
+  hash and revert `UnexpectedCodeHash` on any other code.
+- Etna (BREAKING): `EtnaSwitchGuard.checkDeadline` takes the batch's `FI_MARGIN` and reverts
+  `ProposalLeadNotAboveFiMargin` unless `PROPOSAL_LEAD` exceeds it, so the scheduling batch reverts
+  on chain at or after `ETNA_FORK_TIME - FI_MARGIN` (vector 5d.f); `checkPostponement` takes the
+  whole new schedule and applies the same rule to it.
+- Etna (BREAKING): `EtnaSwitchGuard.checkPostponement` also takes the Unzen Inbox's and the
+  EtnaInbox's current implementations, which `BuildEtnaSwitchProposals` reads when it builds the
+  batch, and reverts `UnexpectedImplementation` if either proxy has been upgraded since, so a
+  postponement cannot silently roll back another upgrade.
+- Etna (BREAKING, spec #22425 at b01356ddc9): only the designated multisig may call
+  `setOrigin(uint48 s)`, which checks the caller first (`NotOriginMultisig`). `IEtnaInbox.Config`
+  gains `originMultisig` after `etnaForkTime`, an immutable with the view `originMultisig()`,
+  non-zero exactly on a switching network (`InvalidSwitchConfig`) and not part of the config hash.
+  `setOrigin` reads the upgraded Unzen Inbox's `proposeCutoff()` (`InboxWithEtnaCutoffs`) and
+  `getCoreState()`, takes the start's hash from Unzen's non-zero `lastFinalizedBlockHash`
+  (`UnzenTipHashZero`) and its state root from the SignalService checkpoint at S (`NotSwitching`,
+  `ProposalsNotClosed`, `UnzenNotFinalized`, `InvalidStart`), and no longer compares hashes:
+  `UnzenStartMismatch` is removed, so a wrong checkpointed S passes the one-time write and nodes
+  and guests reject it later. `land` reads no Unzen state. The Unzen checkpoint forwarder
+  `saveCheckpoint` reverts `ForwardingClosed` at every height once the start is written.
+  `DeployEtnaSwitch` reads `ORIGIN_MULTISIG`, and `EtnaSwitchGuard.checkSchedule` takes the
+  expected multisig as a fourth argument and reverts `OriginMultisigMismatch` on another one.
+- Etna (BREAKING): double-sign evidence keeps stock CometBFT's encoding of present all-zero BlockID
+  hashes. `Vote.blockHash` and `Vote.partsHash` are `bytes` of length 0 or 32, so an empty hash and
+  a present all-zero hash have different sign bytes; `EtnaStaking.slashDoubleSign` takes this ABI,
+  and `votes.slash_abi` in the vectors pins its calldata.
+
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
 > Released from the `taiko-alethia-protocol-v3.0.0` branch (tag: [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.1.0)). This release consists of the security hardening and recovery changes made in response to the June 2026 mainnet incident.

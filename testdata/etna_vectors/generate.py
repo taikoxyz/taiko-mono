@@ -1,0 +1,4011 @@
+#!/usr/bin/env python3
+"""Regenerates testdata/etna_vectors/vectors.json (schema "10").
+
+Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's
+dependencies installed (the output is formatted with the repository root's
+`node_modules/.bin/prettier`, run directly):
+
+    python3 -I testdata/etna_vectors/generate.py
+
+Every ABI encoding, hash and storage slot below is computed by `cast` (`abi-encode`, including
+`--packed` for extraData, `keccak`, `index`, `index-erc7201`, `format-bytes32-string`, `sig`,
+`calldata`, `wallet address`), independently of the Solidity contracts and of taiko-client-rs,
+which both read the output. The secp256k1 public keys come from a small pure-Python helper and
+are cross-checked against `cast wallet address`; key decompression follows appendix A and is
+checked against the curve equation. Proof-of-possession signatures for the L2 staking contract's
+registration digest come from `cast wallet sign --no-hash`, are checked with `cast wallet verify`
+and a pure-Python ecrecover, and each digest is checked against cast's own EIP-712 hashing
+(`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
+from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
+separate Python encoder written from appendix A, and each signature must recover to the key's
+address over keccak256 of the sign bytes and equal cast's signature of that digest. Validator states
+come from stock CometBFT v0.40.0 committing blocks (`valgen/`, run with `go run`); every state must
+equal `valset_model.py`, a separate Python reading of CometBFT's validator-set arithmetic, and every
+preimage and hash must equal `cast abi-encode` and `cast keccak` of its entries. Forced-inclusion
+eligibility cases (spec 7.2) are RLP-encoded in Python and signed with `cast wallet sign --no-hash`
+over `cast keccak` signing hashes (EIP-7702 tuples must equal `cast wallet sign-auth`); each case is
+classified again from its bytes, an ineligible case must break only the rule it is labelled with,
+and the written file is checked against go-ethereum v1.15.5 (`ficheck/`, run with `go run`).
+Every literal hash and byte string that the spec's appendix A vectors list is recomputed
+(`appendix_a_examples`), and generation stops if one differs. The staking contract's block-start
+call, the missBitmap a block sets and the candidate decision (spec 3.4, 4.1-4.3) are small Python
+models written from the spec, and `test_vectors.py` decides every case again with models of its
+own. Only the inputs, the packing table and the storage slot numbers are written by hand,
+following the Etna spec's appendix A (encodings) and appendix B (storage layout). All integers
+are decimal strings so that every value survives JSON parsing exactly.
+"""
+
+import base64
+import concurrent.futures
+import functools
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+HERE = pathlib.Path(__file__).resolve().parent
+# `python3 -I` leaves the script's own directory off sys.path.
+sys.path.insert(0, str(HERE))
+
+import valset_model  # noqa: E402
+
+ROOT = HERE.parents[1]
+OUTPUT = HERE / "vectors.json"
+# The repository's prettier, run directly rather than through a package manager.
+PRETTIER = ROOT / "node_modules" / ".bin" / "prettier"
+
+WORD_MOD = 2**256
+U48_MAX = 2**48 - 1
+NO_EXIT = U48_MAX  # exitHeight = 2^48 - 1 means no exit is set
+FI_STEP = 6  # the cut model's FI cursor advances once every FI_STEP heights
+
+# secp256k1 curve parameters (SEC 2).
+SECP_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+SECP_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+SECP_G = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+    0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8,
+)
+
+TAIKO = 10**18  # base units per TAIKO
+TAIKO_SUPPLY = 10**9 * TAIKO  # TAIKO's fixed total supply, 10^27 base units (4.3)
+MAX_TOTAL_VOTING_POWER = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower, appendix A's MAX
+MAX_SIGNING_SET = 128  # the most members any set that signs a block has, whatever n_max is (4.3)
+
+
+def constant_address(prefix, suffix):
+    """The genesis predeploy address `getConstantAddress(prefix, suffix)`: the prefix's digits,
+    zeros, then the suffix's digits, forty hex digits in all."""
+    digits = str(prefix) + str(suffix).rjust(40 - len(str(prefix)), "0")
+    assert len(digits) == 40, digits
+    return "0x" + digits
+
+
+L2_CHAIN_ID = 167_001
+DEPLOYMENT = {
+    "l1_chain_id": 1,
+    "l2_chain_id": L2_CHAIN_ID,
+    "inbox": "0x1111111111111111111111111111111111111111",
+    # The EtnaStaking proxy and the bridged TAIKO token: the L2 chain's genesis predeploys.
+    "staking": constant_address(L2_CHAIN_ID, 10_003),
+    "token": constant_address(L2_CHAIN_ID, 7),
+    "l2_block_gas_limit": 45_000_000,
+    # The staking contract's immutables (spec 11): the registration minimum, the power unit and
+    # the number of seats at their reference values; the miss limit, the miss release limit and
+    # the three penalty rates, at the values of the client's test devnet (the miss limit's and the
+    # release limit's references are 21,600 and 64,800, the miss penalty's 100).
+    "min_stake": 7_812_500 * TAIKO,
+    "vp_unit": 10**9,
+    "n_max": 128,
+    "miss_limit": 3_600,
+    "miss_slash_bps": 1_000,
+    "miss_release_limit": 10_800,
+    "slash_bounty_bps": 1_000,
+    "forfeit_bps": 1_000,
+    # In L2 blocks: U + 2 + the evidence window.
+    "withdrawal_delay": 302_402,
+    # U, the config hash's fourth word and the Inbox's unsettledLimit, and the evidence window.
+    "unsettled_limit": 151_200,
+    "evidence_window_blocks": 151_200,
+    # A new network: the Etna start S is block 0 and the switch immutables are zero (spec 10, 11).
+    "etna_start": 0,
+    "unzen_inbox": "0x" + "00" * 20,
+    "etna_fork_time": 0,
+}
+assert DEPLOYMENT["staking"] == "0x1670010000000000000000000000000000010003"
+assert DEPLOYMENT["token"] == "0x1670010000000000000000000000000000000007"
+# The staking contract's bounds (spec 11): vp_unit is at least ceil(10^27 / MaxTotalVotingPower);
+# minStake is at least vp_unit, and n_max seats at minStake hold at least 10^27 base units;
+# 1 <= n_max <= 128 and 1 <= missLimit <= missReleaseLimit <= 65,535; missSlashBps and forfeitBps
+# are in (0, 10,000]
+# and slashBountyBps is below 10,000; 1 <= U <= 262,144; withdrawalDelay is at least U + 2 + the
+# evidence window and below 2^48.
+assert DEPLOYMENT["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER) == 867_361_738
+assert DEPLOYMENT["min_stake"] >= DEPLOYMENT["vp_unit"]
+assert DEPLOYMENT["n_max"] * DEPLOYMENT["min_stake"] >= TAIKO_SUPPLY
+assert 1 <= DEPLOYMENT["n_max"] <= 128
+assert 1 <= DEPLOYMENT["miss_limit"] <= DEPLOYMENT["miss_release_limit"] <= 65_535
+assert 0 < DEPLOYMENT["miss_slash_bps"] <= 10_000 and 0 < DEPLOYMENT["forfeit_bps"] <= 10_000
+assert DEPLOYMENT["slash_bounty_bps"] < 10_000 and 1 <= DEPLOYMENT["unsettled_limit"] <= 262_144
+assert (
+    DEPLOYMENT["unsettled_limit"] + 2 + DEPLOYMENT["evidence_window_blocks"]
+    <= DEPLOYMENT["withdrawal_delay"]
+    < 2**48
+)
+OTHER_INBOX = "0x3333333333333333333333333333333333333333"
+
+# Registration (spec 4.1, appendix A): EIP-712 domain and type, and the two registering owners.
+EIP712_DOMAIN_TYPE = (
+    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+)
+EIP712_NAME = "EtnaStaking"
+EIP712_VERSION = "1"
+REGISTER_TYPE = "Register(address owner)"
+OWNERS = ("0x" + "aa" * 20, "0x" + "bb" * 20)
+
+
+def cast(*args):
+    return subprocess.check_output(["cast", *map(str, args)], text=True).strip()
+
+
+def keccak(data):
+    return cast("keccak", data)
+
+
+def abi_encode(signature, *args):
+    return cast("abi-encode", signature, *args)
+
+
+@functools.cache
+def tag(name):
+    """A domain tag as one static `bytes32` word: its ASCII bytes right-padded with zeros (ENC-A-5).
+    Every tagged hash below passes this word as its first `bytes32` argument, never a string."""
+    word32 = cast("format-bytes32-string", name)
+    assert word32 == "0x" + name.encode("ascii").ljust(32, b"\0").hex(), name
+    return word32
+
+
+def word(value):
+    """A 32-byte big-endian word."""
+    return "0x" + format(value % WORD_MOD, "064x")
+
+
+def concat(*hexes):
+    return "0x" + "".join(h[2:] for h in hexes)
+
+
+def dec(value):
+    return str(value)
+
+
+def decimals(value):
+    """`value` with every integer, at any depth, as a decimal string (booleans stay booleans and
+    `None` stays null)."""
+    if isinstance(value, dict):
+        return {k: decimals(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [decimals(v) for v in value]
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    return dec(value)
+
+
+# --- secp256k1 -----------------------------------------------------------------------------------
+
+
+def _add(a, b):
+    """Affine point addition; `None` is the point at infinity."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    (x1, y1), (x2, y2) = a, b
+    if x1 == x2 and (y1 + y2) % SECP_P == 0:
+        return None
+    if a == b:
+        slope = 3 * x1 * x1 * pow(2 * y1, -1, SECP_P) % SECP_P
+    else:
+        slope = (y2 - y1) * pow(x2 - x1, -1, SECP_P) % SECP_P
+    x3 = (slope * slope - x1 - x2) % SECP_P
+    return x3, (slope * (x1 - x3) - y1) % SECP_P
+
+
+def _mul(addend, k):
+    """`k·addend` by double-and-add; `k = 0` gives the point at infinity."""
+    result = None
+    while k:
+        if k & 1:
+            result = _add(result, addend)
+        addend = _add(addend, addend)
+        k >>= 1
+    return result
+
+
+def point(k):
+    """`k·G`."""
+    assert 1 <= k < SECP_N
+    return _mul(SECP_G, k)
+
+
+def compress(x, y):
+    """SEC1 compressed encoding: `0x02 | (y & 1)` followed by the 32-byte big-endian X."""
+    return bytes([2 + (y & 1)]) + x.to_bytes(32, "big")
+
+
+def on_curve(x, y):
+    return 0 <= x < SECP_P and 0 <= y < SECP_P and (y * y - x**3 - 7) % SECP_P == 0
+
+
+def decompress(public_key):
+    """Appendix A: `(ckX, ckY)` of a 33-byte `ckPrefix || ckX`, or `None` when it is rejected.
+
+    X is never reduced mod p; `y0 = (x^3 + 7)^((p + 1) / 4)` must square back to `x^3 + 7`, and the
+    root with the prefix's parity is taken.
+    """
+    if len(public_key) != 33 or public_key[0] not in (2, 3):
+        return None
+    x = int.from_bytes(public_key[1:], "big")
+    if x >= SECP_P:
+        return None
+    a = (x**3 + 7) % SECP_P
+    y0 = pow(a, (SECP_P + 1) // 4, SECP_P)
+    if y0 * y0 % SECP_P != a:
+        return None
+    y = y0 if y0 % 2 == public_key[0] - 2 else SECP_P - y0
+    assert on_curve(x, y) and y & 1 == public_key[0] - 2
+    assert compress(x, y) == public_key
+    return x, y
+
+
+def address_of(x, y):
+    """`keccak256(uint256_be(x) || uint256_be(y))[12:]`."""
+    return "0x" + keccak(concat(word(x), word(y)))[-40:]
+
+
+def ecrecover(digest, r, s, v):
+    """`ecrecover(digest, v + 27, r, s)` for V in {0, 1}: the signer address, or `None` (zero)."""
+    if not (0 < r < SECP_N and 0 < s < SECP_N and v in (0, 1)):
+        return None
+    big_r = decompress(bytes([2 + v]) + r.to_bytes(32, "big"))
+    if big_r is None:
+        return None
+    r_inv = pow(r, -1, SECP_N)
+    z = int(digest, 16)
+    q = _add(_mul(big_r, s * r_inv % SECP_N), _mul(SECP_G, -z * r_inv % SECP_N))
+    return None if q is None else address_of(*q)
+
+
+# --- deployment and keys -------------------------------------------------------------------------
+
+
+def deployment():
+    return decimals(DEPLOYMENT)
+
+
+def leading_zero_x_scalar():
+    """The first scalar k >= 1 whose public key X has a zero top byte."""
+    k, current = 1, SECP_G
+    while current[0] >> 248:
+        k += 1
+        current = _add(current, SECP_G)
+    assert point(k) == current
+    return k
+
+
+def consensus_key(name, k):
+    """The key with private scalar k: its compressed encoding, ckPrefix, ckX, ckY and ckAddr, the
+    address checked against `cast wallet address`."""
+    x, y = point(k)
+    private_key = word(k)
+    ck_x, ck_y = word(x), word(y)
+    ck_addr = "0x" + keccak(concat(ck_x, ck_y))[-40:]
+    assert ck_addr == cast("wallet", "address", "--private-key", private_key).lower(), name
+    return {
+        "name": name,
+        "private_key": private_key,
+        "public_key": "0x" + compress(x, y).hex(),
+        "ck_prefix": 2 + (y & 1),
+        "ck_x": ck_x,
+        "ck_y": ck_y,
+        "ck_addr": ck_addr,
+    }
+
+
+def keys():
+    """Consensus keys 0xA1..0xA5 plus the first key whose X starts with a zero byte."""
+    scalars = [(f"a{i}", 0xA0 + i) for i in range(1, 6)]
+    scalars.append(("leading_zero_x", leading_zero_x_scalar()))
+    return decimals([consensus_key(name, k) for name, k in scalars])
+
+
+# --- key decompression and registration PoPs -----------------------------------------------------
+
+
+def smallest_off_curve_x():
+    """The smallest X >= 1 that is not the X of any curve point."""
+    x = 1
+    while decompress(bytes([2]) + x.to_bytes(32, "big")) is not None:
+        x += 1
+    return x
+
+
+def key_decompression(key_list):
+    """Each key decoded from its own prefix and from the other one (the negated point), and the
+    inputs registration rejects. The malformed encodings reuse key a1's coordinates."""
+    cases = []
+    for key in key_list:
+        x, y = int(key["ck_x"], 16), int(key["ck_y"], 16)
+        own = compress(x, y)
+        flipped = bytes([own[0] ^ 1]) + own[1:]
+        for name, public_key, expected_y in (
+            (key["name"], own, y),
+            ("parity_flip_" + key["name"], flipped, SECP_P - y),
+        ):
+            decoded = decompress(public_key)
+            assert decoded == (x, expected_y), name
+            ck_addr = address_of(x, expected_y)
+            assert (ck_addr == key["ck_addr"]) == (public_key == own), name
+            cases.append(
+                {
+                    "name": name,
+                    "public_key": "0x" + public_key.hex(),
+                    "valid": True,
+                    "ck_y": word(expected_y),
+                    "ck_addr": ck_addr,
+                }
+            )
+
+    base = key_list[0]
+    x, y = int(base["ck_x"], 16), int(base["ck_y"], 16)
+    x_bytes, xy = x.to_bytes(32, "big"), x.to_bytes(32, "big") + y.to_bytes(32, "big")
+    off_curve_x = smallest_off_curve_x()
+    # The 66 ASCII characters of the key's hex form: textual encodings are rejected, not parsed.
+    textual = base["public_key"][2:].encode("ascii")
+    assert len(textual) == 66 and bytes.fromhex(textual.decode()) == compress(x, y)
+    # X is not reduced mod p: X = p would reduce to 0 (no point), X = 2^256 - 1 onto the curve.
+    assert decompress(bytes([2]) + ((WORD_MOD - 1) % SECP_P).to_bytes(32, "big")) is not None
+    rejected = (
+        ("x_eq_p", bytes([2]) + SECP_P.to_bytes(32, "big"), "x_ge_p"),
+        ("x_max", bytes([3]) + (WORD_MOD - 1).to_bytes(32, "big"), "x_ge_p"),
+        ("not_on_curve", bytes([2]) + off_curve_x.to_bytes(32, "big"), "not_on_curve"),
+        ("prefix_00", bytes([0]) + x_bytes, "bad_prefix"),
+        ("prefix_01", bytes([1]) + x_bytes, "bad_prefix"),
+        ("prefix_04", bytes([4]) + x_bytes, "bad_prefix"),
+        ("uncompressed_65", bytes([4]) + xy, "uncompressed"),
+        ("uncompressed_64", xy, "uncompressed"),
+        ("hybrid_06", bytes([6]) + xy, "hybrid"),
+        ("hybrid_07", bytes([7]) + xy, "hybrid"),
+        ("trailing_byte", compress(x, y) + bytes(1), "trailing_bytes"),
+        ("short_32", x_bytes, "short"),
+        ("empty", b"", "empty"),
+        ("textual_hex", textual, "textual"),
+        # SEC1's single-byte encoding of the point at infinity.
+        ("identity_00", bytes(1), "identity"),
+    )
+    for name, public_key, reason in rejected:
+        assert decompress(public_key) is None, name
+        cases.append(
+            {"name": name, "public_key": "0x" + public_key.hex(), "valid": False, "reason": reason}
+        )
+    return cases
+
+
+@functools.cache
+def keccak_text(text):
+    """keccak256 of a UTF-8 string."""
+    assert not text.startswith("0x"), text
+    return cast("keccak", text)
+
+
+@functools.cache
+def register_digest(chain_id, verifying_contract, owner):
+    """`(domainSeparator, structHash, digest)` of the EIP-712 `Register(address owner)` message."""
+    domain_separator = keccak(
+        abi_encode(
+            "f(bytes32,bytes32,bytes32,uint256,address)",
+            keccak_text(EIP712_DOMAIN_TYPE),
+            keccak_text(EIP712_NAME),
+            keccak_text(EIP712_VERSION),
+            chain_id,
+            verifying_contract,
+        )
+    )
+    struct_hash = keccak(abi_encode("f(bytes32,address)", keccak_text(REGISTER_TYPE), owner))
+    return domain_separator, struct_hash, keccak(concat("0x1901", domain_separator, struct_hash))
+
+
+def typed_data(chain_id, verifying_contract, owner):
+    """The same message as EIP-712 typed data, for cast's own hashing."""
+    return json.dumps(
+        {
+            "types": {
+                "EIP712Domain": [
+                    {"name": "name", "type": "string"},
+                    {"name": "version", "type": "string"},
+                    {"name": "chainId", "type": "uint256"},
+                    {"name": "verifyingContract", "type": "address"},
+                ],
+                "Register": [{"name": "owner", "type": "address"}],
+            },
+            "primaryType": "Register",
+            "domain": {
+                "name": EIP712_NAME,
+                "version": EIP712_VERSION,
+                "chainId": chain_id,
+                "verifyingContract": verifying_contract,
+            },
+            "message": {"owner": owner},
+        }
+    )
+
+
+def split_sig(sig):
+    raw = bytes.fromhex(sig[2:])
+    assert len(raw) == 65, sig
+    return int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:64], "big"), raw[64]
+
+
+def join_sig(r, s, v):
+    """65-byte `R || S || V`."""
+    return "0x" + r.to_bytes(32, "big").hex() + s.to_bytes(32, "big").hex() + bytes([v]).hex()
+
+
+def sign_registration(key, chain_id, verifying_contract, owner):
+    """A PoP by `key` for `register_digest(chain_id, verifying_contract, owner)`, checked three
+    ways.
+
+    `cast wallet sign --no-hash` signs the digest (RFC 6979, low s); V is rewritten from 27/28 to
+    0/1. The signature must equal cast's EIP-712 signature of the same typed data (so the digest is
+    cast's EIP-712 hash), pass `cast wallet verify`, and recover to `ck_addr` in pure Python.
+    """
+    domain_separator, struct_hash, digest = register_digest(chain_id, verifying_contract, owner)
+    private_key = key["private_key"]
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", private_key, digest)
+    typed = typed_data(chain_id, verifying_contract, owner)
+    assert signed == cast("wallet", "sign", "--data", typed, "--private-key", private_key)
+    subprocess.run(
+        ["cast", "wallet", "verify", "--no-hash", "--address", key["ck_addr"], digest, signed],
+        check=True,
+        capture_output=True,
+    )
+    r, s, v = split_sig(signed)
+    assert v in (27, 28) and 0 < r < SECP_N and 0 < s <= SECP_N // 2
+    assert ecrecover(digest, r, s, v - 27) == key["ck_addr"]
+    return {
+        "domain_separator": domain_separator,
+        "struct_hash": struct_hash,
+        "digest": digest,
+        "pop_sig": join_sig(r, s, v - 27),
+    }
+
+
+def register_digests(key_list):
+    """Every key's PoP for both owners at the deployment's staking contract on the L2 chain."""
+    chain_id, staking = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["staking"]
+    out = []
+    for key in key_list:
+        for owner in OWNERS:
+            signed = sign_registration(key, chain_id, staking, owner)
+            out.append(
+                {
+                    "name": f"{key['name']}_owner_{owner[-2:]}",
+                    "l2_chain_id": chain_id,
+                    "staking": staking,
+                    "owner": owner,
+                    "key": key["public_key"],
+                    **signed,
+                }
+            )
+    return decimals(out)
+
+
+def pop_accepted(public_key, owner, pop_sig):
+    """Spec 4.1 at the deployment's staking contract: does a registration by `owner` accept
+    this PoP?"""
+    decoded = decompress(bytes.fromhex(public_key[2:]))
+    raw = bytes.fromhex(pop_sig[2:])
+    if decoded is None or len(raw) != 65:
+        return False
+    r, s, v = split_sig(pop_sig)
+    if v not in (0, 1) or not 0 < r < SECP_N or not 0 < s <= SECP_N // 2:
+        return False
+    _, _, digest = register_digest(DEPLOYMENT["l2_chain_id"], DEPLOYMENT["staking"], owner)
+    signer = ecrecover(digest, r, s, v)
+    return signer is not None and signer == address_of(*decoded)
+
+
+def pop_rejections(key_list, digests):
+    """PoPs that a registration by `owner` at the deployment's staking contract rejects; every key
+    decodes.
+
+    The malformed signatures derive from one valid PoP whose V is 0 (so `v_27` is that signature in
+    the 27/28 form and `length_64` is also its EIP-2098 compact form). The binding cases are
+    well-formed signatures for another owner, key, chain id (the L1 chain id) or verifying contract
+    (the Inbox), or for the point with the same X and the other parity.
+    """
+    base = next(c for c in digests if c["owner"] == OWNERS[0] and c["pop_sig"].endswith("00"))
+    (key,) = [k for k in key_list if k["public_key"] == base["key"]]
+    other_key = next(k for k in key_list if k["public_key"] != base["key"])
+    owner, other_owner = OWNERS
+    public_key, sig = base["key"], base["pop_sig"]
+    r, s, v = split_sig(sig)
+    digest = base["digest"]
+    flipped = "0x" + bytes([bytes.fromhex(public_key[2:4])[0] ^ 1]).hex() + public_key[4:]
+    unrecoverable_r = smallest_off_curve_x()
+    wrong_chain = sign_registration(key, DEPLOYMENT["l1_chain_id"], DEPLOYMENT["staking"], owner)
+    wrong_registry = sign_registration(key, DEPLOYMENT["l2_chain_id"], DEPLOYMENT["inbox"], owner)
+    assert digest not in (wrong_chain["digest"], wrong_registry["digest"])
+    # The malleated twin is a valid ECDSA signature of the same key; only the low-s rule rejects it.
+    assert ecrecover(digest, r, SECP_N - s, 1 - v) == key["ck_addr"]
+    assert ecrecover(digest, unrecoverable_r, s, v) is None
+    cases = (
+        ("v_27", public_key, owner, join_sig(r, s, 27)),
+        ("v_2", public_key, owner, join_sig(r, s, 2)),
+        ("high_s", public_key, owner, join_sig(r, SECP_N - s, 1 - v)),
+        ("r_zero", public_key, owner, join_sig(0, s, v)),
+        ("s_zero", public_key, owner, join_sig(r, 0, v)),
+        ("r_eq_n", public_key, owner, join_sig(SECP_N, s, v)),
+        ("unrecoverable_r", public_key, owner, join_sig(unrecoverable_r, s, v)),
+        ("length_64", public_key, owner, sig[:-2]),
+        ("length_66", public_key, owner, sig + "00"),
+        ("wrong_owner", public_key, other_owner, sig),
+        ("wrong_key", other_key["public_key"], owner, sig),
+        ("wrong_chain", public_key, owner, wrong_chain["pop_sig"]),
+        ("wrong_registry", public_key, owner, wrong_registry["pop_sig"]),
+        ("parity_flip", flipped, owner, sig),
+    )
+    out = []
+    for name, case_key, case_owner, pop_sig in cases:
+        assert decompress(bytes.fromhex(case_key[2:])) is not None, name
+        assert not pop_accepted(case_key, case_owner, pop_sig), name
+        out.append(
+            {
+                "name": name,
+                "public_key": case_key,
+                "owner": case_owner,
+                "pop_sig": pop_sig,
+                "reason": name,
+            }
+        )
+    assert v == 0 and pop_accepted(public_key, owner, sig)
+    return out
+
+
+# --- configuration and fallback keys ------------------------------------------------------------
+
+CONFIG_SIGNATURE = "f(bytes32,uint256,address,uint256)"
+FALLBACK_KEYS_SIGNATURE = "f(bytes32,(uint8,bytes32)[])"
+# The L2 chain id of the spec's config hash example.
+APPENDIX_MAINNET_CHAIN_ID = 167000
+
+
+def config_preimage(l2_chain_id, staking, unsettled_limit):
+    """The config hash's preimage: four static words (128 bytes), the bytes32 tag, the L2 chain
+    id, the EtnaStaking proxy and U."""
+    preimage = abi_encode(
+        CONFIG_SIGNATURE, tag("ETNA_CONFIG_V1"), l2_chain_id, staking, unsettled_limit
+    )
+    assert len(preimage) == 2 + 2 * 128
+    return preimage
+
+
+def config():
+    """`configHash` (Inbox slot 269) of the deployment."""
+    inputs = {
+        "tag": "ETNA_CONFIG_V1",
+        "l2_chain_id": DEPLOYMENT["l2_chain_id"],
+        "staking": DEPLOYMENT["staking"],
+        "unsettled_limit": DEPLOYMENT["unsettled_limit"],
+    }
+    preimage = config_preimage(
+        inputs["l2_chain_id"], inputs["staking"], inputs["unsettled_limit"]
+    )
+    return {"inputs": decimals(inputs), "preimage": preimage, "hash": keccak(preimage)}
+
+
+def fallback_key(k):
+    """The fallback key `(ckPrefix, ckX)` of the compressed public key of private key k."""
+    x, y = point(k)
+    return 2 + (y & 1), word(x)
+
+
+# The spec's fallback key examples: K1 and K2, the keys of private keys 1 and 2. Both prefixes
+# are 0x02, so [K1, K2] is in ascending order of the 33-byte value ckPrefix || ckX.
+K1, K2 = fallback_key(1), fallback_key(2)
+assert K1 == (2, "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+assert K2 == (2, "0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")
+
+
+def fallback_keys_arg(keys):
+    """A FallbackKey[] as one `cast` argument."""
+    return "[" + ",".join(f"({prefix},{x})" for prefix, x in keys) + "]"
+
+
+def fallback_keys_json(keys):
+    return [{"ck_prefix": prefix, "ck_x": x} for prefix, x in keys]
+
+
+def fallback_keys_preimage(keys):
+    """fallbackKeysHash's preimage: the bytes32 tag and the array offset, then the length and two
+    words (ckPrefix, ckX) per key; n keys take 3 + 2n words."""
+    preimage = abi_encode(
+        FALLBACK_KEYS_SIGNATURE, tag("ETNA_FALLBACK_KEYS_V1"), fallback_keys_arg(keys)
+    )
+    assert len(preimage) == 2 + 2 * 32 * (3 + 2 * len(keys))
+    return preimage
+
+
+def fallback_keys_hash(keys):
+    return keccak(fallback_keys_preimage(keys))
+
+
+# --- cuts, statements, land ABI ------------------------------------------------------------------
+
+
+def validator_states():
+    """ENC-A-29a.l encoding-only example; synthetic keys do not assert canonical set order."""
+    signature = (
+        "f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,"
+        "(uint8,bytes32,uint64,int64)[],uint256)"
+    )
+    current = f"[(2,{word(1)},10,-5),(3,{word(2)},10,5)]"
+    next_set = f"[(2,{word(1)},10,5),(3,{word(2)},10,-5)]"
+
+    def encode(current_proposer, next_proposer):
+        return abi_encode(
+            signature, tag("ETNA_VAL_STATE_V1"), 6,
+            current, current_proposer, next_set, next_proposer,
+        )
+
+    def entry(prefix, x, priority):
+        return {
+            "ck_prefix": str(prefix), "ck_x": word(x),
+            "voting_power": "10", "proposer_priority": str(priority),
+        }
+
+    preimage = encode(1, 0)
+    digest = keccak(preimage)
+    assert digest == "0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b"
+    return [{
+        "name": "ENC-A-29a.l",
+        "height": "6",
+        "current_proposer": "1",
+        "next_proposer": "0",
+        "current": [entry(2, 1, -5), entry(3, 2, 5)],
+        "next": [entry(2, 1, 5), entry(3, 2, -5)],
+        "preimage": preimage,
+        "hash": digest,
+        "changed_current_proposer_hash": keccak(encode(0, 0)),
+        "changed_next_proposer_hash": keccak(encode(1, 1)),
+    }]
+
+
+def app_hashes(states):
+    """ENC-A-29b.g: appHash(6) of EL hash 0x11..11 and 29a.l's validator-state hash, three words
+    (96 bytes). No L1 record, cut leaf or statement holds either hash."""
+    (state,) = states
+    block_hash = "0x" + "11" * 32
+    preimage = abi_encode(
+        "f(bytes32,bytes32,bytes32)", tag("ETNA_APP_HASH_V1"), block_hash, state["hash"]
+    )
+    digest = keccak(preimage)
+    assert digest == "0x381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451"
+    return [{
+        "name": "ENC-A-29b.g",
+        "height": state["height"],
+        "block_hash": block_hash,
+        "val_state_hash": state["hash"],
+        "preimage": preimage,
+        "hash": digest,
+    }]
+
+
+def cut_at(x):
+    """The cut at height x: EL hash 100 + x, Comet hash 200 + x (0 at x = 0) and FI cursor
+    x / FI_STEP, which advances by 0 or 1 per block."""
+    return {
+        "height": x,
+        "block_hash": word(100 + x),
+        "comet_hash": word(0 if x == 0 else 200 + x),
+        "forced_head": x // FI_STEP,
+    }
+
+
+_LEAVES = {}
+
+
+def cut_leaf(x):
+    """`(preimage, leaf)` of cutLeaf(x): four words (x, blockHash, cometHash, forcedHead)."""
+    if x not in _LEAVES:
+        cut = cut_at(x)
+        preimage = abi_encode(
+            "f(uint256,bytes32,bytes32,uint256)",
+            x,
+            cut["block_hash"],
+            cut["comet_hash"],
+            cut["forced_head"],
+        )
+        _LEAVES[x] = (preimage, keccak(preimage))
+    return _LEAVES[x]
+
+
+def cut_leaves(p, h):
+    """The leaves `land` carries for (p, h]: cutLeaf(p+1) .. cutLeaf(h-1), one per height."""
+    return [cut_leaf(x)[1] for x in range(p + 1, h)]
+
+
+# name, Etna start S, generation, p, h. The list has the h - p - 1 leaves of the heights strictly
+# between p and h, so h = p + 1 gives the empty list (ENC-A-32) and h = p + 2 one leaf (31.e); S
+# does not enter the hash, and the S = 1000 case is 33.f's landing with leaves at 1001 and 1002.
+CUT_CASES = (
+    ("g0_p0_h1", 0, 0, 0, 1),
+    ("g0_p0_h2", 0, 0, 0, 2),
+    ("g0_p0_h6", 0, 0, 0, 6),
+    ("g0_p0_h18", 0, 0, 0, 18),
+    ("g1_p6_h18", 0, 1, 6, 18),
+    ("g2_p17_h18", 0, 2, 17, 18),
+    ("s1000_g0_p1000_h1003", 1000, 0, 1000, 1003),
+)
+
+
+def cuts():
+    table = []
+    for x in range(19):
+        preimage, leaf = cut_leaf(x)
+        table.append({**cut_at(x), "preimage": preimage, "leaf": leaf})
+    cut_hashes = []
+    for name, start, generation, p, h in CUT_CASES:
+        assert start <= p < h
+        leaves = cut_leaves(p, h)
+        assert len(leaves) == h - p - 1
+        leaves_hash = keccak(concat(*leaves))
+        preimage = abi_encode(
+            "f(bytes32,uint256,uint256,uint256,bytes32)",
+            tag("ETNA_LAND_CUTS_V1"),
+            generation,
+            p,
+            h,
+            leaves_hash,
+        )
+        cut_hashes.append(
+            {
+                "name": name,
+                "etna_start": start,
+                "generation": generation,
+                "parent_height": p,
+                "last_height": h,
+                "leaves": leaves,
+                "leaves_hash": leaves_hash,
+                "preimage": preimage,
+                "cut_hash": keccak(preimage),
+            }
+        )
+    return decimals({"table": table, "cut_hashes": cut_hashes})
+
+
+def cut_hash_for(cut_vectors, generation, p, h):
+    (case,) = [
+        c
+        for c in cut_vectors["cut_hashes"]
+        if (int(c["generation"]), int(c["parent_height"]), int(c["last_height"]))
+        == (generation, p, h)
+    ]
+    return case["cut_hash"]
+
+
+STATEMENT_SIGNATURE = (
+    "f(bytes32,uint256,uint256,address,uint256,uint256,bytes32,bytes32,bytes32,uint256,"
+    "bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,bytes32)"
+)
+STATEMENT_CASES = (
+    # name, generation, p, h, FI head before (at p), FI head after (at h)
+    ("genesis", 0, 0, 18, 0, 3),
+    ("nonzero", 1, 6, 18, 1, 3),
+)
+
+
+def land_statements(config, cut_vectors):
+    """Nineteen static words (608 bytes): the tag, the deployment's chain ids and Inbox, the
+    proof origin, the config hash, the terminal values, the L1 reference, the blob hashes, both
+    forced inclusion heads and the cut hash. Origin and terminal values follow `cut_at`."""
+    out = []
+    for name, generation, p, h, head_before, head_after in STATEMENT_CASES:
+        origin, last = cut_at(p), cut_at(h)
+        assert (origin["forced_head"], last["forced_head"]) == (head_before, head_after)
+        inputs = {
+            "tag": "TAIKO_ETNA_LAND_V1",
+            "l1_chain_id": DEPLOYMENT["l1_chain_id"],
+            "l2_chain_id": DEPLOYMENT["l2_chain_id"],
+            "inbox": DEPLOYMENT["inbox"],
+            "generation": generation,
+            "parent_height": p,
+            "parent_hash": origin["block_hash"],
+            "parent_comet_hash": origin["comet_hash"],
+            "config_hash": config["hash"],
+            "last_height": h,
+            "last_block_hash": last["block_hash"],
+            "last_comet_hash": last["comet_hash"],
+            "last_state_root": word(300 + h),
+            "l1_reference_block_number": 19_000_000,
+            "l1_reference_block_hash": word(0x44),
+            "blob_hashes": ["0x01" + "aa" * 31, "0x01" + "bb" * 31],
+            "forced_inclusion_head_before": head_before,
+            "forced_inclusion_head_after": head_after,
+            "cut_hash": cut_hash_for(cut_vectors, generation, p, h),
+        }
+        blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
+        preimage = abi_encode(
+            STATEMENT_SIGNATURE,
+            tag(inputs["tag"]),
+            inputs["l1_chain_id"],
+            inputs["l2_chain_id"],
+            inputs["inbox"],
+            inputs["generation"],
+            inputs["parent_height"],
+            inputs["parent_hash"],
+            inputs["parent_comet_hash"],
+            inputs["config_hash"],
+            inputs["last_height"],
+            inputs["last_block_hash"],
+            inputs["last_comet_hash"],
+            inputs["last_state_root"],
+            inputs["l1_reference_block_number"],
+            inputs["l1_reference_block_hash"],
+            blob_hashes_hash,
+            inputs["forced_inclusion_head_before"],
+            inputs["forced_inclusion_head_after"],
+            inputs["cut_hash"],
+        )
+        assert len(preimage) == 2 + 2 * 608
+        out.append(
+            {
+                "name": name,
+                "inputs": decimals(inputs),
+                "blob_hashes_hash": blob_hashes_hash,
+                "preimage": preimage,
+                "hash": keccak(preimage),
+            }
+        )
+    return out
+
+
+LAND_SIGNATURE = (
+    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
+)
+
+
+def land_abi(statements):
+    """Calldata of `land(input, leaves, proof)` for the `nonzero` statement (p 6, h 18), whose
+    input has seven fields."""
+    (statement,) = [s for s in statements if s["name"] == "nonzero"]
+    inputs = statement["inputs"]
+    p, h = int(inputs["parent_height"]), int(inputs["last_height"])
+    leaves = cut_leaves(p, h)
+    proof = "0x00"
+    land_input = "(" + ",".join(
+        [
+            inputs["parent_height"],
+            inputs["last_height"],
+            inputs["last_block_hash"],
+            inputs["last_comet_hash"],
+            inputs["last_state_root"],
+            inputs["l1_reference_block_number"],
+            inputs["forced_inclusion_head_after"],
+        ]
+    ) + ")"
+    selector = cast("sig", LAND_SIGNATURE)
+    assert selector == "0x5185fd7a", selector
+    return {
+        "signature": LAND_SIGNATURE,
+        "selector": selector,
+        "statement": "nonzero",
+        "leaves": leaves,
+        "proof": proof,
+        "calldata": cast(
+            "calldata", LAND_SIGNATURE, land_input, "[" + ",".join(leaves) + "]", proof
+        ),
+    }
+
+
+# --- chain identity and block header -------------------------------------------------------------
+
+
+def chain_domains():
+    """chainDomain and the 48-byte CometBFT chain_id = "etna-" + base64url_no_padding(digest)."""
+    l1, l2, inbox = DEPLOYMENT["l1_chain_id"], DEPLOYMENT["l2_chain_id"], DEPLOYMENT["inbox"]
+    cases = [(inbox, g) for g in (0, 1, 2, U48_MAX)] + [(OTHER_INBOX, 0)]
+    out = []
+    for case_inbox, generation in cases:
+        preimage = abi_encode(
+            "f(bytes32,uint256,uint256,address,uint256)",
+            tag("ETNA_COMET_DOMAIN_V1"),
+            l1,
+            l2,
+            case_inbox,
+            generation,
+        )
+        digest = keccak(preimage)
+        encoded = base64.urlsafe_b64encode(bytes.fromhex(digest[2:])).decode()
+        chain_id = "etna-" + encoded.rstrip("=")
+        assert len(chain_id) == 48
+        out.append(
+            {
+                "l1_chain_id": l1,
+                "l2_chain_id": l2,
+                "inbox": case_inbox,
+                "generation": generation,
+                "preimage": preimage,
+                "chain_domain": digest,
+                "chain_id": chain_id,
+            }
+        )
+    return decimals(out)
+
+
+ON_BLOCK_START = "onBlockStart(uint48,uint128)"
+# generation, anchorNumber, missBitmap: all zero, the spec's mixed example, every field at its
+# maximum, and seat 0 and seat 127 alone.
+EXTRA_DATA_CASES = (
+    (0, 0, 0),
+    (1, 258, 2**127 + 1),
+    (U48_MAX, U48_MAX, 2**128 - 1),
+    (5, 7, 1),
+    (5, 7, 2**127),
+)
+
+
+def encode_extra_data(generation, anchor_number, miss_bitmap):
+    """extraData = 0x64 || uint48_be(generation) || uint48_be(anchorNumber) ||
+    uint128_be(missBitmap): 29 bytes, `cast abi-encode --packed`, checked against a direct
+    big-endian layout. Seat s is bit s of missBitmap, so seat 0 is the low bit of the last byte."""
+    packed = cast(
+        "abi-encode", "--packed", "f(uint8,uint48,uint48,uint128)", 0x64, generation,
+        anchor_number, miss_bitmap,
+    )
+    direct = (
+        bytes([0x64])
+        + generation.to_bytes(6, "big")
+        + anchor_number.to_bytes(6, "big")
+        + miss_bitmap.to_bytes(16, "big")
+    )
+    assert packed == "0x" + direct.hex(), (generation, anchor_number, miss_bitmap)
+    return packed
+
+
+def on_block_start_calldata(generation, miss_bitmap):
+    """The block-start call with a block's own generation and missBitmap: the selector, then one
+    standard ABI word for each, 68 bytes with nothing after them."""
+    calldata = cast("calldata", ON_BLOCK_START, generation, miss_bitmap)
+    assert calldata == (
+        cast("sig", ON_BLOCK_START) + format(generation, "064x") + format(miss_bitmap, "064x")
+    )
+    assert len(calldata) == 2 + 2 * 68
+    return calldata
+
+
+def extra_data():
+    """Each case's 29-byte extraData and the block-start calldata it implies."""
+    out = []
+    for generation, anchor_number, miss_bitmap in EXTRA_DATA_CASES:
+        out.append(
+            {
+                "generation": generation,
+                "anchor_number": anchor_number,
+                "miss_bitmap": miss_bitmap,
+                "extra_data": encode_extra_data(generation, anchor_number, miss_bitmap),
+                "on_block_start_calldata": on_block_start_calldata(generation, miss_bitmap),
+            }
+        )
+    return decimals(out)
+
+
+def go_env():
+    """The environment for `go run`: the caller's GOFLAGS (e.g. `-p=2`) plus `-mod=readonly`, and no
+    workspace, so each module builds from its own go.mod and go.sum."""
+    flags = " ".join(filter(None, [os.environ.get("GOFLAGS", ""), "-mod=readonly"]))
+    return {**os.environ, "GOFLAGS": flags, "GOWORK": "off"}
+
+
+# --- votes: CometBFT v0.40.0 sign bytes and secp256k1eth signatures ------------------------------
+
+VOTEGEN = HERE / "votegen"
+PREVOTE, PRECOMMIT = 1, 2
+VOTE_HEIGHT = 1000
+VOTE_TIME = (1_700_000_000, 123)
+# The first (0001-01-01T00:00:00Z) and last (9999-12-31T23:59:59Z) seconds that protobuf's
+# Timestamp, and so CometBFT's VoteSignBytes, can encode; CometBFT panics outside them. It signs
+# and accepts negative (pre-1970) timestamps, and each vote carries its own, so a validator can
+# backdate both votes of a double sign.
+MIN_VOTE_SECONDS = -62_135_596_800
+MAX_VOTE_SECONDS = 253_402_300_799
+# Block ids as (hash, part set total, part set hash). Only "0x" is absent; zero32 is present.
+BLOCK_A = ("0x" + "aa" * 32, 1, "0x" + "ab" * 32)
+BLOCK_B = ("0x" + "bb" * 32, 2, "0x" + "bc" * 32)
+BLOCK_NIL = ("0x", 0, "0x")
+BLOCK_PARTIAL = ("0x", 1, "0x" + "ab" * 32)
+# A hash with an all-zero part set header: CometBFT writes the empty header as `12 00`.
+BLOCK_HASH_ONLY = (BLOCK_A[0], 0, "0x")
+BLOCK_MAX = (BLOCK_A[0], 2**32 - 1, BLOCK_A[2])
+
+# name, type, round, block id, generation, Inbox; height VOTE_HEIGHT and time VOTE_TIME unless
+# VOTE_OVERRIDES says otherwise.
+VOTE_CASES = (
+    ("precommit_a", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_nil", PRECOMMIT, 0, BLOCK_NIL, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_a_late", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("prevote_a_r1", PREVOTE, 1, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("prevote_b_r1", PREVOTE, 1, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("prevote_b_r2", PREVOTE, 2, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_r1", PRECOMMIT, 1, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("gen1_precommit_a", PRECOMMIT, 0, BLOCK_A, 1, DEPLOYMENT["inbox"]),
+    ("gen1_precommit_b", PRECOMMIT, 0, BLOCK_B, 1, DEPLOYMENT["inbox"]),
+    ("gen2_precommit_a", PRECOMMIT, 0, BLOCK_A, 2, DEPLOYMENT["inbox"]),
+    ("gen2_precommit_b", PRECOMMIT, 0, BLOCK_B, 2, DEPLOYMENT["inbox"]),
+    ("other_inbox_precommit_b", PRECOMMIT, 0, BLOCK_B, 0, OTHER_INBOX),
+    ("partial_block_id", PRECOMMIT, 0, BLOCK_PARTIAL, 0, DEPLOYMENT["inbox"]),
+    ("max_values", PRECOMMIT, 2**31 - 1, BLOCK_MAX, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_h1001", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("hash_only_block_id", PRECOMMIT, 0, BLOCK_HASH_ONLY, 0, DEPLOYMENT["inbox"]),
+    ("zero_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("negative_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("min_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("max_timestamp_seconds", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_a_backdated", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_backdated", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_block_hash", PRECOMMIT, 0, (word(0), 1, BLOCK_A[2]), 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_parts_hash", PRECOMMIT, 0, (BLOCK_A[0], 1, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_both_hashes", PRECOMMIT, 0, (word(0), 1, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("zero_hashes_zero_total", PRECOMMIT, 0, (word(0), 0, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("zero_block_hash_only", PRECOMMIT, 0, (word(0), 0, "0x"), 0, DEPLOYMENT["inbox"]),
+    ("zero_parts_hash_only", PRECOMMIT, 0, ("0x", 0, word(0)), 0, DEPLOYMENT["inbox"]),
+)
+VOTE_OVERRIDES = {
+    "precommit_a_late": {"time": (1_700_000_001, 0)},
+    "max_values": {"height": 2**63 - 1, "time": (MAX_VOTE_SECONDS, 999_999_999)},
+    "precommit_b_h1001": {"height": VOTE_HEIGHT + 1},
+    # The Unix epoch: both timestamp fields are zero, so CometBFT writes the timestamp as `2a 00`.
+    "zero_timestamp": {"time": (0, 0)},
+    # Negative seconds are written as protobuf's int64 varint, the ten-byte uvarint of their
+    # 64-bit two's-complement pattern.
+    "negative_timestamp": {"time": (-1, 123)},
+    "min_timestamp": {"time": (MIN_VOTE_SECONDS, 0)},
+    "max_timestamp_seconds": {"time": (MAX_VOTE_SECONDS, 0)},
+    "precommit_a_backdated": {"time": (-1, 0)},
+    "precommit_b_backdated": {"time": (-1, 0)},
+}
+# name, vote a, vote b, the generation onBlockStart last stored, reason ("double_sign" when
+# slashable).
+VOTE_PAIRS = (
+    ("precommit_conflict", "precommit_a", "precommit_b", 0, "double_sign"),
+    ("precommit_vs_nil", "precommit_a", "precommit_nil", 0, "double_sign"),
+    ("prevote_conflict_round_1", "prevote_a_r1", "prevote_b_r1", 0, "double_sign"),
+    ("same_block_later_time", "precommit_a", "precommit_a_late", 0, "same_block_id"),
+    ("different_round", "prevote_b_r1", "prevote_b_r2", 0, "different_round"),
+    ("different_type", "prevote_a_r1", "precommit_b_r1", 0, "different_type"),
+    ("generation_1_conflict", "gen1_precommit_a", "gen1_precommit_b", 1, "double_sign"),
+    ("historical_generation_conflict", "precommit_a", "precommit_b", 1, "double_sign"),
+    ("future_generation", "gen2_precommit_a", "gen2_precommit_b", 1, "future_generation"),
+    ("other_deployment", "precommit_a", "other_inbox_precommit_b", 0, "other_deployment"),
+    # Each of the next three conflicts on the block id and differs in exactly one other field.
+    (
+        "different_round_conflicting_blocks",
+        "prevote_a_r1",
+        "prevote_b_r2",
+        0,
+        "different_round",
+    ),
+    # Spec 4.1 needs the same generation: votes for one height in two generations are not a
+    # double sign, even though both generations are at or below the current one.
+    ("different_generation", "precommit_a", "gen1_precommit_b", 1, "different_generation"),
+    ("different_height", "precommit_a", "precommit_b_h1001", 0, "different_height"),
+    # Backdated votes still count in CometBFT commits, so they are slashable evidence.
+    ("backdated_conflict", "precommit_a_backdated", "precommit_b_backdated", 0, "double_sign"),
+    ("zero_block_hash_conflict", "precommit_a", "precommit_zero_block_hash", 0, "double_sign"),
+    ("zero_parts_hash_conflict", "precommit_a", "precommit_zero_parts_hash", 0, "double_sign"),
+    ("zero_both_hashes_conflict", "precommit_nil", "precommit_zero_both_hashes", 0, "double_sign"),
+    ("zero_hashes_zero_total_conflict", "precommit_nil", "zero_hashes_zero_total", 0, "double_sign"),
+    ("zero_block_hash_only_conflict", "precommit_nil", "zero_block_hash_only", 0, "double_sign"),
+    ("zero_parts_hash_only_conflict", "precommit_nil", "zero_parts_hash_only", 0, "double_sign"),
+)
+
+
+def uvarint(value):
+    """Protobuf base-128 varint of a non-negative integer."""
+    assert value >= 0, value
+    out = bytearray()
+    while value >= 0x80:
+        out.append(value & 0x7F | 0x80)
+        value >>= 7
+    out.append(value)
+    return bytes(out)
+
+
+def varint_int64(value):
+    """Protobuf varint of an int64: the uvarint of its 64-bit two's-complement pattern."""
+    assert -(2**63) <= value < 2**63, value
+    return uvarint(value % 2**64)
+
+
+def length_delimited(tag_byte, payload):
+    """`tag || uvarint(len(payload)) || payload`."""
+    return bytes([tag_byte]) + uvarint(len(payload)) + payload
+
+
+def vote_sign_bytes(vote, chain_id):
+    """Appendix A `voteSignBytes`, written from the spec text alone (not from CometBFT).
+
+    Numeric fields are omitted when zero; hash fields only when empty. A nil vote (both hashes
+    empty and total zero) omits the whole block id. Timestamp seconds
+    are a signed int64 (`timestampSecondsU64` is their two's-complement pattern).
+    """
+    vote_type, height, round_ = (int(vote[k]) for k in ("voteType", "height", "round"))
+    total, seconds, nanos = (
+        int(vote[k]) for k in ("partsTotal", "timestampSeconds", "timestampNanos")
+    )
+    block_hash, parts_hash = (bytes.fromhex(vote[k][2:]) for k in ("blockHash", "partsHash"))
+    assert vote_type in (PREVOTE, PRECOMMIT) and 0 <= height < 2**63 and 0 <= round_ < 2**31
+    assert 0 <= total < 2**32 and MIN_VOTE_SECONDS <= seconds <= MAX_VOTE_SECONDS
+    assert int(vote["timestampSecondsU64"]) == seconds % 2**64 and 0 <= nanos < 10**9
+    assert len(block_hash) in (0, 32) and len(parts_hash) in (0, 32) and len(chain_id) == 48
+
+    psh = (b"\x08" + uvarint(total) if total else b"") + (
+        length_delimited(0x12, parts_hash) if parts_hash else b""
+    )
+    block_id = (length_delimited(0x0A, block_hash) if block_hash else b"") + (
+        length_delimited(0x12, psh)
+    )
+    is_nil = not block_hash and total == 0 and not parts_hash
+    timestamp = (b"\x08" + varint_int64(seconds) if seconds else b"") + (
+        b"\x10" + uvarint(nanos) if nanos else b""
+    )
+    cv = (
+        (b"\x08" + uvarint(vote_type) if vote_type else b"")
+        + (b"\x11" + height.to_bytes(8, "little", signed=True) if height else b"")
+        + (b"\x19" + round_.to_bytes(8, "little", signed=True) if round_ else b"")
+        + (b"" if is_nil else length_delimited(0x22, block_id))
+        + length_delimited(0x2A, timestamp)
+        + length_delimited(0x32, chain_id.encode("ascii"))
+    )
+    return uvarint(len(cv)) + cv
+
+
+def vote_inputs(chain_ids):
+    """Every vote case as `{name, vote, chain_id}`, with integers as decimal strings."""
+    cases = []
+    for name, vote_type, round_, block_id, generation, inbox in VOTE_CASES:
+        overrides = VOTE_OVERRIDES.get(name, {})
+        seconds, nanos = overrides.get("time", VOTE_TIME)
+        block_hash, total, parts_hash = block_id
+        vote = {
+            "voteType": vote_type,
+            "height": overrides.get("height", VOTE_HEIGHT),
+            "round": round_,
+            "blockHash": block_hash,
+            "partsTotal": total,
+            "partsHash": parts_hash,
+            "timestampSeconds": seconds,
+            "timestampSecondsU64": seconds % 2**64,
+            "timestampNanos": nanos,
+            "generation": generation,
+        }
+        cases.append(
+            {"name": name, "vote": decimals(vote), "chain_id": chain_ids[(inbox, generation)]}
+        )
+    return cases
+
+
+def run_votegen(private_key, cases):
+    """CometBFT v0.40.0's `VoteSignBytes` and secp256k1eth signature of every case."""
+    request = {
+        "key": private_key,
+        "votes": [{k: case[k] for k in ("name", "chain_id", "vote")} for case in cases],
+    }
+    result = subprocess.run(
+        ["go", "run", "."],
+        cwd=VOTEGEN,
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        env=go_env(),
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"votegen failed:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def check_vote_signature(key, sign_bytes, signature):
+    """65 bytes, V in {0, 1}, low s; recovers to the key's address over keccak256(sign_bytes), as
+    `slashDoubleSign` checks with ecrecover, and equals cast's RFC 6979 signature of that digest."""
+    digest = keccak(sign_bytes)
+    r, s, v = split_sig(signature)
+    assert v in (0, 1) and 0 < r < SECP_N and 0 < s <= SECP_N // 2, signature
+    assert ecrecover(digest, r, s, v) == key["ck_addr"], signature
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", key["private_key"], digest)
+    assert signed == join_sig(r, s, v + 27), (signed, signature)
+
+
+def block_id_of(vote):
+    return vote["blockHash"], vote["partsTotal"], vote["partsHash"]
+
+
+def double_sign_failure(key, chain_ids, a, b, current_generation):
+    """Spec 4.1 `slashDoubleSign` checks at this deployment: the first one the pair fails, or None.
+
+    A generation above the one onBlockStart last stored (`current_generation`) is a future
+    generation. Sign bytes are rebuilt from the deployment's own Inbox and the votes' shared
+    generation, so a vote signed for another deployment fails the signature check.
+    """
+    va, vb = a["vote"], b["vote"]
+    for rule, field in (
+        ("different_type", "voteType"),
+        ("different_height", "height"),
+        ("different_round", "round"),
+        ("different_generation", "generation"),
+    ):
+        if va[field] != vb[field]:
+            return rule
+    if block_id_of(va) == block_id_of(vb):
+        return "same_block_id"
+    generation = int(va["generation"])
+    if generation > current_generation:
+        return "future_generation"
+    chain_id = chain_ids[(DEPLOYMENT["inbox"], generation)]
+    for case in (a, b):
+        sign_bytes = "0x" + vote_sign_bytes(case["vote"], chain_id).hex()
+        r, s, v = split_sig(case["signature"])
+        if ecrecover(keccak(sign_bytes), r, s, v) != key["ck_addr"]:
+            return "signature"
+    return None
+
+
+def votes(key_list, domains):
+    """Vote sign bytes and signatures by key a1, and the double-sign pairs built from them.
+
+    CometBFT v0.40.0 produces the sign bytes and signatures; generation stops if any sign-byte
+    string differs from the appendix A encoder (neither side is adjusted to match the other).
+    """
+    key = key_list[0]
+    assert key["name"] == "a1" and int(key["private_key"], 16) == 0xA1
+    chain_ids = {(d["inbox"], int(d["generation"])): d["chain_id"] for d in domains}
+    used = [(DEPLOYMENT["inbox"], g) for g in (0, 1, 2)] + [(OTHER_INBOX, 0)]
+    cases = vote_inputs(chain_ids)
+    assert {c["chain_id"] for c in cases} == {chain_ids[u] for u in used}
+
+    out = run_votegen(key["private_key"], cases)
+    assert out["public_key"] == key["public_key"], out["public_key"]
+    assert out["signer"] == key["ck_addr"], out["signer"]
+    assert [c["name"] for c in out["cases"]] == [c["name"] for c in cases]
+    for case, signed in zip(cases, out["cases"]):
+        cometbft = signed["sign_bytes"]
+        appendix_a = "0x" + vote_sign_bytes(case["vote"], case["chain_id"]).hex()
+        if cometbft != appendix_a:
+            raise SystemExit(
+                f"{case['name']}: CometBFT v0.40.0 and appendix A sign bytes differ\n"
+                f"  CometBFT:   {cometbft}\n  appendix A: {appendix_a}"
+            )
+        check_vote_signature(key, cometbft, signed["signature"])
+        case["sign_bytes"] = cometbft
+        case["signature"] = signed["signature"]
+
+    by_name = {case["name"]: case for case in cases}
+    pairs = []
+    for name, a, b, current_generation, reason in VOTE_PAIRS:
+        failure = double_sign_failure(key, chain_ids, by_name[a], by_name[b], current_generation)
+        expected = {"double_sign": None, "other_deployment": "signature"}.get(reason, reason)
+        assert failure == expected, (name, failure, reason)
+        pairs.append(
+            {
+                "name": name,
+                "a": a,
+                "b": b,
+                "double_sign": reason == "double_sign",
+                "reason": reason,
+                "current_generation": current_generation,
+            }
+        )
+    return decimals(
+        {
+            "key": {
+                "private_key": key["private_key"],
+                "public_key": key["public_key"],
+                "signer": key["ck_addr"],
+            },
+            "chain_ids": [
+                {"inbox": inbox, "generation": g, "chain_id": chain_ids[(inbox, g)]}
+                for inbox, g in used
+            ],
+            "cases": cases,
+            "pairs": pairs,
+            "slash_abi": slash_vote_abi(by_name),
+        }
+    )
+
+
+def slash_vote_abi(cases):
+    """Pin the staking contract's slashDoubleSign ABI, including present zero32 and empty dynamic
+    hash fields."""
+    vote_type = "(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes)"
+    signature = "slashDoubleSign(uint256," + vote_type + "," + vote_type + ")"
+    a, b = "precommit_a", "precommit_zero_parts_hash"
+
+    def argument(case):
+        vote = case["vote"]
+        fields = ("voteType", "height", "round", "blockHash", "partsTotal", "partsHash",
+                  "timestampSecondsU64", "timestampNanos", "generation")
+        return "(" + ",".join(vote[field] for field in fields) + "," + case["signature"] + ")"
+
+    return {"signature": signature, "selector": cast("sig", signature), "bond_id": "0",
+            "a": a, "b": b,
+            "calldata": cast("calldata", signature, 0, argument(cases[a]), argument(cases[b]))}
+
+
+# --- validator-state chains: CometBFT v0.40.0 (ENC-A-29a, SYNC-9-5c) ----------------------------
+
+VALGEN = HERE / "valgen"
+VAL_STATE_SIGNATURE = (
+    "f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,"
+    "(uint8,bytes32,uint64,int64)[],uint256)"
+)
+VAL_KEYS = tuple((f"c{i}", 0xC0 + i) for i in range(1, 13))  # validator keys c1..c12
+VAL_GENESIS_TIME = 1_700_000_000
+MAX_COMMITTEE_KEY = 0x10000  # member i of the 128-member set has private key 0x10000 + i
+# Rows shown from each end of a 128-member set; the full sets follow from the rules.
+MAX_COMMITTEE_SAMPLE = 3
+
+# Each chain is one CometBFT chain from a genesis at start height o, whose validators sign o + 1 and
+# o + 2. FinalizeBlock(H) may return validator updates at any height H after o, and they first sign
+# H + 2 (4.3): the difference between the set that signs H + 2 and the set that signs H + 1, a new
+# member at its power, a leaving member at 0 and a re-weighted member at its new power; a member
+# whose power stays the same is not listed. `expect` names events the chain exists to show:
+# (height, step, kind, fields) that the model must log.
+VAL_CHAINS = (
+    {
+        "name": "gen0",
+        "description": (
+            "Generation 0 from height 0, with a genesis of unequal powers that exercises "
+            "CometBFT's arithmetic (an Etna genesis gives each fallback key power 1, as in "
+            "fallback_genesis_to_candidate): every single-height increment through 48, and "
+            "updates returned at 6 (add), 13 (remove), 20 (re-weight), 27 (add, remove and "
+            "re-weight at once), 34 (add), 41 (replace the largest member) and 48 (re-weight), "
+            "each signing from two heights later. Equal powers order by address; ties go to the "
+            "lower address."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 48,
+        "genesis": (("c1", 30), ("c2", 30), ("c3", 20), ("c4", 10)),
+        "switches": {
+            6: (("c5", 25),),
+            13: (("c4", 0),),
+            20: (("c3", 45),),
+            27: (("c6", 15), ("c2", 0), ("c1", 20)),
+            34: (("c8", 20),),
+            41: (("c3", 0), ("c9", 1)),
+            48: (("c5", 50),),
+        },
+        "expect": (
+            (0, "genesis", "tie", {"tied": ["c1", "c2"], "proposer": "c1"}),
+            (6, "update", "center", {}),
+            (27, "update", "rescale", {"fires": True}),
+            (41, "update", "rescale", {"fires": True}),
+        ),
+    },
+    {
+        "name": "gen1",
+        "description": (
+            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with "
+            "other members of unequal powers and initial height 49. Generation 0's update "
+            "returned at 48 is discarded with the rest of its state; the update returned at 55 "
+            "(add one member, remove another) signs from 57."
+        ),
+        "generation": 1,
+        "start": 48,
+        "end": 60,
+        "genesis": (("c3", 40), ("c6", 15), ("c10", 25), ("c11", 25)),
+        "switches": {55: (("c12", 10), ("c6", 0))},
+        "expect": ((48, "genesis_next", "tie", {"tied": ["c10", "c11"], "proposer": "c10"}),),
+    },
+    {
+        "name": "bounds_a",
+        "description": (
+            "The update returned at 2 leaves a priority spread of exactly 2·total, so neither "
+            "UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment raises it "
+            "to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
+            "floor(-1 / 4) = -1, leaving the largest residual sum, n - 1."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 4,
+        "genesis": (("c2", 2), ("c9", 2), ("c1", 12), ("c4", 8)),
+        "switches": {2: (("c12", 1), ("c4", 0))},
+        "expect": (
+            (2, "update", "rescale", {"fires": False}),
+            (2, "increment", "rescale", {"fires": False}),
+            (3, "increment", "rescale", {"fires": True, "ratio": 2}),
+            (3, "increment", "center", {"sum": -1, "shift": -1}),
+        ),
+    },
+    {
+        "name": "bounds_b",
+        "description": (
+            "Height 3 rescales a spread of 2·total + 1 left by the update returned at 2; the "
+            "update returned at 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, "
+            "whose rescale truncates negative priorities toward zero."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 6,
+        "genesis": (("c3", 6), ("c6", 4), ("c12", 11), ("c10", 5)),
+        "switches": {2: (("c10", 0), ("c9", 1)), 5: (("c12", 0),)},
+        "expect": (
+            (2, "update", "center", {}),
+            (3, "increment", "rescale", {"fires": True, "ratio": 2}),
+            (5, "update", "rescale", {"fires": True, "ratio": 2, "truncated": ["c6", "c9"]}),
+        ),
+    },
+    {
+        "name": "bounds_c",
+        "description": (
+            "Three members of equal power: genesis and later increments break priority ties by "
+            "address. Height 3 has no update and increments a set whose spread is exactly "
+            "2·total, which is not rescaled."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 4,
+        "genesis": (("c4", 1), ("c3", 1), ("c8", 1), ("c9", 3)),
+        "switches": {2: (("c9", 0),)},
+        "expect": (
+            (0, "genesis_next", "tie", {"tied": ["c8", "c3", "c4"], "proposer": "c8"}),
+            (3, "increment", "rescale", {"fires": False}),
+        ),
+    },
+    {
+        "name": "fallback_genesis_to_candidate",
+        "description": (
+            "Generation 0 as Etna derives it from S = 0: the genesis is the origin's fallback "
+            "key set, c1..c4 at power 1 each, which signs 1 and 2. FinalizeBlock(1) switches to "
+            "a usable candidate (c5 at 30, c6 at 20, c7 at 10) with one list that also removes "
+            "every fallback key, so the candidate signs from 3. A stake change re-weights c6 to "
+            "25 at 4 (signing from 6) and an exit removes c7 at 6 (from 8). At 8 the candidate "
+            "is no longer usable, and one list replaces it with the fallback key set at power 1, "
+            "which signs from 10."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 10,
+        "genesis": tuple((f"c{i}", 1) for i in range(1, 5)),
+        "switches": {
+            1: (("c1", 0), ("c2", 0), ("c3", 0), ("c4", 0), ("c5", 30), ("c6", 20), ("c7", 10)),
+            4: (("c6", 25),),
+            6: (("c7", 0),),
+            8: (("c5", 0), ("c6", 0), ("c1", 1), ("c2", 1), ("c3", 1), ("c4", 1)),
+        },
+        "expect": (
+            (0, "genesis", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+            (8, "increment", "tie", {"tied": ["c1", "c2", "c3", "c4"], "proposer": "c1"}),
+        ),
+    },
+    {
+        "name": "recovery_origin_keys",
+        "description": (
+            "Generation 1 from governance recovery at c = 10 (8.4): a new genesis at 10 with "
+            "initial height 11, whose validators are the new origin's fallback keys, c8 and c9 "
+            "at power 1; they sign 11 and 12. FinalizeBlock(11) replaces them with a usable "
+            "candidate, c5 at 30, in one list, and the candidate signs from 13."
+        ),
+        "generation": 1,
+        "start": 10,
+        "end": 14,
+        "genesis": (("c8", 1), ("c9", 1)),
+        "switches": {11: (("c8", 0), ("c9", 0), ("c5", 30))},
+        "expect": ((10, "genesis", "tie", {"tied": ["c9", "c8"], "proposer": "c9"}),),
+    },
+)
+
+def max_committee_power(index):
+    """2^48 + (i mod 64) - 32 for i < 127, and the rest of MaxTotalVotingPower for i = 127."""
+    if index < MAX_SIGNING_SET - 1:
+        return 2**48 + index % 64 - 32
+    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_SIGNING_SET - 1)))
+
+
+def run_valgen(request):
+    """CometBFT v0.40.0's states of every chain (`valgen/`, run with `go run`)."""
+    result = subprocess.run(
+        ["go", "run", "."],
+        cwd=VALGEN,
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        env=go_env(),
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"valgen failed:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def keccak_stdin(data):
+    """`cast keccak` with the data on stdin, for inputs too large for one argument."""
+    return subprocess.run(
+        ["cast", "keccak"], input=data, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def val_state_preimage(height, sets, key_info):
+    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`."""
+
+    def array(entries):
+        rows = []
+        for key, power, priority in entries:
+            info = key_info[key]
+            rows.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
+        return "[" + ",".join(rows) + "]"
+
+    (current, current_proposer), (following, next_proposer) = sets
+    return abi_encode(
+        VAL_STATE_SIGNATURE,
+        tag("ETNA_VAL_STATE_V1"),
+        height,
+        array(current),
+        current_proposer,
+        array(following),
+        next_proposer,
+    )
+
+
+def check_val_states(chain, generated, key_info, address):
+    """Each CometBFT state must match the model, be in set order, and have the preimage and hash
+    that `cast` computes. Returns the states as `(height, current, cp, next, np, preimage, hash)`
+    and the model's events."""
+    updates = {h: tuple(c) for h, c in chain["switches"].items()}
+    model_states, events = valset_model.replay(
+        address, chain["start"], chain["end"], chain["genesis"], updates
+    )
+    assert len(generated) == len(model_states), chain["name"]
+    out = []
+    for state, (height, model_current, model_next) in zip(generated, model_states):
+        assert int(state["height"]) == height, (chain["name"], height)
+        sets = []
+        for side, model_set in (("current", model_current), ("next", model_next)):
+            entries = [
+                (e["key"], int(e["voting_power"]), int(e["proposer_priority"]))
+                for e in state[side]
+            ]
+            for e in state[side]:
+                info = key_info[e["key"]]
+                assert (int(e["ck_prefix"]), e["ck_x"]) == (info["ck_prefix"], info["ck_x"])
+            proposer = int(state[side + "_proposer"])
+            assert 0 <= proposer < len(entries)
+            assert 1 <= len(entries) <= MAX_SIGNING_SET, (chain["name"], height, side)
+            # CometBFT's set order: voting power descending, then address ascending.
+            order = [(-power, address[key]) for key, power, _ in entries]
+            assert order == sorted(order) and len(set(order)) == len(order), (chain["name"], height)
+            if [list(e) for e in entries] != model_set.entries() or (
+                proposer != model_set.proposer_index()
+            ):
+                raise SystemExit(
+                    f"{chain['name']} height {height} {side}: CometBFT v0.40.0 and the model "
+                    f"differ\n  CometBFT: {entries} proposer {proposer}\n"
+                    f"  model:    {model_set.entries()} proposer {model_set.proposer_index()}"
+                )
+            sets.append((entries, proposer))
+        preimage = val_state_preimage(height, sets, key_info)
+        digest = keccak(preimage)
+        assert preimage == state["preimage"], (chain["name"], height)
+        assert digest == state["hash"], (chain["name"], height)
+        out.append((height, *sets[0], *sets[1], preimage, digest))
+    # Each update is the difference from the set that signs H + 1 (next at H - 1): every key once,
+    # no member at the power it already has, and only members of that set at power 0.
+    by_height = {state[0]: state for state in out}
+    for height, changes in chain["switches"].items():
+        signs_next = {key: power for key, power, _ in by_height[height - 1][3]}
+        assert len({key for key, _ in changes}) == len(changes), (chain["name"], height)
+        for key, power in changes:
+            assert signs_next.get(key, 0) != power, (chain["name"], height, key)
+    for height, step, kind, fields in chain.get("expect", ()):
+        matches = [
+            e
+            for e in events
+            if (e["height"], e["step"], e["kind"]) == (height, step, kind)
+            and all(e.get(k) == v for k, v in fields.items())
+        ]
+        assert len(matches) == 1, (chain["name"], height, step, kind, fields, events)
+    return out, events
+
+
+def val_state_keys():
+    """Keys c1..c12 with the fields a ValEntry needs and the address that orders a set."""
+    out = []
+    for name, k in VAL_KEYS:
+        x, y = point(k)
+        private_key = word(k)
+        ck_addr = address_of(x, y)
+        assert ck_addr == cast("wallet", "address", "--private-key", private_key).lower(), name
+        out.append(
+            {
+                "name": name,
+                "private_key": private_key,
+                "public_key": "0x" + compress(x, y).hex(),
+                "ck_prefix": 2 + (y & 1),
+                "ck_x": word(x),
+                "ck_y": word(y),
+                "ck_addr": ck_addr,
+            }
+        )
+    return out
+
+
+def max_committee_keys():
+    """The maximum set's keys (`m0`..`m127`, private key 0x10000 + i) by consecutive point
+    additions; every address is checked with `cast keccak`."""
+    out, current = [], point(MAX_COMMITTEE_KEY)
+    for i in range(MAX_SIGNING_SET):
+        if i:
+            current = _add(current, SECP_G)
+        x, y = current
+        out.append(
+            {
+                "name": f"m{i}",
+                "private_key": word(MAX_COMMITTEE_KEY + i),
+                "public_key": "0x" + compress(x, y).hex(),
+                "ck_prefix": 2 + (y & 1),
+                "ck_x": word(x),
+                "xy": (x, y),
+            }
+        )
+    assert current == point(MAX_COMMITTEE_KEY + MAX_SIGNING_SET - 1)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        addresses = list(pool.map(lambda key: address_of(*key["xy"]), out))
+    for key, ck_addr in zip(out, addresses):
+        key["ck_addr"] = ck_addr
+        del key["xy"]
+    return out
+
+
+def val_state_chains(domains):
+    """Validator-state hashes that stock CometBFT v0.40.0 computes (`valgen/`), checked against
+    `valset_model.py` and appendix A's encoding."""
+    chain_ids = {
+        int(d["generation"]): d["chain_id"] for d in domains if d["inbox"] == DEPLOYMENT["inbox"]
+    }
+    keys_small = val_state_keys()
+    keys_max = max_committee_keys()
+    key_info = {k["name"]: k for k in keys_small + keys_max}
+    address = {name: info["ck_addr"][2:] for name, info in key_info.items()}
+
+    max_chain = {
+        "name": "max_committee",
+        "generation": 0,
+        "start": 0,
+        "end": 1,
+        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_SIGNING_SET)),
+        "switches": {},
+    }
+    assert sum(p for _, p in max_chain["genesis"]) == MAX_TOTAL_VOTING_POWER
+    assert max_committee_power(MAX_SIGNING_SET - 1) == 3969 * 2**48 + 94
+    chains = VAL_CHAINS + (max_chain,)
+    request = {
+        "keys": [{"name": k["name"], "private_key": k["private_key"]} for k in key_info.values()],
+        "chains": [
+            {
+                "name": chain["name"],
+                "chain_id": chain_ids[chain["generation"]],
+                "start_height": str(chain["start"]),
+                "end_height": str(chain["end"]),
+                "genesis_time": str(VAL_GENESIS_TIME + chain["start"]),
+                "genesis": [{"key": k, "power": str(p)} for k, p in chain["genesis"]],
+                "updates": [
+                    {"height": str(h), "changes": [{"key": k, "power": str(p)} for k, p in c]}
+                    for h, c in sorted(chain["switches"].items())
+                ],
+            }
+            for chain in chains
+        ],
+    }
+    result = run_valgen(request)
+    for generated in result["keys"]:
+        info = key_info[generated["name"]]
+        assert generated["public_key"] == info["public_key"], generated["name"]
+        assert generated["address"] == info["ck_addr"], generated["name"]
+    generated = {c["name"]: c["states"] for c in result["chains"]}
+
+    chain_out = []
+    for chain in VAL_CHAINS:
+        states, events = check_val_states(chain, generated[chain["name"]], key_info, address)
+        chain_out.append(
+            {
+                "name": chain["name"],
+                "description": chain["description"],
+                "generation": chain["generation"],
+                "start_height": chain["start"],
+                "end_height": chain["end"],
+                "genesis": [list(m) for m in chain["genesis"]],
+                "switches": [
+                    {
+                        "height": height,
+                        "activation_height": height + 2,
+                        "changes": [list(c) for c in changes],
+                    }
+                    for height, changes in sorted(chain["switches"].items())
+                ],
+                "start_preimage": states[0][5],
+                "states": [
+                    {
+                        "height": height,
+                        "current": [list(e) for e in current],
+                        "current_proposer": cp,
+                        "next": [list(e) for e in following],
+                        "next_proposer": np_,
+                        "hash": digest,
+                    }
+                    for height, current, cp, following, np_, _, digest in states
+                ],
+                "events": events,
+            }
+        )
+
+    max_states, max_events = check_val_states(
+        max_chain, generated["max_committee"], key_info, address
+    )
+
+    def sample(entries):
+        return [list(e) for e in entries[:MAX_COMMITTEE_SAMPLE]], [
+            list(e) for e in entries[-MAX_COMMITTEE_SAMPLE:]
+        ]
+
+    max_out = []
+    for height, current, cp, following, np_, preimage, digest in max_states:
+        current_head, current_tail = sample(current)
+        next_head, next_tail = sample(following)
+        max_out.append(
+            {
+                "height": height,
+                "current_head": current_head,
+                "current_tail": current_tail,
+                "current_proposer": cp,
+                "next_head": next_head,
+                "next_tail": next_tail,
+                "next_proposer": np_,
+                "preimage_bytes": len(preimage) // 2 - 1,
+                "hash": digest,
+            }
+        )
+    return decimals(
+        {
+            "cometbft": "v0.40.0",
+            "keys": keys_small,
+            "chains": chain_out,
+            "max_committee": {
+                "description": (
+                    "128 members, the most that any set that signs a block has, at CometBFT's "
+                    "MaxTotalVotingPower: genesis at 0 and one increment. Member i (0 <= i < 128) "
+                    "is key mi with private key 0x10000 + i; its power is 2^48 + (i mod 64) - 32 "
+                    "for i < 127, and member 127 takes the rest of the total, 3969·2^48 + 94. "
+                    "Only the hash and the first and last rows of each set are listed."
+                ),
+                "size": MAX_SIGNING_SET,
+                "first_private_key": word(MAX_COMMITTEE_KEY),
+                "total_power": MAX_TOTAL_VOTING_POWER,
+                "last_member_power": max_committee_power(MAX_SIGNING_SET - 1),
+                "start_height": max_chain["start"],
+                "states": max_out,
+                "events": max_events,
+            },
+        }
+    )
+
+
+# --- forced-inclusion eligibility (spec 7.2) -----------------------------------------------------
+
+FICHECK = HERE / "ficheck"
+FI_SENDER_KEY = 0xF1  # signs every transaction
+FI_AUTHORITY_KEY = 0xF2  # signs the EIP-7702 authorization tuples
+FI_TO = bytes.fromhex("55" * 20)
+FI_DELEGATE = bytes.fromhex("66" * 20)
+FI_ACCESS_ADDRESS = bytes.fromhex("77" * 20)
+FI_STORAGE_KEY = (1).to_bytes(32, "big")
+FI_BLOB_HASH = bytes.fromhex("01" + "aa" * 31)
+GWEI = 10**9
+
+_FI_FEE_1559 = ("chain_id", "nonce", "max_priority_fee", "max_fee", "gas", "to", "value", "data")
+FI_LAYOUTS = {
+    0: ("nonce", "gas_price", "gas", "to", "value", "data", "v", "r", "s"),
+    1: (
+        "chain_id",
+        "nonce",
+        "gas_price",
+        "gas",
+        "to",
+        "value",
+        "data",
+        "access_list",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    2: (*_FI_FEE_1559, "access_list", "y_parity", "r", "s"),
+    3: (
+        *_FI_FEE_1559,
+        "access_list",
+        "max_fee_per_blob_gas",
+        "blob_hashes",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    4: (*_FI_FEE_1559, "access_list", "authorization_list", "y_parity", "r", "s"),
+}
+# Spec 7.2 widths: nonce and gas below 2^64, each fee field below 2^128, value below 2^256.
+FI_WIDTHS = {
+    "nonce": 64,
+    "gas": 64,
+    "gas_price": 128,
+    "max_priority_fee": 128,
+    "max_fee": 128,
+    "max_fee_per_blob_gas": 128,
+    "value": 256,
+}
+
+
+class Encoded(bytes):
+    """An item that is already RLP-encoded; `rlp` splices it in unchanged."""
+
+
+def be_bytes(value):
+    """Minimal big-endian bytes of a non-negative integer (empty for zero)."""
+    assert value >= 0, value
+    return value.to_bytes((value.bit_length() + 7) // 8, "big")
+
+
+def rlp_header(length, offset, pad=False):
+    """The RLP length prefix; `pad` adds a leading zero to the length bytes (non-canonical)."""
+    if length < 56 and not pad:
+        return bytes([offset + length])
+    length_bytes = (b"\x00" if pad else b"") + be_bytes(length)
+    return bytes([offset + 55 + len(length_bytes)]) + length_bytes
+
+
+def rlp(item):
+    """Canonical RLP of an int (minimal big-endian), bytes, `Encoded` bytes or a list of items."""
+    if isinstance(item, Encoded):
+        return bytes(item)
+    if isinstance(item, int):
+        item = be_bytes(item)
+    if isinstance(item, bytes):
+        if len(item) == 1 and item[0] < 0x80:
+            return item
+        return rlp_header(len(item), 0x80) + item
+    payload = b"".join(rlp(x) for x in item)
+    return rlp_header(len(payload), 0xC0) + payload
+
+
+def fi_layout(tx_type):
+    """The fields of `tx_type`; an unknown type's body is built (and read) with type 2's fields."""
+    return FI_LAYOUTS.get(tx_type, FI_LAYOUTS[2])
+
+
+def fi_encode(tx_type, fields):
+    """`rlp(fields)` for a legacy transaction, `type || rlp(fields)` for a typed one."""
+    body = rlp([fields[name] for name in fi_layout(tx_type)])
+    return body if tx_type == 0 else bytes([tx_type]) + body
+
+
+def fi_signing_hash(tx_type, fields, legacy_chain_id=None):
+    """keccak256 of the signing payload: a legacy transaction's six fields, plus
+    `[chain_id, 0, 0]` under EIP-155; `type || rlp(fields without the signature)` when typed."""
+    unsigned = [fields[name] for name in fi_layout(tx_type)[:-3]]
+    if tx_type == 0:
+        extra = [] if legacy_chain_id is None else [legacy_chain_id, 0, 0]
+        return keccak("0x" + rlp(unsigned + extra).hex())
+    return keccak("0x" + (bytes([tx_type]) + rlp(unsigned)).hex())
+
+
+def sign_digest(private_key, digest):
+    """`(r, s, recovery id)` from `cast wallet sign --no-hash` (RFC 6979, low s)."""
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", word(private_key), digest)
+    r, s, v = split_sig(signed)
+    assert v in (27, 28) and 0 < r < SECP_N and 0 < s <= SECP_N // 2, signed
+    return r, s, v - 27
+
+
+@functools.cache
+def key_address(private_key):
+    address = address_of(*point(private_key))
+    assert address == cast("wallet", "address", "--private-key", word(private_key)).lower()
+    return address
+
+
+def fi_sign(tx_type, fields, legacy_chain_id=None):
+    """`fields` signed by the FI sender: a typed y_parity, or a legacy v of 27/28 (no chain id)
+    or 2·chainId + 35/36 (EIP-155)."""
+    digest = fi_signing_hash(tx_type, fields, legacy_chain_id)
+    r, s, parity = sign_digest(FI_SENDER_KEY, digest)
+    assert ecrecover(digest, r, s, parity) == key_address(FI_SENDER_KEY)
+    if tx_type != 0:
+        return {**fields, "y_parity": parity, "r": r, "s": s}
+    base = 27 if legacy_chain_id is None else 2 * legacy_chain_id + 35
+    return {**fields, "v": base + parity, "r": r, "s": s}
+
+
+def fi_parity(tx_type, fields):
+    if tx_type != 0:
+        return fields["y_parity"]
+    v = fields["v"]
+    return v - 27 if v in (27, 28) else (v - 35) % 2
+
+
+def fi_with_parity(tx_type, build, parity, legacy_chain_id=None):
+    """`build(nonce)` signed at the first nonce from 0 whose signature has this recovery id."""
+    nonce = 0
+    while True:
+        signed = fi_sign(tx_type, build(nonce), legacy_chain_id)
+        if fi_parity(tx_type, signed) == parity:
+            return signed
+        nonce += 1
+
+
+def fi_authorization_digest(chain_id, address, nonce):
+    return keccak("0x05" + rlp([chain_id, address, nonce]).hex())
+
+
+def fi_authorization(chain_id, nonce=0, address=FI_DELEGATE):
+    """An EIP-7702 tuple `[chain_id, address, nonce, y_parity, r, s]` signed by the authority over
+    keccak256(0x05 || rlp([chain_id, address, nonce])). Within EIP-7702 widths it must equal
+    `cast wallet sign-auth`; an over-wide nonce or a short address is signed as encoded."""
+    digest = fi_authorization_digest(chain_id, address, nonce)
+    r, s, parity = sign_digest(FI_AUTHORITY_KEY, digest)
+    assert ecrecover(digest, r, s, parity) == key_address(FI_AUTHORITY_KEY)
+    auth = [chain_id, address, nonce, parity, r, s]
+    if nonce >= 2**64 or len(address) != 20:
+        return auth
+    by_cast = cast(
+        "wallet",
+        "sign-auth",
+        "--private-key",
+        word(FI_AUTHORITY_KEY),
+        "--nonce",
+        nonce,
+        "--chain",
+        chain_id,
+        "--rpc-url",
+        "http://127.0.0.1:1",  # never contacted: nonce and chain are given
+        "0x" + address.hex(),
+    )
+    assert by_cast == "0x" + rlp(auth).hex(), by_cast
+    return auth
+
+
+def fi_authorization_with_parity(chain_id, parity):
+    """The authority's tuple at the first nonce from 0 whose signature has this recovery id."""
+    nonce = 0
+    while (auth := fi_authorization(chain_id, nonce))[3] != parity:
+        nonce += 1
+    return auth
+
+
+def fi_legacy(**overrides):
+    return {
+        "nonce": 0,
+        "gas_price": 2 * GWEI,
+        "gas": 21_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        **overrides,
+    }
+
+
+def fi_eip2930(**overrides):
+    return {
+        "chain_id": DEPLOYMENT["l2_chain_id"],
+        "nonce": 0,
+        "gas_price": 2 * GWEI,
+        "gas": 30_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        "access_list": [[FI_ACCESS_ADDRESS, [FI_STORAGE_KEY]]],
+        **overrides,
+    }
+
+
+def fi_eip1559(**overrides):
+    return {
+        "chain_id": DEPLOYMENT["l2_chain_id"],
+        "nonce": 0,
+        "max_priority_fee": GWEI,
+        "max_fee": 2 * GWEI,
+        "gas": 21_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        "access_list": [],
+        **overrides,
+    }
+
+
+def fi_blob(**overrides):
+    return fi_eip1559(max_fee_per_blob_gas=1, blob_hashes=[FI_BLOB_HASH], **overrides)
+
+
+def fi_eip7702(authorizations, **overrides):
+    return fi_eip1559(gas=100_000, authorization_list=authorizations, **overrides)
+
+
+def rlp_lenient(data, i=0):
+    """`(item, end)` of the RLP item at `data[i]`, accepting non-minimal length prefixes; a string
+    is bytes and a list a list of items."""
+    if i >= len(data):
+        raise ValueError("truncated")
+    first = data[i]
+    if first < 0x80:
+        return data[i : i + 1], i + 1
+    is_list = first >= 0xC0
+    short = first - (0xC0 if is_list else 0x80)
+    if short < 56:
+        length, start = short, i + 1
+    else:
+        size = short - 55
+        length, start = int.from_bytes(data[i + 1 : i + 1 + size], "big"), i + 1 + size
+    end = start + length
+    if end > len(data):
+        raise ValueError("truncated")
+    if not is_list:
+        return data[start:end], end
+    items, j = [], start
+    while j < end:
+        item, j = rlp_lenient(data[:end], j)
+        items.append(item)
+    return items, end
+
+
+def fi_violations(raw):
+    """`(violated rules, recovered sender)` of `raw` under spec 7.2, from the bytes alone.
+
+    A lenient decode (non-minimal lengths, leading-zero integers, trailing bytes, extra fields and
+    an empty type-4 destination are read through and reported as `noncanonical`) lets every other
+    rule be checked too, so a case can be shown to break only the rule it is labelled with. The
+    signature is recovered over the signing payload re-encoded from the decoded fields.
+    """
+    l2_chain_id, gas_limit = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["l2_block_gas_limit"]
+    if not raw or 0x80 <= raw[0] < 0xC0:
+        return {"noncanonical"}, None
+    violations = set()
+    tx_type = 0 if raw[0] >= 0xC0 else raw[0]
+    if tx_type not in (0, 1, 2, 4):
+        violations.add("type")
+    body = raw if tx_type == 0 else raw[1:]
+    try:
+        items, end = rlp_lenient(body)
+    except ValueError:
+        return violations | {"noncanonical"}, None
+    names = fi_layout(tx_type)
+    if end != len(body) or not isinstance(items, list) or len(items) != len(names):
+        violations.add("noncanonical")
+        if not isinstance(items, list) or len(items) < len(names):
+            return violations, None
+    fields = {}
+    for name, item in zip(names, items):
+        if name in ("to", "data", "access_list", "blob_hashes"):
+            fields[name] = item
+        elif name == "authorization_list":
+            fields[name] = [
+                [int.from_bytes(f, "big") if i != 1 else f for i, f in enumerate(auth)]
+                for auth in item
+            ]
+        else:
+            fields[name] = int.from_bytes(item, "big")
+    if fi_encode(tx_type, fields) != raw:
+        violations.add("noncanonical")
+    # Fixed-width fields that RLP does not constrain: a destination is empty or 20 bytes (always
+    # 20 for types 3 and 4), an access-list entry is [20-byte address, [32-byte keys]] and an
+    # authorization tuple has six fields.
+    if len(fields["to"]) != 20 and (fields["to"] or tx_type in (3, 4)):
+        violations.add("noncanonical")
+    for entry in fields.get("access_list", []):
+        address, keys = entry if isinstance(entry, list) and len(entry) == 2 else (b"", [])
+        if len(address) != 20 or not isinstance(keys, list) or any(len(k) != 32 for k in keys):
+            violations.add("noncanonical")
+    tuples = fields.get("authorization_list", [])
+    if any(len(auth) != 6 for auth in tuples):
+        violations.add("noncanonical")
+
+    if any(fields[name] >= 2**bits for name, bits in FI_WIDTHS.items() if name in fields):
+        violations.add("width")
+    # EIP-7702 tuple widths: chain_id uint256, address 20 bytes, nonce uint64, y_parity uint8,
+    # r and s uint256. Nothing else about a tuple affects eligibility.
+    for chain_id, address, nonce, y_parity, r, s in (auth[:6] for auth in tuples if len(auth) >= 6):
+        if len(address) != 20 or nonce >= 2**64 or y_parity >= 2**8:
+            violations.add("width")
+        if max(chain_id, r, s) >= 2**256:
+            violations.add("width")
+    if fields["gas"] > gas_limit:
+        violations.add("gas_limit")
+
+    legacy_chain_id, parity = None, None
+    if tx_type == 0:
+        v = fields["v"]
+        if v in (27, 28):
+            parity = v - 27
+        elif v >= 35:
+            legacy_chain_id, parity = (v - 35) // 2, (v - 35) % 2
+            if legacy_chain_id != l2_chain_id:
+                violations.add("chain_id")
+    else:
+        parity = fields["y_parity"]
+        if fields["chain_id"] != l2_chain_id:
+            violations.add("chain_id")
+    r, s = fields["r"], fields["s"]
+    sender = None
+    if parity in (0, 1) and 0 < r < SECP_N and 0 < s <= SECP_N // 2:
+        sender = ecrecover(fi_signing_hash(tx_type, fields, legacy_chain_id), r, s, parity)
+    if sender is None:
+        violations.add("signature")
+    return violations, sender
+
+
+def fi_cases():
+    """`(cases, other senders)`: `(name, rule, raw)` of every case, in the order the vectors list
+    them, and the sender of each readable non-signature case not signed by the FI sender.
+
+    Each ineligible case breaks only the rule it is labelled with (gas 2^64 is also above the
+    block gas limit) and is otherwise well-formed and signed by the FI sender, so an
+    implementation that skips that one rule accepts it. Framing cases wrap canonical
+    transactions; the signature of a re-encoded case covers its canonical signing payload.
+    """
+    l2_chain_id, gas_limit = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["l2_block_gas_limit"]
+
+    def legacy(parity, chain_id):
+        return fi_with_parity(0, lambda n: fi_legacy(nonce=n), parity, chain_id)
+
+    def eip1559(**overrides):
+        return fi_sign(2, fi_eip1559(**overrides))
+
+    def eip7702(authorizations, **overrides):
+        return fi_encode(4, fi_sign(4, fi_eip7702(authorizations, **overrides)))
+
+    base = eip1559()
+    auth = fi_authorization(l2_chain_id)
+    auth_r_zero = [*auth[:4], 0, auth[5]]
+    auth_y_255 = [*auth[:3], 255, *auth[4:]]
+    # Over-wide tuples whose low bits are a valid tuple, so a decoder that truncates y_parity to
+    # 8 bits or r to 256 bits reads a validly signed tuple back.
+    even_auth = fi_authorization_with_parity(l2_chain_id, 0)
+    auth_y_256 = [*even_auth[:3], 256, *even_auth[4:]]
+    auth_r_33 = [*auth[:4], 2**256 + auth[4], auth[5]]
+    assert auth_y_256[3] % 2**8 == even_auth[3] and auth_r_33[4] % 2**256 == auth[4]
+    # A high-s tuple signature is the twin of a valid one; the EL skips that tuple.
+    auth_high_s = [*auth[:3], 1 - auth[3], auth[4], SECP_N - auth[5]]
+    auth_digest = fi_authorization_digest(*auth[:3])
+    assert ecrecover(auth_digest, auth[4], auth[5], auth[3]) == key_address(FI_AUTHORITY_KEY)
+    assert auth_high_s[5] > SECP_N // 2
+    short_address_access_list = [[FI_ACCESS_ADDRESS[:19], [FI_STORAGE_KEY]]]
+    even = fi_with_parity(2, lambda n: fi_eip1559(nonce=n), 0)
+    low_s = base["s"]
+    unrecoverable_r = smallest_off_curve_x()
+
+    # The low-s twin of `high_s` and the parity-masked twin of `y_parity_2` recover the sender.
+    base_digest, even_digest = fi_signing_hash(2, base), fi_signing_hash(2, even)
+    flipped = 1 - base["y_parity"]
+    assert ecrecover(base_digest, base["r"], SECP_N - low_s, flipped) == key_address(FI_SENDER_KEY)
+    assert ecrecover(even_digest, even["r"], even["s"], 2 & 1) == key_address(FI_SENDER_KEY)
+    assert ecrecover(base_digest, unrecoverable_r, low_s, 0) is None
+    assert ecrecover(base_digest, unrecoverable_r, low_s, 1) is None
+
+    # s = floor(n/2) is the largest low s, and no FI-sender signature has it: the boundary pair
+    # signs `base`'s payload with `base`'s r, so (r, n/2, 0) recovers some other key Q, and
+    # (r, n/2 + 1, 1) is its high-s twin.
+    half_n = SECP_N // 2
+    boundary_sender = ecrecover(base_digest, base["r"], half_n, 0)
+    assert boundary_sender not in (None, key_address(FI_SENDER_KEY))
+    assert SECP_N - (half_n + 1) == half_n
+
+    base_items = [base[name] for name in fi_layout(2)]
+    payload = rlp(base_items)[2:]  # a signed transaction is above 55 bytes: 0xf8 <length>
+    assert rlp(base_items)[0] == 0xF8 and len(payload) < 256
+    nonce_one = eip1559(nonce=1)
+
+    cases = [
+        ("legacy_eip155_35", "eligible", fi_encode(0, legacy(0, l2_chain_id))),
+        ("legacy_eip155_36", "eligible", fi_encode(0, legacy(1, l2_chain_id))),
+        ("legacy_pre155_27", "eligible", fi_encode(0, legacy(0, None))),
+        ("legacy_pre155_28", "eligible", fi_encode(0, legacy(1, None))),
+        ("eip2930", "eligible", fi_encode(1, fi_sign(1, fi_eip2930()))),
+        ("eip1559", "eligible", fi_encode(2, base)),
+        ("eip1559_zero_fee", "eligible", fi_encode(2, eip1559(max_priority_fee=0, max_fee=0))),
+        ("eip7702", "eligible", eip7702([auth])),
+        ("eip7702_invalid_auth_signature", "eligible", eip7702([auth_r_zero])),
+        ("eip7702_empty_auth_list", "eligible", eip7702([])),
+        ("gas_at_limit", "eligible", fi_encode(2, eip1559(gas=gas_limit))),
+        ("nonce_max", "eligible", fi_encode(2, eip1559(nonce=2**64 - 1))),
+        (
+            "fee_max",
+            "eligible",
+            fi_encode(2, eip1559(max_priority_fee=2**128 - 1, max_fee=2**128 - 1)),
+        ),
+        ("value_max", "eligible", fi_encode(2, eip1559(value=2**256 - 1))),
+        # The EL skips a tuple for another chain or with y_parity above 1; chain id 0 is any chain.
+        ("eip7702_foreign_tuple_chain_id", "eligible", eip7702([fi_authorization(1)])),
+        ("eip7702_tuple_y_parity_255", "eligible", eip7702([auth_y_255])),
+        ("eip7702_tuple_chain_id_zero", "eligible", eip7702([fi_authorization(0)])),
+        (
+            "legacy_contract_creation",
+            "eligible",
+            fi_encode(0, fi_sign(0, fi_legacy(to=b"", gas=60_000), l2_chain_id)),
+        ),
+        ("eip1559_contract_creation", "eligible", fi_encode(2, eip1559(to=b"", gas=60_000))),
+        ("s_half_n", "eligible", fi_encode(2, {**base, "s": half_n, "y_parity": 0})),
+        (
+            "eip7702_tuple_nonce_max",
+            "eligible",
+            eip7702([fi_authorization(l2_chain_id, nonce=2**64 - 1)]),
+        ),
+        ("eip7702_tuple_high_s", "eligible", eip7702([auth_high_s])),
+        # Spec 7.2: eligibility ignores fees, even a tip above the fee cap.
+        (
+            "eip1559_tip_above_max_fee",
+            "eligible",
+            fi_encode(2, eip1559(max_priority_fee=3 * GWEI, max_fee=2 * GWEI)),
+        ),
+        ("empty", "noncanonical", b""),
+        ("trailing_byte", "noncanonical", fi_encode(2, base) + b"\x00"),
+        ("two_transactions", "noncanonical", fi_encode(2, base) + fi_encode(2, nonce_one)),
+        (
+            "leading_zero_nonce",
+            "noncanonical",
+            fi_encode(2, {**nonce_one, "nonce": Encoded(b"\x82\x00\x01")}),
+        ),
+        (
+            "non_minimal_length_prefix",
+            "noncanonical",
+            b"\x02" + rlp_header(len(payload), 0xC0, pad=True) + payload,
+        ),
+        (
+            "typed_missing_field",
+            "noncanonical",
+            b"\x02" + rlp([base[name] for name in fi_layout(2) if name != "access_list"]),
+        ),
+        ("typed_extra_field", "noncanonical", b"\x02" + rlp([*base_items, b""])),
+        ("eip7702_empty_to", "noncanonical", eip7702([auth], to=b"")),
+        (
+            "legacy_to_19_bytes",
+            "noncanonical",
+            fi_encode(0, fi_sign(0, fi_legacy(to=FI_TO[:19]), l2_chain_id)),
+        ),
+        ("eip1559_to_19_bytes", "noncanonical", fi_encode(2, eip1559(to=FI_TO[:19]))),
+        (
+            "eip2930_access_list_address_19_bytes",
+            "noncanonical",
+            fi_encode(1, fi_sign(1, fi_eip2930(access_list=short_address_access_list))),
+        ),
+        (
+            "eip1559_storage_key_31_bytes",
+            "noncanonical",
+            fi_encode(
+                2, eip1559(gas=30_000, access_list=[[FI_ACCESS_ADDRESS, [FI_STORAGE_KEY[1:]]]])
+            ),
+        ),
+        ("eip7702_tuple_5_fields", "noncanonical", eip7702([auth[:5]])),
+        ("eip7702_tuple_7_fields", "noncanonical", eip7702([[*auth, 0]])),
+        ("type3_blob", "type", fi_encode(3, fi_sign(3, fi_blob()))),
+        ("unknown_type_05", "type", fi_encode(0x05, fi_sign(0x05, fi_eip1559()))),
+        ("unknown_type_7f", "type", fi_encode(0x7F, fi_sign(0x7F, fi_eip1559()))),
+        ("legacy_v_37", "chain_id", fi_encode(0, legacy(0, 1))),
+        ("typed_wrong_chain_id", "chain_id", fi_encode(2, eip1559(chain_id=l2_chain_id + 1))),
+        ("y_parity_2", "signature", fi_encode(2, {**even, "y_parity": 2})),
+        ("r_zero", "signature", fi_encode(2, {**base, "r": 0})),
+        ("s_zero", "signature", fi_encode(2, {**base, "s": 0})),
+        ("r_eq_n", "signature", fi_encode(2, {**base, "r": SECP_N})),
+        (
+            "high_s",
+            "signature",
+            fi_encode(2, {**base, "s": SECP_N - low_s, "y_parity": flipped}),
+        ),
+        ("unrecoverable_r", "signature", fi_encode(2, {**base, "r": unrecoverable_r})),
+        ("s_half_n_plus_1", "signature", fi_encode(2, {**base, "s": half_n + 1, "y_parity": 1})),
+        ("nonce_2_64", "width", fi_encode(2, eip1559(nonce=2**64))),
+        ("gas_2_64", "width", fi_encode(2, eip1559(gas=2**64))),
+        ("fee_2_128", "width", fi_encode(2, eip1559(max_fee=2**128))),
+        ("tip_2_128", "width", fi_encode(2, eip1559(max_priority_fee=2**128))),
+        (
+            "legacy_gas_price_2_128",
+            "width",
+            fi_encode(0, fi_sign(0, fi_legacy(gas_price=2**128), l2_chain_id)),
+        ),
+        (
+            "eip2930_gas_price_2_128",
+            "width",
+            fi_encode(1, fi_sign(1, fi_eip2930(gas_price=2**128))),
+        ),
+        ("eip7702_fee_2_128", "width", eip7702([auth], max_fee=2**128)),
+        ("value_33_bytes", "width", fi_encode(2, eip1559(value=2**256))),
+        (
+            "eip7702_tuple_nonce_2_64",
+            "width",
+            eip7702([fi_authorization(l2_chain_id, nonce=2**64)]),
+        ),
+        ("eip7702_tuple_y_parity_256", "width", eip7702([auth_y_256])),
+        (
+            "eip7702_tuple_address_19_bytes",
+            "width",
+            eip7702([fi_authorization(l2_chain_id, address=FI_DELEGATE[:19])]),
+        ),
+        ("eip7702_tuple_r_33_bytes", "width", eip7702([auth_r_33])),
+        ("gas_above_limit", "gas_limit", fi_encode(2, eip1559(gas=gas_limit + 1))),
+    ]
+    return cases, {"s_half_n": boundary_sender}
+
+
+# Noncanonical cases with no transaction to read through: nothing else can be checked.
+FI_UNREADABLE = ("empty", "typed_missing_field")
+
+
+def fi_eligibility():
+    """Spec 7.2 forced-inclusion eligibility of raw transaction bytes at the deployment's L2 chain
+    id and block gas limit. Every case is classified again from its bytes by `fi_violations`;
+    `ficheck/` then checks the written file against go-ethereum v1.15.5."""
+    cases, other_senders = fi_cases()
+    out = []
+    for name, rule, raw in cases:
+        violations, recovered = fi_violations(raw)
+        expected = set() if rule == "eligible" else {rule}
+        if name == "gas_2_64":
+            expected.add("gas_limit")
+        assert violations == expected, (name, violations)
+        if rule != "signature" and name not in FI_UNREADABLE:
+            sender = other_senders.get(name, key_address(FI_SENDER_KEY))
+            assert recovered == sender, (name, recovered)
+        out.append(
+            {"name": name, "raw": "0x" + raw.hex(), "eligible": rule == "eligible", "rule": rule}
+        )
+    assert len({case["raw"] for case in out}) == len(out)
+    return {
+        "l2_chain_id": dec(DEPLOYMENT["l2_chain_id"]),
+        "l2_block_gas_limit": dec(DEPLOYMENT["l2_block_gas_limit"]),
+        "cases": out,
+    }
+
+
+def run_ficheck():
+    """Checks the written vectors against go-ethereum v1.15.5 (`ficheck/`, run with `go run`)."""
+    result = subprocess.run(
+        ["go", "run", ".", "../vectors.json"],
+        cwd=FICHECK,
+        capture_output=True,
+        text=True,
+        env=go_env(),
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"ficheck failed:\n{result.stdout}{result.stderr}")
+
+
+# --- storage layout ------------------------------------------------------------------------------
+
+# Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix,
+# holdsSeat and seat take 8 bits, power 64 and every other field 48; unused high bits are zero.
+# Each entry: vector key -> (layout table, packing name, fields, ordinary values). Every kind also
+# gets an all-max item, each field at its largest value: ckPrefix 3, holdsSeat 1, seat 127 and
+# every other field all ones of its width.
+PACKED = {
+    "inbox_272": (
+        "inbox",
+        "genesis_packed",
+        ("genesis_height", "l1_block"),
+        (6, 19_000_000),
+    ),
+    "inbox_280_word2": (
+        "inbox",
+        "forced_inclusion_entry_word2",
+        ("timestamp", "l1_block"),
+        (1_700_000_000, 19_000_123),
+    ),
+    "inbox_281": ("inbox", "forced_inclusion_head_tail", ("head", "tail"), (1, 3)),
+    "inbox_282": (
+        "inbox",
+        "forced_inclusion_config",
+        ("forced_inclusion_delay", "max_anchor_age"),
+        (384, 1_152),
+    ),
+    "inbox_285_word1": (
+        "inbox",
+        "landing_word1",
+        ("parent_height", "generation", "head"),
+        (12, 1, 3),
+    ),
+    "inbox_293": (
+        "inbox",
+        "rules_schedule",
+        ("active_rules", "next_rules", "rules_time", "stop_time"),
+        (1, 2, 1_700_003_600, 1_700_007_200),
+    ),
+    # The staking contract's key-to-seat value of a key whose bond holds seat 5, and the second
+    # word of a snapshot seat record with prefix 0x02 and power 250,000.
+    "staking_key_seat": ("staking", "key_seat", ("holds_seat", "seat"), (1, 5)),
+    "staking_record_word2": ("staking", "record_word2", ("ck_prefix", "power"), (2, 250_000)),
+}
+FIELD_BITS = {"ck_prefix": 8, "holds_seat": 8, "seat": 8, "power": 64}
+FIELD_MAX = {"ck_prefix": 3, "holds_seat": 1, "seat": 127}
+
+
+def bits_of(field_name):
+    return FIELD_BITS.get(field_name, 48)
+
+
+def max_of(field_name):
+    return FIELD_MAX.get(field_name, 2 ** bits_of(field_name) - 1)
+
+
+def packing(table):
+    out = {}
+    for _, (layout_table, name, fields, _) in PACKED.items():
+        if layout_table != table:
+            continue
+        offset, lanes = 0, {}
+        for field_name in fields:
+            lanes[field_name] = {"offset": offset, "bits": bits_of(field_name)}
+            offset += bits_of(field_name)
+        out[name] = lanes
+    return out
+
+
+def pack(fields, values):
+    packed, offset = 0, 0
+    for field_name, value in zip(fields, values):
+        bits = bits_of(field_name)
+        assert 0 <= value < 2**bits, (field_name, value)
+        packed |= value << offset
+        offset += bits
+    return word(packed)
+
+
+def packed_words():
+    out = {}
+    for key, (_, _, fields, ordinary) in PACKED.items():
+        maximum = tuple(max_of(f) for f in fields)
+        out[key] = [
+            {**dict(zip(fields, values)), "word": pack(fields, values)}
+            for values in (ordinary, maximum)
+        ]
+    # Slot 293 packs four 48-bit fields, so bits 192 and up stay zero; the key-to-seat value takes
+    # 16 bits and a record's second word 72.
+    for key, width in (("inbox_293", 192), ("staking_key_seat", 16), ("staking_record_word2", 72)):
+        assert all(int(item["word"], 16) >> width == 0 for item in out[key]), key
+    assert out["staking_key_seat"][0]["word"] == word(0x0501)
+    assert out["staking_record_word2"][0]["word"] == word(0x3D09002)
+    return decimals(out)
+
+
+def origin_words():
+    """Slot 290 origins: (startHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash), one full word
+    each; the fourth is the value slot 278 holds when the record is written."""
+    fields = ("start_height", "l1_block_number", "l1_timestamp", "fallback_keys_hash")
+    cases = (
+        (0, (0, 19_000_000, 1_700_000_000, fallback_keys_hash([K1]))),
+        (1, (U48_MAX, U48_MAX, U48_MAX, fallback_keys_hash([K1, K2]))),
+    )
+    return decimals(
+        [{"generation": generation, **dict(zip(fields, values))} for generation, values in cases]
+    )
+
+
+INBOX_SLOTS = {
+    "initialization_status": 258,
+    "recovery_generation": 268,
+    "config_hash": 269,
+    "last_checkpoint_height": 270,
+    "last_checkpoint_hash": 271,
+    "genesis_packed": 272,
+    "genesis_block_hash": 273,
+    "genesis_state_root": 274,
+    "fallback_keys_hash": 278,
+    "min_total_stake": 279,
+    "forced_inclusion_queue": 280,
+    "forced_inclusion_head_tail": 281,
+    "forced_inclusion_config": 282,
+    "landings": 285,
+    "origins": 290,
+    "recovery_nonce": 292,
+    "rules_schedule": 293,
+}
+RESERVED_SLOTS = (283, 284, 286, 287, 288, 289, 291)
+# The anchor witness's slots in proof order: the recovery generation, the checkpoint height and
+# hash, the fallback key hash, minTotalStake, the forced inclusion head and tail and the rules
+# schedule.
+ANCHOR_SLOTS = (268, 270, 271, 278, 279, 281, 293)
+assert not set(INBOX_SLOTS.values()) & set(RESERVED_SLOTS)
+assert set(ANCHOR_SLOTS) <= set(INBOX_SLOTS.values())
+
+
+def mapping_slots(key, slot, count):
+    first = int(cast("index", "uint256", key, slot), 16)
+    return [word(first + w) for w in range(count)]
+
+
+def layout():
+    """The node-facing storage layout of the Inbox (appendix B)."""
+    inbox = {
+        "slots": INBOX_SLOTS,
+        "reserved_slots": list(RESERVED_SLOTS),
+        "packing": packing("inbox"),
+        "initialized_status": 3,
+        "anchor_slots": list(ANCHOR_SLOTS),
+        "forced_inclusion_entry_slots": [
+            {"index": i, "slots": mapping_slots(i, INBOX_SLOTS["forced_inclusion_queue"], 2)}
+            for i in (0, 7)
+        ],
+        "landing_slots": [
+            {"height": h, "slots": mapping_slots(h, INBOX_SLOTS["landings"], 3)}
+            for h in (0, 6, 18)
+        ],
+        "origin_slots": [
+            {"generation": g, "slots": mapping_slots(g, INBOX_SLOTS["origins"], 4)}
+            for g in (0, 1)
+        ],
+    }
+    return decimals({"inbox": inbox})
+
+
+# --- L2 staking: fallback keys, storage words, missBitmap, candidate, block-start call ----------
+
+MAX_FALLBACK_KEYS = 128  # a fallback key list holds 1 to 128 keys
+FALLBACK_KEYS_UPDATED = "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])"
+STAKING_NAMESPACE = "taiko.etna.staking"
+# T, the namespace's ERC-7201 base slot, as appendix B lists it.
+STAKING_BASE = 0x5CFA9AE4FA3CCB6DB5189DBAFF84335BB566EBD2F7442638272A1D81CCB19E00
+SNAPSHOT_RECORDS = 128  # snapshot seat records, one per seat number 0..127 whatever n_max is
+EIP1967_IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+U64_MAX = 2**64 - 1
+# CometBFT's BlockIDFlag values in a LastCommit; only COMMIT is a precommit for the parent block.
+BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL = 1, 2, 3
+
+
+@functools.cache
+def scalar_key(k):
+    """`consensus_key` of private key k: its ckPrefix, ckX and ckAddr (`cast wallet address`)."""
+    key = consensus_key(f"k{k}", k)
+    assert (key["ck_prefix"], key["ck_x"]) == fallback_key(k), k
+    return key
+
+
+def compressed(key):
+    """The 33-byte value ckPrefix || ckX of a key (ckPrefix, ckX)."""
+    prefix, x = key
+    return bytes([prefix]) + bytes.fromhex(x[2:])
+
+
+def ascending_scalars(n):
+    """The private keys 1..n, ordered by the 33-byte value of their compressed public keys."""
+    return sorted(range(1, n + 1), key=lambda k: compressed(fallback_key(k)))
+
+
+def fallback_keys_rejection(keys):
+    """Why setFallbackKeys rejects a list, or None: `count` outside 1 to 128 entries, `order`
+    unless every 33-byte value is above the one before it (so a repeat too), `key` for an entry
+    that is not a valid compressed public key."""
+    if not 1 <= len(keys) <= MAX_FALLBACK_KEYS:
+        return "count"
+    values = [compressed(key) for key in keys]
+    if any(a >= b for a, b in zip(values, values[1:])):
+        return "order"
+    if any(decompress(value) is None for value in values):
+        return "key"
+    return None
+
+
+def fallback_keys():
+    """The fallback key lists setFallbackKeys accepts, each with its preimage and hash, its
+    FallbackKeysUpdated event (the hash as topic 1, the list as data) and the validators it signs
+    as (one per key, power 1, at the key's secp256k1eth address), and the lists it rejects."""
+    k3, k9 = fallback_key(3), fallback_key(9)
+    assert k3 == (2, "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9")
+    assert k9 == (3, "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe")
+    # By X alone K9 comes first; as 33-byte values K3, whose prefix is 0x02, does.
+    assert int(k9[1], 16) < int(k3[1], 16) and compressed(k3) < compressed(k9)
+    topic0 = keccak(FALLBACK_KEYS_UPDATED)
+    assert topic0 == SPEC_TOPICS["fallback_keys_updated"]
+    largest = ascending_scalars(MAX_FALLBACK_KEYS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, largest))
+    accepted = []
+    for name, scalars in (
+        ("one_key", (1,)),
+        ("two_keys", (1, 2)),
+        ("prefix_then_x", (3, 9)),
+        ("max_keys", largest),
+    ):
+        keys = [fallback_key(k) for k in scalars]
+        assert fallback_keys_rejection(keys) is None, name
+        preimage = fallback_keys_preimage(keys)
+        digest = keccak(preimage)
+        # The event data is the list alone: its offset, then the preimage's words after the tag
+        # and the offset.
+        data = abi_encode("f((uint8,bytes32)[])", fallback_keys_arg(keys))
+        assert data == concat(word(32), "0x" + preimage[2 + 128 :]), name
+        accepted.append(
+            {
+                "name": name,
+                "keys": fallback_keys_json(keys),
+                "preimage": preimage,
+                "hash": digest,
+                "event": {"topic0": topic0, "topic1": digest, "data": data},
+                "validators": [{"ck_addr": scalar_key(k)["ck_addr"], "power": 1} for k in scalars],
+            }
+        )
+    hashes = {case["name"]: case["hash"] for case in accepted}
+    assert hashes["one_key"] == APPENDIX_LITERALS["enc_a_36a_a"][1]
+    assert hashes["two_keys"] == APPENDIX_LITERALS["enc_a_36a_b"][1]
+    assert hashes["prefix_then_x"].startswith("0x5890") and hashes["prefix_then_x"].endswith("333b")
+    assert len(accepted[-1]["preimage"]) == 2 + 2 * 8_288
+    assert len(accepted[-1]["event"]["data"]) == 2 + 64 * 258
+    assert smallest_off_curve_x() == 5
+    rejected = []
+    for name, keys, reason in (
+        ("empty", [], "count"),
+        ("too_many", [fallback_key(k) for k in ascending_scalars(MAX_FALLBACK_KEYS + 1)], "count"),
+        ("descending", [K2, K1], "order"),
+        ("duplicate", [K1, K1], "order"),
+        ("x_alone", [k9, k3], "order"),
+        ("prefix_04", [(4, K1[1])], "key"),
+        ("x_not_below_p", [(2, word(SECP_P))], "key"),
+        ("off_curve", [(2, word(smallest_off_curve_x()))], "key"),
+    ):
+        assert fallback_keys_rejection(keys) == reason, name
+        rejected.append({"name": name, "keys": fallback_keys_json(keys), "reason": reason})
+    return decimals({"tag": "ETNA_FALLBACK_KEYS_V1", "accepted": accepted, "rejected": rejected})
+
+
+def staking_base():
+    """T: `cast index-erc7201 taiko.etna.staking`, which must equal
+    keccak256(abi.encode(uint256(keccak256(id)) - 1)) & ~0xff and appendix B's value."""
+    base = int(cast("index-erc7201", STAKING_NAMESPACE), 16)
+    inner = int(keccak_text(STAKING_NAMESPACE), 16) - 1
+    assert base == int(keccak(abi_encode("f(uint256)", inner)), 16) & ~0xFF
+    assert base == STAKING_BASE
+    return base
+
+
+def key_seat_of(value):
+    """The seat a key-to-seat value gives: s for holdsSeat = 1 (bits 0-7), seat = s below 128
+    (bits 8-15) and every bit from bit 16 up zero; None for any other value."""
+    holds_seat, seat = value & 0xFF, value >> 8 & 0xFF
+    if holds_seat == 1 and seat < SNAPSHOT_RECORDS and value >> 16 == 0:
+        return seat
+    return None
+
+
+def record_word2(ck_prefix, power):
+    """Word 2 of a snapshot seat record: ckPrefix in bits 0-7, power in bits 8-71."""
+    return pack(("ck_prefix", "power"), (ck_prefix, power))
+
+
+# Key-to-seat values and the seat each gives: seats 5, 0 and 127; 0, the value of a key that holds
+# no seat; 0x0500, holdsSeat 0 with the seat kept, which a released key must not keep; and the
+# values that are not well formed: holdsSeat 2, seat 128 and bit 16 set.
+KEY_SEAT_WORDS = (
+    (0x0501, 5),
+    (0x0001, 0),
+    (0x7F01, 127),
+    (0x0000, None),
+    (0x0500, None),
+    (0x0502, None),
+    (0x8001, None),
+    (0x10501, None),
+)
+
+
+def staking_layout(key_list):
+    """The words of the L2 staking contract that nodes and guests read (appendix B): snapshotHeight
+    at T, snapshotTotalStake at T + 1, the key-to-seat mapping at T + 2 and record s at
+    T + 3 + 2s and T + 4 + 2s, with the key-to-seat elements of K1, K2 and keys a1-a4 (`cast
+    index`), how key-to-seat values decode, record second words, the proxy's EIP-1967
+    implementation slot and the no-exit value of exitHeight."""
+    base = staking_base()
+    addresses = [scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]]
+    addresses += [key["ck_addr"] for key in key_list[:4]]
+    key_seat_slots = [
+        {"ck_addr": a, "slot": cast("index", "address", a, word(base + 2))} for a in addresses
+    ]
+    assert key_seat_slots[0] == {
+        "ck_addr": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        "slot": "0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27",
+    }
+    record_slots = [
+        {"seat": s, "word1": word(base + 3 + 2 * s), "word2": word(base + 4 + 2 * s)}
+        for s in (0, 5, SNAPSHOT_RECORDS - 1)
+    ]
+    assert record_slots[-1]["word1"] == (
+        "0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01"
+    )
+    key_seat_words = []
+    for value, seat in KEY_SEAT_WORDS:
+        assert key_seat_of(value) == seat, hex(value)
+        key_seat_words.append({"word": word(value), "seat": seat})
+    words2 = [
+        {"ck_prefix": prefix, "power": power, "word": record_word2(prefix, power)}
+        for prefix, power in ((2, 250_000), (3, U64_MAX))
+    ]
+    assert words2[0]["word"] == word(0x3D09002)
+    implementation = word(int(keccak_text("eip1967.proxy.implementation"), 16) - 1)
+    assert implementation == EIP1967_IMPLEMENTATION_SLOT
+    return decimals(
+        {
+            "namespace": STAKING_NAMESPACE,
+            "base": word(base),
+            "snapshot_height_slot": word(base),
+            "snapshot_total_stake_slot": word(base + 1),
+            "key_seat_slot": word(base + 2),
+            "record_slots": record_slots,
+            "key_seat_slots": key_seat_slots,
+            "key_seat_words": key_seat_words,
+            "record_word2": words2,
+            "implementation_slot": implementation,
+            "no_exit": NO_EXIT,
+        }
+    )
+
+
+def miss_bitmap_of(first_block, validators):
+    """The missBitmap block H sets (spec 3.4 rule 6): 0 for the first block of a generation;
+    otherwise bit s is 1 exactly when a validator of the set that signs the parent is missing from
+    H's LastCommit (any flag but commit) and its key-to-seat value in the parent's post-state gives
+    seat s."""
+    if first_block:
+        return 0
+    bitmap = 0
+    for _, flag, value in validators:
+        seat = key_seat_of(value)
+        if flag != BLOCK_ID_FLAG_COMMIT and seat is not None:
+            bitmap |= 1 << seat
+    return bitmap
+
+
+def miss_bitmap(key_list):
+    """missBitmap cases: the validators of the set that signs the parent, each with its address,
+    its flag in the block's LastCommit and its key-to-seat value in the parent's post-state."""
+    a1, a2, a3, a4 = (key["ck_addr"] for key in key_list[:4])
+    # The fallback keys K1 and K2, for the cases where the fallback key set signs the parent.
+    f1, f2 = scalar_key(1)["ck_addr"], scalar_key(2)["ck_addr"]
+    absent, commit, nil = BLOCK_ID_FLAG_ABSENT, BLOCK_ID_FLAG_COMMIT, BLOCK_ID_FLAG_NIL
+    cases = (
+        ("all_commit", False, ((a1, commit, 0x0001), (a2, commit, 0x0101), (a3, commit, 0x0201)),
+         0),
+        ("absent_seat_5", False,
+         ((a1, commit, 0x0001), (a2, absent, 0x0501), (a3, commit, 0x0201)), 1 << 5),
+        ("nil_seat_0", False, ((a1, nil, 0x0001), (a2, commit, 0x0101)), 1 << 0),
+        # Two missing validators at seats 0 and 3: the bitmap ORs both bits.
+        ("two_seats", False,
+         ((a1, absent, 0x0001), (a2, commit, 0x0101), (a3, nil, 0x0301)), 1 << 0 | 1 << 3),
+        ("seat_127", False, ((a1, commit, 0x0001), (a2, absent, 0x7F01)), 1 << 127),
+        # K1 is the key of no bond, so it maps to 0.
+        ("fallback_key_without_bond", False, ((f1, absent, 0), (f2, commit, 0)), 0),
+        # K1 is also the key of a bond that holds seat 7.
+        ("fallback_key_with_seated_bond", False, ((f1, absent, 0x0701), (f2, commit, 0)), 1 << 7),
+        # a1's bond vacated seat 4 in the parent and a bond whose key is not in the set took it.
+        ("vacated_in_parent", False, ((a1, absent, 0), (a2, commit, 0x0101)), 0),
+        ("malformed_words", False,
+         ((a1, absent, 0x0502), (a2, absent, 0x8001), (a3, nil, 0x10501), (a4, commit, 0x0001)),
+         0),
+        ("two_addresses_one_seat", False, ((a1, absent, 0x0301), (a2, commit, 0x0301)), 1 << 3),
+        # The same two addresses, both missing: the seat's bit is set once, not toggled.
+        ("two_addresses_one_seat_both_missing", False,
+         ((a1, absent, 0x0301), (a2, nil, 0x0301), (a3, commit, 0x0001)), 1 << 3),
+        # n_max 64 does not matter: the bit is set, and onBlockStart then ignores it.
+        ("seat_100", False, ((a1, absent, 0x6401), (a2, commit, 0x0001)), 1 << 100),
+        # The first block of a generation has no LastCommit.
+        ("first_block", True, ((a1, absent, 0x0001), (a2, commit, 0x0101)), 0),
+    )
+    out = []
+    for name, first_block, validators, expected in cases:
+        bitmap = miss_bitmap_of(first_block, validators)
+        assert bitmap == expected, name
+        out.append(
+            {
+                "name": name,
+                "first_block_of_generation": first_block,
+                "validators": [
+                    {"ck_addr": addr, "block_id_flag": flag, "key_seat_word": word(value)}
+                    for addr, flag, value in validators
+                ],
+                "miss_bitmap": bitmap,
+            }
+        )
+    return decimals({"cases": out})
+
+
+CANDIDATE_HEIGHT = 100
+# Seat s of a 128-member candidate holds the key of private key 0x200 + s.
+CANDIDATE_WIDE_KEY = 0x200
+
+
+def candidate_unusable(height, height_word, total, records, threshold):
+    """Why the candidate decided at H (spec 4.3) is not usable, or None, naming the first failing
+    condition in this order: `min_total_stake_max` (the threshold M is 2^256 - 1),
+    `snapshot_height` (the whole word at T is not H), `no_members`, `stray_bits` (a record's
+    word 2 has a bit above power), `invalid_key`, `duplicate_key`, `zero_power`, `power_sum` (the
+    exact sum exceeds MAX) and `below_min_total_stake` (snapshotTotalStake < M)."""
+    members = [(w1, w2) for _, (w1, w2) in sorted(records.items()) if w1 or w2]
+    keys = [bytes([w2 & 0xFF]) + w1.to_bytes(32, "big") for w1, w2 in members]
+    powers = [w2 >> 8 & U64_MAX for _, w2 in members]
+    if threshold == WORD_MOD - 1:
+        return "min_total_stake_max"
+    if height_word != height:
+        return "snapshot_height"
+    if not members:
+        return "no_members"
+    if any(w2 >> 72 for _, w2 in members):
+        return "stray_bits"
+    if any(decompress(key) is None for key in keys):
+        return "invalid_key"
+    if len(set(keys)) != len(keys):
+        return "duplicate_key"
+    if min(powers) == 0:
+        return "zero_power"
+    if sum(powers) > MAX_TOTAL_VOTING_POWER:
+        return "power_sum"
+    if total < threshold:
+        return "below_min_total_stake"
+    return None
+
+
+def candidate(key_list):
+    """Candidate decisions at H = 100: the word at T, snapshotTotalStake, the nonzero snapshot
+    seat records, the M that H's anchor proves and the fallback key set [K1, K2], and the set that
+    signs H + 2: the members in seat order at their stored powers when the candidate is usable,
+    otherwise the fallback keys at power 1. Members are keys a1-a3, except in the 128-member
+    cases."""
+    vp_unit = DEPLOYMENT["vp_unit"]
+
+    def record(key, power):
+        return int(key["ck_x"], 16), int(key["ck_prefix"]) | power << 8
+
+    a1, a2, a3 = key_list[:3]
+    three = {0: record(a1, 100_000), 2: record(a2, 250_000), 5: record(a3, 400_000)}
+    three_total = 750_000 * vp_unit
+    low = 100_000 * vp_unit  # a threshold every usable total below reaches
+    h = CANDIDATE_HEIGHT
+    half = MAX_TOTAL_VOTING_POWER // 2 + 1  # two members at this power sum to MAX + 1
+    # 128 members at 2^57: the exact sum is 2^64, which a 64-bit sum wraps to 0, at most MAX.
+    wrap_power = 2**57
+    wide_scalars = range(CANDIDATE_WIDE_KEY, CANDIDATE_WIDE_KEY + SNAPSHOT_RECORDS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, wide_scalars))
+    wide = {s: record(scalar_key(k), wrap_power) for s, k in enumerate(wide_scalars)}
+    # 128 members at the reference minStake's power: the whole supply staked, the most members a
+    # set has, with the powers summing to 10^18, below MAX.
+    full_power = DEPLOYMENT["min_stake"] // vp_unit
+    full = {s: record(scalar_key(k), full_power) for s, k in enumerate(wide_scalars)}
+
+    def seat_2(word1, word2):
+        return {**three, 2: (word1, word2)}
+
+    x2, word2_2 = three[2]
+    cases = (
+        # name, the word at T, snapshotTotalStake, records, M, why it is not usable
+        ("usable_three", h, three_total, three, low, None),
+        ("equal_threshold", h, three_total, three, three_total, None),
+        ("below_threshold", h, three_total, three, three_total + 1, "below_min_total_stake"),
+        ("threshold_max", h, WORD_MOD - 1, three, WORD_MOD - 1, "min_total_stake_max"),
+        ("stale_height", h - 1, three_total, three, low, "snapshot_height"),
+        ("height_high_bits", h | 1 << 48, three_total, three, low, "snapshot_height"),
+        ("stray_bits", h, three_total, seat_2(x2, word2_2 | 1 << 72), low, "stray_bits"),
+        # Word 2 zero is ckPrefix 0, an invalid key (and power 0).
+        ("zero_prefix", h, three_total, seat_2(x2, 0), low, "invalid_key"),
+        ("zero_power", h, three_total, seat_2(x2, 0x02), low, "zero_power"),
+        ("off_curve_key", h, three_total, seat_2(smallest_off_curve_x(), word2_2), low,
+         "invalid_key"),
+        ("duplicate_key", h, three_total, {**three, 2: record(a1, 250_000)}, low,
+         "duplicate_key"),
+        ("power_sum", h, 2 * half * vp_unit, {0: record(a1, half), 2: record(a2, half)}, low,
+         "power_sum"),
+        # The powers sum to exactly MAX: a valid set.
+        ("power_sum_max", h, MAX_TOTAL_VOTING_POWER * vp_unit,
+         {0: record(a1, half), 2: record(a2, half - 1)}, low, None),
+        ("power_sum_wraps", h, SNAPSHOT_RECORDS * wrap_power * vp_unit, wide, low, "power_sum"),
+        # A record at a seat at or above any n_max below 101 is a member like any other.
+        ("record_at_seat_100", h, 350_000 * vp_unit,
+         {0: record(a1, 100_000), 100: record(a2, 250_000)}, low, None),
+        ("full_128", h, SNAPSHOT_RECORDS * full_power * vp_unit, full, low, None),
+        # The fewest members and the least power: one member at power 1, with a threshold its
+        # total reaches.
+        ("one_member", h, vp_unit, {0: record(a1, 1)}, vp_unit, None),
+        ("empty", h, 0, {}, 0, "no_members"),
+    )
+    assert 2 * half == MAX_TOTAL_VOTING_POWER + 1 == 2**60
+    total_wide = SNAPSHOT_RECORDS * wrap_power
+    assert total_wide == 2**64 and total_wide % 2**64 == 0 < MAX_TOTAL_VOTING_POWER < total_wide
+    assert SNAPSHOT_RECORDS * full_power == 10**18 < MAX_TOTAL_VOTING_POWER
+    assert SNAPSHOT_RECORDS * full_power * vp_unit == TAIKO_SUPPLY
+    fallback_scalars = (1, 2)
+    fallback = [fallback_key(k) for k in fallback_scalars]
+    out = []
+    for name, height_word, total, records, threshold, expected in cases:
+        reason = candidate_unusable(h, height_word, total, records, threshold)
+        assert reason == expected, (name, reason)
+        if reason is None:
+            signers = []
+            for _, (w1, w2) in sorted(records.items()):
+                prefix, power = w2 & 0xFF, w2 >> 8
+                x, y = decompress(bytes([prefix]) + w1.to_bytes(32, "big"))
+                signers.append(
+                    {"ck_prefix": prefix, "ck_x": word(x), "ck_addr": address_of(x, y),
+                     "power": power}
+                )
+        else:
+            signers = [
+                {**{f: scalar_key(k)[f] for f in ("ck_prefix", "ck_x", "ck_addr")}, "power": 1}
+                for k in fallback_scalars
+            ]
+        out.append(
+            {
+                "name": name,
+                "height": h,
+                "snapshot_height_word": word(height_word),
+                "snapshot_total_stake": total,
+                "records": [
+                    {"seat": seat, "word1": word(w1), "word2": word(w2)}
+                    for seat, (w1, w2) in sorted(records.items())
+                    if w1 or w2
+                ],
+                "min_total_stake": threshold,
+                "fallback_keys": fallback_keys_json(fallback),
+                "usable": reason is None,
+                "reason": reason,
+                "signers": signers,
+            }
+        )
+    return decimals({"cases": out})
+
+
+BLOCK_START_FIELDS = (
+    "n_max", "min_stake", "vp_unit", "miss_limit", "miss_slash_bps", "miss_release_limit"
+)
+BLOCK_START_KEY = 0x100  # bond i of a block-start case registers the key of private key 0x100 + i
+BLOCK_START_NUMBER = 1000
+BLOCK_START_GENERATION = 1
+
+
+def check_staking_params(params):
+    """The staking contract's deployment bounds (spec 11) on the fields a block-start case sets."""
+    assert params["vp_unit"] >= -(-TAIKO_SUPPLY // MAX_TOTAL_VOTING_POWER)
+    assert params["min_stake"] >= params["vp_unit"]
+    assert params["n_max"] * params["min_stake"] >= TAIKO_SUPPLY
+    assert 1 <= params["n_max"] <= 128
+    assert 1 <= params["miss_limit"] <= params["miss_release_limit"] <= 65_535
+    assert 0 < params["miss_slash_bps"] <= 10_000
+
+
+def block_start_run(params, amounts, prior_bitmaps, bitmap):
+    """A fresh staking contract (spec 4.1, 4.2): each amount registers a bond, which takes the
+    lowest empty seat; then each prior call and the call run onBlockStart: count a miss for each
+    occupied seat whose bit is 1 and reset the count of the others; then for each seat whose count
+    is a positive multiple of missLimit deduct ceil(effStake * missSlashBps / 10000), leaving the
+    count; then release each seat whose bond fell below minStake or whose count reached
+    missReleaseLimit, discarding its count. The prior calls may take penalties but release no
+    seat. Returns the registrations' seats, the seats held when the call starts, the miss counts,
+    the effStakes, the bonds the call released, its penalty and the seats held after it (the
+    records follow from them)."""
+    seat_bond, eff, misses, seats = {}, [], [0] * SNAPSHOT_RECORDS, []
+    for amount in amounts:
+        assert amount >= params["min_stake"]
+        seat = next(s for s in range(params["n_max"]) if s not in seat_bond)
+        seat_bond[seat], misses[seat] = len(eff), 0
+        eff.append(amount)
+        seats.append(seat)
+
+    def call(bits):
+        for seat in seat_bond:
+            misses[seat] = misses[seat] + 1 if bits >> seat & 1 else 0
+        penalty, released = 0, []
+        for seat in sorted(seat_bond):
+            bond = seat_bond[seat]
+            if misses[seat] > 0 and misses[seat] % params["miss_limit"] == 0:
+                cut = -(-eff[bond] * params["miss_slash_bps"] // 10_000)
+                eff[bond] -= cut
+                penalty += cut
+            if eff[bond] < params["min_stake"] or misses[seat] >= params["miss_release_limit"]:
+                del seat_bond[seat]
+                misses[seat] = 0
+                released.append(bond)
+        return penalty, released
+
+    for bits in prior_bitmaps:
+        assert call(bits)[1] == [], "a case's seats are released only in its call"
+    held = sorted(seat_bond)
+    penalty, released = call(bitmap)
+    return seats, held, misses, eff, released, penalty, seat_bond
+
+
+def on_block_start():
+    """onBlockStart cases on a fresh staking contract with the deployment's minStake, vp_unit,
+    n_max, missLimit, missSlashBps and missReleaseLimit unless a case overrides them:
+    registrations, earlier block-start calls, then the call in block 1000, with the miss counts,
+    effStakes, released bonds, penalty, records, total, height and generation it leaves. m is
+    minStake."""
+    m = DEPLOYMENT["min_stake"]
+    base = {field: DEPLOYMENT[field] for field in BLOCK_START_FIELDS}
+    n_max_64 = {"n_max": 64, "min_stake": 2 * m}  # ceil(10^27 / 64) = 2m
+    limits_30 = {"miss_limit": 10, "miss_release_limit": 30}
+    cases = (
+        # name, overrides, registration amounts, prior calls' missBitmaps, the call's missBitmap
+        ("count_up", {}, (m,) * 4, (8, 8), 8),
+        ("count_reset", {}, (m,) * 4, (8, 8), 0),
+        ("empty_seat_bit", {}, (m,), (1,), 1 << 9 | 1),
+        ("zero_bitmap", {}, (m,) * 3, (7, 7), 0),
+        ("bitmap_4", {}, (m,) * 3, (), 4),
+        ("n_max_64_bit_100", n_max_64, (2 * m,), (), 1 << 100 | 1),
+        ("ceil_exact", {"miss_limit": 10}, (10 * m,), (1,) * 9, 1),
+        ("ceil_round_up", {"miss_limit": 10}, (10 * m + 1,), (1,) * 9, 1),
+        ("below_limit", {"miss_limit": 10}, (10 * m,), (1,) * 8, 1),
+        ("release_below_min", {"miss_limit": 10}, (m, m), (1,) * 9, 1),
+        ("miss_limit_1", {"miss_limit": 1}, (2 * m,), (), 1),
+        ("full_bps", {"miss_limit": 1, "miss_slash_bps": 10_000}, (3 * m, m), (), 1),
+        # Seats 1, 3 and 4 fall below minStake in step 2, leaving seats 0, 2 and 5.
+        ("three_seats", {"miss_limit": 1}, (m, m, 2 * m, m, m, 3 * m), (), 0b11010),
+        ("no_seats", {}, (), (), 2**128 - 1),
+        ("power_floor", {"vp_unit": m}, (5 * m // 2, m, 2 * m - 1), (), 0),
+        ("n_max_64_records", n_max_64, (2 * m,) * 64, (), 0),
+        # missLimit 10 and missReleaseLimit 30 (25 or 10 where named): penalties at counts 10 and
+        # 20, the count kept; a 0 bit after the penalty at 10; the release at 30 after its
+        # penalty; the release at 25 with none; one penalty and the release at 10; and 1.2m,
+        # which the penalty at 20 leaves below m.
+        ("penalty_at_twice_limit", limits_30, (10 * m,), (1,) * 19, 1),
+        ("reset_after_penalty", limits_30, (10 * m,), (1,) * 10, 0),
+        ("release_at_limit", limits_30, (10 * m, m), (1,) * 29, 1),
+        ("release_between_multiples", {"miss_limit": 10, "miss_release_limit": 25}, (10 * m,),
+         (1,) * 24, 1),
+        ("release_at_miss_limit", {"miss_limit": 10, "miss_release_limit": 10}, (10 * m,),
+         (1,) * 9, 1),
+        ("release_below_min_before_limit", limits_30, (6 * m // 5,), (1,) * 19, 1),
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(scalar_key, range(BLOCK_START_KEY, BLOCK_START_KEY + 64)))
+    out = []
+    for name, overrides, amounts, priors, bitmap in cases:
+        params = {**base, **overrides}
+        check_staking_params(params)
+        seats, held, misses, eff, released, penalty, seat_bond = block_start_run(
+            params, amounts, priors, bitmap
+        )
+        keys = [scalar_key(BLOCK_START_KEY + i) for i in range(len(amounts))]
+        records = []
+        for seat in sorted(seat_bond):
+            key = keys[seat_bond[seat]]
+            power = eff[seat_bond[seat]] // params["vp_unit"]
+            records.append(
+                {"seat": seat, "word1": key["ck_x"], "word2": record_word2(key["ck_prefix"], power)}
+            )
+        out.append(
+            {
+                "name": name,
+                "overrides": overrides,
+                "setup": {
+                    "registrations": [
+                        {"bond_id": i, "private_key": keys[i]["private_key"], "amount": amount,
+                         "seat": seats[i]}
+                        for i, amount in enumerate(amounts)
+                    ],
+                    "prior_calls": [
+                        {"generation": BLOCK_START_GENERATION, "miss_bitmap": bits}
+                        for bits in priors
+                    ],
+                },
+                "call": {
+                    "block_number": BLOCK_START_NUMBER,
+                    "generation": BLOCK_START_GENERATION,
+                    "miss_bitmap": bitmap,
+                    "calldata": on_block_start_calldata(BLOCK_START_GENERATION, bitmap),
+                },
+                "expect": {
+                    "miss_counts": [{"seat": s, "count": misses[s]} for s in held],
+                    "eff_stakes": [{"bond_id": i, "eff_stake": e} for i, e in enumerate(eff)],
+                    "released": released,
+                    "penalty_total": penalty,
+                    "records": records,
+                    "snapshot_total_stake": sum(eff[bond] for bond in seat_bond.values()),
+                    "snapshot_height": BLOCK_START_NUMBER,
+                    "last_generation": BLOCK_START_GENERATION,
+                },
+            }
+        )
+    expect = {case["name"]: case["expect"] for case in out}
+    assert expect["ceil_exact"]["penalty_total"] == m
+    assert expect["ceil_round_up"]["penalty_total"] == m + 1
+    assert [r["seat"] for r in expect["three_seats"]["records"]] == [0, 2, 5]
+    assert [int(r["word2"], 16) >> 8 for r in expect["power_floor"]["records"]] == [2, 1, 1]
+    assert expect["release_below_min"]["released"] == [0] == expect["full_bps"]["released"]
+    assert expect["ceil_exact"]["miss_counts"] == [{"seat": 0, "count": 10}]
+    assert expect["penalty_at_twice_limit"]["penalty_total"] == 9 * m // 10
+    assert expect["penalty_at_twice_limit"]["miss_counts"] == [{"seat": 0, "count": 20}]
+    assert expect["reset_after_penalty"]["penalty_total"] == 0
+    assert expect["release_at_limit"]["penalty_total"] == 81 * m // 100
+    assert expect["release_between_multiples"]["penalty_total"] == 0
+    assert expect["release_at_miss_limit"]["penalty_total"] == m
+    for name in ("release_at_limit", "release_between_multiples", "release_at_miss_limit"):
+        assert expect[name]["released"] == [0], name
+        assert expect[name]["eff_stakes"][0]["eff_stake"] >= m, name
+    assert expect["release_below_min_before_limit"]["released"] == [0]
+    assert expect["release_below_min_before_limit"]["eff_stakes"][0]["eff_stake"] < m
+    return decimals({"deployment": base, "cases": out})
+
+
+# The Etna start used by the start ABI and event vectors: S = 1000, which the origin multisig
+# supplies to setOrigin(S), with the hash it takes from the Unzen Inbox's lastFinalizedBlockHash and
+# the stateRoot it takes from the SignalService checkpoint at S.
+START = (1000, word(0x51), word(0x52))
+# The forced inclusion bytes and fee of the FI ABI and event vectors; encoding is not checked at
+# submission (spec 7.1), so one byte suffices.
+FI_TX = "0xc0"
+FI_FEE_WEI = 1_000_000_000
+# The recovery and governance call arguments shared by the ABI and event vectors: the generation
+# the schedule calls expect, the forced inclusion indexes recover clears (strictly increasing) and
+# the incident id of a forfeiture.
+EXPECTED_GENERATION = 1
+FI_TO_CLEAR = (3, 5)
+INCIDENT_ID = word(42)
+VALID_UNTIL = 1_700_000_123
+# The Unzen Inbox's proposeCutoff() on a switching network: ETNA_FORK_TIME - PROPOSE_MARGIN, here
+# a fork time of 1,700,000,000 and the 12 s margin.
+PROPOSE_CUTOFF = 1_700_000_000 - 12
+# setFallbackKeys, getFallbackKeys and the recovered origin use [K1, K2]; Inbox initialization in
+# the event vectors stores [K1]. setMinTotalStake and minTotalStake use 2^256 - 1, the value that
+# hands every block to the fallback keys.
+STORED_FALLBACK_KEYS = (K1, K2)
+MIN_TOTAL_STAKE = WORD_MOD - 1
+# The snapshot() example, encoding-only: seat 0 holds K1 at power 100,000 and seat 2 K2 at power
+# 250,000. A seated bond holds at least min_stake, so no deployment reaches a total this small.
+SNAPSHOT_MEMBERS = ((0, *K1, 100_000), (2, *K2, 250_000))
+SNAPSHOT_HEIGHT = 10
+
+
+def uint_list(values):
+    return "[" + ",".join(map(str, values)) + "]"
+
+
+def tuple_list(rows):
+    return "[" + ",".join("(" + ",".join(map(str, row)) + ")" for row in rows) + "]"
+
+
+def governance_abi(digests, slash_abi):
+    """Executable calldata of the Inbox's recovery, schedule, start, forced inclusion and fallback
+    key calls and of the staking contract's entry points, each labelled with its contract; the
+    slash call is the votes section's."""
+    (registration,) = [d for d in digests if d["name"] == "a1_owner_aa"]
+    calls = {
+        "recover": (
+            "inbox",
+            "recover(uint48,uint256,uint256,uint256,uint256[],uint48)",
+            [2, 12, 7, VALID_UNTIL, uint_list(FI_TO_CLEAR), 4],
+        ),
+        "invalidate_recovery_nonce": ("inbox", "invalidateRecoveryNonce(uint256)", [7]),
+        "schedule_rules": (
+            "inbox",
+            "scheduleRules(uint48,uint48,uint48)",
+            [EXPECTED_GENERATION, 2, 1_700_003_600],
+        ),
+        "schedule_stop": (
+            "inbox",
+            "scheduleStop(uint48,uint48)",
+            [EXPECTED_GENERATION, 1_700_007_200],
+        ),
+        "set_origin": ("inbox", "setOrigin(uint48)", [START[0]]),
+        "save_forced_inclusion": ("inbox", "saveForcedInclusion(bytes)", [FI_TX]),
+        "sweep_protocol_fees": ("inbox", "sweepProtocolFees()", []),
+        "set_fallback_keys": (
+            "inbox",
+            "setFallbackKeys((uint8,bytes32)[])",
+            [fallback_keys_arg(STORED_FALLBACK_KEYS)],
+        ),
+        "set_min_total_stake": ("inbox", "setMinTotalStake(uint256)", [MIN_TOTAL_STAKE]),
+        "register": (
+            "staking",
+            "register(bytes,uint256,bytes)",
+            [registration["key"], DEPLOYMENT["min_stake"], registration["pop_sig"]],
+        ),
+        "top_up": ("staking", "topUp(uint256,uint256)", [0, 100]),
+        "request_exit": ("staking", "requestExit(uint256)", [0]),
+        "withdraw": ("staking", "withdraw(uint256,address)", [0, OWNERS[0]]),
+        "forfeit": ("staking", "forfeit(uint256,bytes32,uint256)", [0, INCIDENT_ID, VALID_UNTIL]),
+        "on_block_start": ("staking", ON_BLOCK_START, [1, 5]),
+    }
+    out = {
+        name: {
+            "contract": contract,
+            "signature": signature,
+            "selector": cast("sig", signature),
+            "calldata": cast("calldata", signature, *args),
+        }
+        for name, (contract, signature, args) in calls.items()
+    }
+    assert out["recover"]["selector"] == "0x95e4b1e5"
+    assert out["on_block_start"]["calldata"] == on_block_start_calldata(1, 5)
+    out["slash_double_sign"] = {
+        "contract": "staking",
+        **{field: slash_abi[field] for field in ("signature", "selector", "calldata")},
+    }
+    return out
+
+
+def forfeitures():
+    """Forfeiture penalties: ceil(balance * forfeitBps / 10,000) of the bond's whole principal,
+    deducted from effStake, including balances whose product exceeds 256 bits."""
+    out = []
+    for balance, rate in (
+        (100, 1000),
+        (99, 1000),
+        (1, 1),
+        (3, 10000),
+        (DEPLOYMENT["min_stake"], DEPLOYMENT["forfeit_bps"]),
+        (WORD_MOD - 1, 10000),
+        (WORD_MOD - 1, 1),
+    ):
+        penalty = -(-balance * rate // 10000)
+        assert 0 < penalty <= balance
+        out.append(
+            {
+                "eff_stake": balance,
+                "forfeit_bps": rate,
+                "penalty": penalty,
+                "eff_stake_after": balance - penalty,
+            }
+        )
+    return decimals(out)
+
+
+def view_abi(key_list, digests, cfg):
+    """Calldata and return data of the Inbox's configuration, fallback key and start views, the
+    Unzen Inbox's proposal cutoff and the staking contract's lookups, snapshot, registration
+    digest, lifetime forfeiture flag and minStake, each labelled with its contract.
+
+    `(true, 0)` names bond 0 or seat 0 and `(false, 0)` is absence, so the flag, not a zero id,
+    tells them apart. `etnaStart()` returns (0, 0) before the start write. `proposeCutoff()`
+    returns 0 while no cutoff is installed, and setOrigin requires a nonzero, reached cutoff.
+    """
+    found = "(bool,uint256)"
+    keys_hash = fallback_keys_hash(STORED_FALLBACK_KEYS)
+    (registration,) = [d for d in digests if d["name"] == "a1_owner_aa"]
+    snapshot_stake = sum(member[3] for member in SNAPSHOT_MEMBERS) * DEPLOYMENT["vp_unit"]
+    views = {
+        "config_hash": (
+            "inbox",
+            "configHash()",
+            [],
+            "(bytes32)",
+            (("deployment", (cfg["hash"],)),),
+        ),
+        "etna_staking": (
+            "inbox",
+            "etnaStaking()",
+            [],
+            "(address)",
+            (("deployment", (DEPLOYMENT["staking"],)),),
+        ),
+        "unsettled_limit": (
+            "inbox",
+            "unsettledLimit()",
+            [],
+            "(uint64)",
+            (("deployment", (DEPLOYMENT["unsettled_limit"],)),),
+        ),
+        "get_fallback_keys": (
+            "inbox",
+            "getFallbackKeys()",
+            [],
+            "((uint8,bytes32)[])",
+            (("two_keys", ([list(key) for key in STORED_FALLBACK_KEYS],)),),
+        ),
+        "fallback_keys_hash": (
+            "inbox",
+            "fallbackKeysHash()",
+            [],
+            "(bytes32)",
+            (("two_keys", (keys_hash,)),),
+        ),
+        "min_total_stake": (
+            "inbox",
+            "minTotalStake()",
+            [],
+            "(uint256)",
+            (("fallback_only", (MIN_TOTAL_STAKE,)), ("zero", (0,))),
+        ),
+        "etna_start": (
+            "inbox",
+            "etnaStart()",
+            [],
+            "(uint48,bytes32)",
+            (("written", START[:2]), ("not_written", (0, word(0)))),
+        ),
+        "propose_cutoff": (
+            "unzen_inbox",
+            "proposeCutoff()",
+            [],
+            "(uint48)",
+            (("installed", (PROPOSE_CUTOFF,)), ("not_installed", (0,))),
+        ),
+        "bond_for_key": (
+            "staking",
+            "bondForKey(address)",
+            [key_list[0]["ck_addr"]],
+            found,
+            (("bond_0", (True, 0)), ("unused_key", (False, 0))),
+        ),
+        "seat_of_bond": (
+            "staking",
+            "seatOfBond(uint256)",
+            [0],
+            "(bool,uint8)",
+            (("seat_0", (True, 0)), ("no_seat", (False, 0))),
+        ),
+        "bond_in_seat": (
+            "staking",
+            "bondInSeat(uint8)",
+            [0],
+            found,
+            (("bond_0", (True, 0)), ("empty_seat", (False, 0))),
+        ),
+        "snapshot": (
+            "staking",
+            "snapshot()",
+            [],
+            "(uint256,uint256,(uint8,uint8,bytes32,uint64)[])",
+            (
+                ("two_seats", (SNAPSHOT_HEIGHT, snapshot_stake,
+                               [list(member) for member in SNAPSHOT_MEMBERS])),
+                ("empty", (0, 0, [])),
+            ),
+        ),
+        "register_digest": (
+            "staking",
+            "registerDigest(address)",
+            [OWNERS[0]],
+            "(bytes32)",
+            (("owner_aa", (registration["digest"],)),),
+        ),
+        "forfeited": (
+            "staking",
+            "forfeited(uint256)",
+            [0],
+            "(bool)",
+            (("forfeited", (True,)), ("not_forfeited", (False,))),
+        ),
+        "min_stake": (
+            "staking",
+            "minStake()",
+            [],
+            "(uint256)",
+            (("deployment", (DEPLOYMENT["min_stake"],)),),
+        ),
+    }
+
+    def arg(value):
+        if isinstance(value, bool):
+            return str(value).lower()
+        if isinstance(value, list):
+            return tuple_list(value)
+        return value
+
+    return {
+        name: {
+            "contract": contract,
+            "signature": signature,
+            "selector": cast("sig", signature),
+            "calldata": cast("calldata", signature, *args),
+            "returns": returns,
+            "results": [
+                {
+                    "name": result,
+                    "values": decimals(list(values)),
+                    "data": abi_encode("f" + returns, *map(arg, values)),
+                }
+                for result, values in results
+            ],
+        }
+        for name, (contract, signature, args, returns, results) in views.items()
+    }
+
+
+# The topic0 values the spec lists for the Inbox's fallback key and minTotalStake events, and the
+# keccak256 of the signatures the spec's staking interface gives its top-up and forfeiture events.
+SPEC_TOPICS = {
+    "fallback_keys_updated": "0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c",
+    "min_total_stake_updated": "0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1",
+    "top_up_deposited": "0x06a2187e7ae93aae0a9ff5c976b126441fdcc2c16afd1274e9ba793336f179ab",
+    "forfeited": "0xfa0800b34e880af94586f918c482b017b7cb8d550255ba57a432bc218dbdfc6b",
+}
+
+
+def governance_events(cfg):
+    """Event topics and non-indexed ABI data, each labelled with its contract: the Inbox's
+    fallback key and minTotalStake updates, nonce invalidation, rules schedule, start,
+    initialization, landing, forced inclusion, sweep and recovery events, and the staking
+    contract's top-up and forfeiture events."""
+    rules_schedule = int(pack(*PACKED["inbox_293"][2:]), 16)
+    initial_keys = (K1,)
+    definitions = {
+        "fallback_keys_updated": (
+            "inbox",
+            "FallbackKeysUpdated(bytes32,(uint8,bytes32)[])",
+            [fallback_keys_hash(initial_keys)],
+            "f((uint8,bytes32)[])",
+            [fallback_keys_arg(initial_keys)],
+        ),
+        "min_total_stake_updated": (
+            "inbox",
+            "MinTotalStakeUpdated(uint256)",
+            [],
+            "f(uint256)",
+            [MIN_TOTAL_STAKE],
+        ),
+        "recovery_nonce_invalidated": (
+            "inbox",
+            "RecoveryNonceInvalidated(uint256,uint256)",
+            [],
+            "f(uint256,uint256)",
+            [7, 8],
+        ),
+        "rules_schedule_updated": (
+            "inbox",
+            "RulesScheduleUpdated(uint256)",
+            [],
+            "f(uint256)",
+            [rules_schedule],
+        ),
+        "start_written": (
+            "inbox",
+            "StartWritten(uint256,bytes32,bytes32)",
+            [],
+            "f(uint256,bytes32,bytes32)",
+            list(START),
+        ),
+        "etna_initialized": (
+            "inbox",
+            "EtnaInitialized(bytes32,address,uint256)",
+            [],
+            "f(bytes32,address,uint256)",
+            [cfg["hash"], DEPLOYMENT["staking"], DEPLOYMENT["unsettled_limit"]],
+        ),
+        "landed": (
+            "inbox",
+            "Landed(uint256,uint256,uint256,bytes32,uint8)",
+            [word(0), word(6), word(12)],
+            "f(bytes32,uint8)",
+            [word(0x77), 1],
+        ),
+        "forced_inclusion_saved": (
+            "inbox",
+            "ForcedInclusionSaved(uint48,bytes,uint256)",
+            [word(3)],
+            "f(bytes,uint256)",
+            [FI_TX, FI_FEE_WEI],
+        ),
+        "protocol_fees_swept": (
+            "inbox",
+            "ProtocolFeesSwept(uint256)",
+            [],
+            "f(uint256)",
+            [FI_FEE_WEI],
+        ),
+        "recovered": (
+            "inbox",
+            "Recovered(uint48,uint256,uint256,uint256,bytes32,uint256[])",
+            [word(2)],
+            "f(uint256,uint256,uint256,bytes32,uint256[])",
+            [12, 50, VALID_UNTIL, fallback_keys_hash(STORED_FALLBACK_KEYS),
+             uint_list(FI_TO_CLEAR)],
+        ),
+        "top_up_deposited": (
+            "staking",
+            "TopUpDeposited(uint256,uint256)",
+            [word(0)],
+            "f(uint256)",
+            [100],
+        ),
+        "forfeited": (
+            "staking",
+            "Forfeited(uint256,bytes32,uint256,uint256)",
+            [word(0)],
+            "f(bytes32,uint256,uint256)",
+            [INCIDENT_ID, 100, 10],
+        ),
+    }
+    out = {
+        name: {
+            "contract": contract,
+            "signature": signature,
+            "topic0": keccak(signature),
+            "indexed_topics": topics,
+            "data": abi_encode(encoding, *args),
+        }
+        for name, (contract, signature, topics, encoding, args) in definitions.items()
+    }
+    for name, topic in SPEC_TOPICS.items():
+        if out[name]["topic0"] != topic:
+            raise SystemExit(f"{name}: the spec's topic0 does not reproduce\n"
+                             f"  computed: {out[name]['topic0']}\n  spec:     {topic}")
+    return out
+
+
+# --- appendix A literal examples -----------------------------------------------------------------
+
+# The literal values the spec's appendix A vector catalogue lists, as (field, value) of the
+# example that recomputes each; generation stops if one does not reproduce.
+APPENDIX_LITERALS = {
+    "enc_a_10_f": ("extra_data", "0x64" + "00" * 28),
+    "enc_a_10_h": (
+        "extra_data",
+        "0x64" + "000000000001" + "000000000102" + "80000000000000000000000000000001",
+    ),
+    "enc_a_10b_a": ("hash", "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507"),
+    "enc_a_10c_a": ("extra_data_byte_28", "0x05"),
+    "enc_a_10c_b": ("extra_data_byte_13", "0x80"),
+    "enc_a_10d_a": ("calldata", "0xea987592" + "00" * 31 + "01" + "00" * 31 + "05"),
+    "enc_a_10d_b": ("selector", "0xea987592"),
+    # Blob bytes from byte 0 up to the last nonzero one; every later byte is zero.
+    "enc_a_23b_a": ("blob_prefix", "0x3f0000001c" + "ff" * 27 + "30"),
+    "enc_a_23c_a": ("blob_prefix", "0x00000000" + "01ff"),
+    "enc_a_36_a": ("hash", "0x78f4b267763e0c4b58a0606e29530287b1761bf4155630c82e79d3e1215fe3b6"),
+    "enc_a_36_f": ("hash", "0x4a305a25878a5ab6f2d7bd36fcdd3d7a5549d0b55471d812df821723caa6383c"),
+    "enc_a_36a_a": ("hash", "0x9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f"),
+    "enc_a_36a_b": ("hash", "0x2bc20cdc8e87ed785fc8f8012165afba944fd223ecf8973e165e41f4cddf0cea"),
+    "enc_a_36a_g": ("preimage_bytes", 224),
+    "enc_a_45_g": ("timestamp_field", "0x2a0b08" + "ff" * 9 + "01"),
+}
+
+BLOB_FIELD_ELEMENTS = 4096
+BLOB_STREAM_BYTES = 130_048  # 1,024 rounds of 127 bytes (ENC-A-23b)
+BLOB_MAX_DATA = BLOB_STREAM_BYTES - 4  # n <= 130,044 (ENC-A-23c)
+
+
+def blob_encode(data):
+    """ENC-A-23a-c: the 131,072-byte blob carrying `data`."""
+    assert len(data) <= BLOB_MAX_DATA
+    stream = b"\x00" + len(data).to_bytes(3, "big") + data
+    stream += bytes(BLOB_STREAM_BYTES - len(stream))
+    out = bytearray()
+    for r in range(BLOB_STREAM_BYTES // 127):
+        chunk = stream[127 * r : 127 * (r + 1)]
+        bodies = (chunk[0:31], chunk[32:63], chunk[64:95], chunk[96:127])
+        x, y, z = chunk[31], chunk[63], chunk[95]
+        headers = (
+            x & 0x3F,
+            (y & 0x0F) | ((x & 0xC0) >> 2),
+            z & 0x3F,
+            ((z & 0xC0) >> 2) | ((y & 0xF0) >> 4),
+        )
+        for header, body in zip(headers, bodies):
+            out += bytes([header]) + body
+    assert len(out) == 32 * BLOB_FIELD_ELEMENTS
+    return bytes(out)
+
+
+def blob_example(data, description):
+    """A blob as its bytes up to the last nonzero one (every later byte is zero) and the keccak256
+    of all 131,072 bytes."""
+    blob = blob_encode(data)
+    return {
+        "description": description,
+        "data": "0x" + data.hex(),
+        "blob_prefix": "0x" + blob.rstrip(b"\0").hex(),
+        "blob_hash": keccak_stdin("0x" + blob.hex()),
+    }
+
+
+def dynamic_tag_rejects(sources):
+    """ENC-A-5 5.j: each domain-tagged hash's preimage with its tag encoded as a dynamic string
+    instead of one static `bytes32` word, and the different hash that gives. A static-only
+    preimage's other words are re-encoded unchanged (each is one ABI word); the two preimages with
+    a dynamic array are encoded again from their arguments."""
+    out = []
+    for name, tag_name, path, preimage, accepted, encode_args in sources:
+        assert preimage[2:66] == tag(tag_name)[2:], name
+        if encode_args is None:
+            words = [preimage[i : i + 64] for i in range(2, len(preimage), 64)]
+            signature = "f(string" + ",bytes32" * (len(words) - 1) + ")"
+            dynamic = abi_encode(signature, tag_name, *("0x" + w for w in words[1:]))
+        else:
+            signature, args = encode_args
+            dynamic = abi_encode(signature.replace("f(bytes32,", "f(string,", 1), tag_name, *args)
+        digest = keccak(dynamic)
+        assert digest != accepted and keccak(preimage) == accepted, name
+        out.append(
+            {
+                "name": name,
+                "tag": tag_name,
+                "accepted": path,
+                "accepted_hash": accepted,
+                "preimage": dynamic,
+                "hash": digest,
+            }
+        )
+    return out
+
+
+# ENC-A-29a 29a.n-p: validator-set arithmetic on sets with given priorities, members from the
+# val_state_chains keys (c1's address is below c2's, so c1 is A and c2 is B): name, vector, the
+# set as [key, votingPower, proposerPriority] in CometBFT's set order, and FinalizeBlock's changes.
+VAL_ARITHMETIC_CASES = (
+    ("enc_a_29a_n", "ENC-A-29a 29a.n", (("c1", 1, -3), ("c2", 1, 2)), ()),
+    ("enc_a_29a_o", "ENC-A-29a 29a.o", (("c1", 1, -1), ("c2", 1, 0)), ()),
+    # c4 joins at power 5 and c3 leaves: the total after additions and reweights but before
+    # removals is 5 + 4 + 3 + 5 = 17, so c4 starts at -(17 + (17 >> 3)) = -19.
+    (
+        "enc_a_29a_p",
+        "ENC-A-29a 29a.p",
+        (("c1", 5, 3), ("c2", 4, -1), ("c3", 3, -2)),
+        (("c4", 5), ("c3", 0)),
+    ),
+)
+# What vectors/A.md states for each case.
+VAL_ARITHMETIC_LITERALS = {
+    "enc_a_29a_n": {"spread": 5, "diff_max": 4, "rescaled": [-1, 1], "centred": [-1, 1],
+                    "proposer_key": "c2", "final_priorities": [0, 0]},
+    "enc_a_29a_o": {"rescaled": [-1, 0], "centre_shift": -1, "centred": [0, 1],
+                    "proposer_key": "c2", "final_priorities": [1, 0]},
+    "enc_a_29a_p": {"total_before_removals": 17, "new_member_priority": -19},
+}
+
+
+def val_arithmetic_examples():
+    """ENC-A-29a 29a.n-p computed with `valset_model.py`, step by step, and checked against stock
+    CometBFT v0.40.0's UpdateWithChangeSet and IncrementProposerPriority (`valgen/`)."""
+    keys = {k["name"]: k for k in val_state_keys() if k["name"] in ("c1", "c2", "c3", "c4")}
+    address = {name: key["ck_addr"][2:] for name, key in keys.items()}
+    assert address["c1"] < address["c2"]
+    result = run_valgen(
+        {
+            "keys": [{"name": n, "private_key": k["private_key"]} for n, k in keys.items()],
+            "chains": [],
+            "cases": [
+                {
+                    "name": name,
+                    "members": [
+                        {"key": k, "power": str(p), "priority": str(pr)} for k, p, pr in members
+                    ],
+                    "changes": [{"key": k, "power": str(p)} for k, p in changes],
+                }
+                for name, _, members, changes in VAL_ARITHMETIC_CASES
+            ],
+        }
+    )
+    for generated in result["keys"]:
+        assert generated["address"] == keys[generated["name"]]["ck_addr"], generated["name"]
+    cometbft = {case["name"]: case for case in result["cases"]}
+
+    def rows(entries):
+        return [[e["key"], int(e["voting_power"]), int(e["proposer_priority"])] for e in entries]
+
+    out = {}
+    for name, vector, members, changes in VAL_ARITHMETIC_CASES:
+        model = valset_model.Model(address)
+        start = valset_model.ValSet([valset_model.Member(*m) for m in members], None)
+        ordered = start.entries()
+        model._sort(start.members)
+        assert start.entries() == ordered, "members are listed in set order"
+        item = {"vector": vector, "members": ordered}
+        if changes:
+            powers = {k: p for k, p, _ in members}
+            total = sum(powers.values()) + sum(
+                p - powers.get(k, 0) for k, p in changes if p > 0
+            )
+            new_priority = -(total + (total >> 3))
+            updated = start.copy()
+            model._update(updated, list(changes))
+            # The same update written out: kept members keep their priorities, the joining member
+            # starts at new_priority, the leaving one goes, then rescale, centre and sort.
+            change = dict(changes)
+            written = [valset_model.Member(k, change.get(k, p), pr) for k, p, pr in members
+                       if change.get(k) != 0]
+            written += [valset_model.Member(k, p, new_priority) for k, p in changes
+                        if p > 0 and k not in powers]
+            model._rescale(written, 2 * sum(m.power for m in written))
+            model._center(written)
+            model._sort(written)
+            assert [[m.key, m.power, m.priority] for m in written] == updated.entries(), name
+            item.update(
+                {
+                    "changes": [list(c) for c in changes],
+                    "total_before_removals": total,
+                    "new_member_priority": new_priority,
+                    "updated": updated.entries(),
+                }
+            )
+            start = updated
+        # One IncrementProposerPriority(1), step by step, and the model's own increment.
+        steps, total = start.copy(), start.total()
+        priorities = [m.priority for m in steps.members]
+        model._rescale(steps.members, 2 * total)
+        rescaled = [m.priority for m in steps.members]
+        shift = sum(rescaled) // len(rescaled)
+        model._center(steps.members)
+        centred = [m.priority for m in steps.members]
+        assert centred == [p - shift for p in rescaled]
+        final = start.copy()
+        model._increment(final)
+        raised = [p + m.power for p, m in zip(centred, final.members)]
+        winner = min(range(len(raised)), key=lambda i: (-raised[i], address[final.members[i].key]))
+        raised[winner] -= total
+        assert [m.priority for m in final.members] == raised
+        assert final.proposer_index() == winner
+        item.update(
+            {
+                "total_power": total,
+                "spread": max(priorities) - min(priorities),
+                "diff_max": 2 * total,
+                "rescaled": rescaled,
+                "centre_shift": shift,
+                "centred": centred,
+                "final": final.entries(),
+                "proposer": winner,
+            }
+        )
+        stock = cometbft[name]
+        assert rows(stock["updated"]) == item.get("updated", []), (name, stock)
+        assert rows(stock["incremented"]) == item["final"], (name, stock)
+        assert int(stock["proposer"]) == winner, (name, stock)
+        literal = VAL_ARITHMETIC_LITERALS[name]
+        computed = {
+            **item,
+            "proposer_key": item["final"][winner][0],
+            "final_priorities": [row[2] for row in item["final"]],
+        }
+        for field, value in literal.items():
+            if computed[field] != value:
+                raise SystemExit(f"{name}: appendix A's {field} does not reproduce\n"
+                                 f"  computed: {computed[field]}\n  A.md:     {value}")
+        out[name] = item
+    return out
+
+
+def appendix_a_examples(cfg, states, apps, cut_vectors, statements, domains, vote_vectors,
+                        extra_rows):
+    """Every literal hash and byte string of the spec's appendix A vector catalogue, recomputed,
+    and the validator-set arithmetic examples; the validator-state and app-hash examples are
+    `validator_states` and `app_hashes`. The extraData examples are rows of `extra_data`; the
+    config hash and fallback key examples use the spec's own inputs, not the deployment's."""
+    out = {}
+    rows = {
+        tuple(int(r[k]) for k in ("generation", "anchor_number", "miss_bitmap")): r
+        for r in extra_rows
+    }
+    for name, vector, inputs in (
+        ("enc_a_10_f", "ENC-A-10 10.f", (0, 0, 0)),
+        ("enc_a_10_h", "ENC-A-10 10.h", (1, 258, 2**127 + 1)),
+    ):
+        row = rows[inputs]
+        assert row["extra_data"] == encode_extra_data(*inputs)
+        out[name] = {
+            "vector": vector,
+            "generation": inputs[0],
+            "anchor_number": inputs[1],
+            "miss_bitmap": inputs[2],
+            "extra_data": row["extra_data"],
+        }
+    mix_preimage = abi_encode("f(bytes32,uint256)", word(1_000_000), 12_345)
+    out["enc_a_10b_a"] = {
+        "vector": "ENC-A-10b 10b.a",
+        "parent_difficulty": 1_000_000,
+        "number": 12_345,
+        "preimage": mix_preimage,
+        "hash": keccak(mix_preimage),
+    }
+    # The missBitmap bit order: seat s is bit s, so missBitmap 5 sets seats 0 and 2 in the last
+    # byte, and 2^127 sets only seat 127, the high bit of byte 13.
+    for name, vector, inputs, byte_index in (
+        ("enc_a_10c_a", "ENC-A-10c 10c.a", (5, 7, 5), 28),
+        ("enc_a_10c_b", "ENC-A-10c 10c.b", (5, 7, 2**127), 13),
+    ):
+        data = encode_extra_data(*inputs)
+        if inputs in rows:
+            assert rows[inputs]["extra_data"] == data
+        out[name] = {
+            "vector": vector,
+            "miss_bitmap": inputs[2],
+            "seats": [s for s in range(128) if inputs[2] >> s & 1],
+            "extra_data": data,
+            f"extra_data_byte_{byte_index}": "0x" + bytes.fromhex(data[2:])[byte_index:][:1].hex(),
+        }
+    out["enc_a_10d_a"] = {
+        "vector": "ENC-A-10d 10d.a",
+        "generation": 1,
+        "miss_bitmap": 5,
+        "calldata": on_block_start_calldata(1, 5),
+    }
+    out["enc_a_10d_b"] = {
+        "vector": "ENC-A-10d 10d.b",
+        "signature": ON_BLOCK_START,
+        "selector": cast("sig", ON_BLOCK_START),
+    }
+    out["enc_a_23b_a"] = {
+        "vector": "ENC-A-23b 23b.a",
+        **blob_example(b"\xff" * 28, "data is 28 bytes of 0xff, so its last byte is round 0's x"),
+    }
+    out["enc_a_23c_a"] = {
+        "vector": "ENC-A-23c 23c.a",
+        **blob_example(b"\xff", "data is the single byte 0xff"),
+    }
+    # 23c.b's data is too long to list: 130,044 bytes of 0xff, so the stream has no fill. The blob
+    # is listed by its first five bytes (header 0x3f, version 0x00, length 01 fb fc) and its hash.
+    full = blob_encode(b"\xff" * BLOB_MAX_DATA)
+    assert full[:5] == bytes.fromhex("3f0001fbfc")
+    out["enc_a_23c_b"] = {
+        "vector": "ENC-A-23c 23c.b",
+        "description": "data is 130,044 bytes of 0xff: the length bytes are 01 fb fc, no fill",
+        "data_byte": "0xff",
+        "data_length": BLOB_MAX_DATA,
+        "length_bytes": "0x" + BLOB_MAX_DATA.to_bytes(3, "big").hex(),
+        "blob_head": "0x" + full[:5].hex(),
+        "blob_hash": keccak_stdin("0x" + full.hex()),
+    }
+    assert out["enc_a_23c_b"]["length_bytes"] == "0x01fbfc"
+    flipped = "0x40" + out["enc_a_23c_a"]["blob_prefix"][4:]
+    out["enc_a_23d_f"] = {
+        "vector": "ENC-A-23d 23d.f",
+        "description": (
+            "the blob of 23c.a with byte 0 changed from 0x00 to 0x40: it does not decode"
+        ),
+        "blob_prefix": flipped,
+        "decodes": False,
+    }
+    out.update(val_arithmetic_examples())
+    # The config hash of L2 chain id 167000, staking 0x1111..11 and U = 151,200, and the same
+    # inputs with the tag encoded as a dynamic string.
+    config_inputs = {
+        "tag": "ETNA_CONFIG_V1",
+        "l2_chain_id": APPENDIX_MAINNET_CHAIN_ID,
+        "staking": "0x" + "11" * 20,
+        "unsettled_limit": 151_200,
+    }
+    config_args = (
+        config_inputs["l2_chain_id"], config_inputs["staking"], config_inputs["unsettled_limit"]
+    )
+    preimage = config_preimage(*config_args)
+    out["enc_a_36_a"] = {
+        "vector": "ENC-A-36 36.a",
+        "inputs": config_inputs,
+        "preimage": preimage,
+        "preimage_bytes": len(preimage) // 2 - 1,
+        "hash": keccak(preimage),
+    }
+    dynamic = abi_encode(CONFIG_SIGNATURE.replace("bytes32", "string", 1), "ETNA_CONFIG_V1",
+                         *config_args)
+    assert len(dynamic) == 2 + 2 * 192
+    out["enc_a_36_f"] = {
+        "vector": "ENC-A-36 36.f",
+        "reject": True,
+        "preimage": dynamic,
+        "preimage_bytes": len(dynamic) // 2 - 1,
+        "hash": keccak(dynamic),
+    }
+    # The fallback key hashes of [K1] and [K1, K2], and [K1] with the tag as a dynamic string.
+    for name, vector, keys, size in (
+        ("enc_a_36a_a", "ENC-A-36a 36a.a", (K1,), 160),
+        ("enc_a_36a_b", "ENC-A-36a 36a.b", (K1, K2), 224),
+    ):
+        preimage = fallback_keys_preimage(keys)
+        assert len(preimage) == 2 + 2 * size, name
+        out[name] = {
+            "vector": vector,
+            "keys": fallback_keys_json(keys),
+            "preimage": preimage,
+            "preimage_bytes": size,
+            "hash": keccak(preimage),
+        }
+    dynamic_keys = abi_encode(FALLBACK_KEYS_SIGNATURE.replace("bytes32", "string", 1),
+                              "ETNA_FALLBACK_KEYS_V1", fallback_keys_arg((K1,)))
+    out["enc_a_36a_g"] = {
+        "vector": "ENC-A-36a 36a.g",
+        "reject": True,
+        "keys": fallback_keys_json((K1,)),
+        "preimage": dynamic_keys,
+        "preimage_bytes": len(dynamic_keys) // 2 - 1,
+        "hash": keccak(dynamic_keys),
+    }
+    seconds_field = b"\x08" + varint_int64(-1)
+    timestamp_field = length_delimited(0x2A, seconds_field)
+    (backdated,) = [c for c in vote_vectors["cases"] if c["name"] == "precommit_a_backdated"]
+    seconds, nanos = backdated["vote"]["timestampSeconds"], backdated["vote"]["timestampNanos"]
+    assert (seconds, nanos) == ("-1", "0")
+    assert timestamp_field.hex() in backdated["sign_bytes"]
+    out["enc_a_45_g"] = {
+        "vector": "ENC-A-45 45.g",
+        "seconds": -1,
+        "nanos": 0,
+        "seconds_field": "0x" + seconds_field.hex(),
+        "timestamp_field": "0x" + timestamp_field.hex(),
+        "vote": "precommit_a_backdated",
+    }
+    for name, (field, literal) in APPENDIX_LITERALS.items():
+        value = out[name][field]
+        if value != literal:
+            raise SystemExit(f"{name}: appendix A literal does not reproduce\n"
+                             f"  computed: {value}\n  A.md:     {literal}")
+
+    domain, statement, cut = domains[0], statements[0], cut_vectors["cut_hashes"][0]
+    (validator_state,), (app,) = states, apps
+    val_rows = (
+        f"[(2,{word(1)},10,-5),(3,{word(2)},10,5)]",
+        f"[(2,{word(1)},10,5),(3,{word(2)},10,-5)]",
+    )
+    out["dynamic_tag_rejects"] = dynamic_tag_rejects(
+        (
+            ("chain_domain", "ETNA_COMET_DOMAIN_V1", "chain_domains[0].chain_domain",
+             domain["preimage"], domain["chain_domain"], None),
+            ("config", "ETNA_CONFIG_V1", "config.hash", cfg["preimage"], cfg["hash"], None),
+            ("fallback_keys", "ETNA_FALLBACK_KEYS_V1", "appendix_a_examples.enc_a_36a_a.hash",
+             out["enc_a_36a_a"]["preimage"], out["enc_a_36a_a"]["hash"],
+             (FALLBACK_KEYS_SIGNATURE, (fallback_keys_arg((K1,)),))),
+            ("val_state", "ETNA_VAL_STATE_V1", "validator_states[0].hash",
+             validator_state["preimage"], validator_state["hash"],
+             (VAL_STATE_SIGNATURE, (validator_state["height"], val_rows[0],
+                                    validator_state["current_proposer"], val_rows[1],
+                                    validator_state["next_proposer"]))),
+            ("app_hash", "ETNA_APP_HASH_V1", "app_hashes[0].hash", app["preimage"], app["hash"],
+             None),
+            ("cut_hash", "ETNA_LAND_CUTS_V1", "cuts.cut_hashes[0].cut_hash", cut["preimage"],
+             cut["cut_hash"], None),
+            ("statement", "TAIKO_ETNA_LAND_V1", "land_statements[0].hash", statement["preimage"],
+             statement["hash"], None),
+        )
+    )
+    keys_reject = out["dynamic_tag_rejects"][2]
+    assert keys_reject["preimage"] == out["enc_a_36a_g"]["preimage"]
+    assert keys_reject["hash"] == out["enc_a_36a_g"]["hash"]
+    return decimals(out)
+
+
+def main():
+    key_list = keys()
+    digests = register_digests(key_list)
+    cfg = config()
+    cut_vectors = cuts()
+    statements = land_statements(cfg, cut_vectors)
+    domains = chain_domains()
+    states = validator_states()
+    apps = app_hashes(states)
+    vote_vectors = votes(key_list, domains)
+    extra_rows = extra_data()
+    vectors = {
+        "schema_version": "11",
+        "deployment": deployment(),
+        "keys": key_list,
+        "key_decompression": key_decompression(key_list),
+        "register_digests": digests,
+        "pop_rejections": pop_rejections(key_list, digests),
+        "config": cfg,
+        "validator_states": states,
+        "app_hashes": apps,
+        "val_state_chains": val_state_chains(domains),
+        "cuts": cut_vectors,
+        "land_statements": statements,
+        "land_abi": land_abi(statements),
+        "chain_domains": domains,
+        "votes": vote_vectors,
+        "fi_eligibility": fi_eligibility(),
+        "extra_data": extra_rows,
+        "packed_words": packed_words(),
+        "origin_words": origin_words(),
+        "layout": layout(),
+        "fallback_keys": fallback_keys(),
+        "staking_layout": staking_layout(key_list),
+        "miss_bitmap": miss_bitmap(key_list),
+        "candidate": candidate(key_list),
+        "on_block_start": on_block_start(),
+        "governance_abi": governance_abi(digests, vote_vectors["slash_abi"]),
+        "forfeitures": forfeitures(),
+        "governance_events": governance_events(cfg),
+        "view_abi": view_abi(key_list, digests, cfg),
+        "appendix_a_examples": appendix_a_examples(
+            cfg, states, apps, cut_vectors, statements, domains, vote_vectors, extra_rows
+        ),
+    }
+    OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")
+    if not os.access(PRETTIER, os.X_OK):
+        raise SystemExit(f"prettier not found at {PRETTIER}: install the workspace's dependencies")
+    subprocess.run([str(PRETTIER), "--write", str(OUTPUT)], cwd=ROOT, check=True)
+    run_ficheck()
+
+
+if __name__ == "__main__":
+    main()

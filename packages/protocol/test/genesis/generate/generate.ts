@@ -4,7 +4,14 @@ const path = require("path");
 const { ethers } = require("ethers");
 const { deployTaikoAnchor } = require("./taikoAnchor");
 const { deployERC20 } = require("./erc20");
-const config: Config = require("../data/genesis_config.js");
+const { checkEtnaConfig, deployEtna } = require("./etna");
+// GENESIS_CONFIG names another configuration file; genesis.test.sh uses it to generate an Etna
+// alloc for script/layer2/build_etna_genesis.py.
+const config: Config = require(
+    process.env.GENESIS_CONFIG
+        ? path.resolve(process.env.GENESIS_CONFIG)
+        : "../data/genesis_config.js",
+);
 
 // Generate a L2 genesis JSON based on the given configurations.
 // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
@@ -36,6 +43,9 @@ async function main() {
         );
     }
 
+    // Refuse a bad Etna block before generating anything.
+    if (config.etna !== undefined) checkEtnaConfig(config);
+
     console.log("config: %o", config);
 
     console.log("start deploy TaikoAnchor contract");
@@ -49,6 +59,12 @@ async function main() {
         console.log("start deploy an ERC-20 token");
 
         result = await deployERC20(config, result);
+    }
+
+    if (config.etna !== undefined) {
+        console.log("start deploy the EtnaStaking and bridged TAIKO contracts");
+
+        result = await deployEtna(config, result);
     }
 
     const allocSavedPath = path.join(__dirname, "../data/genesis_alloc.json");
@@ -77,4 +93,7 @@ async function main() {
     console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

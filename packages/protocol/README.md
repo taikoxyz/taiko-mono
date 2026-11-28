@@ -14,6 +14,7 @@ To install dependencies:
 ```bash
 pnpm install
 ```
+
 Foundryup will automatically update during the post-installation script to the version specified in `.tool-versions`.
 
 ## Compilation
