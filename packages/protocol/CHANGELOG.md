@@ -93,12 +93,12 @@
   vectors move to schema 11: `deployment` and `on_block_start.deployment` gain
   `miss_release_limit`, a case may override it, prior calls may take penalties, and six cases
   cover repeated penalties and releases.
-- Etna (spec #22425 at 5cd86f0e6): no contract or vector change. Since fbc7a5162 the spec states
+- Etna (spec #22425 at 797a708e5): no contract or vector change. Since fbc7a5162 the spec states
   that a failed block-start call, including a generation's first after a recovery, counts no miss
   and resets no count (RECOV-8-59), which `onBlockStart` already does; that a penalty leaving a
   bond its seat changes the signing set only by lowering its power or the total; and that a call to
   a staking address without code removes an empty account there (EIP-161, CONS-3.2-13), which is
-  EL behaviour. The Etna READMEs link the spec at `5cd86f0e6`, and `EtnaStakingOnBlockStart` adds
+  EL behaviour. The Etna READMEs link the spec at `797a708e5`, and `EtnaStakingOnBlockStart` adds
   tests for vectors 8 59.e–59.i and 20.h and asserts 20.i's power before the penalty.
 - Etna (BREAKING, spec #22425 at b01356ddc9): L1 and L2 run one SignalService implementation, the
   new `EtnaSignalService` (`contracts/shared/signal`), which stores only the counterpart chain's

@@ -2,7 +2,7 @@
 
 These scripts prepare the switch of a live Unzen chain to Etna as described in [SWITCH.md][switch]
 and in the switching steps of section 10 of the [Etna specification][spec], both at the Etna spec
-baseline `5cd86f0e6623ecb9fbbe3f06df099408325d087f`. They never upgrade a proxy and never send a DAO
+baseline `797a708e57badb02dc4e974dcaf9167232aa2969`. They never upgrade a proxy and never send a DAO
 action:
 
 | Script                                                                                     | Does                                                                                                                                                                |
@@ -280,5 +280,5 @@ of another identity. The third relays the L2 message through the real Bridge, ch
 builder's identity checks, including those of an `EtnaStaking` deployment, and runs
 `DeployEtnaStaking` through the CREATE2 factory.
 
-[spec]: https://github.com/taikoxyz/taiko-mono/blob/5cd86f0e6623ecb9fbbe3f06df099408325d087f/packages/protocol/docs/etna/SPEC.md
-[switch]: https://github.com/taikoxyz/taiko-mono/blob/5cd86f0e6623ecb9fbbe3f06df099408325d087f/packages/protocol/docs/etna/SWITCH.md
+[spec]: https://github.com/taikoxyz/taiko-mono/blob/797a708e57badb02dc4e974dcaf9167232aa2969/packages/protocol/docs/etna/SPEC.md
+[switch]: https://github.com/taikoxyz/taiko-mono/blob/797a708e57badb02dc4e974dcaf9167232aa2969/packages/protocol/docs/etna/SWITCH.md
