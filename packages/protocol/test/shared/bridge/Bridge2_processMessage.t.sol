@@ -541,6 +541,45 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertGe(wallet.recordedBudget(), _EXPECTED_SEND_BUDGET - 100);
     }
 
+    function test_processMessage_forwardsValueAndGasToDelegatedRecipient() public {
+        MessageReceiver_RecordingGasBudget implementation = new MessageReceiver_RecordingGasBudget();
+        address recipient = makeAddr("delegated recipient");
+        // Set the EIP-7702 designator directly to exercise CALL's delegation resolution.
+        vm.etch(recipient, abi.encodePacked(hex"ef0100", address(implementation)));
+
+        uint32 invocationGas = 200_000;
+        IBridge.Message memory message = _l2ToL1Message(Alice, 2 ether);
+        message.to = recipient;
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + invocationGas;
+
+        vm.prank(Carol);
+        (IBridge.Status status,) = eBridge.processMessage{ gas: 300_000 }(message, FAKE_PROOF);
+
+        assertTrue(status == IBridge.Status.DONE);
+        assertEq(recipient.balance, message.value);
+        uint256 recordedBudget =
+            MessageReceiver_RecordingGasBudget(payable(recipient)).recordedBudget();
+        uint256 expectedBudget = uint256(invocationGas) + 2300;
+        assertLe(recordedBudget, expectedBudget);
+        // Account for the opcodes executed before GAS in the recipient frame.
+        assertGe(recordedBudget, expectedBudget - 100);
+    }
+
+    function test_processMessage_forwardsValueToNewAccount() public {
+        address recipient = makeAddr("new recipient");
+        assertEq(recipient.codehash, bytes32(0));
+
+        IBridge.Message memory message = _l2ToL1Message(Alice, 2 ether);
+        message.to = recipient;
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + 200_000;
+
+        vm.prank(Carol);
+        (IBridge.Status status,) = eBridge.processMessage{ gas: 450_000 }(message, FAKE_PROOF);
+
+        assertTrue(status == IBridge.Status.DONE);
+        assertEq(recipient.balance, message.value);
+    }
+
     /// @dev Self-claim path with invocation prohibited: msg.sender == destOwner, so the relayer
     /// payout is skipped entirely and the value plus the whole fee arrive in a single capped
     /// send. Every other test of that send runs the relayer path, where a fee cut is deducted.

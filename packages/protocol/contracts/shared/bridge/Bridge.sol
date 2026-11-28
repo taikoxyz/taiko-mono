@@ -299,10 +299,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev To ensure successful execution, we recommend this transaction's gas limit not to be
-    /// smaller than:
-    /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
-    /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
+    /// @dev Estimate transaction gas against the destination chain's active fork. The message
+    /// gas limit determines the invocation budget, and transaction gas must also cover proof
+    /// verification, CALL overhead, EIP-150 headroom, status writes and payouts.
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -751,14 +750,20 @@ contract Bridge is EssentialResolverContract, IBridge {
         private
         view
     {
-        // Allow two cold account accesses (target and possible EIP-7702 delegate),
-        // plus headroom for the check and entering CALL.
-        uint256 callOverhead = 7000;
-        if (_value != 0) {
-            callOverhead += 9000;
-            // Only a zero-balance account with no code can require creation. Reserve the
-            // full Amsterdam creation cost even if a state-gas reservoir can pay part of it.
-            if (_to.balance == 0 && _to.code.length == 0) {
+        // Reserve 1,000 gas for the instructions between GAS and CALL and 3,000 for a
+        // potentially cold EIP-7702 delegate under EIP-8038.
+        uint256 callOverhead = 1_000 + 3_000;
+        if (_value == 0) {
+            callOverhead += 3_000; // The target may also be cold.
+        } else {
+            // EXTCODEHASH warms the target before GAS. CALL charges the 100 warm access
+            // plus EIP-8038's CALL_VALUE (9,000 account write + 2,300 stipend) before
+            // applying EIP-150. The callee receives the stipend on top of the gas operand.
+            callOverhead += 100 + 9_000 + 2_300;
+            if (_to.codehash == bytes32(0)) {
+                // EIP-1052 returns zero for a dead account. Budget the full EIP-8037
+                // creation cost (120 bytes at 1,530 gas/byte) in case the reservoir is
+                // empty. This is also conservative on chains still using Osaka pricing.
                 callOverhead += 183_600;
             }
         }
