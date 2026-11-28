@@ -752,14 +752,14 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         // Reserve 1,000 gas for the instructions between GAS and CALL and 3,000 for a
         // potentially cold EIP-7702 delegate under EIP-8038.
-        uint256 callOverhead = 1_000 + 3_000;
+        uint256 callOverhead = 1000 + 3000;
         if (_value == 0) {
-            callOverhead += 3_000; // The target may also be cold.
+            callOverhead += 3000; // The target may also be cold.
         } else {
             // EXTCODEHASH warms the target before GAS. CALL charges the 100 warm access
             // plus EIP-8038's CALL_VALUE (9,000 account write + 2,300 stipend) before
             // applying EIP-150. The callee receives the stipend on top of the gas operand.
-            callOverhead += 100 + 9_000 + 2_300;
+            callOverhead += 100 + 9000 + 2300;
             if (_to.codehash == bytes32(0)) {
                 // EIP-1052 returns zero for a dead account. Budget the full EIP-8037
                 // creation cost (120 bytes at 1,530 gas/byte) in case the reservoir is
