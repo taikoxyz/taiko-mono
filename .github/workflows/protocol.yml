@@ -178,6 +178,11 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      # forge exits 0 when a path matches no tests, so a renamed file would pass silently.
+      - name: Check Bridge gas test files exist
+        working-directory: ./packages/protocol
+        run: ls test/shared/bridge/Bridge2_invocationGas.t.sol test/shared/bridge/Bridge2_processMessagePayouts.t.sol
+
       - name: Test Bridge gas accounting on Amsterdam
         working-directory: ./packages/protocol
         env:
