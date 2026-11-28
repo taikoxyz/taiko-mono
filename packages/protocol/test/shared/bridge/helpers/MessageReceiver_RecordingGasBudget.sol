@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @dev A recipient that records the gas budget its receive path is handed, so a test can pin
-/// Bridge._SEND_ETHER_GAS_LIMIT directly instead of inferring it from how much work a receive
-/// path can afford. `recordedBudget` is the CALL gas operand plus the 2,300 stipend a
-/// value-bearing CALL always adds, less the few opcodes spent entering the frame. Unlike
-/// gas-consumption fixtures this stays valid across gas-schedule changes such as EIP-8037,
-/// because the forwarded allowance does not depend on how storage writes are priced.
+/// @dev Records the gas available at the start of a payout or invocation. `recordedBudget` is
+/// the forwarded gas minus entry opcodes, plus the 2,300 stipend for a value-bearing CALL.
 /// `recordedBudget` is pre-initialised so the receive path updates an existing slot rather than
 /// creating one. The constructor runs in the same transaction as the call under test, so by the
 /// time the send arrives the slot is warm with `original = 0, current = 1`; writing it again is
@@ -18,6 +14,10 @@ contract MessageReceiver_RecordingGasBudget {
     uint256 public recordedBudget = 1;
 
     receive() external payable {
+        recordedBudget = gasleft();
+    }
+
+    fallback() external {
         recordedBudget = gasleft();
     }
 }

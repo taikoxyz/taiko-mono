@@ -299,9 +299,11 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev Estimate transaction gas against the destination chain's active fork. The message
-    /// gas limit determines the invocation budget, and transaction gas must also cover proof
-    /// verification, CALL overhead, EIP-150 headroom, status writes and payouts.
+    /// @dev For a relayed invocation, let g be the message gas limit minus
+    /// getMessageMinGasLimit(data.length), floored at zero. When g is nonzero, the gas reading
+    /// in _checkInvocationGas must cover g + (g - 1) / 63 plus the CALL overhead budget.
+    /// Estimate the full transaction on the destination fork to include proof verification,
+    /// memory expansion, status writes and payouts.
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -362,8 +364,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
         _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
 
-        // Include the status write in the relayer's execution-gas measurement. If a payout
-        // fails, the transaction reverts the status change along with the other effects.
+        // Measure the portion of the status write charged to gasleft(). State gas paid
+        // from the reservoir is invisible to this estimate. Payout failure rolls back the write.
         _updateMessageStatus(msgHash, status_);
 
         if (_message.fee != 0) {
@@ -750,8 +752,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         private
         view
     {
-        // Reserve 1,000 gas for the instructions between GAS and CALL and 3,000 for a
-        // potentially cold EIP-7702 delegate under EIP-8038.
+        // Reserve 1,000 gas for instructions between GAS and CALL. Recheck the allowance
+        // after compiler changes. Reserve 3,000 for a cold EIP-7702 delegate under EIP-8038.
         uint256 callOverhead = 1000 + 3000;
         if (_value == 0) {
             callOverhead += 3000; // The target may also be cold.
@@ -763,7 +765,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             if (_to.codehash == bytes32(0)) {
                 // EIP-1052 returns zero for a dead account. Budget the full EIP-8037
                 // creation cost (120 bytes at 1,530 gas/byte) in case the reservoir is
-                // empty. This is also conservative on chains still using Osaka pricing.
+                // empty. This includes 158,600 gas of extra headroom over Osaka's charge.
                 callOverhead += 183_600;
             }
         }
@@ -771,6 +773,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         uint256 available = gasleft();
         if (available < callOverhead) revert B_INSUFFICIENT_INVOCATION_GAS();
         available -= callOverhead;
+        // EIP-150 keeps floor(available / 64) in the caller before any value stipend.
         if (available - available / 64 < _requestedGas) revert B_INSUFFICIENT_INVOCATION_GAS();
     }
 

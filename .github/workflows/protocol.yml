@@ -266,7 +266,7 @@ jobs:
           # Re-run formatting in this trusted checkout. Defer package-wide reformatting
           # when the formatter version changes so the toolchain diff stays focused.
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --quiet "$BASE_SHA" "$BUILD_SHA" -- packages/protocol/.tool-versions; then
+          if git diff --quiet "$BASE_SHA" HEAD -- packages/protocol/.tool-versions; then
             (cd packages/protocol && forge fmt)
           fi
           # build-protocol generates layout files after formatting, so keep them exactly as the

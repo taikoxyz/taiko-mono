@@ -25,6 +25,26 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         assertGe(recordedBudget, expectedBudget - 100);
     }
 
+    function test_processMessage_forwardsGasWithoutValueToWarmRecipient() public {
+        MessageReceiver_RecordingGasBudget recipient = new MessageReceiver_RecordingGasBudget();
+        // Read the initial value before processing to explicitly warm the recipient account.
+        assertEq(recipient.recordedBudget(), 1);
+
+        IBridge.Message memory message = _l2ToL1Message(Alice, 0);
+        message.to = address(recipient);
+        message.data = hex"01"; // Nonempty data reaches the recorder's fallback.
+        message.gasLimit = eBridge.getMessageMinGasLimit(message.data.length) + _INVOCATION_GAS;
+
+        vm.prank(Carol);
+        (IBridge.Status status,) = eBridge.processMessage{ gas: 300_000 }(message, FAKE_PROOF);
+
+        assertTrue(status == IBridge.Status.DONE);
+        uint256 recordedBudget = recipient.recordedBudget();
+        assertLe(recordedBudget, _INVOCATION_GAS);
+        // Zero-value calls get no stipend. Allow for the opcodes before GAS in the callee.
+        assertGe(recordedBudget, _INVOCATION_GAS - 100);
+    }
+
     function test_processMessage_forwardsValueToNewAccount() public {
         address recipient = makeAddr("new recipient");
         assertEq(recipient.codehash, bytes32(0));

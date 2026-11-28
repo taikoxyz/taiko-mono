@@ -3,8 +3,8 @@
 # This script is only used by `pnpm test:deploy:l1`.
 set -e
 
-# Forge deploys a large script harness during simulation. Amsterdam charges state gas
-# for its embedded deployment bytecode.
+# Forge deploys a large script harness during simulation and pays Amsterdam state gas
+# for its embedded bytecode. Anvil's own block gas limit applies to the transactions broadcast.
 SCRIPT_BLOCK_GAS_LIMIT=500000000
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

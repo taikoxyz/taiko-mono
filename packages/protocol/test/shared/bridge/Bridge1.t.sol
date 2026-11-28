@@ -133,6 +133,9 @@ contract TestBridge1 is CommonTest {
     }
 
     function test_bridge1_send_ether_to_contract_with_value_and_message_data() public {
+        bytes memory data = abi.encodeCall(
+            MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol)
+        );
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(eBridge),
@@ -143,11 +146,9 @@ contract TestBridge1 is CommonTest {
             to: address(eMessageReceiver),
             value: 1000,
             fee: 1000,
-            // The recipient forwards Ether to Carol, which creates an account on first payment.
-            gasLimit: 1_100_000,
-            data: abi.encodeCall(
-                MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol)
-            )
+            // Budget the 197,900 gas Amsterdam can require up front for Carol's first transfer.
+            gasLimit: tBridge.getMessageMinGasLimit(data.length) + 200_000,
+            data: data
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message

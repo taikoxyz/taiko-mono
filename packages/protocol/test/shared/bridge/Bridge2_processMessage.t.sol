@@ -400,6 +400,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
     }
 
     /// @dev The capped refund funds a wallet that creates a fresh storage slot on first receipt.
+    /// forge-config: default.isolate = true
     function test_bridge2_processMessage__refund_to_storage_creating_wallet()
         public
         transactBy(Carol)
@@ -420,13 +421,31 @@ contract TestBridge2_processMessage is TestBridge2Base {
         // destOwner through the gas-capped Ether send.
         message.to = address(eBridge);
 
-        eBridge.processMessage(message, FAKE_PROOF);
+        // Use a separate, bounded transaction so Amsterdam starts with an empty reservoir.
+        vm.recordLogs();
+        eBridge.processMessage{ gas: 500_000 }(message, FAKE_PROOF);
 
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(address(wallet).balance, 2 ether);
         assertEq(wallet.receiveCount(), 1);
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 storageGas;
+        for (uint256 i; i < logs.length; ++i) {
+            if (
+                logs[i].emitter == address(wallet) && logs[i].topics.length == 1
+                    && logs[i].topics[0]
+                        == MessageReceiver_CreatingFreshStorageSlot.ReceiveStorageGas.selector
+            ) {
+                storageGas = abi.decode(logs[i].data, (uint256));
+                break;
+            }
+        }
+        // A cold fresh slot costs 22,100 on Osaka and 110,020 on Amsterdam when the
+        // receiver pays the state-gas charge. A reservoir would leave only 12,100 visible.
+        assertGe(storageGas, 22_100, "storage creation charged to the wallet's gas budget");
     }
 
     /// @dev End-to-end claim of bridged Ether by storage-creating smart wallets with a relayer

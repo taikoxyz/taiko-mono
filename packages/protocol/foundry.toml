@@ -104,7 +104,7 @@ exclude_lints = [
 ]
 
 [profile.layer1]
-# solc needs experimental mode to target Amsterdam.
+# Amsterdam builds require experimental solc mode and an Amsterdam-active target chain.
 evm_version = "amsterdam"
 hardfork = "amsterdam"
 solc_version = "0.8.39"
