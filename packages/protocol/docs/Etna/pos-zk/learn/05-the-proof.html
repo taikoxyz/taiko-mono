@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 5 What the proof proves</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html" class="active">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+
+<h1>What the proof proves</h1>
+<p class="muted">This page states the zero-knowledge statement an engineer has to implement,
+separates public inputs from witness, and lists precisely what a valid proof does
+<em>not</em> establish. It is a design: nothing here is deployed, and the proving costs and
+latencies are not yet measured. The authoritative statement of the same rules is in the
+<a href="../spec/05-proof-statement.html">specification</a>.</p>
+
+<h2>The idea</h2>
+<p>A batch of L2 blocks is a proposed transition: some range of blocks, a claimed new state root,
+and the consensus evidence that those blocks were certified. Before Ethereum accepts that
+transition, somebody must show that the evidence is sufficient and the execution is correct. The
+design does this with one zero-knowledge proof covering three claims at once:</p>
+<ul>
+<li><strong>W1 &mdash; consensus finality:</strong> the batch&rsquo;s head block carries a valid
+commit certificate, signed by more than two thirds of the voting power of the epoch&rsquo;s
+validator set, where that set and that epoch are authenticated from Ethereum state.</li>
+<li><strong>W2 &mdash; execution:</strong> executing the batch&rsquo;s blocks in consensus order,
+starting from the previous checkpoint&rsquo;s state root, produces the claimed new state root.</li>
+<li><strong>W3 &mdash; data binding:</strong> the bytes the guest executed are the bytes published
+in the accepting L1 transaction.</li>
+</ul>
+<p>A <em>public input</em> is a value the proof is checked against: it is visible to the verifier
+and is part of what the proof is about. A <em>witness</em> is the private material the prover
+supplies to the guest &mdash; the set leaves, the signatures, the headers, the payload. The
+discipline of this design is that every value that defines <em>authority</em> is a public input
+taken from Ethereum, and never something the prover chose.</p>
+
+<figure>
+<svg viewBox="0 0 940 430" role="img" aria-label="Public inputs, witness, guest program and the L1 verifier">
+  <defs>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path></marker>
+    <marker id="q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9a6700"></path></marker>
+</defs>
+  <rect x="20" y="40" width="250" height="140" rx="9" fill="#ffffff" stroke="#0969da"></rect>
+  <text x="145" y="64" fill="#24292f" font-size="13" text-anchor="middle">Ethereum (L1) state</text>
+  <text x="36" y="88" fill="#59636e" font-size="11">chain id &#183; epoch schedule (L, H_genesis, e_0)</text>
+  <text x="36" y="106" fill="#59636e" font-size="11">per-epoch set root R_k and total power W</text>
+  <text x="36" y="124" fill="#59636e" font-size="11">predecessor checkpoint (height, hash, root)</text>
+  <text x="36" y="142" fill="#59636e" font-size="11">config hash &#183; recovery generation &#183; 2&#183;W</text>
+  <text x="36" y="160" fill="#59636e" font-size="11">the accepting transaction&#8217;s calldata / blobs</text>
+  <rect x="20" y="250" width="250" height="140" rx="9" fill="#ffffff" stroke="#9a6700"></rect>
+  <text x="145" y="274" fill="#24292f" font-size="13" text-anchor="middle">Witness (private to the prover)</text>
+  <text x="36" y="298" fill="#59636e" font-size="11">set entries (pubkey, effStake) + Merkle paths</text>
+  <text x="36" y="316" fill="#59636e" font-size="11">signatures over the head certificate</text>
+  <text x="36" y="334" fill="#59636e" font-size="11">header chain from prevHeight + 1 to head</text>
+  <text x="36" y="352" fill="#59636e" font-size="11">anchor certificate (only at an epoch boundary)</text>
+  <text x="36" y="370" fill="#59636e" font-size="11">payload bytes &#183; pre-state for execution</text>
+  <rect x="360" y="90" width="230" height="270" rx="9" fill="#ffffff" stroke="#8250df"></rect>
+  <text x="475" y="116" fill="#24292f" font-size="13" text-anchor="middle">One guest program</text>
+  <text x="376" y="148" fill="#59636e" font-size="11">W1 consensus finality: the head block</text>
+  <text x="376" y="164" fill="#59636e" font-size="11">carries a valid commit certificate over</text>
+  <text x="376" y="180" fill="#59636e" font-size="11">more than two thirds of the epoch&#8217;s power</text>
+  <text x="376" y="208" fill="#59636e" font-size="11">W2 execution: running the batch from</text>
+  <text x="376" y="224" fill="#59636e" font-size="11">the predecessor state root yields the</text>
+  <text x="376" y="240" fill="#59636e" font-size="11">claimed successor state root</text>
+  <text x="376" y="268" fill="#59636e" font-size="11">W3 data binding: the bytes executed are</text>
+  <text x="376" y="284" fill="#59636e" font-size="11">the bytes published in the accepting</text>
+  <text x="376" y="300" fill="#59636e" font-size="11">L1 transaction</text>
+  <text x="376" y="330" fill="#59636e" font-size="11">All three must hold, in one proof.</text>
+  <rect x="680" y="150" width="230" height="60" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="795" y="174" fill="#24292f" font-size="13" text-anchor="middle">Zero-knowledge proof</text>
+  <text x="795" y="194" fill="#59636e" font-size="11" text-anchor="middle">bound to the statement hash</text>
+  <rect x="680" y="270" width="230" height="90" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="795" y="294" fill="#24292f" font-size="13" text-anchor="middle">Inbox verifier (L1)</text>
+  <text x="795" y="314" fill="#59636e" font-size="11" text-anchor="middle">re-derives the journal itself,</text>
+  <text x="795" y="330" fill="#59636e" font-size="11" text-anchor="middle">hashes it, checks the proof;</text>
+  <text x="795" y="346" fill="#59636e" font-size="11" text-anchor="middle">only then writes the checkpoint</text>
+  <line x1="274" y1="110" x2="356" y2="150" stroke="#0969da" marker-end="url(#p)"></line>
+  <text x="315" y="96" fill="#59636e" font-size="10" text-anchor="middle">public inputs</text>
+  <line x1="274" y1="320" x2="356" y2="300" stroke="#9a6700" marker-end="url(#q)"></line>
+  <text x="315" y="340" fill="#59636e" font-size="10" text-anchor="middle">witness</text>
+  <line x1="594" y1="200" x2="676" y2="180" stroke="#0969da" marker-end="url(#p)"></line>
+  <line x1="795" y1="214" x2="795" y2="266" stroke="#0969da" marker-end="url(#p)"></line>
+  <text x="600" y="404" fill="#59636e" font-size="11">The verifier never accepts a caller-supplied copy of an L1-derived value. The witness never defines the validator set.</text>
+</svg>
+<figcaption>Figure 1 &mdash; One guest, three claims, one journal. The Inbox derives the public
+inputs from its own storage and from the transaction, then checks the proof against a hash of
+them.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>1. The statement is a conjunction, not three proofs</h3>
+<p>One guest program proves W1, W2 and W3 together, and one proof is accepted per batch. There is
+no separate &ldquo;finality proof&rdquo; and &ldquo;execution proof&rdquo; that could be paired
+with the wrong counterpart: a proof that a block was certified without proving what it executed,
+or an execution proof over data that was never certified, is exactly the failure this avoids.
+A batch never spans an epoch
+boundary, so exactly one epoch, one validator set root and one quorum denominator appear in the
+statement; a range that would cross a boundary is split, and because every batch starts at the
+previous checkpoint&rsquo;s height plus one, no height can be dropped at the split. When a batch opens an epoch,
+the guest also verifies the certificate of the closing epoch&rsquo;s last block &mdash; the anchor &mdash; under
+that block&rsquo;s own header generation, as the historical case of the two-case generation rule below.</p>
+
+<h3>2. Public inputs versus witness</h3>
+<p>The public-input vector is a single canonical list, encoded with a domain tag and the chain id
+first, and its order is normative. The L1 contract hashes that vector into a statement hash and
+passes only the hash and the opaque proof to the verifier. The guest commits to exactly the same
+vector, so the two sides cannot disagree about what was proven.</p>
+<table>
+<thead><tr><th>Kind</th><th>Values</th><th>Where it comes from</th></tr></thead>
+<tbody>
+<tr><td>Authority-defining (public inputs)</td><td>chain ids; <code>epoch</code>; <code>validatorSetRoot</code>; <code>totalVotingPower</code>; <code>setVersion</code> and <code>setVersionBlock</code>; the closing epoch&rsquo;s anchor root and total; predecessor height, block hash and state root; the forced-inclusion boundary commitment <code>forcedBoundary</code>; configuration hash; <code>recoveryGeneration</code>; the quorum product <code>2 &middot; W</code></td><td>Derived by the L1 contract from its own storage and from the transaction. A submitter-supplied copy must be ignored.</td></tr>
+<tr><td>Claimed but proof-bound (public inputs)</td><td>head block hash; post-state root; first and last height; block timestamps; <code>dataCommitment</code> on the blob path; <code>finalityCommitment</code>; <code>signerBitmap</code>; data mode; blob versioned-hash hash; challenge points and evaluations; fee recipient</td><td>Supplied with the transaction but <em>bound</em>: a wrong value makes the proof fail rather than making the contract misbehave.</td></tr>
+<tr><td>Witness (private)</td><td>set entries with Merkle inclusion proofs; the commit certificate&rsquo;s signatures; the header chain; the anchor certificate at an epoch boundary; the committed payload bytes; the pre-state needed for execution</td><td>Produced by the prover. No witness element may define the validator set or the epoch.</td></tr>
+</tbody></table>
+<p>The batch&rsquo;s data reaches Ethereum in one of two forms, and the proof binds whichever is used: the
+accepting transaction carries it as calldata or blobs, or it names a live publication record written earlier
+&mdash; publication is permissionless and writes no batch state. On the calldata path the contract binds the
+bytes with a hash it computes itself; on the blob path the contract checks a KZG opening against the
+transaction&rsquo;s or the record&rsquo;s own blob hashes, and the guest re-checks that the bytes it executed
+are the bytes the commitment covers.</p>
+
+<h3>3. Why every authority value comes from L1</h3>
+<p>Four values decide who was allowed to speak, and all four are L1 facts:</p>
+<ul>
+<li><strong>Epoch.</strong> <code>epoch = epoch_of(height)</code> under the L1-committed schedule.
+The contract recomputes it and rejects a mismatch, so a prover cannot label a batch with an epoch
+whose set judges it more favourably.</li>
+<li><strong>Validator set root.</strong> Read from the staking contract&rsquo;s per-epoch mapping,
+which is append-only and immutable once the epoch starts. The header&rsquo;s set commitments must
+be the same root under the same encoding.</li>
+<li><strong>Configuration.</strong> <code>configHash</code> is read from the Inbox&rsquo;s append-only
+per-epoch registry. Its entry is written before the epoch starts and is immutable once written, and an
+upgrade binds future epochs only, so a routine upgrade cannot change the configuration under which an
+in-flight proof was made and make it fail. The guest recomputes the hash from the configuration it
+actually applied.</li>
+<li><strong>Quorum.</strong> Not a stored threshold: the predicate is exactly
+<code>3 &middot; s &gt; 2 &middot; W</code> with checked arithmetic, evaluated identically by the
+L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is the product
+<code>2 &middot; W</code>, so no division or rounding can differ between the three.</li>
+<li><strong>Predecessor.</strong> The previous checkpoint&rsquo;s height, block hash and state root
+come from the Inbox record, so the proof always runs from the state Ethereum already accepted.</li>
+<li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is a signed field of the vote and
+block-header bytes, read by the contract from L1 storage, and it has two cases. A batch that extends the
+current checkpoint must carry the current generation in its head certificate, in every vote that contributes
+to that certificate, and in the head header; nothing else in the batch is compared, so a batch whose
+intermediate headers were produced under an earlier generation is still provable. A certificate for a block
+at or below the last accepted checkpoint is judged under the generation written in that block&rsquo;s own
+header, and is never compared with the current one. The generation advances only when a stall resolution is
+executed: the DAO queues one entry during a settlement stall, its deadline is stored, and after that deadline
+anyone may execute it once. A certificate that fails its case is void at the acceptance rule, so a batch
+certified under a superseded generation is rejected even though its proof is otherwise valid; it stays
+admissible as evidence of what was signed, the head role is the only thing it loses, and the range above the
+checkpoint stays valid history that a later batch can extend under the new generation. No height is
+retired.</li>
+</ul>
+<p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
+would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
+to. That is why the guest rejects a witness-supplied root even when the arithmetic is consistent.</p>
+
+<h3>4. What the guest actually checks</h3>
+<ol>
+<li>Reconstruct the canonical precommit bytes for the head certificate and verify each signature
+against the key at the signer&rsquo;s index in the authenticated set. A signature over different
+bytes, a different vote type or a different index does not count.</li>
+<li>Check that the signers are distinct, that the bitmap has exactly one bit per signer and no bit
+outside the set, and that the bitmap length is fixed by the set size, not by the number of
+signers.</li>
+<li>Sum the effective stake of the distinct signers and evaluate
+<code>3 &middot; s &gt; 2 &middot; W</code>, with <code>W</code> equal to the sum of the
+authenticated leaves&rsquo; effective stakes.</li>
+<li>Link the header chain back to the predecessor block hash with no gaps, and check that the head
+hash is the hash of the reconstructed head header.</li>
+<li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
+a value from a hint.</li>
+<li>Check the generation under the case that applies: for a batch extending the checkpoint, the head
+certificate, every contributing vote and the head header carry the current generation the contract supplies as
+a public input, and nothing else is compared; for a certificate at or below the last accepted checkpoint, the
+certificate and every contributing vote carry the generation written in that block&rsquo;s own header and are
+never compared with the current one. A certificate that fails its case is void at the acceptance rule.</li>
+<li>Decode each block body from the committed payload, execute the blocks in order from the
+predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
+root committed by its header and that the final state root equals the claimed one.</li>
+<li>Recompute the data commitment over the bytes it executed and compare it with the journal.</li>
+<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the
+journal, then require every position the settlement frontier advances past to be resolved by exactly one of
+three modes, tested in order. A record that is dead at the anchored view &mdash; its own stored deadline has
+passed &mdash; is dead whatever it contains, and the other two modes apply only to a record that is live
+there. A live record is void when it is over the registered bound, when it contains a transaction that cannot
+be executed from its own bytes, or when every one of its transactions is set aside. Otherwise it is executed
+by walking its transactions in the record&rsquo;s own order, running each transaction that can run at its turn
+and setting aside each that cannot, with at least one running. Setting aside is judged per transaction, at the
+pre-state that transaction&rsquo;s turn reaches: a nonce that does not match, a balance below the fee and value
+the transaction declares, or a sender with code at that pre-state. A transaction that could have run but does
+not appear is set aside only if the block its turn falls in had no room for it at that turn &mdash; the room
+test reads that one block, so a later block&rsquo;s room neither rescues nor condemns a transaction whose turn
+has passed. A block that presents a record&rsquo;s transactions out of the record&rsquo;s own order is invalid,
+not merely unresolved.</li>
+</ol>
+
+<h3>5. Why one certificate is enough</h3>
+<p>The guest verifies the certificate of the head block only. Every earlier block in the range is
+covered by the header hash chain back to the predecessor, which Ethereum already accepted as a
+checkpoint. Under the fault assumption, a certificate for the head implies the head is the unique
+certified block at its height, and therefore that the whole prefix it commits to is the unique
+certified prefix. If that assumption
+is broken, the argument goes with it, and the proof cannot detect that.</p>
+
+<h3>6. What the proof does not prove</h3>
+<ul>
+<li><strong>That no hidden competing chain exists.</strong> The proof establishes that the
+evidence presented is sufficient for the claimed transition from an authenticated predecessor. It
+does not establish that no other history exists elsewhere.</li>
+<li><strong>That the data is retrievable.</strong> It proves that the executed bytes are the
+published bytes. Whether anybody still serves them later is a retention question, not a proof
+question.</li>
+<li><strong>That the chain keeps producing.</strong> Liveness &mdash; enough validators online,
+enough provers working &mdash; is an assumption about participants, not a theorem about the
+statement. It also proves nothing about recovery: if settlement stalls, the chain halts safely until a stall resolution is executed — the DAO may queue one entry, and after its stored deadline anyone may execute it once, and settlement resumes above the checkpoint without erasing the range above it; a superseded certificate loses only its use as a batch's head evidence, and the range's transactions are not carried into the resumed settlement, so they must be resubmitted. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend families attest, produced by a funded proving market from data that is still retrievable, but nothing obliges governance to queue or execute an entry, so a stall may persist.</li>
+<li><strong>That validators behaved.</strong> If at least one third of an epoch&rsquo;s voting
+power breaks the signing or locking rules, two conflicting certificates can both be
+cryptographically valid and both can produce accepting proofs. ZK verification does not repair a
+failed consensus assumption.</li>
+<li><strong>Who proved it.</strong> There is no prover registry: any account may land a batch, and
+the proof says nothing about the prover&rsquo;s identity.</li>
+<li><strong>That the starting point is the real history.</strong> The proof runs from the L1
+checkpoint. Which checkpoint is real is settled by Ethereum and by the freshness bound for new
+nodes, not by the proof.</li>
+</ul>
+
+<h2>Worked example</h2>
+<p>A batch of six blocks, heights 9,001&ndash;9,006, with the epoch length <code>L = 900</code> and
+<code>H_genesis = 0</code>, so both ends lie in epoch 10 (heights 9,000&ndash;9,899).</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Batch span</td><td>6 blocks &asymp; 12 seconds at 2 s per block; this is the largest sustainable batch at the target data rate</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> blob constants</td></tr>
+<tr><td>Epoch</td><td><code>epoch_of(9,001) = epoch_of(9,006) = 10</code>, so one set root and one quorum denominator</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Predecessor</td><td>height 9,000, its block hash and state root from the Inbox checkpoint record</td><td><span class="tag">sourced</span> from L1 state</td></tr>
+<tr><td>Epoch 10 total voting power <code>W</code></td><td>100,000,000 TAIKO (illustrative; real totals depend on who has bonded)</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Quorum</td><td>signers must satisfy <code>3 &middot; s &gt; 200,000,000 TAIKO</code>, so <code>s &ge; 66,666,667 TAIKO</code>. A certificate carrying 70,000,000 TAIKO passes (210,000,000 &gt; 200,000,000)</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Signer bitmap</td><td><code>ceil(n / 8)</code> bytes for a set of <code>n</code> entries, bit <code>i</code> = canonical index <code>i</code>; the length is fixed by the set, not by how many signers there are</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Data commitment</td><td><code>keccak256(abi.encode("TAIKO_ETNA_DATA", chainId, 9001, 9006, 1, keccak256(_data)))</code> on the calldata path</td><td><span class="tag">derived</span> encoding</td></tr>
+<tr><td>Proving time</td><td>the design plans for up to 1,800 seconds per batch; actual latency is not yet measured</td><td><span class="tag">unmeasured</span></td></tr>
+</tbody></table>
+
+<h2>What this gives you</h2>
+<ul>
+<li>A single object that a light client, a bridge or a third party can check without replaying the
+chain: a proof bound to a statement hash the L1 contract computes itself.</li>
+<li>Certification and execution tied together, so a valid state root can never be paired with data that
+was never certified, or the reverse.</li>
+<li>An unambiguous quorum predicate with one owner, evaluated identically in the client, the guest
+and the contract.</li>
+<li>A statement whose authority-defining values are all Ethereum facts, so the proof cannot be
+redirected to a friendlier set, epoch or predecessor.</li>
+<li>Data binding for both publish paths: a hash the contract computes itself for calldata, and a
+KZG-plus-guest argument for blobs.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li>No protection when the fault assumption fails: two valid certificates can both be proven, and
+the protocol&rsquo;s answer is detection, disclosure and slashing, not a proof that the fork does
+not exist.</li>
+<li>No proof of availability: the proof says the bytes are committed and published, not that they
+will still be served tomorrow.</li>
+<li>No proof of liveness or of future production.</li>
+<li>No protection against a soundness bug in the zkVM backend or the guest program; that is a
+bridge-theft class failure which the protocol cannot repair.</li>
+<li>No aggregation: v1 accepts one proof per batch from one registered backend, so an accepted batch's soundness is that of that backend. The <code>n</code>-of-<code>m</code> aggregation over independent backends is not part of v1, and the redundancy it would add does not hold here.</li>
+<li>No cost figure: the in-guest blob evaluation and the total proving cost are not yet
+measured.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>The proof verifies. Does that mean no competing L2 history exists?</summary>
+<p>No. It means the evidence presented is sufficient, under the fault assumption, for the claimed
+transition from the authenticated predecessor. If at least one third of an epoch&rsquo;s voting
+power signed two conflicting histories, both can be cryptographically valid and both can produce
+accepting proofs. The proof verifies evidence; it does not verify that the evidence is unique.</p></details>
+<details><summary>Which of these are public inputs: the validator set root, the full validator set,
+the block payload, the signatures?</summary>
+<p>The validator set root is a public input read from L1. The full set, the payload bytes and the
+signatures are witness material: the guest recomputes the root from the set and compares it with
+the L1 value, and it decodes the payload from the committed bytes rather than accepting a second
+copy.</p></details>
+<details><summary>Why must a batch never cross an epoch boundary?</summary>
+<p>Because the epoch determines the set root, the total voting power and therefore the quorum
+denominator. Keeping one epoch per batch keeps exactly one of each in the journal and removes
+per-epoch arrays. A range that would cross a boundary is split; because each batch starts at the
+previous checkpoint&rsquo;s height plus one, no height is left out at the split.</p></details>
+
+<div class="note assume">
+<p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the epoch&rsquo;s
+voting power breaking the signing and locking rules, and correct validators obeying them; the
+zkVM backend and the guest program being sound; the L1 values the contract reads being
+Ethereum-final; on the blob path, the KZG binding and the random-oracle model used for the
+challenge point; and the prover holding a complete witness, which means somebody still has the
+headers, bodies and signatures. If the fault assumption fails, the proof does not detect it; if a
+backend has a soundness bug, the proof proves something false.</p>
+</div>
+
+<p class="small"><a href="04-staking-and-epochs.html">&larr; Previous: Stake, validators and
+epochs</a> &middot; <a href="06-data-and-proof-together.html">Next: Data first, proof binds
+&rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>
