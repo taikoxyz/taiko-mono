@@ -512,6 +512,88 @@ async fn same_set_returns_an_empty_list() {
     assert_eq!(sources(state), [SignerSource::Candidate; 2]);
 }
 
+/// RECOV-8-20 (8.md 20.h): the candidate signs H + 1 and the candidate of H is usable; the penalty
+/// in H's call takes one member's stake, and the total with it, down to exactly the minimum
+/// without changing its floor(effStake / vp_unit), and nothing else differs from the snapshot of
+/// H − 1. The set that signs H + 2 is the one that signs H + 1, and `FinalizeBlock(H)` returns an
+/// empty update list. Unlike [`same_set_returns_an_empty_list`], every member keeps its seat.
+#[tokio::test]
+async fn penalty_that_keeps_every_power_returns_an_empty_list() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
+    let members = vec![(test_key(11), 2), (test_key(12), 3), (test_key(13), 4)];
+    let h = next_height(&app);
+    step(&mut app, Some(snapshot(h, MIN_STAKE + 50, &members))).await;
+
+    let resp = step(&mut app, Some(snapshot(h + 1, MIN_STAKE, &members))).await;
+    assert!(resp.validator_updates.is_empty(), "{:?}", updates_of(&resp));
+    let state = app.state().unwrap();
+    assert_eq!(sorted(&state.val_state.current), by_key(members.clone()), "the set of H + 1");
+    assert_eq!(sorted(&state.val_state.next), by_key(members), "the set of H + 2");
+    assert_eq!(sources(state), [SignerSource::Candidate; 2]);
+    let min = U256::from(MIN_STAKE);
+    assert_eq!(state.signers.after, SignerStatus::candidate(h + 1, min, min, 3));
+}
+
+/// RECOV-8-20 (8.md 20.i): the candidate signs H + 1 with a member at power p, and the candidate
+/// of H is usable; the penalty in H's call leaves the member its seat at floor(effStake /
+/// vp_unit) = q, below p. `FinalizeBlock(H)` returns that key alone, at power q, and the member
+/// signs H + 2 with it.
+#[tokio::test]
+async fn penalty_that_lowers_a_power_returns_the_key_at_its_new_power() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
+    let (p, q) = (5, 4);
+    let signing = vec![(test_key(11), 2), (test_key(12), p), (test_key(13), 7)];
+    let penalized = vec![(test_key(11), 2), (test_key(12), q), (test_key(13), 7)];
+    let h = next_height(&app);
+    step(&mut app, Some(snapshot(h, 2 * MIN_STAKE, &signing))).await;
+
+    let resp = step(&mut app, Some(snapshot(h + 1, 2 * MIN_STAKE - 100, &penalized))).await;
+    assert_eq!(updates_of(&resp), [(test_key(12), q)]);
+    let state = app.state().unwrap();
+    assert_eq!(sorted(&state.val_state.current), by_key(signing), "the set of H + 1");
+    assert_eq!(sorted(&state.val_state.next), by_key(penalized), "the set of H + 2");
+    assert_eq!(sources(state), [SignerSource::Candidate; 2]);
+}
+
+/// RECOV-8-20 (8.md 20.k): the penalty of 20.h, but the block-start call of H − 1 failed, so its
+/// post-state still holds the snapshot of H − 2 and the fallback key set signs H + 1; the
+/// candidate of H is usable. `FinalizeBlock(H)` returns the difference between the candidate and
+/// the fallback key set: each fallback key the candidate lacks at power 0 and each member at its
+/// power, unless it is a fallback key at power 1. It is empty when the candidate holds exactly
+/// the fallback keys, each at power 1.
+#[tokio::test]
+async fn usable_candidate_after_a_failed_call_returns_its_difference_to_the_fallback_keys() {
+    let fx = Fixture::genesis(2);
+    let origin = fx.fallback_keys.validator_set();
+    let others = vec![(test_key(11), 2), (test_key(12), 3), (test_key(13), 4)];
+    let mut replaced: Vec<_> = origin.iter().map(|&(key, _)| (key, 0)).collect();
+    replaced.extend(others.iter().copied());
+    for (members, expected) in [(others, by_key(replaced)), (origin.clone(), vec![])] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
+        let h = next_height(&app);
+        let signed = snapshot(h, MIN_STAKE + 50, &members);
+        step(&mut app, Some(signed.clone())).await;
+        // H − 1 = h + 1: its block-start call failed, leaving the snapshot of h.
+        step(&mut app, Some(signed)).await;
+        assert_eq!(
+            sources(app.state().unwrap()),
+            [SignerSource::Candidate, SignerSource::Fallback]
+        );
+
+        let resp = step(&mut app, Some(snapshot(h + 2, MIN_STAKE, &members))).await;
+        assert_eq!(updates_of(&resp), expected, "{members:?}");
+        let state = app.state().unwrap();
+        assert_eq!(sorted(&state.val_state.current), origin, "the fallback keys sign H + 1");
+        assert_eq!(sorted(&state.val_state.next), by_key(members), "the candidate signs H + 2");
+        assert_eq!(sources(state), [SignerSource::Fallback, SignerSource::Candidate]);
+    }
+}
+
 /// `FinalizeBlock(o + 1)` diffs the set it decides against the origin keys, which sign o + 2:
 /// in generation 0 against the fallback list another anchor than the origin's proves, so a key in
 /// both lists is not returned, and after a recovery against its origin keys, replaced by a

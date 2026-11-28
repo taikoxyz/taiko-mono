@@ -385,6 +385,66 @@ async fn recovery_generation_first_block_has_an_empty_commit_and_bitmap_zero() {
     assert_eq!(parent_members(&proposer), members(&origin_set));
 }
 
+/// RECOV-8-20a (8.md 20a.b): the candidate signs B − 1 and the fallback key set signs B and
+/// B + 1, its members' bonds staying seated. B's LastCommit lists the candidate, the set that
+/// signs B − 1: the member whose precommit for B − 1 it lacks sets its seat's bit, the members
+/// that committed set none, and a key outside that set, whose bond took a seat in B − 1, sets
+/// none. B + 1's LastCommit lists the fallback key set, which signed B: no bond whose key is not
+/// a fallback key can set a bit, and a missing fallback key without a bond sets none, so B + 1's
+/// bitmap is 0.
+#[tokio::test]
+async fn first_fallback_block_counts_its_candidate_signed_parent() {
+    use super::signers::{self, MIN_STAKE, snapshot};
+    let fx = fixture();
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = signers::node(&fx, dir.path(), U256::from(MIN_STAKE)).await;
+    let bonds = [(test_key(11), 2), (test_key(12), 3), (test_key(13), 4)];
+    let seat_word = |seat: u64| U256::from((seat << 8) | 1);
+    let sorted = |mut set: Vec<(crate::key::ConsensusKey, i64)>| {
+        set.sort();
+        set
+    };
+    let fallback = sorted(fx.fallback_keys.keys().iter().map(|&key| (key, 1)).collect());
+    let h = next_height(&app);
+    // h decides the candidate for h + 2 = B − 1; h + 1's total below the minimum hands h + 3 = B
+    // to the fallback keys.
+    signers::step(&mut app, Some(snapshot(h, MIN_STAKE, &bonds))).await;
+    signers::step(&mut app, Some(snapshot(h + 1, MIN_STAKE - 1, &bonds))).await;
+    signers::step(&mut app, None).await;
+    assert_eq!(next_height(&app), h + 3, "B");
+    let candidate = sorted(bonds.iter().map(|&(key, power)| (key, power as i64)).collect());
+    assert_eq!(sorted(parent_members(&app)), candidate, "the candidate signed B − 1");
+    let signing_b = members(&app.state().unwrap().val_state.current.entries);
+    assert_eq!(sorted(signing_b), fallback, "the fallback keys sign B");
+
+    for (seat, (key, _)) in (0..).zip(&bonds) {
+        set_seat_word(&app, key.address(), seat_word(seat));
+    }
+    set_seat_word(&app, test_key(9).address(), seat_word(5));
+    let flags: Vec<_> =
+        parent_signers(&app).iter().map(|e| if e.key == test_key(12) { A } else { C }).collect();
+    let lacking = last_commit(&app, &flags);
+    let env = propose_with(&mut app, &lacking).await;
+    assert_eq!(bitmap_of(&env), 1 << 1, "the bond in seat 1 missed B − 1");
+    let req = process_with(&app, &env, &lacking);
+    assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Accept);
+    finalize(&mut app, finalize_req(&req)).await.expect("finalizes B");
+    commit(&mut app).await.expect("commits B");
+
+    // B + 1: the bonds hold their seats in B's post-state, and a fallback key misses B.
+    for (seat, (key, _)) in (0..).zip(&bonds) {
+        set_seat_word(&app, key.address(), seat_word(seat));
+    }
+    assert_eq!(sorted(parent_members(&app)), fallback, "the fallback keys signed B");
+    let mut flags = vec![C; fallback.len()];
+    flags[fallback.len() - 1] = A;
+    let lacking = last_commit(&app, &flags);
+    let env = propose_with(&mut app, &lacking).await;
+    assert_eq!(bitmap_of(&env), 0);
+    let req = process_with(&app, &env, &lacking);
+    assert_eq!(process(&mut app, req).await, response::ProcessProposal::Accept);
+}
+
 /// A LastCommit that names another address, gives another power, orders the set otherwise or
 /// lists another number of validators contradicts the replica: a safety halt in every handler,
 /// before any entry is paired with a validator.
