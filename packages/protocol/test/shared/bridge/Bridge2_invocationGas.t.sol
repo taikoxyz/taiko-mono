@@ -82,15 +82,15 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         _processValueMessage(recipient, 550_000);
     }
 
-    function test_processMessage_forwardsValueToDrainedAccountWithNonce() public {
+    function test_processMessage_codelessRecipientNeedsNoForwardingHeadroom() public {
         address recipient = makeAddr("drained recipient");
         vm.setNonce(recipient, 1);
         assertEq(recipient.balance, 0);
         assertEq(recipient.code.length, 0);
 
-        // Fits the existing-account budget. Adding an unnecessary creation charge would
-        // make the 200,000 gas invocation exceed the 300,000 gas supplied to processMessage.
-        _processValueMessage(recipient, 300_000);
+        // Nothing runs at an account without code, so the forwarding check is skipped. The
+        // 200,000 gas invocation budget would not fit in the gas supplied here.
+        _processValueMessage(recipient, 220_000);
     }
 
     /// forge-config: default.isolate = true
@@ -119,13 +119,15 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         message.data = hex"01"; // Nonempty data reaches the recorder's fallback.
         message.gasLimit = eBridge.getMessageMinGasLimit(message.data.length) + _INVOCATION_GAS;
 
-        // Nothing warms the recipient before a zero-value CALL, so it pays for a cold recipient
-        // and a cold delegate. This is the tightest zero-value case.
+        // The check warms the recipient but not its delegate, which CALL then pays for cold.
+        // This is the tightest zero-value case.
         _assertInvocationGasBoundary(message, true, _INVOCATION_GAS);
     }
 
+    /// @dev A new account has no code, so the check is skipped. A relay with too little gas to
+    /// create the account must revert rather than settle the message.
     /// forge-config: default.isolate = true
-    function test_processMessage_invocationGasBoundary_valueToNewAccount() public {
+    function test_processMessage_valueToNewAccountIsDeliveredOrReverts() public {
         address recipient = makeAddr("new boundary recipient");
         assertEq(recipient.codehash, bytes32(0));
 
@@ -134,7 +136,18 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         message.gasLimit = eBridge.getMessageMinGasLimit(0) + _INVOCATION_GAS;
 
         // An account without code records nothing; the probe checks the delivered value.
-        _assertInvocationGasBoundary(message, false, 0);
+        ProcessMessageProbe probe = new ProcessMessageProbe();
+        uint256 minimalGas = _minimalGas(probe, message, false);
+
+        (bool ok, bytes memory result) = _probe(probe, message, minimalGas, false);
+        assertTrue(ok);
+        (IBridge.Status status,, uint256 balance) =
+            abi.decode(result, (IBridge.Status, uint256, uint256));
+        assertTrue(status == IBridge.Status.DONE);
+        assertEq(balance, message.value);
+
+        (ok,) = _probe(probe, message, minimalGas - 1, false);
+        assertFalse(ok);
     }
 
     /// forge-config: default.isolate = true
@@ -155,17 +168,25 @@ contract TestBridge2_invocationGas is TestBridge2Base {
     }
 
     function test_processMessage_RevertWhen_gasBelowCallOverhead() public {
-        address recipient = makeAddr("new recipient below overhead");
+        // Precompiles have no code but stay under the check. An unfunded one that receives
+        // value also needs the account creation reserve.
+        address recipient = address(4);
         assertEq(recipient.codehash, bytes32(0));
 
         IBridge.Message memory message = _l2ToL1Message(Alice, 2 ether);
         message.to = recipient;
         message.gasLimit = eBridge.getMessageMinGasLimit(0) + _INVOCATION_GAS;
 
-        // The new-account reserve alone exceeds the gas left at the check, which must still
-        // report the forwarding error.
+        // That reserve alone exceeds the gas left at the check, which must still report the
+        // forwarding error.
         ProcessMessageProbe probe = new ProcessMessageProbe();
         (bool ok, bytes memory result) = _probe(probe, message, 200_000, false);
+        assertFalse(ok);
+        assertEq(result, abi.encodeWithSelector(Bridge.B_INSUFFICIENT_INVOCATION_GAS.selector));
+
+        // More gas covers the reserve but not the invocation budget on top of it. Without
+        // the creation reserve this amount would pass the check.
+        (ok, result) = _probe(probe, message, 350_000, false);
         assertFalse(ok);
         assertEq(result, abi.encodeWithSelector(Bridge.B_INSUFFICIENT_INVOCATION_GAS.selector));
     }
@@ -196,16 +217,7 @@ contract TestBridge2_invocationGas is TestBridge2Base {
         private
     {
         ProcessMessageProbe probe = new ProcessMessageProbe();
-
-        uint256 low = 100_000;
-        uint256 high = 2_000_000;
-        assertFalse(_probeSucceeds(probe, _message, low, _readBudget), "low bound succeeds");
-        assertTrue(_probeSucceeds(probe, _message, high, _readBudget), "high bound fails");
-        while (high - low > 1) {
-            uint256 mid = (low + high) / 2;
-            if (_probeSucceeds(probe, _message, mid, _readBudget)) high = mid;
-            else low = mid;
-        }
+        uint256 high = _minimalGas(probe, _message, _readBudget);
 
         (bool ok, bytes memory result) = _probe(probe, _message, high - 1, _readBudget);
         assertFalse(ok);
@@ -221,6 +233,28 @@ contract TestBridge2_invocationGas is TestBridge2Base {
             assertLe(budget, _expectedBudget);
             // Allow for the opcodes the recipient runs before GAS.
             assertGe(budget, _expectedBudget - 100);
+        }
+    }
+
+    /// @return high_ The smallest processMessage gas that does not revert.
+    function _minimalGas(
+        ProcessMessageProbe _probeContract,
+        IBridge.Message memory _message,
+        bool _readBudget
+    )
+        private
+        returns (uint256 high_)
+    {
+        uint256 low = 100_000;
+        high_ = 2_000_000;
+        assertFalse(
+            _probeSucceeds(_probeContract, _message, low, _readBudget), "low bound succeeds"
+        );
+        assertTrue(_probeSucceeds(_probeContract, _message, high_, _readBudget), "high bound fails");
+        while (high_ - low > 1) {
+            uint256 mid = (low + high_) / 2;
+            if (_probeSucceeds(_probeContract, _message, mid, _readBudget)) high_ = mid;
+            else low = mid;
         }
     }
 

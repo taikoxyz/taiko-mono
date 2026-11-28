@@ -300,9 +300,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev For a relayed invocation, let g be the message gas limit minus
-    /// getMessageMinGasLimit(data.length), floored at zero. When g is nonzero, the gas reading
-    /// in _checkInvocationGas must cover g + (g - 1) / 63 plus the CALL overhead budget.
+    /// @dev For a relayed invocation of a recipient that has code, let g be the message gas
+    /// limit minus getMessageMinGasLimit(data.length), floored at zero. When g is nonzero, the
+    /// gas reading in _checkInvocationGas must cover g + (g - 1) / 63 plus the CALL overhead
+    /// budget.
     /// Estimate the full transaction on the destination fork to include proof verification,
     /// memory expansion, status writes and payouts.
     function processMessage(
@@ -749,20 +750,25 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _value The Ether value sent with the CALL.
     /// @param _gas The gas the CALL must be able to forward.
     function _checkInvocationGas(address _to, uint256 _value, uint256 _gas) private view {
+        // A target without code executes nothing, so the gas forwarded to it cannot matter.
+        // Precompiles have no code but do execute, so they stay under the check.
+        if (_to.code.length == 0 && uint160(_to) > 0xffff) return;
+
         // Reserve 1,000 gas for instructions between GAS and CALL. Recheck the allowance
         // after compiler changes. Reserve 3,000 for a cold EIP-7702 delegate under EIP-8038.
         uint256 callOverhead = 1000 + 3000;
         if (_value == 0) {
-            callOverhead += 3000; // The target may also be cold.
+            callOverhead += 100; // The code size read above warmed the target.
         } else {
-            // EXTCODEHASH warms the target before GAS. CALL charges the 100 warm access
-            // plus EIP-8038's CALL_VALUE (9,000 account write + 2,300 stipend) before
-            // applying EIP-150. The callee receives the stipend on top of the gas operand.
+            // CALL charges the 100 warm access plus EIP-8038's CALL_VALUE (9,000 account
+            // write + 2,300 stipend) before applying EIP-150. The callee receives the
+            // stipend on top of the gas operand.
             callOverhead += 100 + 9000 + 2300;
             if (_to.codehash == bytes32(0)) {
-                // EIP-1052 returns zero for a dead account. Budget the full EIP-8037
-                // creation cost (120 bytes at 1,530 gas/byte) in case the reservoir is
-                // empty. This includes 158,600 gas of extra headroom over Osaka's charge.
+                // Only an unfunded precompile gets here. EIP-1052 returns zero for a dead
+                // account. Budget the full EIP-8037 creation cost (120 bytes at 1,530
+                // gas/byte) in case the reservoir is empty. This includes 158,600 gas of
+                // extra headroom over Osaka's charge.
                 callOverhead += 183_600;
             }
         }

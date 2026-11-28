@@ -97,8 +97,9 @@ interface IBridge {
     /// status is updated accordingly, and processing fees are refunded as
     /// needed.
     /// Relayers must supply enough transaction gas to forward the full invocation
-    /// budget. Use eth_estimateGas on the destination chain with the message and proof,
-    /// sent from the relayer: the destination owner is exempt from this requirement.
+    /// budget to a recipient that has code. Use eth_estimateGas on the destination chain
+    /// with the message and proof, sent from the relayer: the destination owner is exempt
+    /// from this requirement.
     /// @param _message The message to be processed.
     /// @param _proof The merkle inclusion proof.
     /// @return The message's status after processing and the reason for the change.
